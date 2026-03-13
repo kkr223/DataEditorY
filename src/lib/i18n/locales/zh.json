@@ -134,6 +134,13 @@
     "hint_line": "str{n}",
     "custom": "自定义",
     "no_card": "请选择一张卡片进行编辑。",
+    "delete_confirm_title": "确认删除",
+    "delete_confirm": "确定要删除卡片 {code} 吗？",
+    "card_modified": "卡片 {code} 已修改",
+    "card_no_change": "卡片无变化",
+    "card_deleted": "卡片 {code} 已删除",
+    "save_success": "数据库已保存",
+    "save_failed": "保存失败",
     "subtype": {
       "monster": "怪兽",
       "spell": "魔法",

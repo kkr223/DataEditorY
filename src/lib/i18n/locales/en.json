@@ -134,6 +134,13 @@
     "hint_line": "str{n}",
     "custom": "Custom",
     "no_card": "Select a card to edit its properties.",
+    "delete_confirm_title": "Confirm Delete",
+    "delete_confirm": "Delete card {code}?",
+    "card_modified": "Card {code} modified",
+    "card_no_change": "No changes detected",
+    "card_deleted": "Card {code} deleted",
+    "save_success": "Database saved!",
+    "save_failed": "Save failed.",
     "subtype": {
       "monster": "Monster",
       "spell": "Spell",

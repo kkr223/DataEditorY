@@ -1,7 +1,8 @@
 {
   "name": "dataeditory",
-  "version": "0.1.0",
-  "description": "",
+  "version": "1.0.0",
+  "description": "ygopro card database editor",
+  "author": "kkr223",
   "type": "module",
   "scripts": {
     "dev": "vite dev",

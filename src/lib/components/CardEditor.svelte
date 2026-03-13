@@ -20,7 +20,8 @@
     POPULAR_SETCODES,
   } from "$lib/utils/setcode";
   import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-  import { open } from "@tauri-apps/plugin-dialog";
+  import { open, ask } from "@tauri-apps/plugin-dialog";
+  import { showToast } from "$lib/stores/toast.svelte";
 
   const TYPE_BITS = [
     { bit: 0x1, key: "editor.subtype.monster" },
@@ -60,12 +61,6 @@
     { bit: 0x100, label: "↗", row: 0, col: 2 },
   ];
 
-  function isLinkMonster(type: number): boolean {
-    return (type & 0x4000000) !== 0;
-  }
-  function isPendulum(type: number): boolean {
-    return (type & 0x1000000) !== 0;
-  }
   function getLScale(level: number): number {
     return (level >> 24) & 0xff;
   }
@@ -121,6 +116,10 @@
   let selectedCard = $state<CardDataEntry | null>(null);
   let imageSrc = $state<string>("/cover.jpg");
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
+
+  // Reactive flags for Link/Pendulum (must be after selectedCard declaration)
+  let isLink = $derived(selectedCard ? (selectedCard.type & 0x4000000) !== 0 : false);
+  let isPend = $derived(selectedCard ? (selectedCard.type & 0x1000000) !== 0 : false);
 
   function handleImageError() {
     imageSrc = "/cover.jpg";
@@ -208,19 +207,36 @@
     if (selectedCard.strings) {
       dbCard.strings = [...selectedCard.strings];
     }
-    if (modifyCard(dbCard)) handleSearch();
+    if (modifyCard(dbCard)) {
+      handleSearch(true);
+      showToast($_('editor.card_modified', { values: { code: String(selectedCard.code) } }), 'success');
+    } else {
+      showToast($_('editor.card_no_change'), 'info');
+    }
   }
   async function handleDelete() {
     if (!selectedCard) return;
-    if (!confirm(`Delete card ${selectedCard.code}?`)) return;
-    if (deleteCard(selectedCard.code)) handleSearch();
+    const confirmed = await ask(
+      $_('editor.delete_confirm', { values: { code: String(selectedCard.code) } }),
+      { title: $_('editor.delete_confirm_title'), kind: 'warning' },
+    );
+    if (!confirmed) return;
+    const code = selectedCard.code;
+    if (deleteCard(code)) {
+      showToast($_('editor.card_deleted', { values: { code: String(code) } }), 'success');
+      handleSearch();
+    }
   }
   function handleResetEditor() {
     editorState.selectedId = null;
   }
   async function handleSave() {
     const ok = await saveCdbFile();
-    alert(ok ? "Database saved!" : "Save failed.");
+    if (ok) {
+      showToast($_('editor.save_success'), 'success');
+    } else {
+      showToast($_('editor.save_failed'), 'error');
+    }
   }
 </script>
 
@@ -433,8 +449,27 @@
           </div>
         </div>
 
-        {#if isPendulum(selectedCard!.type)}
-          <div class="fg">
+        <div class="row-2 align-start">
+          <!-- Link Markers (Left) -->
+          <div class="fg" class:disabled-opacity={!isLink}>
+            <span class="group-label">{$_("editor.link_markers")}</span>
+            <div class="link-marker-grid">
+              {#each LINK_MARKERS as lm}
+                <button
+                  class="link-arrow"
+                  class:active={isLink && (selectedCard!.linkMarker & lm.bit) !== 0}
+                  disabled={!isLink}
+                  style="grid-row:{lm.row + 1};grid-column:{lm.col + 1}"
+                  onclick={() => (selectedCard!.linkMarker ^= lm.bit)}
+                  >{lm.label}</button
+                >
+              {/each}
+              <div class="link-center" style="grid-row:2;grid-column:2">⬡</div>
+            </div>
+          </div>
+
+          <!-- Pendulum Scale (Right) -->
+          <div class="fg flex-1" class:disabled-opacity={!isPend}>
             <span class="group-label">{$_("editor.scale")}</span>
             <div class="row-2">
               <div class="fg">
@@ -444,15 +479,8 @@
                   id="edit-lscale"
                   min="0"
                   max="13"
-                  value={getLScale(selectedCard!.level)}
-                  onchange={(e) => {
-                    const t = e.target as HTMLInputElement;
-                    selectedCard!.level = setLevelField(
-                      getLevel(selectedCard!.level),
-                      parseInt(t.value) || 0,
-                      getRScale(selectedCard!.level),
-                    );
-                  }}
+                  disabled={!isPend}
+                  bind:value={selectedCard!.lscale}
                 />
               </div>
               <div class="fg">
@@ -462,38 +490,15 @@
                   id="edit-rscale"
                   min="0"
                   max="13"
-                  value={getRScale(selectedCard!.level)}
-                  onchange={(e) => {
-                    const t = e.target as HTMLInputElement;
-                    selectedCard!.level = setLevelField(
-                      getLevel(selectedCard!.level),
-                      getLScale(selectedCard!.level),
-                      parseInt(t.value) || 0,
-                    );
-                  }}
+                  disabled={!isPend}
+                  bind:value={selectedCard!.rscale}
                 />
               </div>
             </div>
           </div>
-        {/if}
+        </div>
 
-        {#if isLinkMonster(selectedCard!.type)}
-          <div class="fg">
-            <span class="group-label">{$_("editor.link_markers")}</span>
-            <div class="link-marker-grid">
-              {#each LINK_MARKERS as lm}
-                <button
-                  class="link-arrow"
-                  class:active={(selectedCard!.defense & lm.bit) !== 0}
-                  style="grid-row:{lm.row + 1};grid-column:{lm.col + 1}"
-                  onclick={() => (selectedCard!.defense ^= lm.bit)}
-                  >{lm.label}</button
-                >
-              {/each}
-              <div class="link-center" style="grid-row:2;grid-column:2">⬡</div>
-            </div>
-          </div>
-        {/if}
+
 
         <div class="fg" style="flex:1; min-height:0;">
           <span class="group-label">{$_("editor.hints")}</span>
@@ -657,6 +662,12 @@
   .row-2 .fg {
     flex: 1;
     margin-bottom: 0;
+  }
+  .align-start {
+    align-items: flex-start;
+  }
+  .flex-1 {
+    flex: 1;
   }
 
   .inline-field {
@@ -847,6 +858,23 @@
     color: var(--text-secondary);
     opacity: 0.25;
   }
+
+  .disabled-opacity {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .disabled-opacity input,
+  .disabled-opacity button {
+    cursor: not-allowed;
+  }
+  .link-arrow:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .link-arrow:disabled:hover {
+    background: var(--bg-base);
+  }
+
 
   /* ── Hints ── */
   .hints-container {

@@ -60,10 +60,14 @@ export function getSelectedCard(): CardDataEntry | null {
   return _allCardsMap.get(editorState.selectedId ?? -1) ?? null;
 }
 
-export function handleSearch() {
+export function handleSearch(preserveSelection = false) {
+  const prevSelectedId = editorState.selectedId;
   setAllCards(searchCards(editorState.searchFilters));
   editorState.currentPage = 1;
-  if (_allCards.length > 0) {
+  // If preserveSelection is requested and the card still exists, keep it selected
+  if (preserveSelection && prevSelectedId !== null && _allCardsMap.has(prevSelectedId)) {
+    editorState.selectedId = prevSelectedId;
+  } else if (_allCards.length > 0) {
     editorState.selectedId = _allCards[0].code;
   }
 }

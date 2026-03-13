@@ -3,6 +3,7 @@
   import { setupI18n } from '$lib/i18n';
   import { _, locale, isLoading } from 'svelte-i18n';
   import { openCdbFile, tabs, activeTabId, closeTab } from '$lib/stores/db';
+  import Toast from '$lib/components/Toast.svelte';
   
   // initialize immediately
   setupI18n();
@@ -17,6 +18,9 @@
     await openCdbFile();
   }
 </script>
+
+<Toast />
+
 
 {#if $isLoading}
   <div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: var(--text-secondary);">
