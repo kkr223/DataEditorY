@@ -1,0 +1,46 @@
+# Node.js
+node_modules/
+.npm/
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# SvelteKit / Vite
+.svelte-kit/
+build/
+dist/
+package/
+.vite/
+.vscode/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS / Editors
+.DS_Store
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Project Specific (Temporary/Generated Files/Test Data)
+# If you want to commit specific cdb or conf files, add them with '!' prefix
+*.cdb
+*.conf
+pics/
+script/
+expansions/
