@@ -137,18 +137,23 @@
 
         // Deep clone arrays specifically
         if (Array.isArray(rawCard.setcode)) {
-          clone.setcode = [...rawCard.setcode] as any;
+          clone.setcode = [...rawCard.setcode];
+        } else {
+          clone.setcode = rawCard.setcode;
         }
         if (Array.isArray(rawCard.strings)) {
           clone.strings = [...rawCard.strings];
         } else {
-          clone.strings = Array(16).fill("");
+          clone.strings = [];
         }
+        // Ensure exactly 16 strings for consistent two-way binding/updates
+        while (clone.strings.length < 16) clone.strings.push("");
+        if (clone.strings.length > 16) clone.strings = clone.strings.slice(0, 16);
 
         selectedCard = clone;
 
         for (let i = 0; i < 4; i++) {
-          setcodeHexes[i] = getSetcode(clone.setcode as any, i).replace(/^0x/i, "");
+          setcodeHexes[i] = getSetcode(clone.setcode, i).replace(/^0x/i, "");
         }
 
         // Load image via Tauri asset protocol (zero-copy, no Base64 IPC overhead)
@@ -392,10 +397,10 @@
                       // Do nothing, let user type in input
                     } else if (val === "") {
                       setcodeHexes[idx] = "";
-                      selectedCard!.setcode = updateSetcode(selectedCard!.setcode as any, idx, "") as any;
+                      selectedCard!.setcode = updateSetcode(selectedCard!.setcode, idx, "");
                     } else {
                       setcodeHexes[idx] = val.replace(/^0x/i, "");
-                      selectedCard!.setcode = updateSetcode(selectedCard!.setcode as any, idx, val) as any;
+                      selectedCard!.setcode = updateSetcode(selectedCard!.setcode, idx, val);
                     }
                   }}
                 >
@@ -414,10 +419,10 @@
                     bind:value={setcodeHexes[idx]}
                     oninput={() => {
                       selectedCard!.setcode = updateSetcode(
-                        selectedCard!.setcode as any,
+                        selectedCard!.setcode,
                         idx,
                         setcodeHexes[idx] ? "0x" + setcodeHexes[idx] : ""
-                      ) as any;
+                      );
                     }}
                     maxlength="4"
                     placeholder="0000"
@@ -498,13 +503,7 @@
                 <span class="hint-label">str{idx + 1}</span>
                 <input
                   type="text"
-                  value={selectedCard!.strings?.[idx] ?? ""}
-                  oninput={(e) => {
-                    const t = e.target as HTMLInputElement;
-                    if (!selectedCard!.strings)
-                      selectedCard!.strings = Array(16).fill("");
-                    selectedCard!.strings[idx] = t.value;
-                  }}
+                  bind:value={selectedCard!.strings[idx]}
                 />
               </div>
             {/each}

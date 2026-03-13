@@ -26,3 +26,12 @@ tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 base64 = "0.22.1"
 
+[profile.release]
+# Faster linking with thin LTO
+lto = "thin"
+# Higher parallelism during code generation
+codegen-units = 16
+# Reduce binary size/debug info to speed up building
+debug = false
+strip = true
+panic = "abort" # Optional: reduces size and slightly speeds up build

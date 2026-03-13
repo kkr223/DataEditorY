@@ -1,3 +1,5 @@
+export function getSetcode(setcode: number[], index: number): string;
+export function getSetcode(setcode: bigint | number, index: number): string;
 export function getSetcode(setcode: bigint | number | number[], index: number): string {
   // setcode can be an array of up to 4 u16 values, or a packed bigint/number
   if (Array.isArray(setcode)) {
@@ -12,6 +14,8 @@ export function getSetcode(setcode: bigint | number | number[], index: number): 
   return '0x' + val.toString(16).padStart(4, '0').toUpperCase();
 }
 
+export function updateSetcode(setcode: number[], index: number, hexValue: string): number[];
+export function updateSetcode(setcode: bigint | number, index: number, hexValue: string): bigint;
 export function updateSetcode(setcode: bigint | number | number[], index: number, hexValue: string): bigint | number[] {
   let numVal = 0;
   if (hexValue) {

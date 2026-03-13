@@ -14,6 +14,20 @@ export interface CdbTab {
   cachedFilters: string; // JSON of the filters used for the cache
 }
 
+export interface SearchFilters {
+  name?: string;
+  id?: string;
+  desc?: string;
+  atkMin?: string | number;
+  atkMax?: string | number;
+  defMin?: string | number;
+  defMax?: string | number;
+  type?: string;
+  subtype?: string;
+  attribute?: string;
+  race?: string;
+}
+
 export const tabs = writable<CdbTab[]>([]);
 export const activeTabId = writable<string | null>(null);
 
@@ -24,7 +38,7 @@ export const activeTab = derived(
 
 export const isDbLoaded = derived(activeTab, ($activeTab) => $activeTab !== null);
 
-let sqlJsInstance: any = null;
+let sqlJsInstance: initSqlJs.SqlJsStatic | null = null;
 
 async function initDb() {
   if (!sqlJsInstance) {
@@ -130,7 +144,7 @@ export async function openCdbFile(): Promise<string | null> {
     await initDb();
     try {
       const data: number[] = await invoke('read_cdb', { path: selected });
-      const cdb = new YGOProCdb(sqlJsInstance).from(new Uint8Array(data));
+      const cdb = new YGOProCdb(sqlJsInstance as any).from(new Uint8Array(data));
       
       const name = selected.replace(/\\/g, '/').split('/').pop() || 'unknown.cdb';
       const id = crypto.randomUUID();
@@ -224,13 +238,13 @@ export function deleteCard(cardId: number): boolean {
 }
 
 /** Search cards in the active tab's CDB */
-export function searchCards(filters: any = {}): CardDataEntry[] {
+export function searchCards(filters: SearchFilters = {}): CardDataEntry[] {
   const tab = get(activeTab);
   if (!tab) return [];
 
   try {
     const conditions: string[] = [];
-    const params: any = {};
+    const params: Record<string, string | number> = {};
 
     // Name / text search (main search bar)
     if (filters.name) {
@@ -255,13 +269,13 @@ export function searchCards(filters: any = {}): CardDataEntry[] {
 
     // ATK range
     if (filters.atkMin !== '' && filters.atkMin !== undefined) {
-      const v = parseInt(filters.atkMin);
+      const v = parseInt(filters.atkMin.toString());
       if (!isNaN(v)) {
         conditions.push(`datas.atk >= ${v}`);
       }
     }
     if (filters.atkMax !== '' && filters.atkMax !== undefined) {
-      const v = parseInt(filters.atkMax);
+      const v = parseInt(filters.atkMax.toString());
       if (!isNaN(v)) {
         conditions.push(`datas.atk <= ${v} AND datas.atk >= 0`);
       }
@@ -269,13 +283,13 @@ export function searchCards(filters: any = {}): CardDataEntry[] {
 
     // DEF range
     if (filters.defMin !== '' && filters.defMin !== undefined) {
-      const v = parseInt(filters.defMin);
+      const v = parseInt(filters.defMin.toString());
       if (!isNaN(v)) {
         conditions.push(`datas.def >= ${v}`);
       }
     }
     if (filters.defMax !== '' && filters.defMax !== undefined) {
-      const v = parseInt(filters.defMax);
+      const v = parseInt(filters.defMax.toString());
       if (!isNaN(v)) {
         conditions.push(`datas.def <= ${v} AND datas.def >= 0`);
       }
