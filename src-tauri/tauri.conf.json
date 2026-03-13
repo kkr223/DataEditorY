@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "dataeditory",
-  "version": "0.1.0",
-  "identifier": "com.tauri-app.dataeditory",
+  "version": "1.0.0",
+  "identifier": "com.kkr223.dataeditory",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -23,7 +23,9 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**"
+        ]
       }
     }
   },
