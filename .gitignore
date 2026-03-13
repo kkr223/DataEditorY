@@ -38,9 +38,13 @@ src-tauri/gen/schemas/
 *.sw?
 
 # Project Specific (Temporary/Generated Files/Test Data)
-# If you want to commit specific cdb or conf files, add them with '!' prefix
+# Only ignore files in the root or generic data folders, but allow src/lib/data
 *.cdb
-*.conf
+# *.conf  <-- Removed this to avoid ignoring necessary project strings
 pics/
 script/
 expansions/
+
+# Explicitly allow necessary data files
+!src/lib/data/*.conf
+
