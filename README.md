@@ -1,5 +1,6 @@
 # DataEditorY - 现代 YGOPro 数据库编辑器
 
+（本项目尚在开发中）
 一个快速、现代且功能齐全的 YGOPro 数据库 (`cards.cdb`) 图形化编辑器。
 基于 **Tauri 2** (Rust + Native Shell), **Svelte 5** (Runes) 和 **Vite** 构建。
 
