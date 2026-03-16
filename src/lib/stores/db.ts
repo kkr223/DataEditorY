@@ -28,6 +28,25 @@ export const isDbLoaded = derived(activeTab, ($activeTab) => $activeTab !== null
 
 let sqlJsInstance: initSqlJs.SqlJsStatic | null = null;
 
+function toLikePattern(input: string): string {
+  const normalized = input.trim();
+  if (!normalized) return '%';
+
+  const hasWildcard = normalized.includes('%') || normalized.includes('_');
+  const pattern = normalized.replace(/%%/g, '%');
+  return hasWildcard ? pattern : `%${pattern}%`;
+}
+
+function parseSetcodeFilter(input: string): number | null {
+  const normalized = input.trim();
+  if (!normalized) return null;
+
+  const hex = normalized.toLowerCase().startsWith('0x') ? normalized.slice(2) : normalized;
+  if (!/^[\da-f]{1,4}$/i.test(hex)) return null;
+
+  return parseInt(hex, 16) & 0xffff;
+}
+
 async function initDb() {
   if (!sqlJsInstance) {
     sqlJsInstance = await initSqlJs({
@@ -273,7 +292,7 @@ export function searchCards(filters: SearchFilters = {}): CardDataEntry[] {
     // Name / text search (main search bar)
     if (filters.name) {
       conditions.push('(texts.name LIKE :name OR texts.desc LIKE :name)');
-      params.name = `%${filters.name}%`;
+      params.name = toLikePattern(filters.name);
     }
 
     // ID / alias
@@ -288,7 +307,7 @@ export function searchCards(filters: SearchFilters = {}): CardDataEntry[] {
     // Description (separate field from name)
     if (filters.desc) {
       conditions.push('texts.desc LIKE :desc');
-      params.desc = `%${filters.desc}%`;
+      params.desc = toLikePattern(filters.desc);
     }
 
     // ATK range
@@ -351,6 +370,27 @@ export function searchCards(filters: SearchFilters = {}): CardDataEntry[] {
     if (filters.race && RACE_MAP[filters.race] !== undefined) {
       const raceBit = RACE_MAP[filters.race];
       conditions.push(`datas.race = ${raceBit}`);
+    }
+
+    const setcodeFilters = [
+      filters.setcode1,
+      filters.setcode2,
+      filters.setcode3,
+      filters.setcode4,
+    ];
+
+    for (const rawValue of setcodeFilters) {
+      if (!rawValue) continue;
+      const parsedSetcode = parseSetcodeFilter(rawValue);
+      if (parsedSetcode === null) continue;
+      conditions.push(
+        `(
+          ((CAST(datas.setcode AS INTEGER) >> 0) & 65535) = ${parsedSetcode}
+          OR ((CAST(datas.setcode AS INTEGER) >> 16) & 65535) = ${parsedSetcode}
+          OR ((CAST(datas.setcode AS INTEGER) >> 32) & 65535) = ${parsedSetcode}
+          OR ((CAST(datas.setcode AS INTEGER) >> 48) & 65535) = ${parsedSetcode}
+        )`
+      );
     }
 
     const whereClause = conditions.length > 0 ? conditions.join(' AND ') : '1=1';

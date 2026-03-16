@@ -293,7 +293,7 @@
           </button>
           <div class="stats-beside-img">
             <div class="inline-field">
-              <label for="edit-ot">OT</label>
+              <label for="edit-ot">{$_("editor.license")}</label>
               <select
                 id="edit-ot"
                 bind:value={selectedCard!.ot}

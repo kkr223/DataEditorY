@@ -26,7 +26,9 @@
     "subtype": "子种类",
     "attribute": "属性",
     "race": "种族",
+    "setcodes": "字段",
     "reset": "重置",
+    "collapse": "收起",
     "na": "无",
     "go": "跳转",
     "types": {
@@ -123,6 +125,7 @@
     "desc": "效果/描述",
     "image": "卡图",
     "image_select": "点击选择图片",
+    "license": "许可",
     "atk": "攻击力",
     "def": "守备力",
     "level": "星级/阶级",

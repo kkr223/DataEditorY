@@ -26,7 +26,9 @@
     "subtype": "Sub Type",
     "attribute": "Attribute",
     "race": "Race",
+    "setcodes": "Setcodes",
     "reset": "Reset",
+    "collapse": "Collapse",
     "na": "N/A",
     "go": "Go",
     "types": {
@@ -123,6 +125,7 @@
     "desc": "Description",
     "image": "Image",
     "image_select": "Click to select image",
+    "license": "License",
     "atk": "ATK",
     "def": "DEF",
     "level": "Level/Rank",
