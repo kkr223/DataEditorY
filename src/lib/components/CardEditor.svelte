@@ -19,6 +19,7 @@
   } from "$lib/utils/setcode";
   import { invoke, convertFileSrc } from "@tauri-apps/api/core";
   import { open, ask } from "@tauri-apps/plugin-dialog";
+  import { exists } from "@tauri-apps/plugin-fs";
   import { showToast } from "$lib/stores/toast.svelte";
   import {
     ATTRIBUTE_OPTIONS,
@@ -49,6 +50,17 @@
     imageSrc = "/cover.jpg";
   }
 
+  async function resolveImageSrc(picPath: string, bustCache = false): Promise<string> {
+    try {
+      const hasImage = await exists(picPath);
+      if (!hasImage) return "/cover.jpg";
+      const src = convertFileSrc(picPath);
+      return bustCache ? `${src}?t=${Date.now()}` : src;
+    } catch {
+      return "/cover.jpg";
+    }
+  }
+
   $effect(() => {
     if (setcodesLoaded) return;
     setcodesLoaded = true;
@@ -59,6 +71,7 @@
 
   $effect(() => {
     const card = getAllCardsMap().get(editorState.selectedId ?? -1);
+    let cancelled = false;
     if (card) {
       if (selectedCard?.code !== card.code) {
         selectedCard = cloneEditableCard(card);
@@ -78,13 +91,21 @@
             ),
           );
           const picPath = `${cdbDir}/pics/${code}.jpg`;
-          imageSrc = convertFileSrc(picPath);
+          resolveImageSrc(picPath).then((src) => {
+            if (!cancelled) imageSrc = src;
+          });
+        } else {
+          imageSrc = "/cover.jpg";
         }
       }
     } else {
       selectedCard = null;
       imageSrc = "/cover.jpg";
     }
+
+    return () => {
+      cancelled = true;
+    };
   });
 
   async function handleImagePick() {
@@ -104,8 +125,7 @@
       const picPath = `${cdbDir}/pics/${selectedCard.code}.jpg`;
       try {
         await invoke("copy_image", { src: selected, dest: picPath });
-        // Force reload by appending cache-busting query param
-        imageSrc = convertFileSrc(picPath) + "?t=" + Date.now();
+        imageSrc = await resolveImageSrc(picPath, true);
       } catch (e) {
         console.error("Failed to copy image", e);
       }

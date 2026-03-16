@@ -111,11 +111,12 @@ export function setPackedLevel(level: number, lscale: number, rscale: number): n
 }
 
 export function cloneEditableCard(card: CardDataEntry): CardDataEntry {
-  const clone = new CardDataEntry();
-  Object.assign(clone, card);
-
-  clone.setcode = Array.isArray(card.setcode) ? [...card.setcode] : card.setcode;
-  clone.strings = Array.isArray(card.strings) ? [...card.strings] : [];
+  // Return a plain object so Svelte can deeply proxy/bind fields reactively.
+  const clone = {
+    ...card,
+    setcode: Array.isArray(card.setcode) ? [...card.setcode] : card.setcode,
+    strings: Array.isArray(card.strings) ? [...card.strings] : [],
+  } as CardDataEntry;
 
   while (clone.strings.length < 16) clone.strings.push('');
   if (clone.strings.length > 16) clone.strings = clone.strings.slice(0, 16);
