@@ -396,6 +396,19 @@ export function modifyCard(card: CardDataEntry): boolean {
   }
 }
 
+export function modifyCards(cards: CardDataEntry[]): boolean {
+  const tab = get(activeTab);
+  if (!tab) return false;
+
+  try {
+    tab.cdb.addCard(cards);
+    return true;
+  } catch (err) {
+    console.error("Failed to modify cards:", err);
+    return false;
+  }
+}
+
 /** Delete a card from the active tab's in-memory CDB by id */
 export function deleteCard(cardId: number): boolean {
   const tab = get(activeTab);
@@ -407,6 +420,22 @@ export function deleteCard(cardId: number): boolean {
     return true;
   } catch (err) {
     console.error("Failed to delete card:", err);
+    return false;
+  }
+}
+
+export function deleteCards(cardIds: number[]): boolean {
+  const tab = get(activeTab);
+  if (!tab) return false;
+
+  try {
+    for (const cardId of cardIds) {
+      tab.cdb.database.run('DELETE FROM datas WHERE id = ?', [cardId]);
+      tab.cdb.database.run('DELETE FROM texts WHERE id = ?', [cardId]);
+    }
+    return true;
+  } catch (err) {
+    console.error("Failed to delete cards:", err);
     return false;
   }
 }

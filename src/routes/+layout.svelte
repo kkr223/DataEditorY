@@ -3,7 +3,13 @@
   import '../app.css';
   import { setupI18n } from '$lib/i18n';
   import { _, locale, isLoading } from 'svelte-i18n';
-  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab } from '$lib/stores/db';
+  import { ask } from '@tauri-apps/plugin-dialog';
+  import { CardDataEntry } from 'ygopro-cdb-encode';
+  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, isDbLoaded, deleteCards, modifyCards } from '$lib/stores/db';
+  import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
+  import { clearSelection, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
+  import { showToast } from '$lib/stores/toast.svelte';
+  import { dispatchAppShortcut } from '$lib/utils/shortcuts';
   import Toast from '$lib/components/Toast.svelte';
   
   // initialize immediately
@@ -34,13 +40,165 @@
     await createCdbFile();
   }
 
+  async function handleSave() {
+    const ok = await saveCdbFile();
+    showToast($_(ok ? 'editor.save_success' : 'editor.save_failed'), ok ? 'success' : 'error');
+  }
+
+  function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    return target.isContentEditable || !!target.closest('input, textarea, select, [contenteditable="true"]');
+  }
+
+  async function handleCopySelection() {
+    const selectedCards = getSelectedCards();
+    if (selectedCards.length === 0) {
+      showToast($_('editor.clipboard_empty'), 'info');
+      return;
+    }
+
+    setCardClipboard(selectedCards);
+    showToast($_('editor.cards_copied', { values: { count: String(selectedCards.length) } }), 'success');
+  }
+
+  async function handlePasteSelection() {
+    if (!$isDbLoaded) return;
+    if (!hasCardClipboard()) {
+      showToast($_('editor.clipboard_empty'), 'info');
+      return;
+    }
+
+    const clipboardCards = getCardClipboard();
+    const conflictingCards = clipboardCards.filter((card) => getCardById(card.code));
+    if (conflictingCards.length > 0) {
+      const shouldOverwrite = await ask($_('editor.paste_conflict_confirm', {
+        values: { count: String(conflictingCards.length) },
+      }), {
+        title: $_('editor.paste_conflict_title'),
+        kind: 'warning',
+      });
+
+      if (!shouldOverwrite) return;
+    }
+
+    const pastedCards = clipboardCards.map((card) => new CardDataEntry().fromPartial(card));
+    const ok = modifyCards(pastedCards);
+    if (!ok) {
+      showToast($_('editor.save_failed'), 'error');
+      return;
+    }
+
+    const prevSelectedIds = getSelectedCardIds();
+    handleSearch(true);
+    const visibleIds = pastedCards
+      .map((card) => card.code)
+      .filter((code) => getAllCardsMap().has(code));
+
+    if (visibleIds.length > 0) {
+      setSelectedCards(visibleIds, visibleIds[0], visibleIds[0]);
+    } else if (prevSelectedIds.length === 0) {
+      clearSelection();
+    }
+
+    showToast($_('editor.cards_pasted', { values: { count: String(pastedCards.length) } }), 'success');
+  }
+
+  async function handleDeleteSelection() {
+    if (!$isDbLoaded) return;
+
+    const selectedIds = getSelectedCardIds();
+    if (selectedIds.length === 0) {
+      showToast($_('editor.no_card_selected'), 'info');
+      return;
+    }
+
+    const confirmed = await ask($_('editor.delete_selected_confirm', {
+      values: { count: String(selectedIds.length) },
+    }), {
+      title: $_('editor.delete_selected_title'),
+      kind: 'warning',
+    });
+
+    if (!confirmed) return;
+
+    const ok = deleteCards(selectedIds);
+    if (!ok) {
+      showToast($_('editor.save_failed'), 'error');
+      return;
+    }
+
+    handleSearch();
+    showToast($_('editor.cards_deleted', { values: { count: String(selectedIds.length) } }), 'success');
+  }
+
+  function handleGlobalKeydown(event: KeyboardEvent) {
+    if (event.defaultPrevented || event.repeat || event.isComposing) return;
+
+    const isPrimary = event.ctrlKey || event.metaKey;
+    if (!isPrimary || event.altKey) return;
+
+    const key = event.key.toLowerCase();
+
+    if (key === 'o' && !event.shiftKey) {
+      event.preventDefault();
+      void handleOpen();
+      return;
+    }
+
+    if (key === 'n' && !event.shiftKey) {
+      event.preventDefault();
+      void handleCreate();
+      return;
+    }
+
+    if (key === 'n' && event.shiftKey) {
+      event.preventDefault();
+      dispatchAppShortcut('new-card');
+      return;
+    }
+
+    if (key === 's' && !event.shiftKey) {
+      event.preventDefault();
+      void handleSave();
+      return;
+    }
+
+    if (!isEditableTarget(event.target) && key === 'c' && !event.shiftKey) {
+      event.preventDefault();
+      void handleCopySelection();
+      return;
+    }
+
+    if (!isEditableTarget(event.target) && key === 'v' && !event.shiftKey) {
+      event.preventDefault();
+      void handlePasteSelection();
+      return;
+    }
+
+    if (!isEditableTarget(event.target) && key === 'd' && !event.shiftKey) {
+      event.preventDefault();
+      void handleDeleteSelection();
+      return;
+    }
+
+    if (key === 'f' && !event.shiftKey) {
+      event.preventDefault();
+      dispatchAppShortcut('focus-search');
+    }
+  }
+
   onMount(() => {
     const saved = localStorage.getItem('theme');
     if (saved === 'light' || saved === 'dark') {
       applyTheme(saved);
-      return;
+    } else {
+      applyTheme('dark');
     }
-    applyTheme('dark');
+
+    window.addEventListener('keydown', handleGlobalKeydown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeydown);
+    };
   });
 </script>
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { activeTabId, getCachedCards, getCachedFilters, getCachedPage, getCachedTotal } from '$lib/stores/db';
   import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-  import { editorState, setAllCards, setTotalCards, getAllCards } from '$lib/stores/editor.svelte';
+  import { clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
   import CardList from '$lib/components/CardList.svelte';
   import CardEditor from '$lib/components/CardEditor.svelte';
 
@@ -39,13 +39,13 @@
         editorState.searchFilters = restoreSearchFilters();
         editorState.currentPage = getCachedPage();
         const cards = getAllCards();
-        editorState.selectedId = cards.length > 0 ? cards[0].code : null;
+        setSingleSelectedCard(cards.length > 0 ? cards[0].code : null);
       } else {
         setAllCards([]);
         setTotalCards(0);
         editorState.currentPage = 1;
         editorState.searchFilters = { ...DEFAULT_SEARCH_FILTERS };
-        editorState.selectedId = null;
+        clearSelection();
       }
     }
   });

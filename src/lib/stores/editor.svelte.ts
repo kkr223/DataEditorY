@@ -12,14 +12,41 @@ let _allCards = $state.raw<CardDataEntry[]>([]);
 let _allCardsMap = $state.raw<Map<number, CardDataEntry>>(new Map());
 let _totalCards = $state(0);
 
+function getVisibleSelectedIds(selectedIds: number[]): number[] {
+  if (selectedIds.length === 0) return [];
+
+  const selectedSet = new Set(selectedIds);
+  return _allCards.filter((card) => selectedSet.has(card.code)).map((card) => card.code);
+}
+
+function applySelection(ids: number[], primaryId: number | null = null, anchorId: number | null = null) {
+  const visibleIds = getVisibleSelectedIds(ids);
+  const nextPrimaryId =
+    primaryId !== null && visibleIds.includes(primaryId)
+      ? primaryId
+      : visibleIds[0] ?? null;
+  const nextAnchorId =
+    anchorId !== null && visibleIds.includes(anchorId)
+      ? anchorId
+      : nextPrimaryId;
+
+  editorState.selectedIds = visibleIds;
+  editorState.selectedId = nextPrimaryId;
+  editorState.selectionAnchorId = nextAnchorId;
+}
+
 // The rest of the editor state is small and benefits from deep reactivity
 export const editorState = $state<{
   selectedId: number | null;
+  selectedIds: number[];
+  selectionAnchorId: number | null;
   currentPage: number;
   searchFilters: SearchFilterState;
   isFilterOpen: boolean;
 }>({
   selectedId: null,
+  selectedIds: [],
+  selectionAnchorId: null,
   currentPage: 1,
   searchFilters: { ...DEFAULT_SEARCH_FILTERS },
   isFilterOpen: false
@@ -57,21 +84,96 @@ export function getSelectedCard(): CardDataEntry | null {
   return _allCardsMap.get(editorState.selectedId ?? -1) ?? null;
 }
 
+export function getSelectedCards(): CardDataEntry[] {
+  return getVisibleSelectedIds(editorState.selectedIds)
+    .map((id) => _allCardsMap.get(id))
+    .filter((card): card is CardDataEntry => card !== undefined);
+}
+
+export function getSelectedCardIds(): number[] {
+  return [...editorState.selectedIds];
+}
+
+export function clearSelection() {
+  editorState.selectedIds = [];
+  editorState.selectedId = null;
+  editorState.selectionAnchorId = null;
+}
+
+export function setSingleSelectedCard(cardId: number | null) {
+  if (cardId === null || !_allCardsMap.has(cardId)) {
+    clearSelection();
+    return;
+  }
+
+  editorState.selectedIds = [cardId];
+  editorState.selectedId = cardId;
+  editorState.selectionAnchorId = cardId;
+}
+
+export function setSelectedCards(cardIds: number[], primaryId: number | null = null, anchorId: number | null = null) {
+  applySelection(cardIds, primaryId, anchorId);
+}
+
+export function toggleCardSelection(cardId: number) {
+  if (!_allCardsMap.has(cardId)) return;
+
+  if (editorState.selectedIds.includes(cardId)) {
+    const remaining = editorState.selectedIds.filter((id) => id !== cardId);
+    applySelection(
+      remaining,
+      editorState.selectedId === cardId ? remaining[remaining.length - 1] ?? null : editorState.selectedId,
+      editorState.selectionAnchorId === cardId ? remaining[remaining.length - 1] ?? null : editorState.selectionAnchorId
+    );
+    return;
+  }
+
+  applySelection([...editorState.selectedIds, cardId], cardId, cardId);
+}
+
+export function selectCardRange(cardId: number, preserveExisting = false) {
+  if (!_allCardsMap.has(cardId)) return;
+
+  const anchorId = editorState.selectionAnchorId ?? editorState.selectedId ?? cardId;
+  const anchorIndex = _allCards.findIndex((card) => card.code === anchorId);
+  const targetIndex = _allCards.findIndex((card) => card.code === cardId);
+
+  if (anchorIndex === -1 || targetIndex === -1) {
+    setSingleSelectedCard(cardId);
+    return;
+  }
+
+  const [start, end] = anchorIndex < targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
+  const rangeIds = _allCards.slice(start, end + 1).map((card) => card.code);
+  const nextIds = preserveExisting ? [...editorState.selectedIds, ...rangeIds] : rangeIds;
+  applySelection(nextIds, cardId, anchorId);
+}
+
 export function handleSearch(preserveSelection = false, resetPage = false) {
   const prevSelectedId = editorState.selectedId;
+  const prevSelectedIds = [...editorState.selectedIds];
+  const prevAnchorId = editorState.selectionAnchorId;
+
   if (resetPage) {
     editorState.currentPage = 1;
   }
+
   const { cards, total } = searchCardsPage(editorState.searchFilters, editorState.currentPage);
   setAllCards(cards);
   _totalCards = total;
-  // If preserveSelection is requested and the card still exists, keep it selected
-  if (preserveSelection && prevSelectedId !== null && _allCardsMap.has(prevSelectedId)) {
-    editorState.selectedId = prevSelectedId;
-  } else if (_allCards.length > 0) {
-    editorState.selectedId = _allCards[0].code;
+
+  if (preserveSelection) {
+    const visibleSelectedIds = getVisibleSelectedIds(prevSelectedIds);
+    if (visibleSelectedIds.length > 0) {
+      applySelection(visibleSelectedIds, prevSelectedId, prevAnchorId);
+      return;
+    }
+  }
+
+  if (_allCards.length > 0) {
+    setSingleSelectedCard(_allCards[0].code);
   } else {
-    editorState.selectedId = null;
+    clearSelection();
   }
 }
 

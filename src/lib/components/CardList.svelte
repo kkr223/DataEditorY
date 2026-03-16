@@ -1,8 +1,19 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
-  import { editorState, getAllCards, getTotalCards, handleSearch, handleReset } from '$lib/stores/editor.svelte';
+  import {
+    editorState,
+    getAllCards,
+    getTotalCards,
+    handleSearch,
+    handleReset,
+    selectCardRange,
+    setSingleSelectedCard,
+    toggleCardSelection
+  } from '$lib/stores/editor.svelte';
   import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
+  import { APP_SHORTCUT_EVENT } from '$lib/utils/shortcuts';
 
   const PAGE_SIZE = 50;
   let pageCards = $derived(getAllCards());
@@ -52,13 +63,44 @@
     handleSearch(false, true);
   }
 
+  function handleRowClick(event: MouseEvent, code: number) {
+    if (event.shiftKey) {
+      selectCardRange(code, event.ctrlKey || event.metaKey);
+      return;
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      toggleCardSelection(code);
+      return;
+    }
+
+    setSingleSelectedCard(code);
+  }
+
+  let searchInput: HTMLInputElement | null = null;
+
+  onMount(() => {
+    const handleShortcut = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      if (customEvent.detail !== 'focus-search') return;
+
+      searchInput?.focus();
+      searchInput?.select();
+    };
+
+    window.addEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
+    return () => {
+      window.removeEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
+    };
+  });
+
 </script>
 
 <section class="pane list-pane">
   <div class="list-header-complex">
     <div class="search-row">
       <div class="search-input-wrapper">
-        <input type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.name} onkeydown={(e) => e.key === 'Enter' && runSearch()} />
+        <input bind:this={searchInput} type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.name} onkeydown={(e) => e.key === 'Enter' && runSearch()} />
       </div>
       <button class="btn-primary" onclick={runSearch} disabled={!$isDbLoaded} title={$_('search.title')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -226,7 +268,11 @@
       </thead>
       <tbody>
         {#each pageCards as card (card.code)}
-          <tr class:selected={editorState.selectedId === card.code} onclick={() => editorState.selectedId = card.code}>
+          <tr
+            class:selected={editorState.selectedIds.includes(card.code)}
+            class:primary-selected={editorState.selectedId === card.code}
+            onclick={(event) => handleRowClick(event, card.code)}
+          >
             <td class="id-col">{card.code}</td>
             <td class="name-col">{card.name}</td>
             <td>{$_(getCardTypeKey(card.type))}</td>
@@ -338,6 +384,7 @@
   .data-table tbody tr:hover { background-color: var(--bg-surface-hover); }
   .data-table tbody tr.selected { background-color: rgba(59, 130, 246, 0.15); border-left: 2px solid var(--accent-primary); }
   .data-table tbody tr.selected td:first-child { padding-left: calc(var(--spacing-sm) - 2px); }
+  .data-table tbody tr.primary-selected { background-color: rgba(59, 130, 246, 0.22); }
   .id-col { color: var(--text-secondary); font-variant-numeric: tabular-nums; font-size: 0.86rem; }
   .name-col { font-weight: 500; }
 

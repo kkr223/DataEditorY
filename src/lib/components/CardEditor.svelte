@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { untrack } from "svelte";
   import { _ } from "svelte-i18n";
   import {
@@ -9,7 +10,7 @@
     modifyCard,
     saveCdbFile,
   } from "$lib/stores/db";
-  import { editorState, getAllCardsMap, handleSearch } from "$lib/stores/editor.svelte";
+  import { clearSelection, editorState, getAllCardsMap, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { dirname, join } from "@tauri-apps/api/path";
@@ -32,6 +33,7 @@
     setPackedLevel,
     TYPE_BITS,
   } from "$lib/utils/card";
+  import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
 
   function createEmptyCard(): CardDataEntry {
     return {
@@ -191,7 +193,7 @@
 
     draftCard = cloneEditableCard(dbCard);
     originalCardCode = targetCode;
-    editorState.selectedId = targetCode;
+    setSingleSelectedCard(targetCode);
     handleSearch(true);
     await refreshDraftImage(targetCode, true);
     showToast($_("editor.card_modified", { values: { code: String(targetCode) } }), "success");
@@ -281,16 +283,30 @@
 
     if (deleteCard(originalCardCode)) {
       showToast($_("editor.card_deleted", { values: { code: String(originalCardCode) } }), "success");
-      editorState.selectedId = null;
+      clearSelection();
       handleSearch();
       resetDraftCard();
     }
   }
 
   function handleNewCard() {
-    editorState.selectedId = null;
+    clearSelection();
     resetDraftCard();
   }
+
+  onMount(() => {
+    const handleShortcut = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      if (customEvent.detail !== "new-card" || !$isDbLoaded) return;
+
+      handleNewCard();
+    };
+
+    window.addEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
+    return () => {
+      window.removeEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
+    };
+  });
 
   async function handleImagePick() {
     if (!$activeTab?.path) return;
