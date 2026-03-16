@@ -45,6 +45,8 @@
   let staleObjectUrl: string | null = null;
   let loadedCardCode: number | null = null;
   let imageRequestToken = 0;
+  let isImagePreviewOpen = $state(false);
+  let imageClickTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Reactive flags for Link/Pendulum (must be after selectedCard declaration)
   let isLink = $derived(selectedCard ? (selectedCard.type & 0x4000000) !== 0 : false);
@@ -61,7 +63,15 @@
     }
   }
 
+  function clearImageClickTimer() {
+    if (imageClickTimer) {
+      clearTimeout(imageClickTimer);
+      imageClickTimer = null;
+    }
+  }
+
   function resetImageUrls() {
+    clearImageClickTimer();
     if (activeObjectUrl) {
       URL.revokeObjectURL(activeObjectUrl);
       activeObjectUrl = null;
@@ -155,6 +165,31 @@
     }
   }
 
+  function handleImageClick() {
+    clearImageClickTimer();
+    imageClickTimer = setTimeout(() => {
+      imageClickTimer = null;
+      void handleImagePick();
+    }, 220);
+  }
+
+  function handleImageDoubleClick(event: MouseEvent) {
+    event.preventDefault();
+    clearImageClickTimer();
+    if (!imageSrc) return;
+    isImagePreviewOpen = true;
+  }
+
+  function closeImagePreview() {
+    isImagePreviewOpen = false;
+  }
+
+  function handlePreviewKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") {
+      closeImagePreview();
+    }
+  }
+
   async function handleModify() {
     if (!selectedCard) return;
     const dbCard = new CardDataEntry();
@@ -237,8 +272,10 @@
         <div class="card-top-row">
           <button
             class="image-picker"
-            onclick={handleImagePick}
-            aria-label="Select image"
+            onclick={handleImageClick}
+            ondblclick={handleImageDoubleClick}
+            aria-label="Single click to select image, double click to preview"
+            title="单击更换图片，双击放大预览"
           >
             {#if imageSrc}
               {#key imageSrc}
@@ -495,6 +532,29 @@
   {/if}
 </div>
 
+{#if isImagePreviewOpen}
+  <div
+    class="image-preview-backdrop"
+    role="button"
+    tabindex="0"
+    aria-label="Close image preview"
+    onclick={closeImagePreview}
+    onkeydown={handlePreviewKeydown}
+  >
+    <div
+      class="image-preview-dialog"
+      role="dialog"
+      tabindex="-1"
+      aria-modal="true"
+      aria-label="Card image preview"
+      onclick={(event) => event.stopPropagation()}
+      onkeydown={(event) => event.stopPropagation()}
+    >
+      <img src={imageSrc} alt="Card preview" class="image-preview-img" />
+    </div>
+  </div>
+{/if}
+
 <style>
   .editor-area {
     flex: 1;
@@ -588,6 +648,10 @@
   }
   .image-picker:hover {
     border-color: var(--accent-primary);
+  }
+  .image-picker:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
   }
   .card-img {
     width: 100%;
@@ -922,6 +986,34 @@
   }
   .btn-danger:hover {
     background: #b91c1c;
+  }
+
+  .image-preview-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(5, 10, 18, 0.82);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .image-preview-dialog {
+    max-width: min(92vw, 900px);
+    max-height: 92vh;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+  }
+  .image-preview-img {
+    display: block;
+    width: 100%;
+    max-width: min(92vw, 900px);
+    max-height: 92vh;
+    object-fit: contain;
+    background: #000;
   }
 
   @media (min-width: 2560px) {
