@@ -3,7 +3,10 @@
     "cards": "Cards",
     "settings": "Settings",
     "open": "Open",
-    "create": "Create"
+    "create": "Create",
+    "theme_toggle": "Toggle theme",
+    "day_mode": "Day mode",
+    "night_mode": "Night mode"
   },
   "search": {
     "title": "Search Cards",

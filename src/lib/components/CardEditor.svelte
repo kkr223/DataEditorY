@@ -481,8 +481,8 @@
   }
 
   .editor-header {
-    height: 36px;
-    min-height: 36px;
+    height: 2.5rem;
+    min-height: 2.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -490,7 +490,7 @@
     border-bottom: 1px solid var(--border-color);
   }
   .editor-header h2 {
-    font-size: 0.9rem;
+    font-size: 1rem;
     font-weight: 600;
   }
 
@@ -507,13 +507,13 @@
     gap: 2px;
   }
   .strip-field label {
-    font-size: 0.7rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: 600;
   }
   .strip-field input {
-    padding: 3px 6px;
-    font-size: 0.8rem;
+    padding: 0.25rem 0.45rem;
+    font-size: 0.9rem;
   }
 
   .editor-columns {
@@ -539,7 +539,7 @@
     margin-bottom: 6px;
   }
   .image-picker {
-    width: 130px;
+    width: clamp(130px, 10vw, 190px);
     min-width: 130px;
     aspect-ratio: 0.69;
     background: var(--bg-base);
@@ -606,7 +606,7 @@
   }
   .inline-field label {
     min-width: 60px;
-    font-size: 0.7rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
     text-align: left;
     margin: 0;
@@ -634,9 +634,9 @@
 
   label,
   .group-label {
-    font-size: 0.7rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: 600;
   }
   input,
   select,
@@ -647,7 +647,7 @@
     border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 3px 6px;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     transition: border-color 0.15s;
   }
   input:focus,
@@ -658,7 +658,7 @@
     outline: none;
   }
   textarea {
-    font-size: 0.85rem;
+    font-size: 0.94rem;
     padding: 6px;
   }
 
@@ -678,7 +678,7 @@
     gap: 3px;
     cursor: pointer;
     user-select: none;
-    font-size: 0.7rem;
+    font-size: 0.82rem;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
@@ -707,7 +707,7 @@
   .setcode-row select {
     flex: 2;
     padding: 2px 4px;
-    font-size: 0.75rem;
+    font-size: 0.84rem;
   }
   .hex-input {
     flex: 1;
@@ -725,7 +725,7 @@
   .hex-prefix {
     padding: 0 4px;
     color: var(--text-secondary);
-    font-size: 0.75rem;
+    font-size: 0.82rem;
     font-family: monospace;
     background: var(--bg-surface);
     border-right: 1px solid var(--border-color);
@@ -738,7 +738,7 @@
     border-radius: 0;
     padding: 2px 4px;
     font-family: monospace;
-    font-size: 0.8rem;
+    font-size: 0.88rem;
   }
   .hex-input input:focus {
     box-shadow: none;
@@ -822,7 +822,7 @@
     border-bottom: none;
   }
   .hint-label {
-    font-size: 0.65rem;
+    font-size: 0.76rem;
     color: var(--text-secondary);
     min-width: 26px;
     flex-shrink: 0;
@@ -832,7 +832,7 @@
     border: none;
     background: transparent;
     padding: 2px 0;
-    font-size: 0.75rem;
+    font-size: 0.86rem;
   }
   .hint-row input:focus {
     box-shadow: none;
@@ -854,8 +854,8 @@
 
   /* ── Buttons ── */
   button {
-    font-size: 0.8rem;
-    font-weight: 500;
+    font-size: 0.9rem;
+    font-weight: 600;
     padding: 4px 10px;
     border-radius: 4px;
     display: inline-flex;
@@ -867,8 +867,8 @@
     border: none;
   }
   .btn-sm {
-    padding: 3px 8px;
-    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.84rem;
   }
   .btn-primary {
     background: var(--accent-primary);
@@ -882,7 +882,7 @@
     color: var(--text-primary);
   }
   .btn-secondary:hover {
-    background: #444;
+    background: var(--bg-surface-hover);
   }
   .btn-danger {
     background: #dc2626;
@@ -890,5 +890,20 @@
   }
   .btn-danger:hover {
     background: #b91c1c;
+  }
+
+  @media (min-width: 2560px) {
+    .editor-col {
+      padding: 0.7rem 0.9rem;
+    }
+    .link-marker-grid {
+      grid-template-columns: 32px 32px 32px;
+      grid-template-rows: 32px 32px 32px;
+    }
+    .link-arrow {
+      width: 32px;
+      height: 32px;
+      font-size: 1rem;
+    }
   }
 </style>

@@ -2,21 +2,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Color Palette - Modern Dark Theme */
-  --bg-base: #121212;
-  --bg-surface: #1e1e1e;
-  --bg-surface-hover: #2a2a2a;
-  --bg-surface-active: #333333;
+  /* Default theme: dark */
+  --bg-base: #15191f;
+  --bg-surface: #1f2630;
+  --bg-surface-hover: #2b3441;
+  --bg-surface-active: #374354;
+  --bg-elevated: #252f3c;
   
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --text-disabled: #666666;
+  --text-primary: #f5f8ff;
+  --text-secondary: #c5cedd;
+  --text-disabled: #7d8799;
   
   --accent-primary: #3b82f6; /* Modern Blue */
   --accent-primary-hover: #2563eb;
   --accent-secondary: #8b5cf6; /* Modern Purple */
   
-  --border-color: #333333;
+  --border-color: #3a4659;
   --border-radius-sm: 4px;
   --border-radius-md: 8px;
   --border-radius-lg: 12px;
@@ -35,10 +36,31 @@
   --color-trap: #BC5A84;
 }
 
+[data-theme='light'] {
+  --bg-base: #f4f7fc;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #eef3fa;
+  --bg-surface-active: #e2eaf5;
+  --bg-elevated: #f8fbff;
+
+  --text-primary: #152033;
+  --text-secondary: #3e4d66;
+  --text-disabled: #7d8aa0;
+
+  --accent-primary: #2563eb;
+  --accent-primary-hover: #1d4ed8;
+  --accent-secondary: #0f766e;
+  --border-color: #cbd7e8;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html {
+  font-size: clamp(15px, 0.18vw + 11px, 18px);
 }
 
 html, body {
@@ -47,6 +69,7 @@ html, body {
   font-family: var(--font-family);
   background-color: var(--bg-base);
   color: var(--text-primary);
+  line-height: 1.4;
   overflow: hidden; /* Prevent body scroll, handle scroll in components */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -74,7 +97,7 @@ html, body {
 /* Common form elements base style */
 input, select, textarea, button {
   font-family: inherit;
-  font-size: 14px;
+  font-size: 0.92rem;
 }
 
 button {
@@ -96,4 +119,16 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent-primary);
+}
+
+@media (min-width: 2560px) {
+  html {
+    font-size: 19px;
+  }
+}
+
+@media (max-width: 1280px) {
+  html {
+    font-size: 14px;
+  }
 }

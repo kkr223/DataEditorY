@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import '../app.css';
   import { setupI18n } from '$lib/i18n';
   import { _, locale, isLoading } from 'svelte-i18n';
@@ -9,9 +10,20 @@
   setupI18n();
 
   let { children } = $props();
+  let theme = $state<'dark' | 'light'>('dark');
+
+  function applyTheme(next: 'dark' | 'light') {
+    theme = next;
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  }
 
   function toggleLanguage() {
     locale.set($locale === 'en' ? 'zh' : 'en');
+  }
+
+  function toggleTheme() {
+    applyTheme(theme === 'dark' ? 'light' : 'dark');
   }
 
   async function handleOpen() {
@@ -21,6 +33,15 @@
   async function handleCreate() {
     await createCdbFile();
   }
+
+  onMount(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') {
+      applyTheme(saved);
+      return;
+    }
+    applyTheme('dark');
+  });
 </script>
 
 <Toast />
@@ -50,6 +71,10 @@
       </nav>
     </div>
     <div class="topbar-right">
+      <button class="nav-item theme-toggle" onclick={toggleTheme} title={$_('nav.theme_toggle')}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2h8"></path><path d="M9 2v2"></path><path d="M15 2v2"></path><path d="M12 4v8"></path><path d="M7 12a5 5 0 1 0 10 0"></path><path d="M9 17h6"></path><path d="M10 20h4"></path></svg>
+        {theme === 'dark' ? $_('nav.day_mode') : $_('nav.night_mode')}
+      </button>
       <button class="nav-item lang-toggle" onclick={toggleLanguage}>
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
         {$locale === 'zh' ? 'English' : '中文'}
@@ -99,7 +124,7 @@
   }
 
   .topbar {
-    height: 57px;
+    height: clamp(56px, 3.2vw, 68px);
     flex-shrink: 0;
     background-color: var(--bg-surface);
     border-bottom: 1px solid var(--border-color);
@@ -121,7 +146,7 @@
   }
 
   .logo h1 {
-    font-size: 1.15rem;
+    font-size: clamp(1.05rem, 0.4vw + 0.85rem, 1.35rem);
     font-weight: 700;
     color: var(--accent-primary);
     letter-spacing: -0.5px;
@@ -129,6 +154,12 @@
   }
 
   nav {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .topbar-right {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -143,7 +174,7 @@
     text-decoration: none;
     border-radius: var(--border-radius-md);
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: 0.92rem;
     transition: all 0.2s ease;
     cursor: pointer;
     background: transparent;
@@ -154,6 +185,11 @@
 
   .lang-toggle {
     border: 1px solid var(--border-color);
+  }
+
+  .theme-toggle {
+    border: 1px solid var(--border-color);
+    background: var(--bg-base);
   }
 
   .nav-item:hover {
@@ -191,7 +227,7 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    font-size: 0.85rem;
+    font-size: 0.92rem;
     font-weight: 500;
     color: var(--text-secondary);
     background: transparent;
@@ -250,7 +286,7 @@
     align-items: center;
     justify-content: center;
     width: 32px;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     color: var(--text-secondary);
     background: transparent;
     border: none;

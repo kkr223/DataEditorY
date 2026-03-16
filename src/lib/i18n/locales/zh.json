@@ -3,7 +3,10 @@
     "cards": "卡片",
     "settings": "设置",
     "open": "打开",
-    "create": "创建"
+    "create": "创建",
+    "theme_toggle": "切换主题",
+    "day_mode": "白天模式",
+    "night_mode": "夜间模式"
   },
   "search": {
     "title": "搜索卡片",
