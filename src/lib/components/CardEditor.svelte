@@ -39,6 +39,7 @@
     return {
       code: 0,
       alias: 0,
+      ruleCode: 0,
       setcode: [0, 0, 0, 0],
       type: 0,
       attack: 0,
@@ -107,6 +108,20 @@
     imageRequestToken++;
     resetImageUrls();
     imageSrc = "/cover.jpg";
+  }
+
+  function handleAliasInput() {
+    draftCard.alias = Number(draftCard.alias ?? 0) || 0;
+    if (draftCard.alias !== 0) {
+      draftCard.ruleCode = 0;
+    }
+  }
+
+  function handleRuleCodeInput() {
+    draftCard.ruleCode = Number(draftCard.ruleCode ?? 0) || 0;
+    if (draftCard.ruleCode !== 0) {
+      draftCard.alias = 0;
+    }
   }
 
   function loadCardIntoDraft(card: CardDataEntry) {
@@ -422,7 +437,11 @@
       </div>
       <div class="strip-field" style="width:90px">
         <label for="edit-alias">{$_("editor.alias")}</label>
-        <input type="number" id="edit-alias" bind:value={draftCard.alias} />
+        <input type="number" id="edit-alias" bind:value={draftCard.alias} oninput={handleAliasInput} />
+      </div>
+      <div class="strip-field" style="width:90px">
+        <label for="edit-rule-code">{$_("editor.rule_code")}</label>
+        <input type="number" id="edit-rule-code" bind:value={draftCard.ruleCode} oninput={handleRuleCodeInput} />
       </div>
       <div class="strip-field" style="flex:1">
         <label for="edit-name">{$_("editor.name")}</label>
@@ -638,6 +657,7 @@
       {:else}
         {$_("editor.new_card_hint")}
       {/if}
+      <span class="editor-inline-note">{$_("editor.alias_rule_note")}</span>
     </div>
 
     <div class="editor-bottom">
@@ -687,6 +707,10 @@
     padding: 0 10px 8px;
     color: var(--text-secondary);
     font-size: 0.85rem;
+  }
+  .editor-inline-note {
+    margin-left: 0.5rem;
+    opacity: 0.85;
   }
   .editor-header {
     height: 2.5rem;

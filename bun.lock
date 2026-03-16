@@ -12,7 +12,7 @@
         "@types/sql.js": "^1.4.9",
         "sql.js": "^1.14.1",
         "svelte-i18n": "^4.0.1",
-        "ygopro-cdb-encode": "1.1.0-2",
+        "ygopro-cdb-encode": "1.1.0",
       },
       "devDependencies": {
         "@sveltejs/adapter-static": "^3.0.6",
@@ -341,7 +341,7 @@
 
     "vitefu": ["vitefu@1.1.2", "https://registry.npmmirror.com/vitefu/-/vitefu-1.1.2.tgz", { "peerDependencies": { "vite": "^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-beta.0" }, "optionalPeers": ["vite"] }, "sha512-zpKATdUbzbsycPFBN71nS2uzBUQiVnFoOrr2rvqv34S1lcAgMKKkjWleLGeiJlZ8lwCXvtWaRn7R3ZC16SYRuw=="],
 
-    "ygopro-cdb-encode": ["ygopro-cdb-encode@1.1.0-2", "https://registry.npmmirror.com/ygopro-cdb-encode/-/ygopro-cdb-encode-1.1.0-2.tgz", { "dependencies": { "@types/sql.js": "^1.4.9", "nfkit": "^1.0.21", "sql.js": "^1.13.0", "ygopro-msg-encode": "^1.2.0-0" } }, "sha512-eE0c8U4Vt4HAQkJ69mgj9OVW6/n0VdzTMVZ13szRBmKXWNOPt4wrGj8Eoa9SVrSH3aGRuCty4yRKAS14JVdCuQ=="],
+    "ygopro-cdb-encode": ["ygopro-cdb-encode@1.1.0", "https://registry.npmmirror.com/ygopro-cdb-encode/-/ygopro-cdb-encode-1.1.0.tgz", { "dependencies": { "@types/sql.js": "^1.4.9", "nfkit": "^1.0.21", "sql.js": "^1.13.0", "ygopro-msg-encode": "^1.2.0" } }, "sha512-fYdJ/v7B2PMC6Xtq2pc3HRHOG5Plg9vo5gfEs1PuaY/mXXiIkqU0GjQKGFnhqe5QUGXEUuzcn5OLZDfx7ElOKw=="],
 
     "ygopro-deck-encode": ["ygopro-deck-encode@1.0.15", "https://registry.npmmirror.com/ygopro-deck-encode/-/ygopro-deck-encode-1.0.15.tgz", {}, "sha512-NMvgWuC3SKant50RDu0bHa3QIRlwBhdTR3bNDrMpNthTTQmCCq8i2HZaWFiCmYIBi9fR3W9CkFIgK6hI4d+PzQ=="],
 
