@@ -62,8 +62,11 @@ export const RACE_OPTIONS: SelectOption<number>[] = [
   { value: 0x40000, key: 'search.races.seaserpent' },
   { value: 0x80000, key: 'search.races.reptile' },
   { value: 0x100000, key: 'search.races.psychic' },
+  { value: 0x200000, key: 'search.races.divinebeast' },
+  { value: 0x400000, key: 'search.races.creatorgod' },
   { value: 0x800000, key: 'search.races.wyrm' },
   { value: 0x1000000, key: 'search.races.cyberse' },
+  { value: 0x2000000, key: 'search.races.illusion' },
 ];
 
 export const PERMISSION_OPTIONS: SelectOption<number>[] = [
@@ -111,11 +114,12 @@ export function setPackedLevel(level: number, lscale: number, rscale: number): n
 }
 
 export function cloneEditableCard(card: CardDataEntry): CardDataEntry {
-  const clone = new CardDataEntry();
-  Object.assign(clone, card);
-
-  clone.setcode = Array.isArray(card.setcode) ? [...card.setcode] : card.setcode;
-  clone.strings = Array.isArray(card.strings) ? [...card.strings] : [];
+  // Return a plain object so Svelte can deeply proxy/bind fields reactively.
+  const clone = {
+    ...card,
+    setcode: Array.isArray(card.setcode) ? [...card.setcode] : card.setcode,
+    strings: Array.isArray(card.strings) ? [...card.strings] : [],
+  } as CardDataEntry;
 
   while (clone.strings.length < 16) clone.strings.push('');
   if (clone.strings.length > 16) clone.strings = clone.strings.slice(0, 16);

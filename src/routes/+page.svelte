@@ -1,8 +1,40 @@
 <script lang="ts">
-  import { activeTabId, getCachedCards } from '$lib/stores/db';
-  import { editorState, setAllCards, getAllCards } from '$lib/stores/editor.svelte';
+  import {
+    activeTabId,
+    getCachedCards,
+    getCachedFilters,
+    getCachedPage,
+    getCachedSelectionAnchorId,
+    getCachedSelectedId,
+    getCachedSelectedIds,
+    getCachedTotal
+  } from '$lib/stores/db';
+  import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
+  import { clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSelectedCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
   import CardList from '$lib/components/CardList.svelte';
   import CardEditor from '$lib/components/CardEditor.svelte';
+
+  function restoreSearchFilters() {
+    const cached = getCachedFilters();
+    return {
+      ...DEFAULT_SEARCH_FILTERS,
+      name: cached.name?.toString() ?? '',
+      id: cached.id?.toString() ?? '',
+      desc: cached.desc?.toString() ?? '',
+      atkMin: cached.atkMin?.toString() ?? '',
+      atkMax: cached.atkMax?.toString() ?? '',
+      defMin: cached.defMin?.toString() ?? '',
+      defMax: cached.defMax?.toString() ?? '',
+      type: cached.type?.toString() ?? '',
+      subtype: cached.subtype?.toString() ?? '',
+      attribute: cached.attribute?.toString() ?? '',
+      race: cached.race?.toString() ?? '',
+      setcode1: cached.setcode1?.toString() ?? '',
+      setcode2: cached.setcode2?.toString() ?? '',
+      setcode3: cached.setcode3?.toString() ?? '',
+      setcode4: cached.setcode4?.toString() ?? '',
+    };
+  }
 
   // React to tab changes: use cached results for instant switching
   let lastTabId: string | null = null;
@@ -12,13 +44,25 @@
       lastTabId = currentTabId;
       if (currentTabId) {
         setAllCards(getCachedCards());
-        editorState.currentPage = 1;
+        setTotalCards(getCachedTotal());
+        editorState.searchFilters = restoreSearchFilters();
+        editorState.currentPage = getCachedPage();
         const cards = getAllCards();
-        editorState.selectedId = cards.length > 0 ? cards[0].code : null;
+        const cachedSelectedIds = getCachedSelectedIds();
+        if (cachedSelectedIds.length > 0) {
+          setSelectedCards(cachedSelectedIds, getCachedSelectedId(), getCachedSelectionAnchorId());
+          if (cards.length > 0 && editorState.selectedId === null) {
+            setSingleSelectedCard(cards[0].code);
+          }
+        } else {
+          setSingleSelectedCard(cards.length > 0 ? cards[0].code : null);
+        }
       } else {
         setAllCards([]);
+        setTotalCards(0);
         editorState.currentPage = 1;
-        editorState.selectedId = null;
+        editorState.searchFilters = { ...DEFAULT_SEARCH_FILTERS };
+        clearSelection();
       }
     }
   });

@@ -1,13 +1,24 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
-  import { editorState, getAllCards, handleSearch, handleReset } from '$lib/stores/editor.svelte';
+  import {
+    editorState,
+    getAllCards,
+    getTotalCards,
+    handleSearch,
+    handleReset,
+    selectCardRange,
+    setSingleSelectedCard,
+    toggleCardSelection
+  } from '$lib/stores/editor.svelte';
   import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
+  import { APP_SHORTCUT_EVENT } from '$lib/utils/shortcuts';
 
   const PAGE_SIZE = 50;
-  let allCards = $derived(getAllCards());
-  let totalPages = $derived(Math.max(1, Math.ceil(allCards.length / PAGE_SIZE)));
-  let pageCards = $derived(allCards.slice((editorState.currentPage - 1) * PAGE_SIZE, editorState.currentPage * PAGE_SIZE));
+  let pageCards = $derived(getAllCards());
+  let totalCards = $derived(getTotalCards());
+  let totalPages = $derived(Math.max(1, Math.ceil(totalCards / PAGE_SIZE)));
 
   let hasActiveFilters = $derived(
     editorState.searchFilters.id !== '' ||
@@ -19,15 +30,26 @@
     editorState.searchFilters.type !== '' ||
     editorState.searchFilters.subtype !== '' ||
     editorState.searchFilters.attribute !== '' ||
-    editorState.searchFilters.race !== ''
+    editorState.searchFilters.race !== '' ||
+    editorState.searchFilters.setcode1 !== '' ||
+    editorState.searchFilters.setcode2 !== '' ||
+    editorState.searchFilters.setcode3 !== '' ||
+    editorState.searchFilters.setcode4 !== ''
   );
 
   function toggleFilter() {
     editorState.isFilterOpen = !editorState.isFilterOpen;
   }
 
+  function closeFilter() {
+    editorState.isFilterOpen = false;
+  }
+
   function goToPage(page: number) {
-    editorState.currentPage = Math.max(1, Math.min(page, totalPages));
+    const nextPage = Math.max(1, Math.min(page, totalPages));
+    if (nextPage === editorState.currentPage) return;
+    editorState.currentPage = nextPage;
+    handleSearch(true);
   }
 
   let jumpPage = $state('');
@@ -37,15 +59,50 @@
     jumpPage = '';
   }
 
+  function runSearch() {
+    handleSearch(false, true);
+  }
+
+  function handleRowClick(event: MouseEvent, code: number) {
+    if (event.shiftKey) {
+      selectCardRange(code, event.ctrlKey || event.metaKey);
+      return;
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      toggleCardSelection(code);
+      return;
+    }
+
+    setSingleSelectedCard(code);
+  }
+
+  let searchInput: HTMLInputElement | null = null;
+
+  onMount(() => {
+    const handleShortcut = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      if (customEvent.detail !== 'focus-search') return;
+
+      searchInput?.focus();
+      searchInput?.select();
+    };
+
+    window.addEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
+    return () => {
+      window.removeEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
+    };
+  });
+
 </script>
 
 <section class="pane list-pane">
   <div class="list-header-complex">
     <div class="search-row">
       <div class="search-input-wrapper">
-        <input type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.name} onkeydown={(e) => e.key === 'Enter' && handleSearch()} />
+        <input bind:this={searchInput} type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.name} onkeydown={(e) => e.key === 'Enter' && runSearch()} />
       </div>
-      <button class="btn-primary" onclick={() => handleSearch()} disabled={!$isDbLoaded} title={$_('search.title')}>
+      <button class="btn-primary" onclick={runSearch} disabled={!$isDbLoaded} title={$_('search.title')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       </button>
       <button class="btn-secondary btn-icon" class:active={editorState.isFilterOpen} class:has-filters={hasActiveFilters} onclick={toggleFilter} title="Filters">
@@ -158,15 +215,44 @@
           </select>
         </div>
       </div>
-      <div class="form-actions" style="margin-top: var(--spacing-sm); display: flex; justify-content: flex-end;">
+      <div class="form-group">
+        <span class="group-label">{$_('search.setcodes')}</span>
+        <div class="setcode-search-grid">
+          {#each Array.from({ length: 4 }, (_, i) => i) as idx}
+            <div class="setcode-search-input">
+              <span class="setcode-prefix">0x</span>
+              <input
+                type="text"
+                value={
+                  idx === 0 ? editorState.searchFilters.setcode1 :
+                  idx === 1 ? editorState.searchFilters.setcode2 :
+                  idx === 2 ? editorState.searchFilters.setcode3 :
+                  editorState.searchFilters.setcode4
+                }
+                oninput={(event) => {
+                  const value = (event.target as HTMLInputElement).value;
+                  if (idx === 0) editorState.searchFilters.setcode1 = value;
+                  else if (idx === 1) editorState.searchFilters.setcode2 = value;
+                  else if (idx === 2) editorState.searchFilters.setcode3 = value;
+                  else editorState.searchFilters.setcode4 = value;
+                }}
+                maxlength="4"
+                placeholder="0000"
+              />
+            </div>
+          {/each}
+        </div>
+      </div>
+      <div class="filter-actions">
         <button class="btn-secondary" onclick={handleReset}>{$_('search.reset')}</button>
+        <button class="btn-secondary" onclick={closeFilter}>{$_('search.collapse')}</button>
       </div>
     </div>
     {/if}
 
     <div class="results-stats">
       <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">
-        {$_('results.title')} <span class="badge" style="margin-left: 4px;">{allCards.length}</span>
+        {$_('results.title')} <span class="badge" style="margin-left: 4px;">{totalCards}</span>
       </span>
     </div>
   </div>
@@ -182,13 +268,17 @@
       </thead>
       <tbody>
         {#each pageCards as card (card.code)}
-          <tr class:selected={editorState.selectedId === card.code} onclick={() => editorState.selectedId = card.code}>
+          <tr
+            class:selected={editorState.selectedIds.includes(card.code)}
+            class:primary-selected={editorState.selectedId === card.code}
+            onclick={(event) => handleRowClick(event, card.code)}
+          >
             <td class="id-col">{card.code}</td>
             <td class="name-col">{card.name}</td>
             <td>{$_(getCardTypeKey(card.type))}</td>
           </tr>
         {/each}
-        {#if allCards.length === 0}
+        {#if totalCards === 0}
           <tr>
             <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 2rem;">
               {$_('editor.no_card')}
@@ -200,7 +290,7 @@
   </div>
 
   <!-- Pagination Bar -->
-  {#if allCards.length > 0}
+  {#if totalCards > 0}
   <div class="pagination-bar">
     <button class="page-btn" onclick={() => goToPage(1)} disabled={editorState.currentPage === 1} aria-label="First page">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
@@ -224,14 +314,24 @@
 
 <style>
   .pane { display: flex; flex-direction: column; height: 100%; border-right: 1px solid var(--border-color); }
-  .list-pane { flex: 0 0 280px; min-width: 220px; max-width: 350px; background-color: var(--bg-surface); }
-  .list-header-complex { display: flex; flex-direction: column; border-bottom: 1px solid var(--border-color); }
+  .list-pane { flex: 0 0 clamp(18rem, 23vw, 30rem); min-width: 16rem; max-width: 34rem; background-color: var(--bg-surface); }
+  .list-header-complex { display: flex; flex-direction: column; border-bottom: 1px solid var(--border-color); position: relative; z-index: 20; }
   .search-row { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md); }
   .search-input-wrapper { flex: 1; }
   .search-input-wrapper input { width: 100%; margin: 0; padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-base); color: var(--text-primary); }
   .search-input-wrapper input:focus { border-color: var(--accent-primary); outline: none; }
   
-  .advanced-filters { padding: var(--spacing-md); background-color: var(--bg-base); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+  .advanced-filters {
+    position: absolute;
+    top: calc(100% - 1px);
+    left: var(--spacing-md);
+    right: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+  }
   .results-stats { padding: var(--spacing-xs) var(--spacing-md); background-color: var(--bg-surface-active); border-top: 1px solid var(--border-color); }
   .badge { background: var(--bg-surface-active); color: var(--text-secondary); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 500; }
 
@@ -240,30 +340,52 @@
   .form-row { display: flex; gap: var(--spacing-sm); }
   .form-row .form-group { flex: 1; }
   .flex-2 { flex: 2 !important; }
-  label, .group-label { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; }
-  input, select { width: 100%; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 4px 8px; font-size: 0.85rem; transition: all 0.2s; }
+  label, .group-label { font-size: 0.86rem; color: var(--text-secondary); font-weight: 600; }
+  input, select { width: 100%; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 0.3rem 0.55rem; font-size: 0.92rem; transition: all 0.2s; }
   input:focus, select:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 1px var(--accent-primary); outline: none; }
 
   /* Buttons */
-  button { font-size: 0.85rem; font-weight: 500; padding: 6px 12px; border-radius: var(--border-radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-sm); transition: all 0.2s; cursor: pointer; border: none; }
+  button { font-size: 0.9rem; font-weight: 600; padding: 0.38rem 0.7rem; border-radius: var(--border-radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-sm); transition: all 0.2s; cursor: pointer; border: none; }
   .btn-primary { background-color: var(--accent-primary); color: white; }
   .btn-primary:hover { background-color: var(--accent-primary-hover); }
   .btn-secondary { background-color: var(--bg-surface-active); color: var(--text-primary); }
-  .btn-secondary:hover { background-color: #444; }
-  .btn-icon { padding: var(--spacing-sm) !important; }
-  .btn-icon.active { background-color: var(--accent-primary); color: white; border-color: var(--accent-primary); }
-  .btn-icon.has-filters { color: var(--accent-primary); border-color: var(--accent-primary); }
+  .btn-secondary:hover { background-color: var(--bg-surface-hover); }
+  .btn-icon { padding: var(--spacing-sm) !important; border: 1px solid transparent; }
+  .btn-icon.active {
+    background-color: var(--bg-surface-hover);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+  }
+  .btn-icon.has-filters {
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+  }
+  .btn-icon.active.has-filters {
+    background-color: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-surface-hover));
+    color: var(--accent-primary);
+    border-color: color-mix(in srgb, var(--accent-primary) 55%, var(--border-color));
+  }
+  .filter-actions {
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
 
   /* Table */
   .table-container { flex: 1; overflow: auto; }
-  .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
   .data-table th { position: sticky; top: 0; background-color: var(--bg-surface); color: var(--text-secondary); font-weight: 500; text-align: left; padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--border-color); z-index: 10; }
   .data-table td { padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--border-color); }
   .data-table tbody tr { cursor: pointer; transition: background-color 0.1s; }
   .data-table tbody tr:hover { background-color: var(--bg-surface-hover); }
   .data-table tbody tr.selected { background-color: rgba(59, 130, 246, 0.15); border-left: 2px solid var(--accent-primary); }
   .data-table tbody tr.selected td:first-child { padding-left: calc(var(--spacing-sm) - 2px); }
-  .id-col { color: #888; font-variant-numeric: tabular-nums; font-size: 0.8rem; }
+  .data-table tbody tr.primary-selected { background-color: rgba(59, 130, 246, 0.22); }
+  .id-col { color: var(--text-secondary); font-variant-numeric: tabular-nums; font-size: 0.86rem; }
   .name-col { font-weight: 500; }
 
   /* Pagination */
@@ -271,14 +393,73 @@
   .page-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0 !important; border-radius: var(--border-radius-sm); background: var(--bg-surface-active); color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.15s; }
   .page-btn:hover:not(:disabled) { background: var(--bg-surface-hover); color: var(--text-primary); }
   .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-  .page-info { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; font-variant-numeric: tabular-nums; min-width: 60px; text-align: center; }
+  .page-info { font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 60px; text-align: center; }
   .page-divider { width: 1px; height: 20px; background: var(--border-color); margin: 0 var(--spacing-xs); }
-  .page-jump-input { width: 52px !important; height: 28px; text-align: center; font-size: 0.85rem !important; padding: 2px 4px !important; }
+  .page-jump-input { width: 3.4rem !important; height: 1.9rem; text-align: center; font-size: 0.9rem !important; padding: 0.15rem 0.25rem !important; }
   .page-jump-input::-webkit-inner-spin-button, .page-jump-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-  .page-go { width: auto !important; padding: 0 8px !important; font-size: 0.8rem; font-weight: 500; }
+  .page-go { width: auto !important; padding: 0 0.6rem !important; font-size: 0.88rem; font-weight: 600; }
 
   /* Range Inputs */
   .range-inputs { display: flex; align-items: center; gap: 4px; }
   .range-inputs input { flex: 1; min-width: 0; }
+  .range-inputs input::-webkit-inner-spin-button,
+  .range-inputs input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .range-inputs input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
   .range-sep { color: var(--text-secondary); font-weight: 600; flex-shrink: 0; }
+  .setcode-search-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-sm); }
+  .setcode-search-input {
+    display: flex;
+    align-items: center;
+    background: var(--bg-base);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+  }
+  .setcode-search-input:focus-within {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 1px var(--accent-primary);
+  }
+  .setcode-prefix {
+    padding: 0 0.45rem;
+    color: var(--text-secondary);
+    font-family: monospace;
+    font-size: 0.84rem;
+    border-right: 1px solid var(--border-color);
+    background: var(--bg-surface);
+  }
+  .setcode-search-input input {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0.3rem 0.45rem;
+    font-family: monospace;
+  }
+  .setcode-search-input input:focus {
+    box-shadow: none;
+  }
+
+  @media (max-width: 1200px) {
+    .list-pane {
+      flex-basis: 16rem;
+      min-width: 14rem;
+    }
+  }
+
+  @media (min-width: 2560px) {
+    .list-pane {
+      flex-basis: 25rem;
+      max-width: 36rem;
+    }
+    .data-table td,
+    .data-table th {
+      padding-top: 0.35rem;
+      padding-bottom: 0.35rem;
+    }
+  }
 </style>

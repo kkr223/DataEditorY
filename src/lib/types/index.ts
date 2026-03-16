@@ -10,6 +10,10 @@ export interface SearchFilters {
   subtype?: string;
   attribute?: string;
   race?: string;
+  setcode1?: string;
+  setcode2?: string;
+  setcode3?: string;
+  setcode4?: string;
 }
 
 export interface SearchFilterState {
@@ -24,6 +28,10 @@ export interface SearchFilterState {
   subtype: string;
   attribute: string;
   race: string;
+  setcode1: string;
+  setcode2: string;
+  setcode3: string;
+  setcode4: string;
 }
 
 export interface SelectOption<T = string | number> {
@@ -56,4 +64,8 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilterState = {
   subtype: '',
   attribute: '',
   race: '',
+  setcode1: '',
+  setcode2: '',
+  setcode3: '',
+  setcode4: '',
 };

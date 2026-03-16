@@ -15,6 +15,7 @@ dist/
 package/
 .vite/
 .vscode/
+.codex/
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 

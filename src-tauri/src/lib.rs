@@ -18,6 +18,11 @@ fn copy_image(src: String, dest: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn read_image(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn load_strings_conf() -> Result<String, String> {
     let mut candidates: Vec<std::path::PathBuf> = Vec::new();
 
@@ -50,7 +55,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![read_cdb, write_cdb, copy_image, load_strings_conf])
+        .invoke_handler(tauri::generate_handler![read_cdb, write_cdb, copy_image, read_image, load_strings_conf])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
