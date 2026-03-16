@@ -1,26 +1,25 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { _ } from "svelte-i18n";
   import {
-    isDbLoaded,
-    saveCdbFile,
-    modifyCard,
-    deleteCard,
     activeTab,
+    deleteCard,
+    getCardById,
+    isDbLoaded,
+    modifyCard,
+    saveCdbFile,
   } from "$lib/stores/db";
-  import {
-    editorState,
-    getAllCardsMap,
-    handleSearch,
-  } from "$lib/stores/editor.svelte";
-  import {
-    getSetcode,
-    updateSetcode,
-    loadPopularSetcodes,
-  } from "$lib/utils/setcode";
+  import { editorState, getAllCardsMap, handleSearch } from "$lib/stores/editor.svelte";
+  import { showToast } from "$lib/stores/toast.svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { dirname, join } from "@tauri-apps/api/path";
-  import { open, ask } from "@tauri-apps/plugin-dialog";
-  import { showToast } from "$lib/stores/toast.svelte";
+  import { ask, open } from "@tauri-apps/plugin-dialog";
+  import { CardDataEntry } from "ygopro-cdb-encode";
+  import {
+    getSetcode,
+    loadPopularSetcodes,
+    updateSetcode,
+  } from "$lib/utils/setcode";
   import {
     ATTRIBUTE_OPTIONS,
     cloneEditableCard,
@@ -32,34 +31,50 @@
     RACE_OPTIONS,
     setPackedLevel,
     TYPE_BITS,
-  } from '$lib/utils/card';
+  } from "$lib/utils/card";
 
-  import { CardDataEntry } from "ygopro-cdb-encode";
+  function createEmptyCard(): CardDataEntry {
+    return {
+      code: 0,
+      alias: 0,
+      setcode: [0, 0, 0, 0],
+      type: 0,
+      attack: 0,
+      defense: 0,
+      level: 0,
+      race: 0,
+      attribute: 0,
+      category: 0,
+      ot: 0,
+      name: "",
+      desc: "",
+      strings: Array.from({ length: 16 }, () => ""),
+      lscale: 0,
+      rscale: 0,
+      linkMarker: 0,
+    } as CardDataEntry;
+  }
 
-  let selectedCard = $state<CardDataEntry | null>(null);
+  let draftCard = $state<CardDataEntry>(createEmptyCard());
+  let originalCardCode = $state<number | null>(null);
   let imageSrc = $state<string>("/cover.jpg");
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
   let setcodesLoaded = false;
   let activeObjectUrl: string | null = null;
   let staleObjectUrl: string | null = null;
-  let loadedCardCode: number | null = null;
   let imageRequestToken = 0;
   let isImagePreviewOpen = $state(false);
   let imageClickTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastSyncedSelectedId: number | null = null;
 
-  // Reactive flags for Link/Pendulum (must be after selectedCard declaration)
-  let isLink = $derived(selectedCard ? (selectedCard.type & 0x4000000) !== 0 : false);
-  let isPend = $derived(selectedCard ? (selectedCard.type & 0x1000000) !== 0 : false);
+  let isEditingExisting = $derived(originalCardCode !== null);
+  let isLink = $derived((draftCard.type & 0x4000000) !== 0);
+  let isPend = $derived((draftCard.type & 0x1000000) !== 0);
 
-  function handleImageError() {
-    imageSrc = "/cover.jpg";
-  }
-
-  function handleImageLoad() {
-    if (staleObjectUrl && staleObjectUrl !== activeObjectUrl) {
-      URL.revokeObjectURL(staleObjectUrl);
-      staleObjectUrl = null;
+  function syncSetcodesFromCard(card: CardDataEntry) {
+    for (let i = 0; i < 4; i++) {
+      setcodeHexes[i] = getSetcode(card.setcode, i).replace(/^0x/i, "");
     }
   }
 
@@ -82,6 +97,34 @@
     }
   }
 
+  function resetDraftCard() {
+    lastSyncedSelectedId = null;
+    originalCardCode = null;
+    draftCard = createEmptyCard();
+    syncSetcodesFromCard(draftCard);
+    imageRequestToken++;
+    resetImageUrls();
+    imageSrc = "/cover.jpg";
+  }
+
+  function loadCardIntoDraft(card: CardDataEntry) {
+    lastSyncedSelectedId = card.code;
+    originalCardCode = card.code;
+    draftCard = cloneEditableCard(card);
+    syncSetcodesFromCard(draftCard);
+  }
+
+  function handleImageError() {
+    imageSrc = "/cover.jpg";
+  }
+
+  function handleImageLoad() {
+    if (staleObjectUrl && staleObjectUrl !== activeObjectUrl) {
+      URL.revokeObjectURL(staleObjectUrl);
+      staleObjectUrl = null;
+    }
+  }
+
   async function getPicsDir(cdbPath: string): Promise<string> {
     const cdbDir = await dirname(cdbPath);
     return join(cdbDir, "pics");
@@ -99,56 +142,164 @@
       }
       activeObjectUrl = objectUrl;
       return bustCache ? `${objectUrl}#${Date.now()}` : objectUrl;
-    } catch (err) {
+    } catch {
       return "/cover.jpg";
     }
   }
 
-  $effect(() => {
-    if (setcodesLoaded) return;
-    setcodesLoaded = true;
-    loadPopularSetcodes().then((options) => {
-      popularSetcodes = options;
-    });
-  });
-
-  $effect(() => {
-    const card = getAllCardsMap().get(editorState.selectedId ?? -1);
-    if (card) {
-      if (loadedCardCode !== card.code) {
-        loadedCardCode = card.code;
-        selectedCard = cloneEditableCard(card);
-
-        for (let i = 0; i < 4; i++) {
-          setcodeHexes[i] = getSetcode(selectedCard.setcode, i).replace(/^0x/i, "");
-        }
-
-        // Load image via Tauri asset protocol (zero-copy, no Base64 IPC overhead)
-        if ($activeTab?.path) {
-          const code = card.code;
-          const requestToken = ++imageRequestToken;
-          getPicsDir($activeTab.path)
-            .then((picsDir) => resolveImageSrc(picsDir, code))
-            .then((src) => {
-              if (requestToken === imageRequestToken) {
-                imageSrc = src;
-              }
-            });
-        } else {
-          imageSrc = "/cover.jpg";
-        }
-      }
-    } else {
-      loadedCardCode = null;
+  async function refreshDraftImage(code: number, bustCache = false) {
+    if (!$activeTab?.path || code <= 0) {
       imageRequestToken++;
-      selectedCard = null;
       resetImageUrls();
       imageSrc = "/cover.jpg";
+      return;
     }
-  });
+
+    const requestToken = ++imageRequestToken;
+    const picsDir = await getPicsDir($activeTab.path);
+    const src = await resolveImageSrc(picsDir, code, bustCache);
+    if (requestToken === imageRequestToken) {
+      imageSrc = src;
+    }
+  }
+
+  function toDbCard(card: CardDataEntry): CardDataEntry {
+    const dbCard = new CardDataEntry();
+    Object.assign(dbCard, card);
+    dbCard.strings = [...(card.strings ?? [])];
+    return dbCard;
+  }
+
+  async function saveDraftCard(targetCode: number, removeOriginal = false) {
+    const nextCard = cloneEditableCard(draftCard);
+    nextCard.code = targetCode;
+    const dbCard = toDbCard(nextCard);
+
+    const ok = modifyCard(dbCard);
+    if (!ok) {
+      showToast($_("editor.save_failed"), "error");
+      return false;
+    }
+
+    if (removeOriginal && originalCardCode !== null && originalCardCode !== targetCode) {
+      const deleted = deleteCard(originalCardCode);
+      if (!deleted) {
+        showToast($_("editor.save_failed"), "error");
+        return false;
+      }
+    }
+
+    draftCard = cloneEditableCard(dbCard);
+    originalCardCode = targetCode;
+    editorState.selectedId = targetCode;
+    handleSearch(true);
+    await refreshDraftImage(targetCode, true);
+    showToast($_("editor.card_modified", { values: { code: String(targetCode) } }), "success");
+    return true;
+  }
+
+  async function handleModify() {
+    if (!$isDbLoaded) return;
+
+    const targetCode = Number(draftCard.code ?? 0);
+    if (!Number.isInteger(targetCode) || targetCode <= 0) {
+      showToast($_("editor.code_required"), "error");
+      return;
+    }
+
+    const existing = getCardById(targetCode);
+    if (isEditingExisting && originalCardCode === targetCode) {
+      await saveDraftCard(targetCode);
+      return;
+    }
+
+    if (isEditingExisting && originalCardCode !== targetCode) {
+      const removeOriginal = await ask($_("editor.replace_original_confirm", {
+        values: { oldCode: String(originalCardCode), newCode: String(targetCode) },
+      }), {
+        title: $_("editor.replace_original_title"),
+        kind: "warning",
+      });
+
+      if (existing && existing.code !== originalCardCode) {
+        const overwriteExisting = await ask($_("editor.overwrite_target_confirm", {
+          values: { code: String(targetCode) },
+        }), {
+          title: $_("editor.overwrite_target_title"),
+          kind: "warning",
+        });
+        if (!overwriteExisting) return;
+      }
+
+      await saveDraftCard(targetCode, !!removeOriginal);
+      return;
+    }
+
+    if (existing) {
+      const overwriteExisting = await ask($_("editor.overwrite_target_confirm", {
+        values: { code: String(targetCode) },
+      }), {
+        title: $_("editor.overwrite_target_title"),
+        kind: "warning",
+      });
+      if (!overwriteExisting) return;
+    }
+
+    await saveDraftCard(targetCode);
+  }
+
+  async function handleSaveAs() {
+    if (!$isDbLoaded) return;
+
+    const targetCode = Number(draftCard.code ?? 0);
+    if (!Number.isInteger(targetCode) || targetCode <= 0) {
+      showToast($_("editor.code_required"), "error");
+      return;
+    }
+
+    const existing = getCardById(targetCode);
+    if (existing && existing.code !== originalCardCode) {
+      const overwriteExisting = await ask($_("editor.overwrite_target_confirm", {
+        values: { code: String(targetCode) },
+      }), {
+        title: $_("editor.overwrite_target_title"),
+        kind: "warning",
+      });
+      if (!overwriteExisting) return;
+    }
+
+    await saveDraftCard(targetCode, false);
+  }
+
+  async function handleDelete() {
+    if (!$isDbLoaded || originalCardCode === null) return;
+    const confirmed = await ask(
+      $_("editor.delete_confirm", { values: { code: String(originalCardCode) } }),
+      { title: $_("editor.delete_confirm_title"), kind: "warning" },
+    );
+    if (!confirmed) return;
+
+    if (deleteCard(originalCardCode)) {
+      showToast($_("editor.card_deleted", { values: { code: String(originalCardCode) } }), "success");
+      editorState.selectedId = null;
+      handleSearch();
+      resetDraftCard();
+    }
+  }
+
+  function handleNewCard() {
+    editorState.selectedId = null;
+    resetDraftCard();
+  }
 
   async function handleImagePick() {
-    if (!selectedCard || !$activeTab?.path) return;
+    if (!$activeTab?.path) return;
+    const targetCode = Number(draftCard.code ?? 0);
+    if (!Number.isInteger(targetCode) || targetCode <= 0) {
+      showToast($_("editor.code_required"), "error");
+      return;
+    }
+
     const selected = await open({
       multiple: false,
       filters: [{ name: "Images", extensions: ["jpg", "png", "jpeg"] }],
@@ -156,11 +307,11 @@
     if (selected && typeof selected === "string") {
       try {
         const picsDir = await getPicsDir($activeTab.path);
-        const picPath = await join(picsDir, `${selectedCard.code}.jpg`);
+        const picPath = await join(picsDir, `${targetCode}.jpg`);
         await invoke("copy_image", { src: selected, dest: picPath });
-        imageSrc = await resolveImageSrc(picsDir, selectedCard.code, true);
-      } catch (e) {
-        console.error("Failed to copy image", e);
+        imageSrc = await resolveImageSrc(picsDir, targetCode, true);
+      } catch (error) {
+        console.error("Failed to copy image", error);
       }
     }
   }
@@ -190,44 +341,49 @@
     }
   }
 
-  async function handleModify() {
-    if (!selectedCard) return;
-    const dbCard = new CardDataEntry();
-    Object.assign(dbCard, selectedCard);
-    if (selectedCard.strings) {
-      dbCard.strings = [...selectedCard.strings];
-    }
-    if (modifyCard(dbCard)) {
-      handleSearch(true);
-      showToast($_('editor.card_modified', { values: { code: String(selectedCard.code) } }), 'success');
-    } else {
-      showToast($_('editor.card_no_change'), 'info');
-    }
-  }
-  async function handleDelete() {
-    if (!selectedCard) return;
-    const confirmed = await ask(
-      $_('editor.delete_confirm', { values: { code: String(selectedCard.code) } }),
-      { title: $_('editor.delete_confirm_title'), kind: 'warning' },
-    );
-    if (!confirmed) return;
-    const code = selectedCard.code;
-    if (deleteCard(code)) {
-      showToast($_('editor.card_deleted', { values: { code: String(code) } }), 'success');
-      handleSearch();
-    }
-  }
-  function handleResetEditor() {
-    editorState.selectedId = null;
-  }
   async function handleSave() {
     const ok = await saveCdbFile();
-    if (ok) {
-      showToast($_('editor.save_success'), 'success');
-    } else {
-      showToast($_('editor.save_failed'), 'error');
-    }
+    showToast($_(ok ? "editor.save_success" : "editor.save_failed"), ok ? "success" : "error");
   }
+
+  $effect(() => {
+    if (setcodesLoaded) return;
+    setcodesLoaded = true;
+    loadPopularSetcodes().then((options) => {
+      popularSetcodes = options;
+    });
+  });
+
+  $effect(() => {
+    if (!$isDbLoaded) {
+      untrack(() => {
+        resetDraftCard();
+      });
+      return;
+    }
+
+    const selectedId = editorState.selectedId;
+    const card = getAllCardsMap().get(selectedId ?? -1);
+    if (card) {
+      if (lastSyncedSelectedId !== card.code) {
+        untrack(() => {
+          loadCardIntoDraft(card);
+        });
+        void refreshDraftImage(card.code);
+      }
+      return;
+    }
+
+    if (selectedId !== null) {
+      return;
+    }
+
+    if (originalCardCode !== null) {
+      untrack(() => {
+        resetDraftCard();
+      });
+    }
+  });
 
   $effect(() => {
     return () => {
@@ -236,39 +392,31 @@
   });
 </script>
 
-<div class="editor-area">
-  {#if selectedCard}
-    <!-- Header -->
+{#if $isDbLoaded}
+  <div class="editor-area">
     <div class="editor-header">
       <h2>{$_("editor.title")}</h2>
-      <button
-        class="btn-primary btn-sm"
-        onclick={handleSave}
-        disabled={!$isDbLoaded}>{$_("editor.save_db")}</button
-      >
+      <button class="btn-primary btn-sm" onclick={handleSave}>{$_("editor.save_db")}</button>
     </div>
 
-    <!-- Top strip: ID / Alias / Name -->
     <div class="top-strip">
       <div class="strip-field" style="width:120px">
         <label for="edit-id">{$_("editor.id")}</label>
-        <input type="number" id="edit-id" bind:value={selectedCard.code} />
+        <input type="number" id="edit-id" bind:value={draftCard.code} />
       </div>
       <div class="strip-field" style="width:90px">
         <label for="edit-alias">{$_("editor.alias")}</label>
-        <input type="number" id="edit-alias" bind:value={selectedCard.alias} />
+        <input type="number" id="edit-alias" bind:value={draftCard.alias} />
       </div>
       <div class="strip-field" style="flex:1">
         <label for="edit-name">{$_("editor.name")}</label>
-        <input type="text" id="edit-name" bind:value={selectedCard.name} />
+        <input type="text" id="edit-name" bind:value={draftCard.name} />
       </div>
+      <button class="btn-secondary btn-sm top-action" onclick={handleNewCard}>{$_("editor.new_card")}</button>
     </div>
 
-    <!-- Two-column body -->
     <div class="editor-columns">
-      <!-- LEFT column: Image+Stats, then Types, then Desc -->
       <div class="editor-col">
-        <!-- Image + Attribute/Race/ATK/DEF/Level side by side -->
         <div class="card-top-row">
           <button
             class="image-picker"
@@ -294,10 +442,7 @@
           <div class="stats-beside-img">
             <div class="inline-field">
               <label for="edit-ot">{$_("editor.license")}</label>
-              <select
-                id="edit-ot"
-                bind:value={selectedCard!.ot}
-              >
+              <select id="edit-ot" bind:value={draftCard.ot}>
                 {#each PERMISSION_OPTIONS as opt}
                   <option value={opt.value}>{opt.label}</option>
                 {/each}
@@ -305,10 +450,7 @@
             </div>
             <div class="inline-field">
               <label for="edit-attribute">{$_("editor.attribute")}</label>
-              <select
-                id="edit-attribute"
-                bind:value={selectedCard!.attribute}
-              >
+              <select id="edit-attribute" bind:value={draftCard.attribute}>
                 {#each ATTRIBUTE_OPTIONS as opt}
                   <option value={opt.value}>{opt.key ? $_(opt.key) : opt.label}</option>
                 {/each}
@@ -316,7 +458,7 @@
             </div>
             <div class="inline-field">
               <label for="edit-race">{$_("editor.race")}</label>
-              <select id="edit-race" bind:value={selectedCard!.race}>
+              <select id="edit-race" bind:value={draftCard.race}>
                 {#each RACE_OPTIONS as r}
                   <option value={r.value}>{$_(r.key!)}</option>
                 {/each}
@@ -328,42 +470,29 @@
                 id="edit-level"
                 onchange={(e) => {
                   const t = e.target as HTMLSelectElement;
-                  selectedCard!.level = setPackedLevel(
+                  draftCard.level = setPackedLevel(
                     parseInt(t.value),
-                    getPackedLScale(selectedCard!.level),
-                    getPackedRScale(selectedCard!.level),
+                    getPackedLScale(draftCard.level),
+                    getPackedRScale(draftCard.level),
                   );
                 }}
               >
                 {#each Array.from({ length: 13 }, (_, i) => i) as lvl}
-                  <option
-                    value={lvl}
-                    selected={getPackedLevel(selectedCard!.level) === lvl}
-                    >{lvl}</option
-                  >
+                  <option value={lvl} selected={getPackedLevel(draftCard.level) === lvl}>{lvl}</option>
                 {/each}
               </select>
             </div>
             <div class="inline-field">
               <label for="edit-atk">{$_("editor.atk")}</label>
-              <input
-                type="number"
-                id="edit-atk"
-                bind:value={selectedCard!.attack}
-              />
+              <input type="number" id="edit-atk" bind:value={draftCard.attack} />
             </div>
             <div class="inline-field">
               <label for="edit-def">{$_("editor.def")}</label>
-              <input
-                type="number"
-                id="edit-def"
-                bind:value={selectedCard!.defense}
-              />
+              <input type="number" id="edit-def" bind:value={draftCard.defense} />
             </div>
           </div>
         </div>
 
-        <!-- Type checkboxes -->
         <div class="fg">
           <span class="group-label">{$_("editor.types")}</span>
           <div class="checkbox-grid">
@@ -371,11 +500,11 @@
               <label class="checkbox-label">
                 <input
                   type="checkbox"
-                  checked={(selectedCard!.type & tb.bit) !== 0}
+                  checked={(draftCard.type & tb.bit) !== 0}
                   onchange={(e) => {
                     const t = e.target as HTMLInputElement;
-                    if (t.checked) selectedCard!.type |= tb.bit;
-                    else selectedCard!.type &= ~tb.bit;
+                    if (t.checked) draftCard.type |= tb.bit;
+                    else draftCard.type &= ~tb.bit;
                   }}
                 />
                 {$_(tb.key)}
@@ -384,14 +513,12 @@
           </div>
         </div>
 
-        <!-- Description at bottom, fills remaining space -->
         <div class="fg flex-1-min">
           <label for="edit-desc">{$_("editor.desc")}</label>
-          <textarea id="edit-desc" bind:value={selectedCard!.desc}></textarea>
+          <textarea id="edit-desc" bind:value={draftCard.desc}></textarea>
         </div>
       </div>
 
-      <!-- RIGHT column: Setcodes, then Link/Pendulum, then Hints -->
       <div class="editor-col">
         <div class="fg">
           <span class="group-label">{$_("editor.setcodes")}</span>
@@ -405,14 +532,12 @@
                   value={dropdownValue}
                   onchange={(e) => {
                     const val = (e.target as HTMLSelectElement).value;
-                    if (val === "__custom__") {
-                      // Do nothing, let user type in input
-                    } else if (val === "") {
+                    if (val === "") {
                       setcodeHexes[idx] = "";
-                      selectedCard!.setcode = updateSetcode(selectedCard!.setcode, idx, "");
-                    } else {
+                      draftCard.setcode = updateSetcode(draftCard.setcode, idx, "");
+                    } else if (val !== "__custom__") {
                       setcodeHexes[idx] = val.replace(/^0x/i, "");
-                      selectedCard!.setcode = updateSetcode(selectedCard!.setcode, idx, val);
+                      draftCard.setcode = updateSetcode(draftCard.setcode, idx, val);
                     }
                   }}
                 >
@@ -421,7 +546,7 @@
                     <option value={opt.value} selected={dropdownValue === opt.value}>{opt.label}</option>
                   {/each}
                   {#if dropdownValue === "__custom__"}
-                    <option value="__custom__" selected>{$_("editor.custom") ?? "自定义"} ({hexString})</option>
+                    <option value="__custom__" selected>{$_("editor.custom")} ({hexString})</option>
                   {/if}
                 </select>
                 <div class="hex-input">
@@ -430,10 +555,10 @@
                     type="text"
                     bind:value={setcodeHexes[idx]}
                     oninput={() => {
-                      selectedCard!.setcode = updateSetcode(
-                        selectedCard!.setcode,
+                      draftCard.setcode = updateSetcode(
+                        draftCard.setcode,
                         idx,
-                        setcodeHexes[idx] ? "0x" + setcodeHexes[idx] : ""
+                        setcodeHexes[idx] ? "0x" + setcodeHexes[idx] : "",
                       );
                     }}
                     maxlength="4"
@@ -446,55 +571,36 @@
         </div>
 
         <div class="row-2 align-start">
-          <!-- Link Markers (Left) -->
           <div class="fg" class:disabled-opacity={!isLink}>
             <span class="group-label">{$_("editor.link_markers")}</span>
             <div class="link-marker-grid">
               {#each LINK_MARKERS as lm}
                 <button
                   class="link-arrow"
-                  class:active={isLink && (selectedCard!.linkMarker & lm.bit) !== 0}
+                  class:active={isLink && (draftCard.linkMarker & lm.bit) !== 0}
                   disabled={!isLink}
                   style="grid-row:{lm.row + 1};grid-column:{lm.col + 1}"
-                  onclick={() => (selectedCard!.linkMarker ^= lm.bit)}
-                  >{lm.label}</button
-                >
+                  onclick={() => (draftCard.linkMarker ^= lm.bit)}
+                >{lm.label}</button>
               {/each}
               <div class="link-center" style="grid-row:2;grid-column:2">⬡</div>
             </div>
           </div>
 
-          <!-- Pendulum Scale (Right) -->
           <div class="fg flex-1" class:disabled-opacity={!isPend}>
             <span class="group-label">{$_("editor.scale")}</span>
             <div class="row-2">
               <div class="fg">
                 <label for="edit-lscale">{$_("editor.scale_left")}</label>
-                <input
-                  type="number"
-                  id="edit-lscale"
-                  min="0"
-                  max="13"
-                  disabled={!isPend}
-                  bind:value={selectedCard!.lscale}
-                />
+                <input type="number" id="edit-lscale" min="0" max="13" disabled={!isPend} bind:value={draftCard.lscale} />
               </div>
               <div class="fg">
                 <label for="edit-rscale">{$_("editor.scale_right")}</label>
-                <input
-                  type="number"
-                  id="edit-rscale"
-                  min="0"
-                  max="13"
-                  disabled={!isPend}
-                  bind:value={selectedCard!.rscale}
-                />
+                <input type="number" id="edit-rscale" min="0" max="13" disabled={!isPend} bind:value={draftCard.rscale} />
               </div>
             </div>
           </div>
         </div>
-
-
 
         <div class="fg" style="flex:1; min-height:0;">
           <span class="group-label">{$_("editor.hints")}</span>
@@ -502,10 +608,7 @@
             {#each Array.from({ length: 16 }, (_, i) => i) as idx}
               <div class="hint-row">
                 <span class="hint-label">str{idx + 1}</span>
-                <input
-                  type="text"
-                  bind:value={selectedCard!.strings[idx]}
-                />
+                <input type="text" bind:value={draftCard.strings[idx]} />
               </div>
             {/each}
           </div>
@@ -513,24 +616,24 @@
       </div>
     </div>
 
-    <!-- Bottom actions -->
+    <div class="editor-empty-hint">
+      {#if isEditingExisting}
+        {$_("editor.editing_card", { values: { code: String(originalCardCode) } })}
+      {:else}
+        {$_("editor.new_card_hint")}
+      {/if}
+    </div>
+
     <div class="editor-bottom">
-      <button class="btn-secondary btn-sm" onclick={handleResetEditor}
-        >{$_("editor.reset_editor")}</button
-      >
+      <button class="btn-secondary btn-sm" onclick={handleNewCard}>{$_("editor.new_card")}</button>
       <div class="btn-group">
-        <button class="btn-primary btn-sm" onclick={handleModify}
-          >{$_("editor.modify")}</button
-        >
-        <button class="btn-danger btn-sm" onclick={handleDelete}
-          >{$_("editor.delete")}</button
-        >
+        <button class="btn-secondary btn-sm" onclick={handleSaveAs}>{$_("editor.save_as")}</button>
+        <button class="btn-primary btn-sm" onclick={handleModify}>{$_("editor.modify")}</button>
+        <button class="btn-danger btn-sm" onclick={handleDelete} disabled={!isEditingExisting}>{$_("editor.delete")}</button>
       </div>
     </div>
-  {:else}
-    <div class="editor-empty">{$_("editor.no_card")}</div>
-  {/if}
-</div>
+  </div>
+{/if}
 
 {#if isImagePreviewOpen}
   <div
@@ -564,14 +667,11 @@
     min-width: 0;
     overflow: hidden;
   }
-  .editor-empty {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .editor-empty-hint {
+    padding: 0 10px 8px;
     color: var(--text-secondary);
+    font-size: 0.85rem;
   }
-
   .editor-header {
     height: 2.5rem;
     min-height: 2.5rem;
@@ -585,13 +685,16 @@
     font-size: 1rem;
     font-weight: 600;
   }
-
   .top-strip {
     display: flex;
     gap: 6px;
     padding: 6px 10px;
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-base);
+    align-items: end;
+  }
+  .top-action {
+    height: fit-content;
   }
   .strip-field {
     display: flex;
@@ -607,7 +710,6 @@
     padding: 0.25rem 0.45rem;
     font-size: 0.9rem;
   }
-
   .editor-columns {
     flex: 1;
     display: flex;
@@ -623,8 +725,6 @@
   .editor-col:first-child {
     border-right: 1px solid var(--border-color);
   }
-
-  /* ── Card image + stats row ── */
   .card-top-row {
     display: flex;
     gap: 8px;
@@ -638,7 +738,6 @@
     border: 1px dashed var(--border-color);
     border-radius: 4px;
     padding: 2px;
-    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -662,7 +761,6 @@
     font-size: 1.5rem;
     opacity: 0.3;
   }
-
   .stats-beside-img {
     flex: 1;
     display: flex;
@@ -670,8 +768,6 @@
     gap: 3px;
     justify-content: flex-start;
   }
-
-  /* ── Form helpers ── */
   .fg {
     display: flex;
     flex-direction: column;
@@ -692,7 +788,6 @@
   .flex-1 {
     flex: 1;
   }
-
   .inline-field {
     display: flex;
     align-items: center;
@@ -714,7 +809,6 @@
     min-width: 0;
     margin: 0;
   }
-
   .flex-1-min {
     flex: 1;
     display: flex;
@@ -727,7 +821,6 @@
     min-height: 120px;
     resize: none;
   }
-
   label,
   .group-label {
     font-size: 0.82rem;
@@ -757,8 +850,6 @@
     font-size: 0.94rem;
     padding: 6px;
   }
-
-  /* ── Type checkboxes ── */
   .checkbox-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -785,8 +876,6 @@
     accent-color: var(--accent-primary);
     margin: 0;
   }
-
-  /* ── Setcodes ── */
   .setcode-grid {
     display: flex;
     flex-direction: column;
@@ -840,8 +929,6 @@
     box-shadow: none;
     outline: none;
   }
-
-  /* ── Link markers ── */
   .link-marker-grid {
     display: grid;
     grid-template-columns: 28px 28px 28px;
@@ -858,7 +945,6 @@
     background: var(--bg-base);
     color: var(--text-secondary);
     border-radius: 4px;
-    cursor: pointer;
     transition: all 0.15s;
   }
   .link-arrow.active {
@@ -881,7 +967,6 @@
     color: var(--text-secondary);
     opacity: 0.25;
   }
-
   .disabled-opacity {
     opacity: 0.5;
     pointer-events: none;
@@ -897,9 +982,6 @@
   .link-arrow:disabled:hover {
     background: var(--bg-base);
   }
-
-
-  /* ── Hints ── */
   .hints-container {
     flex: 1;
     overflow-y: auto;
@@ -933,8 +1015,6 @@
   .hint-row input:focus {
     box-shadow: none;
   }
-
-  /* ── Bottom actions ── */
   .editor-bottom {
     display: flex;
     align-items: center;
@@ -947,8 +1027,6 @@
     display: flex;
     gap: 6px;
   }
-
-  /* ── Buttons ── */
   button {
     font-size: 0.9rem;
     font-weight: 600;
@@ -987,7 +1065,6 @@
   .btn-danger:hover {
     background: #b91c1c;
   }
-
   .image-preview-backdrop {
     position: fixed;
     inset: 0;
@@ -1015,7 +1092,6 @@
     object-fit: contain;
     background: #000;
   }
-
   @media (min-width: 2560px) {
     .editor-col {
       padding: 0.7rem 0.9rem;

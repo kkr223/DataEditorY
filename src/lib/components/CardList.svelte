@@ -1,13 +1,13 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
-  import { editorState, getAllCards, handleSearch, handleReset } from '$lib/stores/editor.svelte';
+  import { editorState, getAllCards, getTotalCards, handleSearch, handleReset } from '$lib/stores/editor.svelte';
   import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
 
   const PAGE_SIZE = 50;
-  let allCards = $derived(getAllCards());
-  let totalPages = $derived(Math.max(1, Math.ceil(allCards.length / PAGE_SIZE)));
-  let pageCards = $derived(allCards.slice((editorState.currentPage - 1) * PAGE_SIZE, editorState.currentPage * PAGE_SIZE));
+  let pageCards = $derived(getAllCards());
+  let totalCards = $derived(getTotalCards());
+  let totalPages = $derived(Math.max(1, Math.ceil(totalCards / PAGE_SIZE)));
 
   let hasActiveFilters = $derived(
     editorState.searchFilters.id !== '' ||
@@ -35,7 +35,10 @@
   }
 
   function goToPage(page: number) {
-    editorState.currentPage = Math.max(1, Math.min(page, totalPages));
+    const nextPage = Math.max(1, Math.min(page, totalPages));
+    if (nextPage === editorState.currentPage) return;
+    editorState.currentPage = nextPage;
+    handleSearch(true);
   }
 
   let jumpPage = $state('');
@@ -45,15 +48,19 @@
     jumpPage = '';
   }
 
+  function runSearch() {
+    handleSearch(false, true);
+  }
+
 </script>
 
 <section class="pane list-pane">
   <div class="list-header-complex">
     <div class="search-row">
       <div class="search-input-wrapper">
-        <input type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.name} onkeydown={(e) => e.key === 'Enter' && handleSearch()} />
+        <input type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.name} onkeydown={(e) => e.key === 'Enter' && runSearch()} />
       </div>
-      <button class="btn-primary" onclick={() => handleSearch()} disabled={!$isDbLoaded} title={$_('search.title')}>
+      <button class="btn-primary" onclick={runSearch} disabled={!$isDbLoaded} title={$_('search.title')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       </button>
       <button class="btn-secondary btn-icon" class:active={editorState.isFilterOpen} class:has-filters={hasActiveFilters} onclick={toggleFilter} title="Filters">
@@ -203,7 +210,7 @@
 
     <div class="results-stats">
       <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">
-        {$_('results.title')} <span class="badge" style="margin-left: 4px;">{allCards.length}</span>
+        {$_('results.title')} <span class="badge" style="margin-left: 4px;">{totalCards}</span>
       </span>
     </div>
   </div>
@@ -225,7 +232,7 @@
             <td>{$_(getCardTypeKey(card.type))}</td>
           </tr>
         {/each}
-        {#if allCards.length === 0}
+        {#if totalCards === 0}
           <tr>
             <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 2rem;">
               {$_('editor.no_card')}
@@ -237,7 +244,7 @@
   </div>
 
   <!-- Pagination Bar -->
-  {#if allCards.length > 0}
+  {#if totalCards > 0}
   <div class="pagination-bar">
     <button class="page-btn" onclick={() => goToPage(1)} disabled={editorState.currentPage === 1} aria-label="First page">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>

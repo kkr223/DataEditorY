@@ -11,8 +11,10 @@ export interface CdbTab {
   path: string;
   name: string;
   cdb: YGOProCdb;
-  /** Cached results from last search for fast tab switching */
+  /** Cached current page results from last search for fast tab switching */
   cachedCards: CardDataEntry[];
+  cachedTotal: number;
+  cachedPage: number;
   cachedFilters: string; // JSON of the filters used for the cache
 }
 
@@ -53,6 +55,87 @@ async function initDb() {
       locateFile: file => `/${file}`
     });
   }
+}
+
+function buildSearchQuery(filters: SearchFilters = {}) {
+  const conditions: string[] = [];
+  const params: Record<string, string | number> = {};
+
+  if (filters.name) {
+    conditions.push('(texts.name LIKE :name OR texts.desc LIKE :name)');
+    params.name = toLikePattern(filters.name);
+  }
+
+  if (filters.id) {
+    const parsedId = parseInt(filters.id);
+    if (!isNaN(parsedId)) {
+      conditions.push('(datas.id = :id OR datas.alias = :id)');
+      params.id = parsedId;
+    }
+  }
+
+  if (filters.desc) {
+    conditions.push('texts.desc LIKE :desc');
+    params.desc = toLikePattern(filters.desc);
+  }
+
+  if (filters.atkMin !== '' && filters.atkMin !== undefined) {
+    const v = parseInt(filters.atkMin.toString());
+    if (!isNaN(v)) conditions.push(`datas.atk >= ${v}`);
+  }
+  if (filters.atkMax !== '' && filters.atkMax !== undefined) {
+    const v = parseInt(filters.atkMax.toString());
+    if (!isNaN(v)) conditions.push(`datas.atk <= ${v} AND datas.atk >= 0`);
+  }
+  if (filters.defMin !== '' && filters.defMin !== undefined) {
+    const v = parseInt(filters.defMin.toString());
+    if (!isNaN(v)) conditions.push(`datas.def >= ${v}`);
+  }
+  if (filters.defMax !== '' && filters.defMax !== undefined) {
+    const v = parseInt(filters.defMax.toString());
+    if (!isNaN(v)) conditions.push(`datas.def <= ${v} AND datas.def >= 0`);
+  }
+
+  if (filters.type && TYPE_MAP[filters.type] !== undefined) {
+    const typeBit = TYPE_MAP[filters.type];
+    conditions.push(`(datas.type & ${typeBit}) = ${typeBit}`);
+  }
+
+  if (filters.subtype) {
+    let subtypeBit: number | undefined;
+    if (filters.subtype === 'continuous_spell' || filters.subtype === 'continuous_trap') subtypeBit = 0x20000;
+    else if (filters.subtype === 'ritual_spell') subtypeBit = 0x80;
+    else subtypeBit = SUBTYPE_MAP[filters.subtype];
+    if (subtypeBit !== undefined) conditions.push(`(datas.type & ${subtypeBit}) = ${subtypeBit}`);
+  }
+
+  if (filters.attribute && ATTRIBUTE_MAP[filters.attribute] !== undefined) {
+    conditions.push(`datas.attribute = ${ATTRIBUTE_MAP[filters.attribute]}`);
+  }
+
+  if (filters.race && RACE_MAP[filters.race] !== undefined) {
+    conditions.push(`datas.race = ${RACE_MAP[filters.race]}`);
+  }
+
+  const setcodeFilters = [filters.setcode1, filters.setcode2, filters.setcode3, filters.setcode4];
+  for (const rawValue of setcodeFilters) {
+    if (!rawValue) continue;
+    const parsedSetcode = parseSetcodeFilter(rawValue);
+    if (parsedSetcode === null) continue;
+    conditions.push(
+      `(
+        ((CAST(datas.setcode AS INTEGER) >> 0) & 65535) = ${parsedSetcode}
+        OR ((CAST(datas.setcode AS INTEGER) >> 16) & 65535) = ${parsedSetcode}
+        OR ((CAST(datas.setcode AS INTEGER) >> 32) & 65535) = ${parsedSetcode}
+        OR ((CAST(datas.setcode AS INTEGER) >> 48) & 65535) = ${parsedSetcode}
+      )`
+    );
+  }
+
+  return {
+    whereClause: conditions.length > 0 ? conditions.join(' AND ') : '1=1',
+    params,
+  };
 }
 
 // --- Type/Attribute/Race bit constants from YGOPro ---
@@ -156,13 +239,25 @@ export async function openCdbFile(): Promise<string | null> {
       const name = await basename(selected).catch(() => 'unknown.cdb');
       const id = crypto.randomUUID();
       
-      // Pre-cache first 200 cards so tab switch is instant
+      // Pre-cache first page so tab switch is instant
       let cachedCards: CardDataEntry[] = [];
+      let cachedTotal = 0;
       try {
-        cachedCards = cdb.find('1=1');
+        const totalResult = cdb.database.exec('SELECT COUNT(*) AS total FROM datas INNER JOIN texts ON datas.id = texts.id');
+        cachedTotal = totalResult.length > 0 ? Number(totalResult[0].values[0]?.[0] ?? 0) : 0;
+        cachedCards = cdb.find('1=1 ORDER BY datas.id LIMIT 50 OFFSET 0');
       } catch { /* empty db */ }
       
-      const tab: CdbTab = { id, path: selected, name, cdb, cachedCards, cachedFilters: '{}' };
+      const tab: CdbTab = {
+        id,
+        path: selected,
+        name,
+        cdb,
+        cachedCards,
+        cachedTotal,
+        cachedPage: 1,
+        cachedFilters: '{}'
+      };
       tabs.update(t => [...t, tab]);
       activeTabId.set(id);
       return id;
@@ -198,7 +293,16 @@ export async function createCdbFile(): Promise<string | null> {
       const name = await basename(selected).catch(() => 'newcard.cdb');
       const id = crypto.randomUUID();
       
-      const tab: CdbTab = { id, path: selected, name, cdb, cachedCards: [], cachedFilters: '{}' };
+      const tab: CdbTab = {
+        id,
+        path: selected,
+        name,
+        cdb,
+        cachedCards: [],
+        cachedTotal: 0,
+        cachedPage: 1,
+        cachedFilters: '{}'
+      };
       tabs.update(t => [...t, tab]);
       activeTabId.set(id);
       return id;
@@ -250,6 +354,33 @@ export function getCachedCards(): CardDataEntry[] {
   return tab ? tab.cachedCards : [];
 }
 
+export function getCachedTotal(): number {
+  const tab = get(activeTab);
+  return tab ? tab.cachedTotal : 0;
+}
+
+export function getCachedPage(): number {
+  const tab = get(activeTab);
+  return tab ? tab.cachedPage : 1;
+}
+
+export function getCachedFilters(): SearchFilters {
+  const tab = get(activeTab);
+  if (!tab) return {};
+
+  try {
+    return JSON.parse(tab.cachedFilters) as SearchFilters;
+  } catch {
+    return {};
+  }
+}
+
+export function getCardById(cardId: number): CardDataEntry | undefined {
+  const tab = get(activeTab);
+  if (!tab) return undefined;
+  return tab.cdb.findById(cardId);
+}
+
 /** Modify (upsert) a card in the active tab's in-memory CDB */
 export function modifyCard(card: CardDataEntry): boolean {
   const tab = get(activeTab);
@@ -280,129 +411,28 @@ export function deleteCard(cardId: number): boolean {
   }
 }
 
-/** Search cards in the active tab's CDB */
-export function searchCards(filters: SearchFilters = {}): CardDataEntry[] {
+/** Search one page of cards in the active tab's CDB */
+export function searchCardsPage(filters: SearchFilters = {}, page = 1, pageSize = 50): { cards: CardDataEntry[]; total: number } {
   const tab = get(activeTab);
-  if (!tab) return [];
+  if (!tab) return { cards: [], total: 0 };
 
   try {
-    const conditions: string[] = [];
-    const params: Record<string, string | number> = {};
+    const { whereClause, params } = buildSearchQuery(filters);
+    const safePage = Math.max(1, page);
+    const offset = (safePage - 1) * pageSize;
+    const totalStmt = `SELECT COUNT(*) AS total FROM datas INNER JOIN texts ON datas.id = texts.id WHERE ${whereClause}`;
+    const totalResult = tab.cdb.database.exec(totalStmt, params);
+    const total = totalResult.length > 0 ? Number(totalResult[0].values[0]?.[0] ?? 0) : 0;
+    const cards = tab.cdb.find(`${whereClause} ORDER BY datas.id LIMIT ${pageSize} OFFSET ${offset}`, params);
 
-    // Name / text search (main search bar)
-    if (filters.name) {
-      conditions.push('(texts.name LIKE :name OR texts.desc LIKE :name)');
-      params.name = toLikePattern(filters.name);
-    }
-
-    // ID / alias
-    if (filters.id) {
-      const parsedId = parseInt(filters.id);
-      if (!isNaN(parsedId)) {
-        conditions.push('(datas.id = :id OR datas.alias = :id)');
-        params.id = parsedId;
-      }
-    }
-
-    // Description (separate field from name)
-    if (filters.desc) {
-      conditions.push('texts.desc LIKE :desc');
-      params.desc = toLikePattern(filters.desc);
-    }
-
-    // ATK range
-    if (filters.atkMin !== '' && filters.atkMin !== undefined) {
-      const v = parseInt(filters.atkMin.toString());
-      if (!isNaN(v)) {
-        conditions.push(`datas.atk >= ${v}`);
-      }
-    }
-    if (filters.atkMax !== '' && filters.atkMax !== undefined) {
-      const v = parseInt(filters.atkMax.toString());
-      if (!isNaN(v)) {
-        conditions.push(`datas.atk <= ${v} AND datas.atk >= 0`);
-      }
-    }
-
-    // DEF range
-    if (filters.defMin !== '' && filters.defMin !== undefined) {
-      const v = parseInt(filters.defMin.toString());
-      if (!isNaN(v)) {
-        conditions.push(`datas.def >= ${v}`);
-      }
-    }
-    if (filters.defMax !== '' && filters.defMax !== undefined) {
-      const v = parseInt(filters.defMax.toString());
-      if (!isNaN(v)) {
-        conditions.push(`datas.def <= ${v} AND datas.def >= 0`);
-      }
-    }
-
-    // Card type (monster/spell/trap) — bitwise check
-    if (filters.type && TYPE_MAP[filters.type] !== undefined) {
-      const typeBit = TYPE_MAP[filters.type];
-      conditions.push(`(datas.type & ${typeBit}) = ${typeBit}`);
-    }
-
-    // Sub-type — bitwise check
-    if (filters.subtype) {
-      let subtypeBit: number | undefined;
-      // For continuous/ritual, disambiguate by card type
-      if (filters.subtype === 'continuous_spell' || filters.subtype === 'continuous_trap') {
-        subtypeBit = 0x20000;
-      } else if (filters.subtype === 'ritual_spell') {
-        subtypeBit = 0x80;
-      } else {
-        subtypeBit = SUBTYPE_MAP[filters.subtype];
-      }
-      if (subtypeBit !== undefined) {
-        conditions.push(`(datas.type & ${subtypeBit}) = ${subtypeBit}`);
-      }
-    }
-
-    // Attribute — bitwise check
-    if (filters.attribute && ATTRIBUTE_MAP[filters.attribute] !== undefined) {
-      const attrBit = ATTRIBUTE_MAP[filters.attribute];
-      conditions.push(`datas.attribute = ${attrBit}`);
-    }
-
-    // Race — bitwise check
-    if (filters.race && RACE_MAP[filters.race] !== undefined) {
-      const raceBit = RACE_MAP[filters.race];
-      conditions.push(`datas.race = ${raceBit}`);
-    }
-
-    const setcodeFilters = [
-      filters.setcode1,
-      filters.setcode2,
-      filters.setcode3,
-      filters.setcode4,
-    ];
-
-    for (const rawValue of setcodeFilters) {
-      if (!rawValue) continue;
-      const parsedSetcode = parseSetcodeFilter(rawValue);
-      if (parsedSetcode === null) continue;
-      conditions.push(
-        `(
-          ((CAST(datas.setcode AS INTEGER) >> 0) & 65535) = ${parsedSetcode}
-          OR ((CAST(datas.setcode AS INTEGER) >> 16) & 65535) = ${parsedSetcode}
-          OR ((CAST(datas.setcode AS INTEGER) >> 32) & 65535) = ${parsedSetcode}
-          OR ((CAST(datas.setcode AS INTEGER) >> 48) & 65535) = ${parsedSetcode}
-        )`
-      );
-    }
-
-    const whereClause = conditions.length > 0 ? conditions.join(' AND ') : '1=1';
-    const result = tab.cdb.find(whereClause, params);
-
-    // Update cache
-    tab.cachedCards = result;
+    tab.cachedCards = cards;
+    tab.cachedTotal = total;
+    tab.cachedPage = safePage;
     tab.cachedFilters = JSON.stringify(filters);
 
-    return result;
+    return { cards, total };
   } catch (err) {
     console.error("Search failed:", err);
-    return [];
+    return { cards: [], total: 0 };
   }
 }
