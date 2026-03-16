@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "svelte-kit sync && vite build",
+    "build": "svelte-kit sync && vite build && node scripts/remove-build-assets.mjs",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -21,7 +21,7 @@
     "@types/sql.js": "^1.4.9",
     "sql.js": "^1.14.1",
     "svelte-i18n": "^4.0.1",
-    "ygopro-cdb-encode": "^1.0.5"
+    "ygopro-cdb-encode": "^1.1.0-2"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",

@@ -1,5 +1,7 @@
-import { searchCards, activeTabId, getCachedCards } from '$lib/stores/db';
+import { searchCards } from '$lib/stores/db';
 import type { CardDataEntry } from 'ygopro-cdb-encode';
+import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
+import type { SearchFilterState } from '$lib/types';
 
 // allCards is a large array (potentially 10k+ items) that is only used for
 // read-only rendering in CardList. Using $state.raw avoids Svelte 5's deep
@@ -13,26 +15,12 @@ let _allCardsMap = $state.raw<Map<number, CardDataEntry>>(new Map());
 export const editorState = $state<{
   selectedId: number | null;
   currentPage: number;
-  searchFilters: {
-    id: string;
-    name: string;
-    desc: string;
-    atkMin: string;
-    atkMax: string;
-    defMin: string;
-    defMax: string;
-    type: string;
-    subtype: string;
-    attribute: string;
-    race: string;
-  };
+  searchFilters: SearchFilterState;
   isFilterOpen: boolean;
 }>({
   selectedId: null,
   currentPage: 1,
-  searchFilters: {
-    id: '', name: '', desc: '', atkMin: '', atkMax: '', defMin: '', defMax: '', type: '', subtype: '', attribute: '', race: ''
-  },
+  searchFilters: { ...DEFAULT_SEARCH_FILTERS },
   isFilterOpen: false
 });
 
@@ -73,6 +61,6 @@ export function handleSearch(preserveSelection = false) {
 }
 
 export function handleReset() {
-  editorState.searchFilters = { id: '', name: '', desc: '', atkMin: '', atkMax: '', defMin: '', defMax: '', type: '', subtype: '', attribute: '', race: '' };
+  editorState.searchFilters = { ...DEFAULT_SEARCH_FILTERS };
   handleSearch();
 }

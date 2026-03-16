@@ -1,8 +1,9 @@
 import { writable, get, derived } from 'svelte/store';
 import initSqlJs from 'sql.js';
 import { YGOProCdb, CardDataEntry } from 'ygopro-cdb-encode';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
+import type { SearchFilters } from '$lib/types';
 
 export interface CdbTab {
   id: string;
@@ -12,20 +13,6 @@ export interface CdbTab {
   /** Cached results from last search for fast tab switching */
   cachedCards: CardDataEntry[];
   cachedFilters: string; // JSON of the filters used for the cache
-}
-
-export interface SearchFilters {
-  name?: string;
-  id?: string;
-  desc?: string;
-  atkMin?: string | number;
-  atkMax?: string | number;
-  defMin?: string | number;
-  defMax?: string | number;
-  type?: string;
-  subtype?: string;
-  attribute?: string;
-  race?: string;
 }
 
 export const tabs = writable<CdbTab[]>([]);
@@ -161,6 +148,42 @@ export async function openCdbFile(): Promise<string | null> {
       return id;
     } catch (err) {
       console.error("Failed to read CDB:", err);
+      return null;
+    }
+  }
+  return null;
+}
+
+/** Create a new .cdb file, save it and open as a new tab. */
+export async function createCdbFile(): Promise<string | null> {
+  const selected = await save({
+    title: 'Create New CDB',
+    filters: [{
+      name: 'YGOPro CDB Database',
+      extensions: ['cdb']
+    }]
+  });
+
+  if (selected && typeof selected === 'string') {
+    await initDb();
+    try {
+      // The library constructor already creates an empty in-memory database
+      // and initializes the standard datas/texts tables for us.
+      const cdb = new YGOProCdb(sqlJsInstance as any);
+
+      // Save initial file to disk immediately so it exists
+      const bytes = cdb.export();
+      await invoke('write_cdb', { path: selected, data: Array.from(bytes) });
+
+      const name = selected.replace(/\\/g, '/').split('/').pop() || 'newcard.cdb';
+      const id = crypto.randomUUID();
+      
+      const tab: CdbTab = { id, path: selected, name, cdb, cachedCards: [], cachedFilters: '{}' };
+      tabs.update(t => [...t, tab]);
+      activeTabId.set(id);
+      return id;
+    } catch (err) {
+      console.error("Failed to create CDB:", err);
       return null;
     }
   }

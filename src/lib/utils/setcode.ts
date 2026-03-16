@@ -1,3 +1,6 @@
+import { invoke } from '@tauri-apps/api/core';
+import type { SelectOption } from '$lib/types';
+
 export function getSetcode(setcode: number[], index: number): string;
 export function getSetcode(setcode: bigint | number, index: number): string;
 export function getSetcode(setcode: bigint | number | number[], index: number): string {
@@ -38,11 +41,10 @@ export function updateSetcode(setcode: bigint | number | number[], index: number
   return (current & mask) | (BigInt(numVal) << BigInt(index * 16));
 }
 
-// @ts-ignore
-import stringsConf from '../data/strings.conf?raw';
+export type SetcodeOption = SelectOption<string> & { label: string };
 
-function parseStringsConf(content: string) {
-  const result: { value: string; label: string }[] = [];
+function parseStringsConf(content: string): SetcodeOption[] {
+  const result: SetcodeOption[] = [];
   if (!content) return result;
   
   const lines = content.split('\n');
@@ -64,4 +66,29 @@ function parseStringsConf(content: string) {
   return result;
 }
 
-export const POPULAR_SETCODES = parseStringsConf(stringsConf || '');
+let popularSetcodesPromise: Promise<SetcodeOption[]> | null = null;
+
+async function loadStringsConfContent(): Promise<string> {
+  try {
+    return await invoke<string>('load_strings_conf');
+  } catch {
+    const response = await fetch('/strings.conf');
+    if (!response.ok) {
+      throw new Error(`Failed to load strings.conf: ${response.status}`);
+    }
+    return response.text();
+  }
+}
+
+export async function loadPopularSetcodes(): Promise<SetcodeOption[]> {
+  if (!popularSetcodesPromise) {
+    popularSetcodesPromise = loadStringsConfContent()
+      .then((content) => parseStringsConf(content))
+      .catch((error) => {
+        console.error('Failed to load strings.conf', error);
+        return [];
+      });
+  }
+
+  return popularSetcodesPromise;
+}

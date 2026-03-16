@@ -1,9 +1,3 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 #[tauri::command]
 fn read_cdb(path: String) -> Result<Vec<u8>, String> {
     std::fs::read(&path).map_err(|e| e.to_string())
@@ -12,14 +6,6 @@ fn read_cdb(path: String) -> Result<Vec<u8>, String> {
 #[tauri::command]
 fn write_cdb(path: String, data: Vec<u8>) -> Result<(), String> {
     std::fs::write(&path, data).map_err(|e| e.to_string())
-}
-
-use base64::{Engine as _, engine::general_purpose::STANDARD};
-
-#[tauri::command]
-fn read_image_base64(path: String) -> Result<String, String> {
-    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
-    Ok(STANDARD.encode(&bytes))
 }
 
 #[tauri::command]
@@ -31,13 +17,40 @@ fn copy_image(src: String, dest: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn load_strings_conf() -> Result<String, String> {
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        candidates.push(current_dir.join("strings.conf"));
+        candidates.push(current_dir.join("static").join("strings.conf"));
+    }
+
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(exe_dir) = current_exe.parent() {
+            candidates.push(exe_dir.join("strings.conf"));
+            if let Some(parent) = exe_dir.parent() {
+                candidates.push(parent.join("strings.conf"));
+            }
+        }
+    }
+
+    for path in candidates {
+        if path.exists() {
+            return std::fs::read_to_string(&path).map_err(|e| e.to_string());
+        }
+    }
+
+    Err("strings.conf not found in external locations".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, read_cdb, write_cdb, read_image_base64, copy_image])
+        .invoke_handler(tauri::generate_handler![read_cdb, write_cdb, copy_image, load_strings_conf])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

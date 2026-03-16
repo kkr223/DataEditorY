@@ -2,7 +2,8 @@
   "nav": {
     "cards": "Cards",
     "settings": "Settings",
-    "open": "Open"
+    "open": "Open",
+    "create": "Create"
   },
   "search": {
     "title": "Search Cards",

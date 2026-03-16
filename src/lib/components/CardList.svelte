@@ -2,6 +2,7 @@
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
   import { editorState, getAllCards, handleSearch, handleReset } from '$lib/stores/editor.svelte';
+  import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
 
   const PAGE_SIZE = 50;
   let allCards = $derived(getAllCards());
@@ -36,38 +37,6 @@
     jumpPage = '';
   }
 
-  function getCardTypeKey(type: number): string {
-    if (type & 0x1) return 'search.types.monster';
-    if (type & 0x2) return 'search.types.spell';
-    if (type & 0x4) return 'search.types.trap';
-    return 'search.na';
-  }
-
-  const RACE_OPTIONS = [
-    { value: 0x1, key: 'search.races.warrior' },
-    { value: 0x2, key: 'search.races.spellcaster' },
-    { value: 0x4, key: 'search.races.fairy' },
-    { value: 0x8, key: 'search.races.fiend' },
-    { value: 0x10, key: 'search.races.zombie' },
-    { value: 0x20, key: 'search.races.machine' },
-    { value: 0x40, key: 'search.races.aqua' },
-    { value: 0x80, key: 'search.races.pyro' },
-    { value: 0x100, key: 'search.races.rock' },
-    { value: 0x200, key: 'search.races.wingedbeast' },
-    { value: 0x400, key: 'search.races.plant' },
-    { value: 0x800, key: 'search.races.insect' },
-    { value: 0x1000, key: 'search.races.thunder' },
-    { value: 0x2000, key: 'search.races.dragon' },
-    { value: 0x4000, key: 'search.races.beast' },
-    { value: 0x8000, key: 'search.races.beastwarrior' },
-    { value: 0x10000, key: 'search.races.dinosaur' },
-    { value: 0x20000, key: 'search.races.fish' },
-    { value: 0x40000, key: 'search.races.seaserpent' },
-    { value: 0x80000, key: 'search.races.reptile' },
-    { value: 0x100000, key: 'search.races.psychic' },
-    { value: 0x800000, key: 'search.races.wyrm' },
-    { value: 0x1000000, key: 'search.races.cyberse' },
-  ];
 </script>
 
 <section class="pane list-pane">
@@ -76,7 +45,7 @@
       <div class="search-input-wrapper">
         <input type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.name} onkeydown={(e) => e.key === 'Enter' && handleSearch()} />
       </div>
-      <button class="btn-primary" onclick={handleSearch} disabled={!$isDbLoaded} title={$_('search.title')}>
+      <button class="btn-primary" onclick={() => handleSearch()} disabled={!$isDbLoaded} title={$_('search.title')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       </button>
       <button class="btn-secondary btn-icon" class:active={editorState.isFilterOpen} class:has-filters={hasActiveFilters} onclick={toggleFilter} title="Filters">
@@ -184,7 +153,7 @@
           <select id="search-race" bind:value={editorState.searchFilters.race}>
             <option value="">{$_('search.na')}</option>
             {#each RACE_OPTIONS as r}
-              <option value={r.value}>{$_(r.key)}</option>
+              <option value={r.value}>{$_(r.key!)}</option>
             {/each}
           </select>
         </div>
@@ -206,9 +175,9 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th width="80">{$_('results.id')}</th>
+          <th style="width: 80px;">{$_('results.id')}</th>
           <th>{$_('results.name')}</th>
-          <th width="70">{$_('results.type')}</th>
+          <th style="width: 70px;">{$_('results.type')}</th>
         </tr>
       </thead>
       <tbody>

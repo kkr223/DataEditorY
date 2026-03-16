@@ -5,8 +5,6 @@
     saveCdbFile,
     modifyCard,
     deleteCard,
-    activeTabId,
-    searchCards,
     activeTab,
   } from "$lib/stores/db";
   import {
@@ -17,105 +15,31 @@
   import {
     getSetcode,
     updateSetcode,
-    POPULAR_SETCODES,
+    loadPopularSetcodes,
   } from "$lib/utils/setcode";
   import { invoke, convertFileSrc } from "@tauri-apps/api/core";
   import { open, ask } from "@tauri-apps/plugin-dialog";
   import { showToast } from "$lib/stores/toast.svelte";
-
-  const TYPE_BITS = [
-    { bit: 0x1, key: "editor.subtype.monster" },
-    { bit: 0x2, key: "editor.subtype.spell" },
-    { bit: 0x4, key: "editor.subtype.trap" },
-    { bit: 0x10, key: "editor.subtype.normal" },
-    { bit: 0x20, key: "editor.subtype.effect" },
-    { bit: 0x40, key: "editor.subtype.fusion" },
-    { bit: 0x80, key: "editor.subtype.ritual" },
-    { bit: 0x200, key: "editor.subtype.spirit" },
-    { bit: 0x400, key: "editor.subtype.union" },
-    { bit: 0x800, key: "editor.subtype.gemini" },
-    { bit: 0x1000, key: "editor.subtype.tuner" },
-    { bit: 0x2000, key: "editor.subtype.synchro" },
-    { bit: 0x4000, key: "editor.subtype.token" },
-    { bit: 0x10000, key: "editor.subtype.quickplay" },
-    { bit: 0x20000, key: "editor.subtype.continuous" },
-    { bit: 0x40000, key: "editor.subtype.equip" },
-    { bit: 0x80000, key: "editor.subtype.field" },
-    { bit: 0x100000, key: "editor.subtype.counter" },
-    { bit: 0x200000, key: "editor.subtype.flip" },
-    { bit: 0x400000, key: "editor.subtype.toon" },
-    { bit: 0x800000, key: "editor.subtype.xyz" },
-    { bit: 0x1000000, key: "editor.subtype.pendulum" },
-    { bit: 0x2000000, key: "editor.subtype.spssummon" },
-    { bit: 0x4000000, key: "editor.subtype.link" },
-  ];
-
-  const LINK_MARKERS = [
-    { bit: 0x01, label: "↙", row: 2, col: 0 },
-    { bit: 0x02, label: "↓", row: 2, col: 1 },
-    { bit: 0x04, label: "↘", row: 2, col: 2 },
-    { bit: 0x08, label: "←", row: 1, col: 0 },
-    { bit: 0x20, label: "→", row: 1, col: 2 },
-    { bit: 0x40, label: "↖", row: 0, col: 0 },
-    { bit: 0x80, label: "↑", row: 0, col: 1 },
-    { bit: 0x100, label: "↗", row: 0, col: 2 },
-  ];
-
-  function getLScale(level: number): number {
-    return (level >> 24) & 0xff;
-  }
-  function getRScale(level: number): number {
-    return (level >> 16) & 0xff;
-  }
-  function getLevel(level: number): number {
-    return level & 0xff;
-  }
-  function setLevelField(lvl: number, lscale: number, rscale: number): number {
-    return (lvl & 0xff) | ((rscale & 0xff) << 16) | ((lscale & 0xff) << 24);
-  }
-
-  const RACE_OPTIONS = [
-    { value: 0, key: "search.na" },
-    { value: 0x1, key: "search.races.warrior" },
-    { value: 0x2, key: "search.races.spellcaster" },
-    { value: 0x4, key: "search.races.fairy" },
-    { value: 0x8, key: "search.races.fiend" },
-    { value: 0x10, key: "search.races.zombie" },
-    { value: 0x20, key: "search.races.machine" },
-    { value: 0x40, key: "search.races.aqua" },
-    { value: 0x80, key: "search.races.pyro" },
-    { value: 0x100, key: "search.races.rock" },
-    { value: 0x200, key: "search.races.wingedbeast" },
-    { value: 0x400, key: "search.races.plant" },
-    { value: 0x800, key: "search.races.insect" },
-    { value: 0x1000, key: "search.races.thunder" },
-    { value: 0x2000, key: "search.races.dragon" },
-    { value: 0x4000, key: "search.races.beast" },
-    { value: 0x8000, key: "search.races.beastwarrior" },
-    { value: 0x10000, key: "search.races.dinosaur" },
-    { value: 0x20000, key: "search.races.fish" },
-    { value: 0x40000, key: "search.races.seaserpent" },
-    { value: 0x80000, key: "search.races.reptile" },
-    { value: 0x100000, key: "search.races.psychic" },
-    { value: 0x800000, key: "search.races.wyrm" },
-    { value: 0x1000000, key: "search.races.cyberse" },
-  ];
-
-  const PERMISSION_OPTIONS = [
-    { value: 0, label: "N/A" },
-    { value: 1, label: "OCG" },
-    { value: 2, label: "TCG" },
-    { value: 3, label: "OCG/TCG" },
-    { value: 4, label: "Custom" },
-    { value: 9, label: "简体中文" },
-    { value: 11, label: "简体中文/TCG" },
-  ];
+  import {
+    ATTRIBUTE_OPTIONS,
+    cloneEditableCard,
+    getPackedLevel,
+    getPackedLScale,
+    getPackedRScale,
+    LINK_MARKERS,
+    PERMISSION_OPTIONS,
+    RACE_OPTIONS,
+    setPackedLevel,
+    TYPE_BITS,
+  } from '$lib/utils/card';
 
   import { CardDataEntry } from "ygopro-cdb-encode";
 
   let selectedCard = $state<CardDataEntry | null>(null);
   let imageSrc = $state<string>("/cover.jpg");
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
+  let popularSetcodes = $state<{ value: string; label: string }[]>([]);
+  let setcodesLoaded = false;
 
   // Reactive flags for Link/Pendulum (must be after selectedCard declaration)
   let isLink = $derived(selectedCard ? (selectedCard.type & 0x4000000) !== 0 : false);
@@ -126,33 +50,21 @@
   }
 
   $effect(() => {
+    if (setcodesLoaded) return;
+    setcodesLoaded = true;
+    loadPopularSetcodes().then((options) => {
+      popularSetcodes = options;
+    });
+  });
+
+  $effect(() => {
     const card = getAllCardsMap().get(editorState.selectedId ?? -1);
     if (card) {
       if (selectedCard?.code !== card.code) {
-        // Get raw, unproxied data to guarantee no two-way binding affects the original state array
-        const rawCard = $state.snapshot(card);
-        const clone = new CardDataEntry();
-        Object.assign(clone, rawCard);
-
-        // Deep clone arrays specifically
-        if (Array.isArray(rawCard.setcode)) {
-          clone.setcode = [...rawCard.setcode];
-        } else {
-          clone.setcode = rawCard.setcode;
-        }
-        if (Array.isArray(rawCard.strings)) {
-          clone.strings = [...rawCard.strings];
-        } else {
-          clone.strings = [];
-        }
-        // Ensure exactly 16 strings for consistent two-way binding/updates
-        while (clone.strings.length < 16) clone.strings.push("");
-        if (clone.strings.length > 16) clone.strings = clone.strings.slice(0, 16);
-
-        selectedCard = clone;
+        selectedCard = cloneEditableCard(card);
 
         for (let i = 0; i < 4; i++) {
-          setcodeHexes[i] = getSetcode(clone.setcode, i).replace(/^0x/i, "");
+          setcodeHexes[i] = getSetcode(selectedCard.setcode, i).replace(/^0x/i, "");
         }
 
         // Load image via Tauri asset protocol (zero-copy, no Base64 IPC overhead)
@@ -308,21 +220,16 @@
                 id="edit-attribute"
                 bind:value={selectedCard!.attribute}
               >
-                <option value={0}>{$_("search.na")}</option>
-                <option value={0x01}>{$_("search.attributes.earth")}</option>
-                <option value={0x02}>{$_("search.attributes.water")}</option>
-                <option value={0x04}>{$_("search.attributes.fire")}</option>
-                <option value={0x08}>{$_("search.attributes.wind")}</option>
-                <option value={0x10}>{$_("search.attributes.light")}</option>
-                <option value={0x20}>{$_("search.attributes.dark")}</option>
-                <option value={0x40}>{$_("search.attributes.divine")}</option>
+                {#each ATTRIBUTE_OPTIONS as opt}
+                  <option value={opt.value}>{opt.key ? $_(opt.key) : opt.label}</option>
+                {/each}
               </select>
             </div>
             <div class="inline-field">
               <label for="edit-race">{$_("editor.race")}</label>
               <select id="edit-race" bind:value={selectedCard!.race}>
                 {#each RACE_OPTIONS as r}
-                  <option value={r.value}>{$_(r.key)}</option>
+                  <option value={r.value}>{$_(r.key!)}</option>
                 {/each}
               </select>
             </div>
@@ -332,17 +239,17 @@
                 id="edit-level"
                 onchange={(e) => {
                   const t = e.target as HTMLSelectElement;
-                  selectedCard!.level = setLevelField(
+                  selectedCard!.level = setPackedLevel(
                     parseInt(t.value),
-                    getLScale(selectedCard!.level),
-                    getRScale(selectedCard!.level),
+                    getPackedLScale(selectedCard!.level),
+                    getPackedRScale(selectedCard!.level),
                   );
                 }}
               >
                 {#each Array.from({ length: 13 }, (_, i) => i) as lvl}
                   <option
                     value={lvl}
-                    selected={getLevel(selectedCard!.level) === lvl}
+                    selected={getPackedLevel(selectedCard!.level) === lvl}
                     >{lvl}</option
                   >
                 {/each}
@@ -402,7 +309,7 @@
           <div class="setcode-grid">
             {#each Array.from({ length: 4 }, (_, i) => i) as idx}
               {@const hexString = setcodeHexes[idx] ? "0x" + setcodeHexes[idx].padStart(4, "0").toUpperCase() : ""}
-              {@const matchedOpt = hexString !== "" ? POPULAR_SETCODES.find((o) => o.value.toLowerCase() === hexString.toLowerCase()) : null}
+              {@const matchedOpt = hexString !== "" ? popularSetcodes.find((o) => o.value.toLowerCase() === hexString.toLowerCase()) : null}
               {@const dropdownValue = hexString === "" ? "" : matchedOpt ? matchedOpt.value : "__custom__"}
               <div class="setcode-row">
                 <select
@@ -421,7 +328,7 @@
                   }}
                 >
                   <option value="">—</option>
-                  {#each POPULAR_SETCODES as opt}
+                  {#each popularSetcodes as opt}
                     <option value={opt.value} selected={dropdownValue === opt.value}>{opt.label}</option>
                   {/each}
                   {#if dropdownValue === "__custom__"}
