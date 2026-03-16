@@ -164,6 +164,9 @@
     "paste_conflict_confirm": "目标数据库中已有 {count} 张同密码卡片，是否覆盖后继续粘贴？",
     "delete_selected_title": "确认批量删除",
     "delete_selected_confirm": "确定要删除当前选中的 {count} 张卡片吗？",
+    "unsaved_badge": "未保存修改",
+    "unsaved_close_title": "存在未保存修改",
+    "unsaved_close_confirm": "{name} 有未保存修改，仍要关闭此标签页吗？",
     "save_success": "数据库已保存",
     "save_failed": "保存失败",
     "subtype": {

@@ -16,6 +16,10 @@ export interface CdbTab {
   cachedTotal: number;
   cachedPage: number;
   cachedFilters: string; // JSON of the filters used for the cache
+  cachedSelectedIds: number[];
+  cachedSelectedId: number | null;
+  cachedSelectionAnchorId: number | null;
+  isDirty: boolean;
 }
 
 export const tabs = writable<CdbTab[]>([]);
@@ -102,11 +106,17 @@ function buildSearchQuery(filters: SearchFilters = {}) {
   }
 
   if (filters.subtype) {
-    let subtypeBit: number | undefined;
-    if (filters.subtype === 'continuous_spell' || filters.subtype === 'continuous_trap') subtypeBit = 0x20000;
-    else if (filters.subtype === 'ritual_spell') subtypeBit = 0x80;
-    else subtypeBit = SUBTYPE_MAP[filters.subtype];
-    if (subtypeBit !== undefined) conditions.push(`(datas.type & ${subtypeBit}) = ${subtypeBit}`);
+    if (filters.subtype === 'normal' && filters.type === 'spell') {
+      conditions.push(`(datas.type & ${SPELL_SUBTYPE_MASK}) = 0`);
+    } else if (filters.subtype === 'normal' && filters.type === 'trap') {
+      conditions.push(`(datas.type & ${TRAP_SUBTYPE_MASK}) = 0`);
+    } else {
+      let subtypeBit: number | undefined;
+      if (filters.subtype === 'continuous_spell' || filters.subtype === 'continuous_trap') subtypeBit = 0x20000;
+      else if (filters.subtype === 'ritual_spell') subtypeBit = 0x80;
+      else subtypeBit = SUBTYPE_MAP[filters.subtype];
+      if (subtypeBit !== undefined) conditions.push(`(datas.type & ${subtypeBit}) = ${subtypeBit}`);
+    }
   }
 
   if (filters.attribute && ATTRIBUTE_MAP[filters.attribute] !== undefined) {
@@ -214,6 +224,9 @@ export const SUBTYPE_MAP: Record<string, number> = {
   counter: 0x100000,
 };
 
+const SPELL_SUBTYPE_MASK = 0x10000 | 0x20000 | 0x40000 | 0x80000 | 0x80;
+const TRAP_SUBTYPE_MASK = 0x20000 | 0x100000;
+
 /** Open a .cdb file and add it as a new tab. Returns the tab id or null. */
 export async function openCdbFile(): Promise<string | null> {
   const selected = await open({
@@ -256,7 +269,11 @@ export async function openCdbFile(): Promise<string | null> {
         cachedCards,
         cachedTotal,
         cachedPage: 1,
-        cachedFilters: '{}'
+        cachedFilters: '{}',
+        cachedSelectedIds: cachedCards.length > 0 ? [cachedCards[0].code] : [],
+        cachedSelectedId: cachedCards[0]?.code ?? null,
+        cachedSelectionAnchorId: cachedCards[0]?.code ?? null,
+        isDirty: false
       };
       tabs.update(t => [...t, tab]);
       activeTabId.set(id);
@@ -301,7 +318,11 @@ export async function createCdbFile(): Promise<string | null> {
         cachedCards: [],
         cachedTotal: 0,
         cachedPage: 1,
-        cachedFilters: '{}'
+        cachedFilters: '{}',
+        cachedSelectedIds: [],
+        cachedSelectedId: null,
+        cachedSelectionAnchorId: null,
+        isDirty: false
       };
       tabs.update(t => [...t, tab]);
       activeTabId.set(id);
@@ -341,6 +362,7 @@ export async function saveCdbFile(): Promise<boolean> {
   try {
     const bytes = tab.cdb.export();
     await invoke('write_cdb', { path: tab.path, data: Array.from(bytes) });
+    markActiveTabDirty(false);
     return true;
   } catch (err) {
     console.error("Failed to save CDB:", err);
@@ -375,6 +397,54 @@ export function getCachedFilters(): SearchFilters {
   }
 }
 
+export function getCachedSelectedIds(): number[] {
+  const tab = get(activeTab);
+  return tab ? [...tab.cachedSelectedIds] : [];
+}
+
+export function getCachedSelectedId(): number | null {
+  const tab = get(activeTab);
+  return tab ? tab.cachedSelectedId : null;
+}
+
+export function getCachedSelectionAnchorId(): number | null {
+  const tab = get(activeTab);
+  return tab ? tab.cachedSelectionAnchorId : null;
+}
+
+export function cacheActiveTabSelection(selectedIds: number[], selectedId: number | null, selectionAnchorId: number | null) {
+  const tabId = get(activeTabId);
+  if (!tabId) return;
+
+  tabs.update((currentTabs) =>
+    currentTabs.map((tab) =>
+      tab.id === tabId
+        ? {
+            ...tab,
+            cachedSelectedIds: [...selectedIds],
+            cachedSelectedId: selectedId,
+            cachedSelectionAnchorId: selectionAnchorId,
+          }
+        : tab
+    )
+  );
+}
+
+export function hasUnsavedChanges(tabId: string | null = get(activeTabId)): boolean {
+  if (!tabId) return false;
+  const tab = get(tabs).find((item) => item.id === tabId);
+  return tab?.isDirty ?? false;
+}
+
+export function markActiveTabDirty(isDirty = true) {
+  const tabId = get(activeTabId);
+  if (!tabId) return;
+
+  tabs.update((currentTabs) =>
+    currentTabs.map((tab) => (tab.id === tabId ? { ...tab, isDirty } : tab))
+  );
+}
+
 export function getCardById(cardId: number): CardDataEntry | undefined {
   const tab = get(activeTab);
   if (!tab) return undefined;
@@ -389,6 +459,7 @@ export function modifyCard(card: CardDataEntry): boolean {
   try {
     // addCard does an INSERT OR REPLACE, so it works for both insert and update
     tab.cdb.addCard(card);
+    markActiveTabDirty(true);
     return true;
   } catch (err) {
     console.error("Failed to modify card:", err);
@@ -402,6 +473,7 @@ export function modifyCards(cards: CardDataEntry[]): boolean {
 
   try {
     tab.cdb.addCard(cards);
+    markActiveTabDirty(true);
     return true;
   } catch (err) {
     console.error("Failed to modify cards:", err);
@@ -417,6 +489,7 @@ export function deleteCard(cardId: number): boolean {
   try {
     tab.cdb.database.run('DELETE FROM datas WHERE id = ?', [cardId]);
     tab.cdb.database.run('DELETE FROM texts WHERE id = ?', [cardId]);
+    markActiveTabDirty(true);
     return true;
   } catch (err) {
     console.error("Failed to delete card:", err);
@@ -433,6 +506,7 @@ export function deleteCards(cardIds: number[]): boolean {
       tab.cdb.database.run('DELETE FROM datas WHERE id = ?', [cardId]);
       tab.cdb.database.run('DELETE FROM texts WHERE id = ?', [cardId]);
     }
+    markActiveTabDirty(true);
     return true;
   } catch (err) {
     console.error("Failed to delete cards:", err);

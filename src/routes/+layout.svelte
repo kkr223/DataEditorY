@@ -5,7 +5,7 @@
   import { _, locale, isLoading } from 'svelte-i18n';
   import { ask } from '@tauri-apps/plugin-dialog';
   import { CardDataEntry } from 'ygopro-cdb-encode';
-  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, isDbLoaded, deleteCards, modifyCards } from '$lib/stores/db';
+  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards } from '$lib/stores/db';
   import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
   import { clearSelection, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
@@ -43,6 +43,24 @@
   async function handleSave() {
     const ok = await saveCdbFile();
     showToast($_(ok ? 'editor.save_success' : 'editor.save_failed'), ok ? 'success' : 'error');
+  }
+
+  async function handleCloseTab(tabId: string) {
+    const tab = $tabs.find((item) => item.id === tabId);
+    if (!tab) return;
+
+    if (hasUnsavedChanges(tabId)) {
+      const confirmed = await ask($_('editor.unsaved_close_confirm', {
+        values: { name: tab.name },
+      }), {
+        title: $_('editor.unsaved_close_title'),
+        kind: 'warning',
+      });
+
+      if (!confirmed) return;
+    }
+
+    closeTab(tabId);
   }
 
   function isEditableTarget(target: EventTarget | null): boolean {
@@ -251,12 +269,15 @@
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
         <span class="tab-name">{tab.name}</span>
+        {#if tab.isDirty}
+          <span class="tab-dirty" aria-label={$_('editor.unsaved_badge')} title={$_('editor.unsaved_badge')}>•</span>
+        {/if}
         <span
           class="tab-close"
           role="button"
           tabindex="0"
-          onclick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-          onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); closeTab(tab.id); } }}
+          onclick={(e) => { e.stopPropagation(); void handleCloseTab(tab.id); }}
+          onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); void handleCloseTab(tab.id); } }}
         >×</span>
       </button>
     {/each}
@@ -417,6 +438,13 @@
   .tab-name {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .tab-dirty {
+    color: #f59e0b;
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0.95;
   }
 
   .tab-close {

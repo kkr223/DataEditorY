@@ -62,8 +62,11 @@ export const RACE_OPTIONS: SelectOption<number>[] = [
   { value: 0x40000, key: 'search.races.seaserpent' },
   { value: 0x80000, key: 'search.races.reptile' },
   { value: 0x100000, key: 'search.races.psychic' },
+  { value: 0x200000, key: 'search.races.divinebeast' },
+  { value: 0x400000, key: 'search.races.creatorgod' },
   { value: 0x800000, key: 'search.races.wyrm' },
   { value: 0x1000000, key: 'search.races.cyberse' },
+  { value: 0x2000000, key: 'search.races.illusion' },
 ];
 
 export const PERMISSION_OPTIONS: SelectOption<number>[] = [

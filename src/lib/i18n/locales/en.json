@@ -164,6 +164,9 @@
     "paste_conflict_confirm": "{count} card(s) already exist in the target database. Overwrite and continue?",
     "delete_selected_title": "Confirm Bulk Delete",
     "delete_selected_confirm": "Delete the currently selected {count} card(s)?",
+    "unsaved_badge": "Unsaved changes",
+    "unsaved_close_title": "Unsaved Changes",
+    "unsaved_close_confirm": "{name} has unsaved changes. Close this tab anyway?",
     "save_success": "Database saved!",
     "save_failed": "Save failed.",
     "subtype": {

@@ -1,4 +1,4 @@
-import { searchCardsPage } from '$lib/stores/db';
+import { cacheActiveTabSelection, searchCardsPage } from '$lib/stores/db';
 import type { CardDataEntry } from 'ygopro-cdb-encode';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import type { SearchFilterState } from '$lib/types';
@@ -33,6 +33,7 @@ function applySelection(ids: number[], primaryId: number | null = null, anchorId
   editorState.selectedIds = visibleIds;
   editorState.selectedId = nextPrimaryId;
   editorState.selectionAnchorId = nextAnchorId;
+  cacheActiveTabSelection(visibleIds, nextPrimaryId, nextAnchorId);
 }
 
 // The rest of the editor state is small and benefits from deep reactivity
@@ -98,6 +99,7 @@ export function clearSelection() {
   editorState.selectedIds = [];
   editorState.selectedId = null;
   editorState.selectionAnchorId = null;
+  cacheActiveTabSelection([], null, null);
 }
 
 export function setSingleSelectedCard(cardId: number | null) {
@@ -106,9 +108,7 @@ export function setSingleSelectedCard(cardId: number | null) {
     return;
   }
 
-  editorState.selectedIds = [cardId];
-  editorState.selectedId = cardId;
-  editorState.selectionAnchorId = cardId;
+  applySelection([cardId], cardId, cardId);
 }
 
 export function setSelectedCards(cardIds: number[], primaryId: number | null = null, anchorId: number | null = null) {

@@ -1,7 +1,16 @@
 <script lang="ts">
-  import { activeTabId, getCachedCards, getCachedFilters, getCachedPage, getCachedTotal } from '$lib/stores/db';
+  import {
+    activeTabId,
+    getCachedCards,
+    getCachedFilters,
+    getCachedPage,
+    getCachedSelectionAnchorId,
+    getCachedSelectedId,
+    getCachedSelectedIds,
+    getCachedTotal
+  } from '$lib/stores/db';
   import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-  import { clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
+  import { clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSelectedCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
   import CardList from '$lib/components/CardList.svelte';
   import CardEditor from '$lib/components/CardEditor.svelte';
 
@@ -39,7 +48,15 @@
         editorState.searchFilters = restoreSearchFilters();
         editorState.currentPage = getCachedPage();
         const cards = getAllCards();
-        setSingleSelectedCard(cards.length > 0 ? cards[0].code : null);
+        const cachedSelectedIds = getCachedSelectedIds();
+        if (cachedSelectedIds.length > 0) {
+          setSelectedCards(cachedSelectedIds, getCachedSelectedId(), getCachedSelectionAnchorId());
+          if (cards.length > 0 && editorState.selectedId === null) {
+            setSingleSelectedCard(cards[0].code);
+          }
+        } else {
+          setSingleSelectedCard(cards.length > 0 ? cards[0].code : null);
+        }
       } else {
         setAllCards([]);
         setTotalCards(0);
