@@ -17,9 +17,9 @@
     updateSetcode,
     loadPopularSetcodes,
   } from "$lib/utils/setcode";
-  import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+  import { invoke } from "@tauri-apps/api/core";
+  import { dirname, join } from "@tauri-apps/api/path";
   import { open, ask } from "@tauri-apps/plugin-dialog";
-  import { exists } from "@tauri-apps/plugin-fs";
   import { showToast } from "$lib/stores/toast.svelte";
   import {
     ATTRIBUTE_OPTIONS,
@@ -41,6 +41,10 @@
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
   let setcodesLoaded = false;
+  let activeObjectUrl: string | null = null;
+  let staleObjectUrl: string | null = null;
+  let loadedCardCode: number | null = null;
+  let imageRequestToken = 0;
 
   // Reactive flags for Link/Pendulum (must be after selectedCard declaration)
   let isLink = $derived(selectedCard ? (selectedCard.type & 0x4000000) !== 0 : false);
@@ -50,13 +54,42 @@
     imageSrc = "/cover.jpg";
   }
 
-  async function resolveImageSrc(picPath: string, bustCache = false): Promise<string> {
+  function handleImageLoad() {
+    if (staleObjectUrl && staleObjectUrl !== activeObjectUrl) {
+      URL.revokeObjectURL(staleObjectUrl);
+      staleObjectUrl = null;
+    }
+  }
+
+  function resetImageUrls() {
+    if (activeObjectUrl) {
+      URL.revokeObjectURL(activeObjectUrl);
+      activeObjectUrl = null;
+    }
+    if (staleObjectUrl) {
+      URL.revokeObjectURL(staleObjectUrl);
+      staleObjectUrl = null;
+    }
+  }
+
+  async function getPicsDir(cdbPath: string): Promise<string> {
+    const cdbDir = await dirname(cdbPath);
+    return join(cdbDir, "pics");
+  }
+
+  async function resolveImageSrc(picsDir: string, code: number, bustCache = false): Promise<string> {
+    const picPath = await join(picsDir, `${code}.jpg`);
+
     try {
-      const hasImage = await exists(picPath);
-      if (!hasImage) return "/cover.jpg";
-      const src = convertFileSrc(picPath);
-      return bustCache ? `${src}?t=${Date.now()}` : src;
-    } catch {
+      const bytes = await invoke<number[]>("read_image", { path: picPath });
+      const blob = new Blob([new Uint8Array(bytes)], { type: "image/jpeg" });
+      const objectUrl = URL.createObjectURL(blob);
+      if (activeObjectUrl) {
+        staleObjectUrl = activeObjectUrl;
+      }
+      activeObjectUrl = objectUrl;
+      return bustCache ? `${objectUrl}#${Date.now()}` : objectUrl;
+    } catch (err) {
       return "/cover.jpg";
     }
   }
@@ -71,9 +104,9 @@
 
   $effect(() => {
     const card = getAllCardsMap().get(editorState.selectedId ?? -1);
-    let cancelled = false;
     if (card) {
-      if (selectedCard?.code !== card.code) {
+      if (loadedCardCode !== card.code) {
+        loadedCardCode = card.code;
         selectedCard = cloneEditableCard(card);
 
         for (let i = 0; i < 4; i++) {
@@ -83,29 +116,25 @@
         // Load image via Tauri asset protocol (zero-copy, no Base64 IPC overhead)
         if ($activeTab?.path) {
           const code = card.code;
-          const cdbDir = $activeTab.path.substring(
-            0,
-            Math.max(
-              $activeTab.path.lastIndexOf("\\"),
-              $activeTab.path.lastIndexOf("/"),
-            ),
-          );
-          const picPath = `${cdbDir}/pics/${code}.jpg`;
-          resolveImageSrc(picPath).then((src) => {
-            if (!cancelled) imageSrc = src;
-          });
+          const requestToken = ++imageRequestToken;
+          getPicsDir($activeTab.path)
+            .then((picsDir) => resolveImageSrc(picsDir, code))
+            .then((src) => {
+              if (requestToken === imageRequestToken) {
+                imageSrc = src;
+              }
+            });
         } else {
           imageSrc = "/cover.jpg";
         }
       }
     } else {
+      loadedCardCode = null;
+      imageRequestToken++;
       selectedCard = null;
+      resetImageUrls();
       imageSrc = "/cover.jpg";
     }
-
-    return () => {
-      cancelled = true;
-    };
   });
 
   async function handleImagePick() {
@@ -115,17 +144,11 @@
       filters: [{ name: "Images", extensions: ["jpg", "png", "jpeg"] }],
     });
     if (selected && typeof selected === "string") {
-      const cdbDir = $activeTab.path.substring(
-        0,
-        Math.max(
-          $activeTab.path.lastIndexOf("\\"),
-          $activeTab.path.lastIndexOf("/"),
-        ),
-      );
-      const picPath = `${cdbDir}/pics/${selectedCard.code}.jpg`;
       try {
+        const picsDir = await getPicsDir($activeTab.path);
+        const picPath = await join(picsDir, `${selectedCard.code}.jpg`);
         await invoke("copy_image", { src: selected, dest: picPath });
-        imageSrc = await resolveImageSrc(picPath, true);
+        imageSrc = await resolveImageSrc(picsDir, selectedCard.code, true);
       } catch (e) {
         console.error("Failed to copy image", e);
       }
@@ -170,6 +193,12 @@
       showToast($_('editor.save_failed'), 'error');
     }
   }
+
+  $effect(() => {
+    return () => {
+      resetImageUrls();
+    };
+  });
 </script>
 
 <div class="editor-area">
@@ -212,12 +241,15 @@
             aria-label="Select image"
           >
             {#if imageSrc}
-              <img
-                src={imageSrc}
-                alt="Card"
-                class="card-img"
-                onerror={handleImageError}
-              />
+              {#key imageSrc}
+                <img
+                  src={imageSrc}
+                  alt="Card"
+                  class="card-img"
+                  onload={handleImageLoad}
+                  onerror={handleImageError}
+                />
+              {/key}
             {:else}
               <div class="no-img">📷</div>
             {/if}

@@ -3,6 +3,7 @@ import initSqlJs from 'sql.js';
 import { YGOProCdb, CardDataEntry } from 'ygopro-cdb-encode';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
+import { basename } from '@tauri-apps/api/path';
 import type { SearchFilters } from '$lib/types';
 
 export interface CdbTab {
@@ -133,7 +134,7 @@ export async function openCdbFile(): Promise<string | null> {
       const data: number[] = await invoke('read_cdb', { path: selected });
       const cdb = new YGOProCdb(sqlJsInstance as any).from(new Uint8Array(data));
       
-      const name = selected.replace(/\\/g, '/').split('/').pop() || 'unknown.cdb';
+      const name = await basename(selected).catch(() => 'unknown.cdb');
       const id = crypto.randomUUID();
       
       // Pre-cache first 200 cards so tab switch is instant
@@ -175,7 +176,7 @@ export async function createCdbFile(): Promise<string | null> {
       const bytes = cdb.export();
       await invoke('write_cdb', { path: selected, data: Array.from(bytes) });
 
-      const name = selected.replace(/\\/g, '/').split('/').pop() || 'newcard.cdb';
+      const name = await basename(selected).catch(() => 'newcard.cdb');
       const id = crypto.randomUUID();
       
       const tab: CdbTab = { id, path: selected, name, cdb, cachedCards: [], cachedFilters: '{}' };
