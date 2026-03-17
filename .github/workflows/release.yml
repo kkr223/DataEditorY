@@ -63,3 +63,31 @@ jobs:
             Built from GitHub Actions using Tauri 2.
           releaseDraft: true
           prerelease: false
+
+      - name: Pack Windows portable bundle
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $portableDir = "src-tauri/target/release/DataEditorY-windows-portable"
+          $resourceDir = "src-tauri/target/release/resources"
+          $zipPath = "src-tauri/target/release/DataEditorY-windows-portable.zip"
+
+          Remove-Item $portableDir -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+          New-Item -ItemType Directory -Path $portableDir | Out-Null
+          Copy-Item "src-tauri/target/release/dataeditory.exe" -Destination "$portableDir/DataEditorY.exe"
+
+          if (Test-Path $resourceDir) {
+            Copy-Item $resourceDir -Destination "$portableDir/resources" -Recurse
+          } else {
+            throw "Expected Tauri resources directory not found: $resourceDir"
+          }
+
+          Compress-Archive -Path "$portableDir/*" -DestinationPath $zipPath -Force
+
+      - name: Upload Windows portable bundle
+        if: matrix.platform == 'windows-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ github.ref_name }} src-tauri/target/release/DataEditorY-windows-portable.zip --clobber

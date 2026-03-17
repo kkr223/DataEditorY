@@ -25,6 +25,22 @@ export interface CdbTab {
 export const tabs = writable<CdbTab[]>([]);
 export const activeTabId = writable<string | null>(null);
 
+type UndoOperation =
+  | {
+      kind: 'modify';
+      label: string;
+      affectedIds: number[];
+      previousCards: Array<CardDataEntry | null>;
+    }
+  | {
+      kind: 'delete';
+      label: string;
+      affectedIds: number[];
+      deletedCards: CardDataEntry[];
+    };
+
+const undoHistory = new Map<string, UndoOperation[]>();
+
 export const activeTab = derived(
   [tabs, activeTabId],
   ([$tabs, $activeTabId]) => $tabs.find(t => t.id === $activeTabId) || null
@@ -33,6 +49,27 @@ export const activeTab = derived(
 export const isDbLoaded = derived(activeTab, ($activeTab) => $activeTab !== null);
 
 let sqlJsInstance: initSqlJs.SqlJsStatic | null = null;
+
+function cloneCard(card: CardDataEntry): CardDataEntry {
+  return new CardDataEntry().fromPartial(card);
+}
+
+function getUndoStack(tabId: string): UndoOperation[] {
+  let stack = undoHistory.get(tabId);
+  if (!stack) {
+    stack = [];
+    undoHistory.set(tabId, stack);
+  }
+  return stack;
+}
+
+function pushUndoOperation(tabId: string, operation: UndoOperation) {
+  const stack = getUndoStack(tabId);
+  stack.push(operation);
+  if (stack.length > 100) {
+    stack.shift();
+  }
+}
 
 function toLikePattern(input: string): string {
   const normalized = input.trim();
@@ -343,6 +380,7 @@ export function closeTab(tabId: string) {
 
   const newTabs = currentTabs.filter(t => t.id !== tabId);
   tabs.set(newTabs);
+  undoHistory.delete(tabId);
 
   if (get(activeTabId) === tabId) {
     if (newTabs.length > 0) {
@@ -445,6 +483,53 @@ export function markActiveTabDirty(isDirty = true) {
   );
 }
 
+export function hasUndoableAction(): boolean {
+  const tabId = get(activeTabId);
+  if (!tabId) return false;
+  return getUndoStack(tabId).length > 0;
+}
+
+export function getLastUndoLabel(): string | null {
+  const tabId = get(activeTabId);
+  if (!tabId) return null;
+  const stack = getUndoStack(tabId);
+  return stack[stack.length - 1]?.label ?? null;
+}
+
+export function undoLastOperation(): boolean {
+  const tab = get(activeTab);
+  if (!tab) return false;
+
+  const stack = getUndoStack(tab.id);
+  const operation = stack.pop();
+  if (!operation) return false;
+
+  try {
+    if (operation.kind === 'modify') {
+      for (let index = 0; index < operation.affectedIds.length; index += 1) {
+        const cardId = operation.affectedIds[index];
+        const previousCard = operation.previousCards[index];
+
+        if (previousCard) {
+          tab.cdb.addCard(cloneCard(previousCard));
+        } else {
+          tab.cdb.database.run('DELETE FROM datas WHERE id = ?', [cardId]);
+          tab.cdb.database.run('DELETE FROM texts WHERE id = ?', [cardId]);
+        }
+      }
+    } else {
+      tab.cdb.addCard(operation.deletedCards.map((card) => cloneCard(card)));
+    }
+
+    markActiveTabDirty(true);
+    return true;
+  } catch (err) {
+    console.error('Failed to undo operation:', err);
+    stack.push(operation);
+    return false;
+  }
+}
+
 export function getCardById(cardId: number): CardDataEntry | undefined {
   const tab = get(activeTab);
   if (!tab) return undefined;
@@ -457,8 +542,15 @@ export function modifyCard(card: CardDataEntry): boolean {
   if (!tab) return false;
 
   try {
+    const previousCard = tab.cdb.findById(card.code);
     // addCard does an INSERT OR REPLACE, so it works for both insert and update
     tab.cdb.addCard(card);
+    pushUndoOperation(tab.id, {
+      kind: 'modify',
+      label: previousCard ? `Edit card ${card.code}` : `Create card ${card.code}`,
+      affectedIds: [card.code],
+      previousCards: [previousCard ? cloneCard(previousCard) : null],
+    });
     markActiveTabDirty(true);
     return true;
   } catch (err) {
@@ -472,7 +564,17 @@ export function modifyCards(cards: CardDataEntry[]): boolean {
   if (!tab) return false;
 
   try {
+    const previousCards = cards.map((card) => {
+      const existing = tab.cdb.findById(card.code);
+      return existing ? cloneCard(existing) : null;
+    });
     tab.cdb.addCard(cards);
+    pushUndoOperation(tab.id, {
+      kind: 'modify',
+      label: cards.length === 1 ? `Edit card ${cards[0].code}` : `Modify ${cards.length} cards`,
+      affectedIds: cards.map((card) => card.code),
+      previousCards,
+    });
     markActiveTabDirty(true);
     return true;
   } catch (err) {
@@ -487,8 +589,17 @@ export function deleteCard(cardId: number): boolean {
   if (!tab) return false;
 
   try {
+    const deletedCard = tab.cdb.findById(cardId);
     tab.cdb.database.run('DELETE FROM datas WHERE id = ?', [cardId]);
     tab.cdb.database.run('DELETE FROM texts WHERE id = ?', [cardId]);
+    if (deletedCard) {
+      pushUndoOperation(tab.id, {
+        kind: 'delete',
+        label: `Delete card ${cardId}`,
+        affectedIds: [cardId],
+        deletedCards: [cloneCard(deletedCard)],
+      });
+    }
     markActiveTabDirty(true);
     return true;
   } catch (err) {
@@ -502,9 +613,21 @@ export function deleteCards(cardIds: number[]): boolean {
   if (!tab) return false;
 
   try {
+    const deletedCards = cardIds
+      .map((cardId) => tab.cdb.findById(cardId))
+      .filter((card): card is CardDataEntry => card !== undefined)
+      .map((card) => cloneCard(card));
     for (const cardId of cardIds) {
       tab.cdb.database.run('DELETE FROM datas WHERE id = ?', [cardId]);
       tab.cdb.database.run('DELETE FROM texts WHERE id = ?', [cardId]);
+    }
+    if (deletedCards.length > 0) {
+      pushUndoOperation(tab.id, {
+        kind: 'delete',
+        label: deletedCards.length === 1 ? `Delete card ${deletedCards[0].code}` : `Delete ${deletedCards.length} cards`,
+        affectedIds: deletedCards.map((card) => card.code),
+        deletedCards,
+      });
     }
     markActiveTabDirty(true);
     return true;

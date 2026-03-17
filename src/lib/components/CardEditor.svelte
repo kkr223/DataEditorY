@@ -59,7 +59,7 @@
 
   let draftCard = $state<CardDataEntry>(createEmptyCard());
   let originalCardCode = $state<number | null>(null);
-  let imageSrc = $state<string>("/cover.jpg");
+  let imageSrc = $state<string>("/resources/cover.jpg");
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
   let setcodesLoaded = false;
@@ -106,7 +106,7 @@
     syncSetcodesFromCard(draftCard);
     imageRequestToken++;
     resetImageUrls();
-    imageSrc = "/cover.jpg";
+    imageSrc = "/resources/cover.jpg";
   }
 
   function loadCardIntoDraft(card: CardDataEntry) {
@@ -117,7 +117,7 @@
   }
 
   function handleImageError() {
-    imageSrc = "/cover.jpg";
+    imageSrc = "/resources/cover.jpg";
   }
 
   function handleImageLoad() {
@@ -145,7 +145,7 @@
       activeObjectUrl = objectUrl;
       return bustCache ? `${objectUrl}#${Date.now()}` : objectUrl;
     } catch {
-      return "/cover.jpg";
+      return "/resources/cover.jpg";
     }
   }
 
@@ -153,7 +153,7 @@
     if (!$activeTab?.path || code <= 0) {
       imageRequestToken++;
       resetImageUrls();
-      imageSrc = "/cover.jpg";
+      imageSrc = "/resources/cover.jpg";
       return;
     }
 

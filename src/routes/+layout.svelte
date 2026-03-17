@@ -5,7 +5,7 @@
   import { _, locale, isLoading } from 'svelte-i18n';
   import { ask } from '@tauri-apps/plugin-dialog';
   import { CardDataEntry } from 'ygopro-cdb-encode';
-  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards } from '$lib/stores/db';
+  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation } from '$lib/stores/db';
   import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
   import { clearSelection, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
@@ -149,13 +149,46 @@
     showToast($_('editor.cards_deleted', { values: { count: String(selectedIds.length) } }), 'success');
   }
 
+  async function handleUndoLastOperation() {
+    if (!$isDbLoaded || !hasUndoableAction()) return;
+
+    const lastUndoLabel = getLastUndoLabel();
+    const message = $_('editor.undo_confirm', {
+      values: {
+        detail: lastUndoLabel ? `\n\n${$_('editor.undo_last_action', { values: { action: lastUndoLabel } })}` : '',
+      },
+    });
+    const title = $_('editor.undo_title');
+
+    const confirmed = await ask(message, {
+      title,
+      kind: 'warning',
+    });
+
+    if (!confirmed) return;
+
+    const ok = undoLastOperation();
+    if (!ok) {
+      showToast($_('editor.undo_failed'), 'error');
+      return;
+    }
+
+    handleSearch(true);
+    showToast($_('editor.undo_success'), 'success');
+  }
+
   function handleGlobalKeydown(event: KeyboardEvent) {
     if (event.defaultPrevented || event.repeat || event.isComposing) return;
 
     const isPrimary = event.ctrlKey || event.metaKey;
     if (!isPrimary || event.altKey) return;
+    const isEditable = isEditableTarget(event.target);
 
     const key = event.key.toLowerCase();
+
+    if (isEditable && key !== 's') {
+      return;
+    }
 
     if (key === 'o' && !event.shiftKey) {
       event.preventDefault();
@@ -181,21 +214,27 @@
       return;
     }
 
-    if (!isEditableTarget(event.target) && key === 'c' && !event.shiftKey) {
+    if (!isEditable && key === 'c' && !event.shiftKey) {
       event.preventDefault();
       void handleCopySelection();
       return;
     }
 
-    if (!isEditableTarget(event.target) && key === 'v' && !event.shiftKey) {
+    if (!isEditable && key === 'v' && !event.shiftKey) {
       event.preventDefault();
       void handlePasteSelection();
       return;
     }
 
-    if (!isEditableTarget(event.target) && key === 'd' && !event.shiftKey) {
+    if (!isEditable && key === 'd' && !event.shiftKey) {
       event.preventDefault();
       void handleDeleteSelection();
+      return;
+    }
+
+    if (!isEditable && key === 'z' && !event.shiftKey) {
+      event.preventDefault();
+      void handleUndoLastOperation();
       return;
     }
 

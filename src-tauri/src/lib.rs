@@ -1,3 +1,5 @@
+use tauri::Manager;
+
 #[tauri::command]
 fn read_cdb(path: String) -> Result<Vec<u8>, String> {
     std::fs::read(&path).map_err(|e| e.to_string())
@@ -23,19 +25,27 @@ fn read_image(path: String) -> Result<Vec<u8>, String> {
 }
 
 #[tauri::command]
-fn load_strings_conf() -> Result<String, String> {
+fn load_strings_conf(app: tauri::AppHandle) -> Result<String, String> {
     let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join("resources").join("strings.conf"));
+        candidates.push(resource_dir.join("strings.conf"));
+    }
 
     if let Ok(current_dir) = std::env::current_dir() {
         candidates.push(current_dir.join("strings.conf"));
         candidates.push(current_dir.join("static").join("strings.conf"));
+        candidates.push(current_dir.join("static").join("resources").join("strings.conf"));
     }
 
     if let Ok(current_exe) = std::env::current_exe() {
         if let Some(exe_dir) = current_exe.parent() {
             candidates.push(exe_dir.join("strings.conf"));
+            candidates.push(exe_dir.join("resources").join("strings.conf"));
             if let Some(parent) = exe_dir.parent() {
                 candidates.push(parent.join("strings.conf"));
+                candidates.push(parent.join("resources").join("strings.conf"));
             }
         }
     }
