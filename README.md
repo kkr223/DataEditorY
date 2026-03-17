@@ -92,7 +92,7 @@ DataEditorY-windows-portable/
 
 - 安装包适合普通用户直接安装
 - 便携版适合解压后直接运行，不需要安装
-- 便携版中的 `resources/` 目录包含应用依赖的附加资源文件
+- 便携版中的 `resources/` 目录包含应用依赖的附加资源文件，请保持与 `DataEditorY.exe` 同级
 
 ### 资源文件说明
 

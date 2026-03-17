@@ -32,9 +32,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": [
-      "../static/resources/**/*"
-    ],
+    "resources": {
+      "../static/resources/strings.conf": "resources/strings.conf",
+      "../static/resources/cover.jpg": "resources/cover.jpg"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
