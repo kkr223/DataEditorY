@@ -72,7 +72,7 @@ async function loadStringsConfContent(): Promise<string> {
   try {
     return await invoke<string>('load_strings_conf');
   } catch {
-    const response = await fetch('/strings.conf');
+    const response = await fetch('/resources/strings.conf');
     if (!response.ok) {
       throw new Error(`Failed to load strings.conf: ${response.status}`);
     }
