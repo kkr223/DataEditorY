@@ -2,7 +2,7 @@
 
 DataEditorY 是一个用于编辑 YGOPro `.cdb` 数据库的桌面应用。项目基于 Tauri 2、Svelte 5、TypeScript 和 `sql.js` 构建，界面语言支持中文和英文。
 
-当前版本提供数据库打开、创建、搜索、筛选、卡片编辑、图片导入、卡图制卡器、多标签页切换以及基础快捷键操作。
+当前版本提供数据库打开、创建、搜索、筛选、规则表达式搜索、卡片编辑、图片导入、卡图制卡器、多标签页切换以及基础快捷键操作。
 
 ## 环境要求
 
@@ -120,7 +120,7 @@ DataEditorY-windows-portable/
 
 - 打开和创建 `.cdb` 数据库
 - 多标签页切换多个数据库
-- 通过名称、描述、ID、攻击力、守备力、类型、属性、种族、setcode 进行搜索和筛选
+- 通过名称、描述、ID、攻击力、守备力、类型、属性、种族、setcode 和规则表达式进行搜索和筛选
 - 编辑卡片基础字段、类型、灵摆刻度、连接标记、提示文本和 setcode
 - 导入卡图到数据库同级目录下的 `pics/` 文件夹
 - 使用右侧制卡器生成卡图预览，并导出 PNG 或保存 JPG 到当前数据库同级 `pics/` 目录
@@ -148,6 +148,55 @@ DataEditorY-windows-portable/
 - 分页浏览
 
 输入名称后按回车，或点击搜索按钮执行查询。高级筛选可以组合多个条件。
+
+除了普通筛选外，高级筛选面板还支持“规则文本”搜索。卡片密码、描述文本和规则文本输入框都支持按回车直接触发搜索。
+
+#### 规则文本搜索
+
+规则文本适合表达卡片基本信息之间的比较，或写出比普通筛选更灵活的组合条件。
+
+当前支持的基本信息包括：
+
+- 攻击力：`atk`
+- 守备力：`def`
+- 等级：`level` | `lv`
+- 左灵摆刻度：`scale` | `ls`
+- 右灵摆刻度：`rscale` | `rs`
+- 属性：`attribute` | `attr`
+- 种族：`race` | `rc`
+- 卡片类型：`type` | `tp`
+- 连接标记：`linkmarker` | `lm`
+
+其中：
+
+- `attribute`、`race`、`type`、`linkmarker` 支持使用 `contains` / `has` / `包含`
+- 支持中英文关键字和部分常见别名，例如属性、种族、连接箭头等中文写法
+
+支持的逻辑与比较运算包括：
+
+- `and` / `&&` / `且`
+- `or` / `||` / `或`
+- `not` / `非`
+- `>`
+- `<`
+- `>=`
+- `<=`
+- `=`
+- `!=`
+- `<>`
+- `contains`
+
+示例：
+
+- `atk > def and level < 3`
+- `atk=def and attr=光`
+- `attribute = dark and race = dragon`
+- `type contains fusion or type contains synchro`
+- `linkmarker contains left and linkmarker contains right`
+- `scale >= 1 and rscale <= 8`
+- `lm contains left and tp contains link and lv >= 4`
+
+如果规则表达式有误，界面会弹出错误提示，并在规则文本输入框下方显示具体原因。
 
 ### 3. 选择卡片
 

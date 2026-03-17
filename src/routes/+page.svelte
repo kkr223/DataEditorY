@@ -21,6 +21,7 @@
       name: cached.name?.toString() ?? '',
       id: cached.id?.toString() ?? '',
       desc: cached.desc?.toString() ?? '',
+      rule: cached.rule?.toString() ?? '',
       atkMin: cached.atkMin?.toString() ?? '',
       atkMax: cached.atkMax?.toString() ?? '',
       defMin: cached.defMin?.toString() ?? '',

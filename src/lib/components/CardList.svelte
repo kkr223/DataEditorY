@@ -3,6 +3,7 @@
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
   import {
+    clearSearchError,
     editorState,
     getAllCards,
     getTotalCards,
@@ -23,6 +24,7 @@
   let hasActiveFilters = $derived(
     editorState.searchFilters.id !== '' ||
     editorState.searchFilters.desc !== '' ||
+    editorState.searchFilters.rule !== '' ||
     editorState.searchFilters.atkMin !== '' ||
     editorState.searchFilters.atkMax !== '' ||
     editorState.searchFilters.defMin !== '' ||
@@ -63,6 +65,12 @@
     handleSearch(false, true);
   }
 
+  function handleSearchKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      runSearch();
+    }
+  }
+
   function handleRowClick(event: MouseEvent, code: number) {
     if (event.shiftKey) {
       selectCardRange(code, event.ctrlKey || event.metaKey);
@@ -100,7 +108,7 @@
   <div class="list-header-complex">
     <div class="search-row">
       <div class="search-input-wrapper">
-        <input bind:this={searchInput} type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.name} onkeydown={(e) => e.key === 'Enter' && runSearch()} />
+        <input bind:this={searchInput} type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.name} onkeydown={handleSearchKeydown} />
       </div>
       <button class="btn-primary" onclick={runSearch} disabled={!$isDbLoaded} title={$_('search.title')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -119,11 +127,29 @@
       <div class="form-row">
         <div class="form-group">
           <label for="search-id">{$_('search.id_alias')}</label>
-          <input type="text" id="search-id" bind:value={editorState.searchFilters.id} />
+          <input type="text" id="search-id" bind:value={editorState.searchFilters.id} onkeydown={handleSearchKeydown} />
         </div>
         <div class="form-group flex-2">
           <label for="search-desc">{$_('search.desc')}</label>
-          <input type="text" id="search-desc" bind:value={editorState.searchFilters.desc} />
+          <input type="text" id="search-desc" bind:value={editorState.searchFilters.desc} onkeydown={handleSearchKeydown} />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="search-rule">{$_('search.rule')}</label>
+          <input
+            type="text"
+            id="search-rule"
+            placeholder={$_('search.rule_placeholder')}
+            bind:value={editorState.searchFilters.rule}
+            class:input-error={editorState.searchError !== ''}
+            oninput={() => clearSearchError()}
+            onkeydown={handleSearchKeydown}
+          />
+          {#if editorState.searchError !== ''}
+            <div class="input-error-bubble" role="alert">{editorState.searchError}</div>
+          {/if}
         </div>
       </div>
 
@@ -343,6 +369,17 @@
   label, .group-label { font-size: 0.86rem; color: var(--text-secondary); font-weight: 600; }
   input, select { width: 100%; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 0.3rem 0.55rem; font-size: 0.92rem; transition: all 0.2s; }
   input:focus, select:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 1px var(--accent-primary); outline: none; }
+  .input-error { border-color: #d14343; box-shadow: 0 0 0 1px rgba(209, 67, 67, 0.2); }
+  .input-error-bubble {
+    margin-top: 0.2rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, #d14343 14%, var(--bg-base));
+    border: 1px solid color-mix(in srgb, #d14343 45%, var(--border-color));
+    color: #d14343;
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
 
   /* Buttons */
   button { font-size: 0.9rem; font-weight: 600; padding: 0.38rem 0.7rem; border-radius: var(--border-radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-sm); transition: all 0.2s; cursor: pointer; border: none; }
