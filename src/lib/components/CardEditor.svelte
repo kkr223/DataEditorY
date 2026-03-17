@@ -34,6 +34,7 @@
     TYPE_BITS,
   } from "$lib/utils/card";
   import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
+  import CardImageDrawer from "$lib/components/CardImageDrawer.svelte";
 
   function createEmptyCard(): CardDataEntry {
     return {
@@ -69,6 +70,7 @@
   let isImagePreviewOpen = $state(false);
   let imageClickTimer: ReturnType<typeof setTimeout> | null = null;
   let lastSyncedSelectedId: number | null = null;
+  let isCardImageDrawerOpen = $state(false);
 
   let isEditingExisting = $derived(originalCardCode !== null);
   let isLink = $derived((draftCard.type & 0x4000000) !== 0);
@@ -324,7 +326,44 @@
       try {
         const picsDir = await getPicsDir($activeTab.path);
         const picPath = await join(picsDir, `${targetCode}.jpg`);
-        await invoke("copy_image", { src: selected, dest: picPath });
+        const bytes = await invoke<number[]>("read_image", { path: selected });
+        const blob = new Blob([new Uint8Array(bytes)]);
+        const imageUrl = URL.createObjectURL(blob);
+
+        try {
+          const image = new Image();
+          image.src = imageUrl;
+          await image.decode();
+
+          const maxWidth = 400;
+          const maxHeight = 580;
+          const scale = Math.min(1, maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
+          const width = Math.max(1, Math.round(image.naturalWidth * scale));
+          const height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d");
+          if (!context) {
+            throw new Error("Canvas context unavailable");
+          }
+
+          context.drawImage(image, 0, 0, width, height);
+          const outputBlob = await new Promise<Blob | null>((resolve) => {
+            canvas.toBlob((result) => resolve(result), "image/jpeg", 0.92);
+          });
+
+          if (!outputBlob) {
+            throw new Error("Failed to encode image");
+          }
+
+          const outputBytes = Array.from(new Uint8Array(await outputBlob.arrayBuffer()));
+          await invoke("write_cdb", { path: picPath, data: outputBytes });
+        } finally {
+          URL.revokeObjectURL(imageUrl);
+        }
+
         imageSrc = await resolveImageSrc(picsDir, targetCode, true);
       } catch (error) {
         console.error("Failed to copy image", error);
@@ -349,6 +388,14 @@
 
   function closeImagePreview() {
     isImagePreviewOpen = false;
+  }
+
+  function openCardImageDrawer() {
+    isCardImageDrawerOpen = true;
+  }
+
+  function closeCardImageDrawer() {
+    isCardImageDrawerOpen = false;
   }
 
   function handlePreviewKeydown(event: KeyboardEvent) {
@@ -641,7 +688,10 @@
     </div>
 
     <div class="editor-bottom">
-      <button class="btn-secondary btn-sm" onclick={handleNewCard}>{$_("editor.new_card")}</button>
+      <div class="editor-bottom-left">
+        <button class="btn-secondary btn-sm" onclick={handleNewCard}>{$_("editor.new_card")}</button>
+        <button class="btn-secondary btn-sm" onclick={openCardImageDrawer}>{$_("editor.card_image_button")}</button>
+      </div>
       <div class="btn-group">
         <button class="btn-secondary btn-sm" onclick={handleSaveAs}>{$_("editor.save_as")}</button>
         <button class="btn-primary btn-sm" onclick={handleModify}>{$_("editor.modify")}</button>
@@ -650,6 +700,13 @@
     </div>
   </div>
 {/if}
+
+<CardImageDrawer
+  open={isCardImageDrawerOpen}
+  card={draftCard}
+  cdbPath={$activeTab?.path ?? ""}
+  onClose={closeCardImageDrawer}
+/>
 
 {#if isImagePreviewOpen}
   <div
@@ -1038,6 +1095,10 @@
     padding: 4px 10px;
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
+  }
+  .editor-bottom-left {
+    display: flex;
+    gap: 6px;
   }
   .btn-group {
     display: flex;
