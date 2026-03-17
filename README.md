@@ -2,7 +2,7 @@
 
 DataEditorY 是一个用于编辑 YGOPro `.cdb` 数据库的桌面应用。项目基于 Tauri 2、Svelte 5、TypeScript 和 `sql.js` 构建，界面语言支持中文和英文。
 
-当前版本提供数据库打开、创建、搜索、筛选、卡片编辑、图片导入、多标签页切换以及基础快捷键操作。
+当前版本提供数据库打开、创建、搜索、筛选、规则表达式搜索、卡片编辑、图片导入、卡图制卡器、多标签页切换以及基础快捷键操作。
 
 ## 环境要求
 
@@ -100,8 +100,9 @@ DataEditorY-windows-portable/
 
 - `resources/strings.conf`
 - `resources/cover.jpg`
+- `resources/yugioh-card/`
 
-其中 `cover.jpg` 作为默认卡图占位图使用，`strings.conf` 用于提供 setcode 名称等基础数据。
+其中 `cover.jpg` 作为默认卡图占位图使用，`strings.conf` 用于提供 setcode 名称等基础数据，`yugioh-card/` 用于提供制卡器预览和导出所需的静态卡模资源。
 
 ### `strings.conf` 说明
 
@@ -119,9 +120,10 @@ DataEditorY-windows-portable/
 
 - 打开和创建 `.cdb` 数据库
 - 多标签页切换多个数据库
-- 通过名称、描述、ID、攻击力、守备力、类型、属性、种族、setcode 进行搜索和筛选
+- 通过名称、描述、ID、攻击力、守备力、类型、属性、种族、setcode 和规则表达式进行搜索和筛选
 - 编辑卡片基础字段、类型、灵摆刻度、连接标记、提示文本和 setcode
 - 导入卡图到数据库同级目录下的 `pics/` 文件夹
+- 使用右侧制卡器生成卡图预览，并导出 PNG 或保存 JPG 到当前数据库同级 `pics/` 目录
 - 在内存中修改数据库内容，并手动保存到磁盘
 - 支持左侧列表多选、批量复制、批量粘贴、批量删除
 - 支持跨数据库复制和粘贴卡片
@@ -146,6 +148,55 @@ DataEditorY-windows-portable/
 - 分页浏览
 
 输入名称后按回车，或点击搜索按钮执行查询。高级筛选可以组合多个条件。
+
+除了普通筛选外，高级筛选面板还支持“规则文本”搜索。卡片密码、描述文本和规则文本输入框都支持按回车直接触发搜索。
+
+#### 规则文本搜索
+
+规则文本适合表达卡片基本信息之间的比较，或写出比普通筛选更灵活的组合条件。
+
+当前支持的基本信息包括：
+
+- 攻击力：`atk`
+- 守备力：`def`
+- 等级：`level` | `lv`
+- 左灵摆刻度：`scale` | `ls`
+- 右灵摆刻度：`rscale` | `rs`
+- 属性：`attribute` | `attr`
+- 种族：`race` | `rc`
+- 卡片类型：`type` | `tp`
+- 连接标记：`linkmarker` | `lm`
+
+其中：
+
+- `attribute`、`race`、`type`、`linkmarker` 支持使用 `contains` / `has` / `包含`
+- 支持中英文关键字和部分常见别名，例如属性、种族、连接箭头等中文写法
+
+支持的逻辑与比较运算包括：
+
+- `and` / `&&` / `且`
+- `or` / `||` / `或`
+- `not` / `非`
+- `>`
+- `<`
+- `>=`
+- `<=`
+- `=`
+- `!=`
+- `<>`
+- `contains`
+
+示例：
+
+- `atk > def and level < 3`
+- `atk=def and attr=光`
+- `attribute = dark and race = dragon`
+- `type contains fusion or type contains synchro`
+- `linkmarker contains left and linkmarker contains right`
+- `scale >= 1 and rscale <= 8`
+- `lm contains left and tp contains link and lv >= 4`
+
+如果规则表达式有误，界面会弹出错误提示，并在规则文本输入框下方显示具体原因。
 
 ### 3. 选择卡片
 
@@ -193,6 +244,26 @@ DataEditorY-windows-portable/
 ### 6. 保存数据库
 
 点击右上方的 `保存数据库`，或使用快捷键保存当前活动标签页对应的数据库。
+
+### 7. 制卡器
+
+右侧编辑器底部提供 `编辑卡图` 按钮，用于打开制卡器抽屉。
+
+制卡器支持：
+
+- 基于当前 `cdb` 卡片数据自动预填卡名、卡片类型、属性、种族、效果文本等字段
+- 上传卡图素材并使用正方形裁剪框调整中间图区域
+- 根据左侧表单实时刷新右侧卡图预览
+- 通过比例滑条控制导出 JPG 的缩放比例
+- 将渲染结果保存为：
+  - `PNG`：通过保存对话框导出最大尺寸 PNG
+  - `JPG`：直接保存到 `<数据库所在目录>/pics/<卡片密码>.jpg`
+
+说明：
+
+- 制卡器允许在未上传中间图的情况下直接导出空图框版本卡面
+- 当 `pics/` 中已存在同名 JPG 时，应用会先提示是否替换
+- 外层编辑器中的单击卡图导入功能会在图片大于 `400 x 580` 时自动等比压缩后再保存为 JPG
 
 ## 快捷键
 
@@ -268,6 +339,21 @@ src-tauri/
 - SvelteKit
 - sql.js
 - `ygopro-cdb-encode`
+- `cdb2yugiohcard`
+- `yugioh-card`
+
+## 依赖声明
+
+本项目在卡片数据读取、结构转换和卡图渲染上直接使用了以下开源库：
+
+- [`ygopro-cdb-encode`](https://www.npmjs.com/package/ygopro-cdb-encode)
+  - 用于读取、创建、修改和保存 YGOPro `.cdb` 数据结构
+- [`cdb2yugiohcard`](https://www.npmjs.com/package/cdb2yugiohcard)
+  - 用于把 `CardDataEntry` 转换成 `yugioh-card` 所需的卡图数据格式
+- [`yugioh-card`](https://www.npmjs.com/package/yugioh-card)
+  - 用于在前端预览并导出最终卡图
+
+制卡器功能基于上述库组合实现，相关能力与资源文件请遵循对应库的许可证与使用要求。
 
 ## 说明
 

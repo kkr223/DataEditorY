@@ -1,4 +1,7 @@
-import { cacheActiveTabSelection, searchCardsPage } from '$lib/stores/db';
+import { get } from 'svelte/store';
+import { locale } from 'svelte-i18n';
+import { cacheActiveTabSelection, getRuleExpressionErrorMessage, RuleExpressionError, searchCardsPage } from '$lib/stores/db';
+import { showToast } from '$lib/stores/toast.svelte';
 import type { CardDataEntry } from 'ygopro-cdb-encode';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import type { SearchFilterState } from '$lib/types';
@@ -43,6 +46,7 @@ export const editorState = $state<{
   selectionAnchorId: number | null;
   currentPage: number;
   searchFilters: SearchFilterState;
+  searchError: string;
   isFilterOpen: boolean;
 }>({
   selectedId: null,
@@ -50,6 +54,7 @@ export const editorState = $state<{
   selectionAnchorId: null,
   currentPage: 1,
   searchFilters: { ...DEFAULT_SEARCH_FILTERS },
+  searchError: '',
   isFilterOpen: false
 });
 
@@ -100,6 +105,10 @@ export function clearSelection() {
   editorState.selectedId = null;
   editorState.selectionAnchorId = null;
   cacheActiveTabSelection([], null, null);
+}
+
+export function clearSearchError() {
+  editorState.searchError = '';
 }
 
 export function setSingleSelectedCard(cardId: number | null) {
@@ -153,12 +162,31 @@ export function handleSearch(preserveSelection = false, resetPage = false) {
   const prevSelectedId = editorState.selectedId;
   const prevSelectedIds = [...editorState.selectedIds];
   const prevAnchorId = editorState.selectionAnchorId;
+  const prevPage = editorState.currentPage;
 
   if (resetPage) {
     editorState.currentPage = 1;
   }
 
-  const { cards, total } = searchCardsPage(editorState.searchFilters, editorState.currentPage);
+  let cards: CardDataEntry[];
+  let total: number;
+  try {
+    ({ cards, total } = searchCardsPage(editorState.searchFilters, editorState.currentPage));
+    clearSearchError();
+  } catch (err) {
+    editorState.currentPage = prevPage;
+
+    if (err instanceof RuleExpressionError) {
+      const message = getRuleExpressionErrorMessage(err, get(locale) ?? 'en');
+      editorState.searchError = message;
+      showToast(message, 'error');
+      return false;
+    }
+
+    console.error('Failed to update search results:', err);
+    return false;
+  }
+
   setAllCards(cards);
   _totalCards = total;
 
@@ -175,10 +203,13 @@ export function handleSearch(preserveSelection = false, resetPage = false) {
   } else {
     clearSelection();
   }
+
+  return true;
 }
 
 export function handleReset() {
   editorState.searchFilters = { ...DEFAULT_SEARCH_FILTERS };
+  clearSearchError();
   editorState.currentPage = 1;
   handleSearch();
 }

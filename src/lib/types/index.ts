@@ -2,6 +2,7 @@ export interface SearchFilters {
   name?: string;
   id?: string;
   desc?: string;
+  rule?: string;
   atkMin?: string | number;
   atkMax?: string | number;
   defMin?: string | number;
@@ -20,6 +21,7 @@ export interface SearchFilterState {
   id: string;
   name: string;
   desc: string;
+  rule: string;
   atkMin: string;
   atkMax: string;
   defMin: string;
@@ -56,6 +58,7 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilterState = {
   id: '',
   name: '',
   desc: '',
+  rule: '',
   atkMin: '',
   atkMax: '',
   defMin: '',

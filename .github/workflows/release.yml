@@ -70,7 +70,9 @@ jobs:
         run: |
           $portableDir = "src-tauri/target/release/DataEditorY-windows-portable"
           $resourceDir = "src-tauri/target/release/resources"
+          $portableResourceDir = "$portableDir/resources"
           $zipPath = "src-tauri/target/release/DataEditorY-windows-portable.zip"
+          $sourceResourceDir = "static/resources"
 
           Remove-Item $portableDir -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
@@ -79,9 +81,28 @@ jobs:
           Copy-Item "src-tauri/target/release/dataeditory.exe" -Destination "$portableDir/DataEditorY.exe"
 
           if (Test-Path $resourceDir) {
-            Copy-Item $resourceDir -Destination "$portableDir/resources" -Recurse
+            Copy-Item $resourceDir -Destination $portableResourceDir -Recurse
           } else {
             throw "Expected Tauri resources directory not found: $resourceDir"
+          }
+
+          $requiredResources = @(
+            @{ RelativePath = "strings.conf"; SourcePath = "$sourceResourceDir/strings.conf" },
+            @{ RelativePath = "cover.jpg"; SourcePath = "$sourceResourceDir/cover.jpg" },
+            @{ RelativePath = "yugioh-card"; SourcePath = "$sourceResourceDir/yugioh-card" }
+          )
+
+          foreach ($resource in $requiredResources) {
+            $targetPath = Join-Path $portableResourceDir $resource.RelativePath
+            if (Test-Path $targetPath) {
+              continue
+            }
+
+            if (-not (Test-Path $resource.SourcePath)) {
+              throw "Missing required portable resource: $($resource.RelativePath)"
+            }
+
+            Copy-Item $resource.SourcePath -Destination $targetPath -Recurse
           }
 
           Compress-Archive -Path "$portableDir/*" -DestinationPath $zipPath -Force
