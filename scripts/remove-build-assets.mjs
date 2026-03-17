@@ -1,10 +1,2 @@
-import { rmSync } from 'node:fs';
-import { join } from 'node:path';
-
-const removableFiles = [
-  join(process.cwd(), 'build', 'strings.conf'),
-];
-
-for (const file of removableFiles) {
-  rmSync(file, { force: true });
-}
+// Keep strings.conf in the bundled assets so the app always has a default copy.
+// Runtime loading still prefers an external strings.conf in the current directory.
