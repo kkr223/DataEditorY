@@ -1,0 +1,1027 @@
+import { get } from 'svelte/store';
+import { invoke } from '@tauri-apps/api/core';
+import { readTextFile } from '@tauri-apps/plugin-fs';
+import type { CardDataEntry } from 'ygopro-cdb-encode';
+import { activeTab, tabs, SUBTYPE_MAP } from '$lib/stores/db';
+import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
+import { createEmptyCard } from '$lib/utils/card';
+
+type AiRole = 'system' | 'user' | 'assistant' | 'tool';
+
+type AiMessage = {
+  role: AiRole;
+  content?: string;
+  tool_call_id?: string;
+  tool_calls?: Array<{
+    id: string;
+    type: 'function';
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
+};
+
+type AiToolDefinition = {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+};
+
+type ToolExecutor = (args: Record<string, unknown>) => Promise<unknown>;
+
+type AiConfig = {
+  apiBaseUrl: string;
+  model: string;
+  secretKey: string;
+};
+
+type OpenDbMeta = {
+  id: string;
+  name: string;
+  path: string;
+  isActive: boolean;
+};
+
+type CardScriptInfo = {
+  path: string;
+  exists: boolean;
+};
+
+type ParsedCardDraft = {
+  code?: number | null;
+  alias?: number | null;
+  name?: string;
+  desc?: string;
+  ot?: number | string | null;
+  mainType?: 'monster' | 'spell' | 'trap' | null;
+  subtypes?: string[];
+  attribute?: string | null;
+  race?: string | null;
+  level?: number | null;
+  leftScale?: number | null;
+  rightScale?: number | null;
+  attack?: number | null;
+  defense?: number | null;
+  linkMarkers?: string[];
+  setcodes?: Array<string | number>;
+  category?: number | null;
+  strings?: string[];
+};
+
+
+const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
+const MAX_AGENT_STEPS = 6;
+
+const ATTRIBUTE_NAME_TO_VALUE: Record<string, number> = {
+  earth: 0x01,
+  water: 0x02,
+  fire: 0x04,
+  wind: 0x08,
+  light: 0x10,
+  dark: 0x20,
+  divine: 0x40,
+};
+
+const RACE_NAME_TO_VALUE: Record<string, number> = {
+  warrior: 0x1,
+  spellcaster: 0x2,
+  fairy: 0x4,
+  fiend: 0x8,
+  zombie: 0x10,
+  machine: 0x20,
+  aqua: 0x40,
+  pyro: 0x80,
+  rock: 0x100,
+  wingedbeast: 0x200,
+  plant: 0x400,
+  insect: 0x800,
+  thunder: 0x1000,
+  dragon: 0x2000,
+  beast: 0x4000,
+  beastwarrior: 0x8000,
+  dinosaur: 0x10000,
+  fish: 0x20000,
+  seaserpent: 0x40000,
+  reptile: 0x80000,
+  psychic: 0x100000,
+  divinebeast: 0x200000,
+  creatorgod: 0x400000,
+  wyrm: 0x800000,
+  cyberse: 0x1000000,
+  illusion: 0x2000000,
+};
+
+const SUBTYPE_NAME_TO_BIT: Record<string, number> = {
+  normal: SUBTYPE_MAP.normal,
+  effect: SUBTYPE_MAP.effect,
+  fusion: SUBTYPE_MAP.fusion,
+  ritual: SUBTYPE_MAP.ritual,
+  spirit: SUBTYPE_MAP.spirit,
+  union: SUBTYPE_MAP.union,
+  gemini: SUBTYPE_MAP.gemini,
+  tuner: SUBTYPE_MAP.tuner,
+  synchro: SUBTYPE_MAP.synchro,
+  token: SUBTYPE_MAP.token,
+  quickplay: SUBTYPE_MAP.quickplay,
+  continuous: SUBTYPE_MAP.continuous_spell,
+  continuous_spell: SUBTYPE_MAP.continuous_spell,
+  continuous_trap: SUBTYPE_MAP.continuous_trap,
+  equip: SUBTYPE_MAP.equip,
+  field: SUBTYPE_MAP.field,
+  counter: SUBTYPE_MAP.counter,
+  flip: SUBTYPE_MAP.flip,
+  toon: SUBTYPE_MAP.toon,
+  xyz: SUBTYPE_MAP.xyz,
+  pendulum: SUBTYPE_MAP.pendulum,
+  spssummon: SUBTYPE_MAP.spssummon,
+  link: SUBTYPE_MAP.link,
+  ritual_spell: SUBTYPE_MAP.ritual_spell,
+};
+
+const LINK_MARKER_NAME_TO_BIT: Record<string, number> = {
+  downleft: 0x01,
+  down: 0x02,
+  downright: 0x04,
+  left: 0x08,
+  right: 0x20,
+  upleft: 0x40,
+  up: 0x80,
+  upright: 0x100,
+};
+
+const TOOL_DEFINITIONS: AiToolDefinition[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'list_open_databases',
+      description: 'List the currently opened card databases.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_current_card',
+      description: 'Get the current card being edited.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_card_by_id',
+      description: 'Look up a specific card by password/id in the current or an opened database.',
+      parameters: {
+        type: 'object',
+        properties: {
+          code: { type: 'number' },
+          dbPath: { type: 'string' },
+        },
+        required: ['code'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_cards',
+      description: 'Search cards by name or effect text inside the current database or all opened databases.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string' },
+          dbScope: { type: 'string', enum: ['current', 'all'] },
+          dbPath: { type: 'string' },
+          limit: { type: 'number' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_card_script',
+      description: 'Read an existing lua script for a card if one exists.',
+      parameters: {
+        type: 'object',
+        properties: {
+          code: { type: 'number' },
+          dbPath: { type: 'string' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+];
+
+function normalizeKeyword(value: string) {
+  return value.trim().toLowerCase().replace(/[\s_/-]+/g, '');
+}
+
+function normalizeSetcodes(input: Array<string | number> | undefined, current: number[]) {
+  const values = Array.isArray(current) ? [...current] : [0, 0, 0, 0];
+  while (values.length < 4) values.push(0);
+
+  if (!input || input.length === 0) {
+    return values.slice(0, 4);
+  }
+
+  const next = [0, 0, 0, 0];
+  for (let index = 0; index < Math.min(4, input.length); index += 1) {
+    const raw = input[index];
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      next[index] = raw & 0xffff;
+      continue;
+    }
+
+    const normalized = String(raw ?? '').trim().toLowerCase().replace(/^0x/, '');
+    if (/^[\da-f]{1,4}$/i.test(normalized)) {
+      next[index] = parseInt(normalized, 16) & 0xffff;
+    }
+  }
+
+  return next;
+}
+
+function normalizeStrings(values: string[] | undefined, current: string[]) {
+  const next = Array.isArray(current) ? [...current] : [];
+  while (next.length < 16) next.push('');
+
+  if (!Array.isArray(values)) {
+    return next.slice(0, 16);
+  }
+
+  const normalized = values.map((item) => String(item ?? ''));
+  while (normalized.length < 16) normalized.push('');
+  return normalized.slice(0, 16);
+}
+
+function normalizeOt(value: number | string | null | undefined, current: number) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  const key = normalizeKeyword(String(value ?? ''));
+  if (!key) return current;
+
+  const otMap: Record<string, number> = {
+    ocg: 1,
+    tcg: 2,
+    ocgtcg: 3,
+    custom: 4,
+    sc: 9,
+    sctcg: 11,
+  };
+
+  return otMap[key] ?? current;
+}
+
+function getMainTypeName(type: number): 'monster' | 'spell' | 'trap' | null {
+  if (type & 0x1) return 'monster';
+  if (type & 0x2) return 'spell';
+  if (type & 0x4) return 'trap';
+  return null;
+}
+
+function getSubtypeNames(type: number): string[] {
+  const names: string[] = [];
+  for (const [name, bit] of Object.entries(SUBTYPE_NAME_TO_BIT)) {
+    if ((type & bit) !== 0) {
+      names.push(name);
+    }
+  }
+  return [...new Set(names)];
+}
+
+function getLinkMarkerNames(linkMarker: number): string[] {
+  return Object.entries(LINK_MARKER_NAME_TO_BIT)
+    .filter(([, bit]) => (linkMarker & bit) !== 0)
+    .map(([name]) => name);
+}
+
+function serializeCardForAi(card: CardDataEntry | null | undefined) {
+  if (!card) return null;
+
+  return {
+    code: Number(card.code ?? 0),
+    alias: Number(card.alias ?? 0),
+    name: String(card.name ?? ''),
+    desc: String(card.desc ?? ''),
+    ot: Number(card.ot ?? 0),
+    type: Number(card.type ?? 0),
+    mainType: getMainTypeName(Number(card.type ?? 0)),
+    subtypes: getSubtypeNames(Number(card.type ?? 0)),
+    attribute: Object.entries(ATTRIBUTE_NAME_TO_VALUE).find(([, value]) => value === Number(card.attribute ?? 0))?.[0] ?? null,
+    race: Object.entries(RACE_NAME_TO_VALUE).find(([, value]) => value === Number(card.race ?? 0))?.[0] ?? null,
+    attack: Number(card.attack ?? 0),
+    defense: Number(card.defense ?? 0),
+    level: Number(card.level ?? 0),
+    lscale: Number(card.lscale ?? 0),
+    rscale: Number(card.rscale ?? 0),
+    linkMarker: Number(card.linkMarker ?? 0),
+    linkMarkers: getLinkMarkerNames(Number(card.linkMarker ?? 0)),
+    setcode: Array.isArray(card.setcode) ? [...card.setcode] : [0, 0, 0, 0],
+    category: Number(card.category ?? 0),
+    strings: Array.isArray(card.strings) ? [...card.strings] : [],
+  };
+}
+
+function mergeParsedDraftIntoCard(currentCard: CardDataEntry, parsed: ParsedCardDraft): CardDataEntry {
+  const nextCard = {
+    ...currentCard,
+    name: parsed.name?.trim() || currentCard.name || '',
+    desc: parsed.desc?.trim() || currentCard.desc || '',
+    code: parsed.code && parsed.code > 0 ? parsed.code : currentCard.code,
+    alias: typeof parsed.alias === 'number' ? parsed.alias : currentCard.alias,
+    ot: normalizeOt(parsed.ot, Number(currentCard.ot ?? 0)),
+    attack: typeof parsed.attack === 'number' ? parsed.attack : currentCard.attack,
+    defense: typeof parsed.defense === 'number' ? parsed.defense : currentCard.defense,
+    category: typeof parsed.category === 'number' ? parsed.category : currentCard.category,
+    setcode: normalizeSetcodes(parsed.setcodes, Array.isArray(currentCard.setcode) ? currentCard.setcode : [0, 0, 0, 0]),
+    strings: normalizeStrings(parsed.strings, Array.isArray(currentCard.strings) ? currentCard.strings : []),
+  } as CardDataEntry;
+
+  if (parsed.mainType) {
+    let typeBits = parsed.mainType === 'monster' ? 0x1 : parsed.mainType === 'spell' ? 0x2 : 0x4;
+    for (const subtype of parsed.subtypes ?? []) {
+      const bit = SUBTYPE_NAME_TO_BIT[normalizeKeyword(subtype)];
+      if (bit) typeBits |= bit;
+    }
+    nextCard.type = typeBits;
+  }
+
+  if (parsed.attribute) {
+    nextCard.attribute = ATTRIBUTE_NAME_TO_VALUE[normalizeKeyword(parsed.attribute)] ?? currentCard.attribute;
+  }
+
+  if (parsed.race) {
+    nextCard.race = RACE_NAME_TO_VALUE[normalizeKeyword(parsed.race)] ?? currentCard.race;
+  }
+
+  if (typeof parsed.level === 'number') {
+    nextCard.level = parsed.level;
+  }
+
+  if (typeof parsed.leftScale === 'number') {
+    nextCard.lscale = parsed.leftScale;
+  }
+
+  if (typeof parsed.rightScale === 'number') {
+    nextCard.rscale = parsed.rightScale;
+  }
+
+  if (Array.isArray(parsed.linkMarkers)) {
+    nextCard.linkMarker = parsed.linkMarkers.reduce((total, item) => {
+      const bit = LINK_MARKER_NAME_TO_BIT[normalizeKeyword(item)];
+      return bit ? total | bit : total;
+    }, 0);
+  }
+
+  return nextCard;
+}
+
+function extractTextContent(content: unknown) {
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object' && 'text' in item && typeof item.text === 'string') {
+          return item.text;
+        }
+        return '';
+      })
+      .join('\n');
+  }
+
+  return '';
+}
+
+function parseJsonFromText<T>(text: string): T {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced?.[1]?.trim() || trimmed;
+  return JSON.parse(candidate) as T;
+}
+
+function getChatCompletionsEndpoint(apiBaseUrl: string) {
+  const normalized = apiBaseUrl.trim().replace(/\/+$/, '') || DEFAULT_API_BASE_URL;
+  if (normalized.endsWith('/chat/completions')) {
+    return normalized;
+  }
+  return `${normalized}/chat/completions`;
+}
+
+
+
+async function getAiConfig(): Promise<AiConfig> {
+  await loadAppSettings();
+  const secretKey = await invoke<string | null>('load_secret_key');
+  if (!secretKey) {
+    throw new Error('Secret key is not configured');
+  }
+
+  return {
+    apiBaseUrl: appSettingsState.values.apiBaseUrl || DEFAULT_API_BASE_URL,
+    model: appSettingsState.values.model || 'gpt-4o-mini',
+    secretKey,
+  };
+}
+
+async function requestChatCompletion(
+  config: AiConfig,
+  body: Record<string, unknown>,
+) {
+  const response = await fetch(getChatCompletionsEndpoint(config.apiBaseUrl), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.secretKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message =
+      payload?.error?.message ||
+      payload?.message ||
+      `AI request failed with status ${response.status}`;
+    throw new Error(message);
+  }
+
+  return payload;
+}
+
+function getOpenDbMetas(): OpenDbMeta[] {
+  const currentActiveTab = get(activeTab);
+  return get(tabs).map((tab) => ({
+    id: tab.id,
+    name: tab.name,
+    path: tab.path,
+    isActive: currentActiveTab?.id === tab.id,
+  }));
+}
+
+function getScopedTabs(dbScope: string | undefined, dbPath: string | undefined) {
+  const allTabs = get(tabs);
+  const currentActiveTab = get(activeTab);
+
+  if (dbPath) {
+    return allTabs.filter((tab) => tab.path === dbPath);
+  }
+
+  if (dbScope === 'current') {
+    return currentActiveTab ? [currentActiveTab] : [];
+  }
+
+  return allTabs;
+}
+
+function pickCardFromDb(code: number, dbPath?: string) {
+  const matchedTabs = getScopedTabs(undefined, dbPath);
+  for (const tab of matchedTabs) {
+    const card = tab.cdb.findById(code);
+    if (card) {
+      return {
+        db: { name: tab.name, path: tab.path },
+        card: serializeCardForAi(card),
+      };
+    }
+  }
+
+  if (!dbPath) {
+    for (const tab of get(tabs)) {
+      const card = tab.cdb.findById(code);
+      if (card) {
+        return {
+          db: { name: tab.name, path: tab.path },
+          card: serializeCardForAi(card),
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+function escapeLikeWildcards(value: string) {
+  return value.replace(/[%_\\]/g, '\\$&');
+}
+
+async function searchCards(query: string, dbScope?: string, dbPath?: string, limit = 6) {
+  const normalizedQuery = query.trim();
+  const result = [];
+  const safeLimit = Math.max(1, Math.min(12, Math.round(limit)));
+
+  for (const tab of getScopedTabs(dbScope, dbPath)) {
+    const safeLike = normalizedQuery ? `%${escapeLikeWildcards(normalizedQuery)}%` : '';
+    const cards = normalizedQuery
+      ? tab.cdb.find(
+          `(texts.name LIKE :name OR texts.desc LIKE :name) ORDER BY datas.id LIMIT ${safeLimit}`,
+          { name: safeLike },
+        )
+      : tab.cdb.find(`1=1 ORDER BY datas.id LIMIT ${safeLimit}`);
+
+    for (const card of cards) {
+      result.push({
+        db: { name: tab.name, path: tab.path },
+        card: serializeCardForAi(card),
+      });
+    }
+  }
+
+  return result.slice(0, safeLimit);
+}
+
+async function readCardScript(code: number, dbPath?: string) {
+  const targetTab = dbPath
+    ? get(tabs).find((tab) => tab.path === dbPath)
+    : get(activeTab);
+
+  if (!targetTab) {
+    return { exists: false, path: null, content: null };
+  }
+
+  const info = await invoke<CardScriptInfo>('get_card_script_info', {
+    cdbPath: targetTab.path,
+    cardId: code,
+  });
+
+  if (!info.exists) {
+    return { exists: false, path: info.path, content: null };
+  }
+
+  const content = await readTextFile(info.path);
+  return { exists: true, path: info.path, content };
+}
+
+function createToolExecutors(currentCard: CardDataEntry): Record<string, ToolExecutor> {
+  return {
+    async list_open_databases() {
+      return getOpenDbMetas();
+    },
+    async get_current_card() {
+      const currentActiveTab = get(activeTab);
+      return {
+        db: currentActiveTab
+          ? {
+              name: currentActiveTab.name,
+              path: currentActiveTab.path,
+            }
+          : null,
+        card: serializeCardForAi(currentCard),
+      };
+    },
+    async get_card_by_id(args) {
+      const code = Number(args.code ?? 0);
+      if (!Number.isInteger(code) || code <= 0) {
+        throw new Error('A positive card id is required');
+      }
+
+      return pickCardFromDb(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    },
+    async search_cards(args) {
+      return searchCards(
+        typeof args.query === 'string' ? args.query : '',
+        typeof args.dbScope === 'string' ? args.dbScope : undefined,
+        typeof args.dbPath === 'string' ? args.dbPath : undefined,
+        Number(args.limit ?? 6),
+      );
+    },
+    async read_card_script(args) {
+      const fallbackCode = Number(currentCard.code ?? 0);
+      const code = Number(args.code ?? fallbackCode);
+      if (!Number.isInteger(code) || code <= 0) {
+        throw new Error('A positive card id is required');
+      }
+
+      return readCardScript(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    },
+  };
+}
+
+async function runAgent(options: {
+  currentCard: CardDataEntry;
+  systemPrompt: string;
+  userPrompt: string;
+  temperature?: number;
+  useTools?: boolean;
+}) {
+  const config = await getAiConfig();
+  const messages: AiMessage[] = [
+    { role: 'system', content: options.systemPrompt },
+    { role: 'user', content: options.userPrompt },
+  ];
+
+  const executors = createToolExecutors(options.currentCard);
+
+  for (let step = 0; step < MAX_AGENT_STEPS; step += 1) {
+    const payload = await requestChatCompletion(config, {
+      model: config.model,
+      temperature: options.temperature ?? 0.2,
+      messages,
+      ...(options.useTools
+        ? {
+            tools: TOOL_DEFINITIONS,
+            tool_choice: 'auto',
+          }
+        : {}),
+    });
+
+    const message = payload?.choices?.[0]?.message;
+    if (!message) {
+      throw new Error('AI returned an empty response');
+    }
+
+    const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+    if (options.useTools && toolCalls.length > 0) {
+      messages.push({
+        role: 'assistant',
+        content: extractTextContent(message.content),
+        tool_calls: toolCalls,
+      });
+
+      for (const toolCall of toolCalls) {
+        const executor = executors[toolCall.function.name];
+        if (!executor) {
+          messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify({ error: `Unknown tool: ${toolCall.function.name}` }),
+          });
+          continue;
+        }
+
+        try {
+          const args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
+          const result = await executor(args);
+          messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(result),
+          });
+        } catch (error) {
+          messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify({
+              error: error instanceof Error ? error.message : 'Tool execution failed',
+            }),
+          });
+        }
+      }
+
+      continue;
+    }
+
+    const text = extractTextContent(message.content);
+    if (!text.trim()) {
+      throw new Error('AI returned an empty text response');
+    }
+
+    return text;
+  }
+
+  throw new Error('AI exceeded the maximum tool-call steps');
+}
+
+export async function parseCardManuscript(manuscript: string, currentCard: CardDataEntry) {
+  const text = await runAgent({
+    currentCard,
+    useTools: true,
+    temperature: 0.1,
+    systemPrompt: [
+      'You are a Yu-Gi-Oh! card data editor assistant.  Your task is to parse',
+      'free-form card manuscript text into structured card records.',
+      '',
+      '## Available tools',
+      'You may call tools to inspect the current card and opened databases',
+      'before producing the final JSON output.',
+      '',
+      '## Output format',
+      'Return **only** a JSON object (no markdown fences, no explanation).',
+      '',
+      '### Top-level schema',
+      '{',
+      '  "cards": [ ...one or more CardDraft objects... ],',
+      '  "summary": "brief description of what was parsed"',
+      '}',
+      '',
+      '### CardDraft schema',
+      '{',
+      '  "code": number | null,          // card password / id',
+      '  "alias": number | null,         // alias id (for alternative artwork, etc.)',
+      '  "name": string,                 // card name',
+      '  "desc": string,                 // card effect / flavor text',
+      '  "ot": number | string | null,   // 1=OCG, 2=TCG, 3=OCG/TCG, 4=Custom, 9=SC, 11=SC/TCG',
+      '  "mainType": "monster" | "spell" | "trap" | null,',
+      '  "subtypes": string[],           // see allowed subtype names below',
+      '  "attribute": string | null,     // see allowed attribute names below',
+      '  "race": string | null,          // see allowed race names below',
+      '  "level": number | null,         // monster level / rank (1-13)',
+      '  "leftScale": number | null,     // pendulum left scale (0-13)',
+      '  "rightScale": number | null,    // pendulum right scale (0-13)',
+      '  "attack": number | null,        // ATK value (-2 means "?")',
+      '  "defense": number | null,       // DEF value (-2 means "?", link monsters have 0)',
+      '  "linkMarkers": string[],        // see marker names below',
+      '  "setcodes": (string|number)[],  // up to 4 archetype setcodes as hex strings e.g. "0x00a1"',
+      '  "category": number | null,      // category bitmask (rarely used)',
+      '  "strings": string[]             // up to 16 counter/prompt strings',
+      '}',
+      '',
+      '### Allowed field values',
+      '- **subtypes** (monster): normal, effect, fusion, ritual, spirit, union, gemini,',
+      '  tuner, synchro, token, flip, toon, xyz, pendulum, spssummon, link',
+      '- **subtypes** (spell): quickplay, continuous, equip, field, ritual_spell',
+      '- **subtypes** (trap): continuous, counter',
+      '- **attribute**: earth, water, fire, wind, light, dark, divine',
+      '- **race**: warrior, spellcaster, fairy, fiend, zombie, machine, aqua, pyro,',
+      '  rock, wingedbeast, plant, insect, thunder, dragon, beast, beastwarrior,',
+      '  dinosaur, fish, seaserpent, reptile, psychic, divinebeast, creatorgod,',
+      '  wyrm, cyberse, illusion',
+      '- **linkMarkers**: up, down, left, right, upleft, upright, downleft, downright',
+      '',
+      '## Rules',
+      '1. If the manuscript contains multiple cards, return them in order.',
+      '2. When the manuscript omits a field, set it to null — do NOT guess.',
+      '3. Use English keywords for semantic fields (subtypes, attribute, race, etc.).',
+      '4. For Link Monsters, defense should be 0 and include linkMarkers.',
+      '5. desc should preserve the original line breaks from the manuscript.',
+      '6. setcodes should be hex strings like "0x00a1" or integers.',
+    ].join('\n'),
+    userPrompt: [
+      'Parse the following manuscript into one or more editable card records.',
+      'If the manuscript is incomplete, preserve only what can be inferred confidently.',
+      '',
+      `Current card draft (for context / fallback fields):`,
+      JSON.stringify(serializeCardForAi(currentCard)),
+      '',
+      '--- MANUSCRIPT ---',
+      manuscript,
+    ].join('\n'),
+  });
+
+  const parsed = parseJsonFromText<{ cards?: ParsedCardDraft[]; card?: ParsedCardDraft; summary?: string }>(text);
+  const draftCards = Array.isArray(parsed.cards) && parsed.cards.length > 0
+    ? parsed.cards
+    : parsed.card
+      ? [parsed.card]
+      : [];
+
+  return {
+    cards: draftCards.map((item, index) => mergeParsedDraftIntoCard(index === 0 ? currentCard : createEmptyCard(), item ?? {})),
+    summary: parsed.summary ?? '',
+    raw: text,
+  };
+}
+
+export async function generateCardScript(currentCard: CardDataEntry) {
+  return runAgent({
+    currentCard,
+    useTools: true,
+    temperature: 0.25,
+    systemPrompt: [
+      'You are an expert EDOPro/YGOPro Lua card scripter.',
+      'Your task is to generate a complete, runnable Lua script for a Yu-Gi-Oh! card.',
+      '',
+      '## Available tools',
+      'Use the available tools to:',
+      '- Inspect the current card data',
+      '- Search and look up reference cards in opened databases',
+      '- Read existing Lua scripts for similar cards as reference',
+      'Use tools before writing the final script when helpful.',
+      '',
+      '## Output format',
+      'Return **only** the final Lua script.',
+      '- No markdown code fences',
+      '- No surrounding explanation or commentary',
+      '- Include concise TODO comments in Lua only when the card text is ambiguous',
+      '',
+      '## Script structure',
+      'A standard YGOPro script follows this pattern:',
+      '',
+      '```',
+      '-- Card Name',
+      'local s,id = GetID()',
+      'function s.initial_effect(c)',
+      '  -- register effects here',
+      'end',
+      '```',
+      '',
+      '## Registering effects',
+      'Every effect follows a 3-step pattern:',
+      '1. Create: `local e1 = Effect.CreateEffect(c)`',
+      '2. Configure: set type, code, target, operation, condition, cost, etc.',
+      '3. Register: `c:RegisterEffect(e1)`',
+      '',
+      '### Key Effect properties',
+      '- `e:SetType(type)` — EFFECT_TYPE_SINGLE, EFFECT_TYPE_FIELD, EFFECT_TYPE_IGNITION,',
+      '  EFFECT_TYPE_TRIGGER_O, EFFECT_TYPE_TRIGGER_F, EFFECT_TYPE_QUICK_O,',
+      '  EFFECT_TYPE_QUICK_F, EFFECT_TYPE_ACTIVATE, EFFECT_TYPE_CONTINUOUS,',
+      '  EFFECT_TYPE_EQUIP, EFFECT_TYPE_FLIP',
+      '- `e:SetCode(code)` — what the effect does:',
+      '  EVENT_SUMMON, EVENT_SPSUMMON, EVENT_FLIP_SUMMON, EVENT_DESTROY,',
+      '  EVENT_TO_GRAVE, EVENT_REMOVE, EVENT_BATTLE_START, EVENT_DAMAGE_STEP,',
+      '  EVENT_BATTLE_DAMAGE, EFFECT_DESTROY, EFFECT_SPSUMMON, EFFECT_DRAW,',
+      '  EFFECT_DAMAGE, EFFECT_RECOVER, EFFECT_UPDATE_ATTACK, EFFECT_UPDATE_DEFENSE,',
+      '  EFFECT_CHANGE_ATTRIBUTE, EFFECT_CHANGE_RACE, EFFECT_CHANGE_LEVEL,',
+      '  EFFECT_CANNOT_ATTACK, EFFECT_CANNOT_SPECIAL_SUMMON, EFFECT_DISABLE,',
+      '  EFFECT_DISABLE_EFFECT, EFFECT_IMMUNE_EFFECT, EFFECT_INDESTRUCTABLE,',
+      '  EFFECT_CANNOT_TRIGGER, EFFECT_EXTRA_ATTACK, EFFECT_CHANGE_DAMAGE,',
+      '  EFFECT_SET_ATTACK, EFFECT_SET_DEFENSE',
+      '- `e:SetProperty(prop)` — EFFECT_FLAG_PLAYER_TARGET, EFFECT_FLAG_CARD_TARGET, etc.',
+      '- `e:SetRange(range)` — where the effect is active:',
+      '  LOCATION_MZONE, LOCATION_SZONE, LOCATION_HAND, LOCATION_DECK,',
+      '  LOCATION_GRAVE, LOCATION_REMOVED, LOCATION_EXTRA, LOCATION_FZONE',
+      '- `e:SetCountLimit(n)` — once-per-turn limit (usually 1)',
+      '- `e:SetCategory(cat)` — CATEGORY_DESTROY, CATEGORY_DRAW, CATEGORY_SEARCH,',
+      '  CATEGORY_TOHAND, CATEGORY_TODECK, CATEGORY_TOGRAVE, CATEGORY_REMOVE,',
+      '  CATEGORY_SPECIAL_SUMMON, CATEGORY_DAMAGE, CATEGORY_RECOVER,',
+      '  CATEGORY_EQUIP, CATEGORY_NEGATE, CATEGORY_DISABLE,',
+      '  CATEGORY_ATKCHANGE, CATEGORY_DEFCHANGE, CATEGORY_POSITION,',
+      '  CATEGORY_TOKEN, CATEGORY_FUSION_SUMMON, CATEGORY_SYNCHRO_SUMMON,',
+      '  CATEGORY_XYZ_SUMMON, CATEGORY_LINK_SUMMON',
+      '- `e:SetCondition(func)` — `function s.condition(e,tp,eg,ep,ev,re,r,rp)`',
+      '- `e:SetCost(func)` — `function s.cost(e,tp,eg,ep,ev,re,r,rp,chk)`',
+      '- `e:SetTarget(func)` — `function s.target(e,tp,eg,ep,ev,re,r,rp,chk)`',
+      '- `e:SetOperation(func)` — `function s.operation(e,tp,eg,ep,ev,re,r,rp)`',
+      '- `e:SetValue(val)` — a numeric value or a function returning one',
+      '',
+      '## Common patterns',
+      '',
+      '### Special Summon',
+      '```',
+      'if chk==0 then return Duel.GetLocationCount(tp,LOCATION_MZONE)>0',
+      '  and Duel.IsExistingMatchingCard(s.spfilter,tp,loc,0,1,nil,e,tp) end',
+      'Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_SPSUMMON)',
+      'local g=Duel.SelectMatchingCard(tp,s.spfilter,tp,loc,0,1,1,nil,e,tp)',
+      'Duel.SpecialSummon(g,0,tp,tp,false,false,POS_FACEUP)',
+      '```',
+      '',
+      '### Destroy cards',
+      '```',
+      'if chk==0 then return Duel.IsExistingMatchingCard(s.desfilter,tp,0,LOCATION_MZONE,1,nil) end',
+      'Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_DESTROY)',
+      'local g=Duel.SelectMatchingCard(tp,s.desfilter,tp,0,LOCATION_MZONE,1,1,nil)',
+      'Duel.Destroy(g,REASON_EFFECT)',
+      '```',
+      '',
+      '### Draw cards',
+      '```',
+      'if chk==0 then return Duel.IsPlayerCanDraw(tp,n) end',
+      'Duel.Draw(tp,n,REASON_EFFECT)',
+      '```',
+      '',
+      '### Spell/Trap activation (EFFECT_TYPE_ACTIVATE)',
+      '```',
+      'local e1=Effect.CreateEffect(c)',
+      'e1:SetType(EFFECT_TYPE_ACTIVATE)',
+      'e1:SetCode(EVENT_FREE_CHAIN)  -- or specific event',
+      'e1:SetTarget(s.target)',
+      'e1:SetOperation(s.operation)',
+      'c:RegisterEffect(e1)',
+      '```',
+      '',
+      '### Continuous ATK/DEF modifier',
+      '```',
+      'local e1=Effect.CreateEffect(c)',
+      'e1:SetType(EFFECT_TYPE_SINGLE)',
+      'e1:SetCode(EFFECT_UPDATE_ATTACK)',
+      'e1:SetValue(500)',
+      'c:RegisterEffect(e1)',
+      '```',
+      '',
+      '### negate activation',
+      '```',
+      'Duel.NegateActivation(ev)',
+      'if re:GetHandler():IsRelateToEffect(re) then Duel.Destroy(eg,REASON_EFFECT) end',
+      '```',
+      '',
+      '## Important conventions',
+      '- Always start with `local s,id = GetID()`',
+      '- Use `s.` prefix for all local functions: `s.condition`, `s.target`, etc.',
+      '- Use `Duel.GetTurnPlayer()==tp` for turn player checks',
+      '- For hard OPT: `e:SetCountLimit(1,id)` or `e:SetCountLimit(1,id+EFFECT_COUNT_CODE_OATH)`',
+      '- For filter functions, name them descriptively: `s.spfilter`, `s.desfilter`',
+      '- Testing `chk==0` returns a boolean; the real action happens when `chk~=0`',
+      '- For Xyz/Synchro/Link/Fusion material, use corresponding summoning procedures',
+      '- Use `aux.AddMaterialCodeCheck` for specific material requirements',
+      '- `Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_*)` before Select functions',
+      '- For cost: tribute `Duel.Release(g,REASON_COST)`, discard `Duel.SendtoGrave(g,REASON_COST+REASON_DISCARD)`',
+      '- Card specific ids in counters: `id+EFFECT_COUNT_CODE_OATH`',
+      '- For Pendulum: set scale effects with LOCATION_PZONE',
+      '- For Link Monsters: use `Link.CreateEffect` helpers when available',
+      '- For once-per-turn trigger effects, always use `SetCountLimit(1,id)`',
+      '',
+      '## Type-specific guidelines',
+      '- **Normal Monster**: no effects needed, return minimal script with just GetID',
+      '- **Effect Monster**: implement trigger/ignition/continuous effects as described',
+      '- **Spell**: use EFFECT_TYPE_ACTIVATE, EVENT_FREE_CHAIN for regular spells',
+      '- **Quick-Play Spell**: can be activated during opponent\'s turn',
+      '- **Continuous Spell/Trap**: effects stay on field',
+      '- **Counter Trap**: negate effects, use EVENT_CHAINING typically',
+      '- **Pendulum**: need both monster effects and Pendulum scale effects',
+      '- **Link Monster**: no DEF, link arrows are defined in CDB data not in script',
+    ].join('\n'),
+    userPrompt: [
+      'Generate the complete Lua script for the current card.',
+      '',
+      'Current card data:',
+      JSON.stringify(serializeCardForAi(currentCard)),
+      '',
+      'You may use opened databases to find similar cards and reference their scripts.',
+      'Return only the finished Lua code.',
+    ].join('\n'),
+  });
+}
+
+export async function translateCardImageFields(input: {
+  currentCard: CardDataEntry;
+  targetLanguage: string;
+  name: string;
+  monsterType: string;
+  description: string;
+  pendulumDescription: string;
+}) {
+  const text = await runAgent({
+    currentCard: input.currentCard,
+    useTools: false,
+    temperature: 0.2,
+    systemPrompt: [
+      'You are a Yu-Gi-Oh! card localization assistant.',
+      'Your task is to translate card text fields for card image rendering.',
+      '',
+      '## Output format',
+      'Return **only** a JSON object (no markdown fences, no explanation).',
+      'Schema: {"name":string, "monsterType":string, "description":string, "pendulumDescription":string}',
+      '',
+      '## Rules',
+      '1. Preserve line breaks (\\n) exactly as they appear in the source.',
+      '2. Preserve card-game specific formatting and punctuation:',
+      '   - Effect separators like ●, ①, ②',
+      '   - Card name references in 「」 or quotation marks',
+      '   - Bullet points and numbered lists',
+      '3. Do NOT translate empty strings — return "" for empty fields.',
+      '4. Use official Yu-Gi-Oh! terminology in the target language.',
+      '5. monsterType is the type line on the card, e.g. "効果モンスター" or "Effect Monster".',
+      '',
+      '## Japanese-specific rules (target language = 日本語)',
+      'When translating to Japanese, you MUST add furigana (reading) to all kanji.',
+      'Use the per-character ruby format: `[漢(かん)][字(じ)]`',
+      '',
+      'This means:',
+      '- Each kanji character gets its OWN `[character(reading)]` annotation.',
+      '- Do NOT group multiple kanji into one annotation.',
+      '- Hiragana, katakana, numbers, and symbols do NOT need annotations.',
+      '',
+      'Examples:',
+      '- 魔法使い → [魔(ま)][法(ほう)][使(つか)]い',
+      '- 闇属性 → [闇(やみ)][属(ぞく)][性(せい)]',
+      '- 効果モンスター → [効(こう)][果(か)]モンスター',
+      '- 破壊する → [破(は)][壊(かい)]する',
+      '- 特殊召喚 → [特(とく)][殊(しゅ)][召(しょう)][喚(かん)]',
+      '- 墓地へ送る → [墓(ぼ)][地(ち)]へ[送(おく)]る',
+      '- 「ブラック・マジシャン」 → 「ブラック・マジシャン」',
+      '- このカードの①②の効果は1ターンに1度 → このカードの①②の[効(こう)][果(か)]は1ターンに1[度(ど)]',
+      '',
+      'Apply this rule to ALL text fields: name, monsterType, description, and pendulumDescription.',
+    ].join('\n'),
+    userPrompt: [
+      `Translate the following card image fields into ${input.targetLanguage}.`,
+      'Use natural Yu-Gi-Oh! terminology for the target language.',
+      '',
+      JSON.stringify({
+        name: input.name,
+        monsterType: input.monsterType,
+        description: input.description,
+        pendulumDescription: input.pendulumDescription,
+      }),
+    ].join('\n'),
+  });
+
+  return parseJsonFromText<{
+    name: string;
+    monsterType: string;
+    description: string;
+    pendulumDescription: string;
+  }>(text);
+}
+

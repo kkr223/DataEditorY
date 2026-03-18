@@ -2,7 +2,7 @@
 
 DataEditorY 是一个用于编辑 YGOPro `.cdb` 数据库的桌面应用。项目基于 Tauri 2、Svelte 5、TypeScript 和 `sql.js` 构建，界面语言支持中文和英文。
 
-当前版本提供数据库打开、创建、搜索、筛选、规则表达式搜索、卡片编辑、图片导入、卡图制卡器、多标签页切换以及基础快捷键操作。
+当前版本提供数据库打开、创建、搜索、筛选、规则表达式搜索、卡片编辑、图片导入、卡图制卡器、多标签页切换、基础快捷键操作，以及 AI 辅助功能（稿件解析、脚本生成、卡图翻译）。
 
 ## 环境要求
 
@@ -127,6 +127,10 @@ DataEditorY-windows-portable/
 - 在内存中修改数据库内容，并手动保存到磁盘
 - 支持左侧列表多选、批量复制、批量粘贴、批量删除
 - 支持跨数据库复制和粘贴卡片
+- AI 辅助稿件解析：将自然语言卡片描述自动转换为结构化数据
+- AI 辅助脚本生成：根据卡片效果文本自动生成 EDOPro/YGOPro Lua 脚本
+- AI 辅助卡图翻译：将卡名、类型、效果翻译为目标语言（日语翻译支持一字一注的注音标注）
+- 设置面板：配置 AI 服务商、自定义脚本模板、管理封面图片
 
 ## 使用方式
 
@@ -265,6 +269,48 @@ DataEditorY-windows-portable/
 - 当 `pics/` 中已存在同名 JPG 时，应用会先提示是否替换
 - 外层编辑器中的单击卡图导入功能会在图片大于 `400 x 580` 时自动等比压缩后再保存为 JPG
 
+### 8. AI 辅助功能
+
+编辑器中提供以下 AI 驱动功能（需在设置面板中配置 AI 服务）：
+
+#### 稿件解析
+
+在编辑器中点击 `AI 解析` 按钮，可以将自然语言的卡片描述文本自动解析为结构化的卡片数据：
+
+- 支持一次性解析多张卡片
+- 自动识别卡名、效果文本、类型、属性、种族、攻守值、等级等字段
+- 对于稿件中未提及的字段，保持为 null 而不进行猜测
+- AI 可以通过工具查阅已打开的数据库作为参考
+
+#### 脚本生成
+
+在编辑器中点击 `AI 生成脚本` 按钮，可以根据当前卡片的效果文本自动生成 EDOPro/YGOPro Lua 脚本：
+
+- 生成完整可运行的 Lua 脚本骨架
+- AI 内置了 EDOPro API 常量参考、效果注册模式、常见模式代码示例
+- 支持查阅已打开数据库中的相似卡片和现有脚本作为参考
+- 对模糊效果文本会生成保守实现并留下 TODO 注释
+
+#### 卡图翻译
+
+在制卡器中点击 `翻译` 按钮，可以将卡名、类型行、效果文本翻译为指定语言：
+
+- 保留换行符和卡片游戏格式（效果分隔符、卡名引号等）
+- 使用官方 Yu-Gi-Oh! 术语
+- 翻译为日语时，自动为所有汉字添加一字一注式注音（送假名），格式为 `[漢(かん)][字(じ)]`，与制卡器的 ruby 渲染系统兼容
+
+### 9. 设置面板
+
+点击顶部工具栏的设置按钮打开设置面板，可以配置：
+
+- **AI 服务**
+  - API Base URL：AI 服务端点（默认为 OpenAI）
+  - Model：使用的模型名称
+  - Secret Key：API 密钥（加密存储于本地配置目录）
+  - 连接测试
+- **脚本模板**：新建卡片时使用的 Lua 脚本模板
+- **封面图片**：自定义缺省卡图占位图
+
 ## 快捷键
 
 ### 全局快捷键
@@ -310,23 +356,32 @@ DataEditorY-windows-portable/
 src/
   lib/
     components/
-      CardEditor.svelte
-      CardList.svelte
-      Toast.svelte
+      CardEditor.svelte       # 卡片编辑器
+      CardList.svelte          # 卡片列表
+      CardImageDrawer.svelte   # 制卡器抽屉
+      SettingsPanel.svelte     # 设置面板
+      Toast.svelte             # 提示通知
     i18n/
     stores/
-      cardClipboard.svelte.ts
-      db.ts
-      editor.svelte.ts
-      toast.svelte.ts
+      appSettings.svelte.ts    # 应用设置状态
+      appShell.svelte.ts       # 应用外壳状态
+      cardClipboard.svelte.ts  # 卡片剪贴板
+      db.ts                    # 数据库操作
+      editor.svelte.ts         # 编辑器状态
+      toast.svelte.ts          # 提示通知状态
     types/
     utils/
+      ai.ts                    # AI 服务集成
+      card.ts                  # 卡片数据工具
+      cardImage.ts             # 卡图渲染配置
+      setcode.ts               # setcode 解析
+      shortcuts.ts             # 快捷键定义
   routes/
     +layout.svelte
     +page.svelte
 src-tauri/
   src/
-    lib.rs
+    lib.rs                     # Tauri 后端命令
     main.rs
 ```
 
@@ -338,6 +393,7 @@ src-tauri/
 - Vite
 - SvelteKit
 - sql.js
+- svelte-i18n
 - `ygopro-cdb-encode`
 - `cdb2yugiohcard`
 - `yugioh-card`

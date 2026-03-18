@@ -13,6 +13,8 @@
   import { clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSelectedCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
   import CardList from '$lib/components/CardList.svelte';
   import CardEditor from '$lib/components/CardEditor.svelte';
+  import SettingsPanel from '$lib/components/SettingsPanel.svelte';
+  import { appShellState } from '$lib/stores/appShell.svelte';
 
   function restoreSearchFilters() {
     const cached = getCachedFilters();
@@ -69,10 +71,14 @@
   });
 </script>
 
-<div class="editor-layout">
-  <CardList />
-  <CardEditor />
-</div>
+{#if appShellState.mainView === 'settings'}
+  <SettingsPanel />
+{:else}
+  <div class="editor-layout">
+    <CardList />
+    <CardEditor />
+  </div>
+{/if}
 
 <style>
   .editor-layout {

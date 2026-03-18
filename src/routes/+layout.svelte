@@ -10,6 +10,8 @@
   import { clearSelection, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
   import { dispatchAppShortcut } from '$lib/utils/shortcuts';
+  import { appShellState, activateEditorView, closeSettingsView, openSettingsView } from '$lib/stores/appShell.svelte';
+  import { loadAppSettings } from '$lib/stores/appSettings.svelte';
   import Toast from '$lib/components/Toast.svelte';
   
   // initialize immediately
@@ -34,10 +36,12 @@
 
   async function handleOpen() {
     await openCdbFile();
+    activateEditorView();
   }
 
   async function handleCreate() {
     await createCdbFile();
+    activateEditorView();
   }
 
   async function handleSave() {
@@ -252,6 +256,7 @@
       applyTheme('dark');
     }
 
+    void loadAppSettings();
     window.addEventListener('keydown', handleGlobalKeydown);
     return () => {
       window.removeEventListener('keydown', handleGlobalKeydown);
@@ -283,6 +288,10 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           {$_('nav.create')}
         </button>
+        <button class="nav-item" onclick={openSettingsView}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a2 2 0 0 1 2 2v.35a1 1 0 0 0 .57.9l.31.15a1 1 0 0 0 1.04-.1l.25-.18a2 2 0 0 1 2.8.24l.99 1.15a2 2 0 0 1-.15 2.82l-.26.22a1 1 0 0 0-.3.98l.1.35a1 1 0 0 0 .77.7l.32.07a2 2 0 0 1 1.56 1.95v1.5a2 2 0 0 1-1.56 1.95l-.32.07a1 1 0 0 0-.77.7l-.1.35a1 1 0 0 0 .3.98l.26.22a2 2 0 0 1 .15 2.82l-.99 1.15a2 2 0 0 1-2.8.24l-.25-.18a1 1 0 0 0-1.04-.1l-.31.15a1 1 0 0 0-.57.9V19a2 2 0 0 1-2 2h-1.5a2 2 0 0 1-2-2v-.35a1 1 0 0 0-.57-.9l-.31-.15a1 1 0 0 0-1.04.1l-.25.18a2 2 0 0 1-2.8-.24l-.99-1.15a2 2 0 0 1 .15-2.82l.26-.22a1 1 0 0 0 .3-.98l-.1-.35a1 1 0 0 0-.77-.7l-.32-.07A2 2 0 0 1 2 15.75v-1.5A2 2 0 0 1 3.56 12.3l.32-.07a1 1 0 0 0 .77-.7l.1-.35a1 1 0 0 0-.3-.98l-.26-.22a2 2 0 0 1-.15-2.82l.99-1.15a2 2 0 0 1 2.8-.24l.25.18a1 1 0 0 0 1.04.1l.31-.15a1 1 0 0 0 .57-.9V5a2 2 0 0 1 2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          {$_('nav.settings')}
+        </button>
       </nav>
     </div>
     <div class="topbar-right">
@@ -298,13 +307,30 @@
   </header>
 
   <!-- Tab Bar -->
-  {#if $tabs.length > 0}
+  {#if $tabs.length > 0 || appShellState.settingsOpen}
   <div class="tab-bar">
+    {#if appShellState.settingsOpen}
+      <button
+        class="tab-item"
+        class:active={appShellState.mainView === 'settings'}
+        onclick={openSettingsView}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.3l.06.06A1.65 1.65 0 0 0 8.92 4a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 1 1 19.63 7l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.44.55.94 1.08 1H21a2 2 0 1 1 0 4h-.09c-.53.06-.94.56-1.08 1z"></path></svg>
+        <span class="tab-name">{$_('nav.settings')}</span>
+        <span
+          class="tab-close"
+          role="button"
+          tabindex="0"
+          onclick={(e) => { e.stopPropagation(); closeSettingsView(); }}
+          onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); closeSettingsView(); } }}
+        >×</span>
+      </button>
+    {/if}
     {#each $tabs as tab (tab.id)}
       <button
         class="tab-item"
         class:active={$activeTabId === tab.id}
-        onclick={() => activeTabId.set(tab.id)}
+        onclick={() => { activeTabId.set(tab.id); activateEditorView(); }}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
         <span class="tab-name">{tab.name}</span>
