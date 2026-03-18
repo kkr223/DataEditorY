@@ -126,3 +126,25 @@ export function cloneEditableCard(card: CardDataEntry): CardDataEntry {
 
   return clone;
 }
+
+export function createEmptyCard(): CardDataEntry {
+  return {
+    code: 0,
+    alias: 0,
+    setcode: [0, 0, 0, 0],
+    type: 0,
+    attack: 0,
+    defense: 0,
+    level: 0,
+    race: 0,
+    attribute: 0,
+    category: 0,
+    ot: 0,
+    name: '',
+    desc: '',
+    strings: Array.from({ length: 16 }, () => ''),
+    lscale: 0,
+    rscale: 0,
+    linkMarker: 0,
+  } as CardDataEntry;
+}

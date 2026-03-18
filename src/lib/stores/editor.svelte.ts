@@ -194,7 +194,7 @@ export function handleSearch(preserveSelection = false, resetPage = false) {
     const visibleSelectedIds = getVisibleSelectedIds(prevSelectedIds);
     if (visibleSelectedIds.length > 0) {
       applySelection(visibleSelectedIds, prevSelectedId, prevAnchorId);
-      return;
+      return true;
     }
   }
 

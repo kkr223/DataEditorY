@@ -77,9 +77,10 @@ function toLikePattern(input: string): string {
   const normalized = input.trim();
   if (!normalized) return '%';
 
+  // If the user included % or _ explicitly, treat them as LIKE wildcards
+  // for power-user filtering.  Otherwise wrap with % for substring match.
   const hasWildcard = normalized.includes('%') || normalized.includes('_');
-  const pattern = normalized.replace(/%%/g, '%');
-  return hasWildcard ? pattern : `%${pattern}%`;
+  return hasWildcard ? normalized : `%${normalized}%`;
 }
 
 function parseSetcodeFilter(input: string): number | null {
@@ -667,13 +668,16 @@ const RACE_MAP: Record<string, number> = {
   illusion: 0x2000000,
 };
 
-// Sub-type bit constants
+// Sub-type bit constants.
+// NOTE: In YGOPro, some bit values are intentionally shared across card
+// categories.  The correct value is determined by combining the sub-type
+// bit with the main type bit (monster 0x1, spell 0x2, trap 0x4).
 export const SUBTYPE_MAP: Record<string, number> = {
   // Monster sub-types
   normal: 0x10,
   effect: 0x20,
   fusion: 0x40,
-  ritual: 0x80,
+  ritual: 0x80,           // Shares bit with ritual_spell — disambiguated by main type
   spirit: 0x200,
   union: 0x400,
   gemini: 0x800,
@@ -688,12 +692,12 @@ export const SUBTYPE_MAP: Record<string, number> = {
   link: 0x4000000,
   // Spell sub-types
   quickplay: 0x10000,
-  continuous_spell: 0x20000,
+  continuous_spell: 0x20000, // Shares bit with continuous_trap
   equip: 0x40000,
   field: 0x80000,
-  ritual_spell: 0x80,
+  ritual_spell: 0x80,        // Shares bit with monster ritual
   // Trap sub-types
-  continuous_trap: 0x20000,
+  continuous_trap: 0x20000,  // Shares bit with continuous_spell
   counter: 0x100000,
 };
 
@@ -1053,9 +1057,10 @@ export function deleteCards(cardIds: number[]): boolean {
       .map((cardId) => tab.cdb.findById(cardId))
       .filter((card): card is CardDataEntry => card !== undefined)
       .map((card) => cloneCard(card));
-    for (const cardId of cardIds) {
-      tab.cdb.database.run('DELETE FROM datas WHERE id = ?', [cardId]);
-      tab.cdb.database.run('DELETE FROM texts WHERE id = ?', [cardId]);
+    if (cardIds.length > 0) {
+      const placeholders = cardIds.map(() => '?').join(',');
+      tab.cdb.database.run(`DELETE FROM datas WHERE id IN (${placeholders})`, cardIds);
+      tab.cdb.database.run(`DELETE FROM texts WHERE id IN (${placeholders})`, cardIds);
     }
     if (deletedCards.length > 0) {
       pushUndoOperation(tab.id, {

@@ -2,10 +2,11 @@
   import { tick } from "svelte";
   import { _ } from "svelte-i18n";
   import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
-  import { ask, save } from "@tauri-apps/plugin-dialog";
+  import { ask, message, save } from "@tauri-apps/plugin-dialog";
   import { dirname, join, resolveResource } from "@tauri-apps/api/path";
   import type { CardDataEntry } from "ygopro-cdb-encode";
   import { showToast } from "$lib/stores/toast.svelte";
+  import { hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
   import {
     CARD_IMAGE_ATTRIBUTE_OPTIONS,
     CARD_IMAGE_CARD_TYPE_OPTIONS,
@@ -23,6 +24,7 @@
     type CardImageLanguage,
     type CardImageFormData,
   } from "$lib/utils/cardImage";
+  import { translateCardImageFields } from "$lib/utils/ai";
 
   type YugiohCardConstructor = new (options: {
     view: HTMLElement;
@@ -79,6 +81,7 @@
   let exportScalePercent = $state(DEFAULT_EXPORT_SCALE_PERCENT);
   let isDownloading = $state(false);
   let isSavingJpg = $state(false);
+  let isTranslating = $state(false);
   let errorMessage = $state("");
   let lastHydrationKey = "";
   let lastFormLanguage = $state<CardImageLanguage>("sc");
@@ -155,6 +158,60 @@
   function getOptionLabel(option: LabelOption) {
     if (option.labelKey) return $_(option.labelKey);
     return option.label ?? option.value;
+  }
+
+  async function ensureAiReady() {
+    await loadAppSettings();
+    if (hasConfiguredSecretKey()) {
+      return true;
+    }
+
+    await message($_("editor.ai_requires_secret_key"), {
+      title: $_("editor.ai_requires_secret_key_title"),
+      kind: "warning",
+    });
+    return false;
+  }
+
+  async function handleAiTranslate() {
+    if (!(await ensureAiReady())) return;
+
+    if (!form.name.trim() && !form.monsterType.trim() && !form.description.trim() && !form.pendulumDescription.trim()) {
+      showToast($_("editor.card_image_ai_translate_empty"), "info");
+      return;
+    }
+
+    try {
+      isTranslating = true;
+      const targetLanguageLabel = getOptionLabel(
+        CARD_IMAGE_LANGUAGE_OPTIONS.find((option) => option.value === form.language) ?? {
+          value: form.language,
+          label: form.language,
+        },
+      );
+      const translated = await translateCardImageFields({
+        currentCard: card,
+        targetLanguage: targetLanguageLabel,
+        name: form.name,
+        monsterType: form.monsterType,
+        description: form.description,
+        pendulumDescription: form.pendulumDescription,
+      });
+
+      form = normalizeCardImageFormData({
+        ...form,
+        name: translated.name ?? form.name,
+        monsterType: translated.monsterType ?? form.monsterType,
+        description: translated.description ?? form.description,
+        pendulumDescription: translated.pendulumDescription ?? form.pendulumDescription,
+      });
+      showToast($_("editor.card_image_ai_translate_success"), "success");
+    } catch (error) {
+      console.error("Failed to translate card image fields", error);
+      showToast($_("editor.card_image_ai_translate_failed"), "error");
+    } finally {
+      isTranslating = false;
+    }
   }
 
   function clampCropBox(nextBox: CropBox): CropBox {
@@ -485,7 +542,7 @@
       if (!targetPath) return;
 
       const bytes = await blobToUint8Array(pngBlob);
-      await invoke("write_cdb", { path: targetPath, data: bytes });
+      await invoke("write_file", { path: targetPath, data: bytes });
       showToast($_("editor.card_image_download_success"), "success");
     } catch (error) {
       console.error("Failed to download generated card image", error);
@@ -529,7 +586,7 @@
 
       const jpgBlob = await renderCardBlob(buildJpgData(), "jpg", 0.92);
       const bytes = await blobToUint8Array(jpgBlob);
-      await invoke("write_cdb", { path: picPath, data: bytes });
+      await invoke("write_file", { path: picPath, data: bytes });
       showToast($_("editor.card_image_save_jpg_success", {
         values: { code: String(card.code) },
       }), "success");
@@ -663,6 +720,9 @@
             <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" bind:this={fileInput} onchange={handleImageUpload} />
             <button class="btn-primary btn-sm upload-btn" type="button" onclick={openFilePicker}>
               {croppedImageDataUrl ? $_("editor.card_image_recrop") : $_("editor.card_image_upload")}
+            </button>
+            <button class="btn-secondary btn-sm" type="button" onclick={handleAiTranslate} disabled={isTranslating}>
+              {isTranslating ? $_("editor.ai_translating") : $_("editor.card_image_ai_translate")}
             </button>
             <span class="field-hint">
               {#if croppedImageDataUrl}

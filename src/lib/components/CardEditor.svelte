@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { untrack } from "svelte";
   import { _ } from "svelte-i18n";
   import {
@@ -14,7 +14,7 @@
   import { showToast } from "$lib/stores/toast.svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { dirname, join } from "@tauri-apps/api/path";
-  import { ask, open } from "@tauri-apps/plugin-dialog";
+  import { ask, message, open } from "@tauri-apps/plugin-dialog";
   import { CardDataEntry } from "ygopro-cdb-encode";
   import {
     getSetcode,
@@ -24,6 +24,7 @@
   import {
     ATTRIBUTE_OPTIONS,
     cloneEditableCard,
+    createEmptyCard,
     getPackedLevel,
     getPackedLScale,
     getPackedRScale,
@@ -35,35 +36,20 @@
   } from "$lib/utils/card";
   import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
   import CardImageDrawer from "$lib/components/CardImageDrawer.svelte";
+  import { appSettingsState, hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
+  import { generateCardScript, parseCardManuscript } from "$lib/utils/ai";
 
-  function createEmptyCard(): CardDataEntry {
-    return {
-      code: 0,
-      alias: 0,
-      setcode: [0, 0, 0, 0],
-      type: 0,
-      attack: 0,
-      defense: 0,
-      level: 0,
-      race: 0,
-      attribute: 0,
-      category: 0,
-      ot: 0,
-      name: "",
-      desc: "",
-      strings: Array.from({ length: 16 }, () => ""),
-      lscale: 0,
-      rscale: 0,
-      linkMarker: 0,
-    } as CardDataEntry;
-  }
+  type CardScriptInfo = {
+    path: string;
+    exists: boolean;
+  };
+
 
   let draftCard = $state<CardDataEntry>(createEmptyCard());
   let originalCardCode = $state<number | null>(null);
   let imageSrc = $state<string>("/resources/cover.jpg");
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
-  let setcodesLoaded = false;
   let activeObjectUrl: string | null = null;
   let staleObjectUrl: string | null = null;
   let imageRequestToken = 0;
@@ -71,10 +57,19 @@
   let imageClickTimer: ReturnType<typeof setTimeout> | null = null;
   let lastSyncedSelectedId: number | null = null;
   let isCardImageDrawerOpen = $state(false);
+  let lastDefaultCoverSrc = $state("/resources/cover.jpg");
+  let isParseModalOpen = $state(false);
+  let manuscriptInput = $state("");
+  let isParsingManuscript = $state(false);
+  let isGeneratingScript = $state(false);
 
   let isEditingExisting = $derived(originalCardCode !== null);
   let isLink = $derived((draftCard.type & 0x4000000) !== 0);
   let isPend = $derived((draftCard.type & 0x1000000) !== 0);
+
+  function getDefaultCoverSrc() {
+    return appSettingsState.coverImageSrc || "/resources/cover.jpg";
+  }
 
   function syncSetcodesFromCard(card: CardDataEntry) {
     for (let i = 0; i < 4; i++) {
@@ -108,7 +103,7 @@
     syncSetcodesFromCard(draftCard);
     imageRequestToken++;
     resetImageUrls();
-    imageSrc = "/resources/cover.jpg";
+    imageSrc = getDefaultCoverSrc();
   }
 
   function loadCardIntoDraft(card: CardDataEntry) {
@@ -119,7 +114,7 @@
   }
 
   function handleImageError() {
-    imageSrc = "/resources/cover.jpg";
+    imageSrc = getDefaultCoverSrc();
   }
 
   function handleImageLoad() {
@@ -147,7 +142,7 @@
       activeObjectUrl = objectUrl;
       return bustCache ? `${objectUrl}#${Date.now()}` : objectUrl;
     } catch {
-      return "/resources/cover.jpg";
+      return getDefaultCoverSrc();
     }
   }
 
@@ -155,7 +150,7 @@
     if (!$activeTab?.path || code <= 0) {
       imageRequestToken++;
       resetImageUrls();
-      imageSrc = "/resources/cover.jpg";
+      imageSrc = getDefaultCoverSrc();
       return;
     }
 
@@ -297,6 +292,10 @@
   }
 
   onMount(() => {
+    loadPopularSetcodes().then((options) => {
+      popularSetcodes = options;
+    });
+
     const handleShortcut = (event: Event) => {
       const customEvent = event as CustomEvent<string>;
       if (customEvent.detail !== "new-card" || !$isDbLoaded) return;
@@ -359,7 +358,7 @@
           }
 
           const outputBytes = Array.from(new Uint8Array(await outputBlob.arrayBuffer()));
-          await invoke("write_cdb", { path: picPath, data: outputBytes });
+          await invoke("write_file", { path: picPath, data: outputBytes });
         } finally {
           URL.revokeObjectURL(imageUrl);
         }
@@ -398,6 +397,221 @@
     isCardImageDrawerOpen = false;
   }
 
+  function getScriptTemplateContent(cardName: string, cardCode: number) {
+    const safeName = cardName?.trim() || `Card ${cardCode}`;
+    return (appSettingsState.values.scriptTemplate || "").replaceAll("{卡名}", safeName);
+  }
+
+  function normalizeGeneratedScript(script: string) {
+    const trimmed = script.trim();
+    const fenced = trimmed.match(/```(?:lua)?\s*([\s\S]*?)```/i);
+    return `${(fenced?.[1] ?? trimmed).trim()}\n`;
+  }
+
+  async function ensureAiReady() {
+    await loadAppSettings();
+    if (hasConfiguredSecretKey()) {
+      return true;
+    }
+
+    await message($_("editor.ai_requires_secret_key"), {
+      title: $_("editor.ai_requires_secret_key_title"),
+      kind: "warning",
+    });
+    return false;
+  }
+
+  function getCurrentCardCode() {
+    const code = Number(draftCard.code ?? 0);
+    if (!Number.isInteger(code) || code <= 0) {
+      showToast($_("editor.code_required"), "error");
+      return null;
+    }
+
+    return code;
+  }
+
+  async function handleOpenScript() {
+    if (!$activeTab?.path) return;
+
+    const code = getCurrentCardCode();
+    if (!code) return;
+
+    try {
+      let info = await invoke<CardScriptInfo>("get_card_script_info", {
+        cdbPath: $activeTab.path,
+        cardId: code,
+      });
+
+      if (!info.exists) {
+        const shouldCreate = await ask($_("editor.script_create_confirm", {
+          values: { code: String(code) },
+        }), {
+          title: $_("editor.script_create_title"),
+          kind: "warning",
+        });
+
+        if (!shouldCreate) return;
+
+        info = await invoke<CardScriptInfo>("write_card_script", {
+          cdbPath: $activeTab.path,
+          cardId: code,
+          content: getScriptTemplateContent(draftCard.name ?? "", code),
+          overwrite: false,
+        });
+        showToast($_("editor.script_created", { values: { code: String(code) } }), "success");
+      }
+
+      await invoke("open_in_system_editor", { path: info.path });
+    } catch (error) {
+      console.error("Failed to open script", error);
+      showToast($_("editor.script_open_failed"), "error");
+    }
+  }
+
+  async function handleGenerateScript() {
+    if (!$activeTab?.path) return;
+    if (!(await ensureAiReady())) return;
+
+    const code = getCurrentCardCode();
+    if (!code) return;
+
+    try {
+      const existingInfo = await invoke<CardScriptInfo>("get_card_script_info", {
+        cdbPath: $activeTab.path,
+        cardId: code,
+      });
+
+      if (existingInfo.exists) {
+        const shouldOverwrite = await ask($_("editor.script_overwrite_confirm", {
+          values: { code: String(code) },
+        }), {
+          title: $_("editor.script_overwrite_title"),
+          kind: "warning",
+        });
+        if (!shouldOverwrite) return;
+      }
+
+      isGeneratingScript = true;
+      const generatedScript = normalizeGeneratedScript(await generateCardScript(draftCard));
+      const written = await invoke<CardScriptInfo>("write_card_script", {
+        cdbPath: $activeTab.path,
+        cardId: code,
+        content: generatedScript,
+        overwrite: true,
+      });
+      await invoke("open_in_system_editor", { path: written.path });
+      showToast($_("editor.script_generated", { values: { code: String(code) } }), "success");
+    } catch (error) {
+      console.error("Failed to generate script", error);
+      showToast($_("editor.script_generate_failed"), "error");
+    } finally {
+      isGeneratingScript = false;
+    }
+  }
+
+  async function saveParsedCardsIndividually(cards: CardDataEntry[]) {
+    const validCards = cards.filter((card) => Number.isInteger(Number(card.code ?? 0)) && Number(card.code ?? 0) > 0);
+    if (validCards.length === 0) {
+      showToast($_("editor.code_required"), "error");
+      return false;
+    }
+
+    const conflicts = validCards.filter((card) => getCardById(Number(card.code)));
+    if (conflicts.length > 0) {
+      const shouldOverwrite = await ask($_("editor.ai_parse_multi_overwrite_confirm", {
+        values: { count: String(conflicts.length) },
+      }), {
+        title: $_("editor.ai_parse_multi_overwrite_title"),
+        kind: "warning",
+      });
+      if (!shouldOverwrite) return false;
+    }
+
+    let savedCount = 0;
+    let lastSavedCard: CardDataEntry | null = null;
+    for (const card of validCards) {
+      const ok = modifyCard(toDbCard(card));
+      if (!ok) {
+        showToast($_("editor.save_failed"), "error");
+        return false;
+      }
+      savedCount += 1;
+      lastSavedCard = cloneEditableCard(card);
+    }
+
+    if (!lastSavedCard) {
+      return false;
+    }
+
+    loadCardIntoDraft(lastSavedCard);
+    setSingleSelectedCard(lastSavedCard.code);
+    handleSearch(true);
+    await refreshDraftImage(lastSavedCard.code, true);
+    showToast($_("editor.ai_parse_multi_saved", { values: { count: String(savedCount) } }), "success");
+    return true;
+  }
+
+  async function handleOpenParseModal() {
+    if (!(await ensureAiReady())) return;
+
+    manuscriptInput = draftCard.name || draftCard.desc
+      ? `${draftCard.name ?? ""}\n${draftCard.desc ?? ""}`.trim()
+      : "";
+    isParseModalOpen = true;
+  }
+
+  function closeParseModal() {
+    if (isParsingManuscript) return;
+    isParseModalOpen = false;
+  }
+
+  function handleParseModalBackdropKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      closeParseModal();
+    }
+  }
+
+  async function handleParseManuscriptConfirm() {
+    if (!manuscriptInput.trim()) {
+      showToast($_("editor.ai_parse_empty"), "info");
+      return;
+    }
+
+    try {
+      isParsingManuscript = true;
+      const result = await parseCardManuscript(manuscriptInput, draftCard);
+      if (result.cards.length === 0) {
+        showToast($_("editor.ai_parse_failed"), "error");
+        return;
+      }
+
+      if (result.cards.length === 1) {
+        draftCard = result.cards[0];
+        syncSetcodesFromCard(draftCard);
+        await tick();
+
+        const targetCode = Number(draftCard.code ?? 0);
+        if (Number.isInteger(targetCode) && targetCode > 0) {
+          await handleModify();
+        } else {
+          showToast($_("editor.ai_parse_applied_draft"), "success");
+        }
+      } else {
+        const saved = await saveParsedCardsIndividually(result.cards);
+        if (!saved) return;
+      }
+
+      isParseModalOpen = false;
+    } catch (error) {
+      console.error("Failed to parse manuscript", error);
+      showToast($_("editor.ai_parse_failed"), "error");
+    } finally {
+      isParsingManuscript = false;
+    }
+  }
+
   function handlePreviewKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
       closeImagePreview();
@@ -409,13 +623,6 @@
     showToast($_(ok ? "editor.save_success" : "editor.save_failed"), ok ? "success" : "error");
   }
 
-  $effect(() => {
-    if (setcodesLoaded) return;
-    setcodesLoaded = true;
-    loadPopularSetcodes().then((options) => {
-      popularSetcodes = options;
-    });
-  });
 
   $effect(() => {
     if (!$isDbLoaded) {
@@ -452,6 +659,17 @@
     return () => {
       resetImageUrls();
     };
+  });
+
+  $effect(() => {
+    const nextCoverSrc = getDefaultCoverSrc();
+    if (nextCoverSrc === lastDefaultCoverSrc) return;
+
+    const previousCoverSrc = lastDefaultCoverSrc;
+    lastDefaultCoverSrc = nextCoverSrc;
+    if (imageSrc === previousCoverSrc) {
+      imageSrc = nextCoverSrc;
+    }
   });
 </script>
 
@@ -690,6 +908,11 @@
     <div class="editor-bottom">
       <div class="editor-bottom-left">
         <button class="btn-secondary btn-sm" onclick={handleNewCard}>{$_("editor.new_card")}</button>
+        <button class="btn-secondary btn-sm" onclick={handleOpenParseModal}>{$_("editor.ai_parse_button")}</button>
+        <button class="btn-secondary btn-sm" onclick={handleOpenScript}>{$_("editor.script_button")}</button>
+        <button class="btn-secondary btn-sm" onclick={handleGenerateScript} disabled={isGeneratingScript}>
+          {isGeneratingScript ? $_("editor.script_generating") : $_("editor.script_generate_button")}
+        </button>
         <button class="btn-secondary btn-sm" onclick={openCardImageDrawer}>{$_("editor.card_image_button")}</button>
       </div>
       <div class="btn-group">
@@ -707,6 +930,48 @@
   cdbPath={$activeTab?.path ?? ""}
   onClose={closeCardImageDrawer}
 />
+
+{#if isParseModalOpen}
+  <div
+    class="ai-modal-backdrop"
+    role="button"
+    tabindex="0"
+    aria-label={$_("editor.card_image_crop_cancel")}
+    onclick={closeParseModal}
+    onkeydown={handleParseModalBackdropKeydown}
+  >
+    <div
+      class="ai-modal"
+      role="dialog"
+      tabindex="-1"
+      aria-modal="true"
+      aria-label={$_("editor.ai_parse_title")}
+      onclick={(event) => event.stopPropagation()}
+      onkeydown={(event) => event.stopPropagation()}
+    >
+      <div class="ai-modal-header">
+        <div>
+          <h3>{$_("editor.ai_parse_title")}</h3>
+          <p>{$_("editor.ai_parse_description")}</p>
+        </div>
+        <button class="close-dialog-btn" type="button" onclick={closeParseModal}>×</button>
+      </div>
+      <textarea
+        class="ai-modal-textarea"
+        bind:value={manuscriptInput}
+        placeholder={$_("editor.ai_parse_placeholder")}
+      ></textarea>
+      <div class="ai-modal-actions">
+        <button class="btn-secondary btn-sm" type="button" onclick={closeParseModal} disabled={isParsingManuscript}>
+          {$_("editor.card_image_crop_cancel")}
+        </button>
+        <button class="btn-primary btn-sm" type="button" onclick={handleParseManuscriptConfirm} disabled={isParsingManuscript}>
+          {isParsingManuscript ? $_("editor.ai_parsing") : $_("editor.ai_parse_confirm")}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if isImagePreviewOpen}
   <div
@@ -1168,6 +1433,60 @@
     max-height: 92vh;
     object-fit: contain;
     background: #000;
+  }
+  .ai-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    background: rgba(5, 10, 18, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .ai-modal {
+    width: min(860px, 94vw);
+    min-height: 420px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+  }
+  .ai-modal-header,
+  .ai-modal-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .ai-modal-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+  }
+  .ai-modal-header p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+  }
+  .close-dialog-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 999px;
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
+  }
+  .ai-modal-textarea {
+    flex: 1;
+    min-height: 280px;
+    resize: vertical;
+    font-size: 0.95rem;
+    line-height: 1.5;
   }
   @media (min-width: 2560px) {
     .editor-col {

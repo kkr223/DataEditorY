@@ -39,6 +39,8 @@
     editorState.searchFilters.setcode4 !== ''
   );
 
+  let selectedIdsSet = $derived(new Set(editorState.selectedIds));
+
   function toggleFilter() {
     editorState.isFilterOpen = !editorState.isFilterOpen;
   }
@@ -295,7 +297,7 @@
       <tbody>
         {#each pageCards as card (card.code)}
           <tr
-            class:selected={editorState.selectedIds.includes(card.code)}
+            class:selected={selectedIdsSet.has(card.code)}
             class:primary-selected={editorState.selectedId === card.code}
             onclick={(event) => handleRowClick(event, card.code)}
           >
