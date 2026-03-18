@@ -25,6 +25,7 @@
     type CardImageFormData,
   } from "$lib/utils/cardImage";
   import { translateCardImageFields } from "$lib/utils/ai";
+  import { writeErrorLog } from "$lib/utils/errorLog";
 
   type YugiohCardConstructor = new (options: {
     view: HTMLElement;
@@ -208,6 +209,14 @@
       showToast($_("editor.card_image_ai_translate_success"), "success");
     } catch (error) {
       console.error("Failed to translate card image fields", error);
+      void writeErrorLog({
+        source: "card-image.ai.translate",
+        error,
+        extra: {
+          cardCode: card.code ?? 0,
+          targetLanguage: form.language,
+        },
+      });
       showToast($_("editor.card_image_ai_translate_failed"), "error");
     } finally {
       isTranslating = false;

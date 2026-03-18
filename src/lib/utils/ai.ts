@@ -1,6 +1,5 @@
 import { get } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
-import { readTextFile } from '@tauri-apps/plugin-fs';
 import type { CardDataEntry } from 'ygopro-cdb-encode';
 import { activeTab, tabs, SUBTYPE_MAP } from '$lib/stores/db';
 import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
@@ -33,9 +32,16 @@ type AiToolDefinition = {
 
 type ToolExecutor = (args: Record<string, unknown>) => Promise<unknown>;
 
+export type AgentStage =
+  | 'collecting_references'
+  | 'requesting_model'
+  | 'running_tools'
+  | 'finalizing_response';
+
 type AiConfig = {
   apiBaseUrl: string;
   model: string;
+  temperature: number;
   secretKey: string;
 };
 
@@ -74,7 +80,7 @@ type ParsedCardDraft = {
 
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
-const MAX_AGENT_STEPS = 6;
+const MAX_AGENT_STEPS = 12;
 
 const ATTRIBUTE_NAME_TO_VALUE: Record<string, number> = {
   earth: 0x01,
@@ -441,6 +447,7 @@ async function getAiConfig(): Promise<AiConfig> {
   return {
     apiBaseUrl: appSettingsState.values.apiBaseUrl || DEFAULT_API_BASE_URL,
     model: appSettingsState.values.model || 'gpt-4o-mini',
+    temperature: Number.isFinite(appSettingsState.values.temperature) ? appSettingsState.values.temperature : 1,
     secretKey,
   };
 }
@@ -448,9 +455,11 @@ async function getAiConfig(): Promise<AiConfig> {
 async function requestChatCompletion(
   config: AiConfig,
   body: Record<string, unknown>,
+  signal?: AbortSignal,
 ) {
   const response = await fetch(getChatCompletionsEndpoint(config.apiBaseUrl), {
     method: 'POST',
+    signal,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${config.secretKey}`,
@@ -468,6 +477,45 @@ async function requestChatCompletion(
   }
 
   return payload;
+}
+
+async function finalizeAgentResponse(
+  config: AiConfig,
+  messages: AiMessage[],
+  temperature: number,
+  signal?: AbortSignal,
+  onStageChange?: (stage: AgentStage) => void,
+) {
+  onStageChange?.('finalizing_response');
+  const payload = await requestChatCompletion(config, {
+    model: config.model,
+    temperature,
+    messages: [
+      ...messages,
+      {
+        role: 'user',
+        content: 'Stop calling tools. Using only the gathered context above, return the final answer now.',
+      },
+    ],
+  }, signal);
+
+  const message = payload?.choices?.[0]?.message;
+  const text = extractTextContent(message?.content);
+  if (!text.trim()) {
+    throw new Error('AI returned an empty text response');
+  }
+
+  return text;
+}
+
+function createAbortError() {
+  return new DOMException('The operation was aborted', 'AbortError');
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
 }
 
 function getOpenDbMetas(): OpenDbMeta[] {
@@ -569,7 +617,7 @@ async function readCardScript(code: number, dbPath?: string) {
     return { exists: false, path: info.path, content: null };
   }
 
-  const content = await readTextFile(info.path);
+  const content = await invoke<string>('read_text_file', { path: info.path });
   return { exists: true, path: info.path, content };
 }
 
@@ -624,27 +672,41 @@ async function runAgent(options: {
   userPrompt: string;
   temperature?: number;
   useTools?: boolean;
+  maxSteps?: number;
+  toolNames?: string[];
+  signal?: AbortSignal;
+  onStageChange?: (stage: AgentStage) => void;
 }) {
   const config = await getAiConfig();
   const messages: AiMessage[] = [
     { role: 'system', content: options.systemPrompt },
     { role: 'user', content: options.userPrompt },
   ];
+  const temperature = options.temperature ?? config.temperature;
+  const maxSteps = Math.max(1, Math.min(MAX_AGENT_STEPS, Math.floor(options.maxSteps ?? MAX_AGENT_STEPS)));
+  const allowedTools = options.useTools
+    ? TOOL_DEFINITIONS.filter((tool) => !options.toolNames || options.toolNames.includes(tool.function.name))
+    : [];
+  const canUseTools = allowedTools.length > 0;
 
   const executors = createToolExecutors(options.currentCard);
+  let lastToolSignature = '';
+  let repeatedToolRoundCount = 0;
 
-  for (let step = 0; step < MAX_AGENT_STEPS; step += 1) {
+  for (let step = 0; step < maxSteps; step += 1) {
+    throwIfAborted(options.signal);
+    options.onStageChange?.('requesting_model');
     const payload = await requestChatCompletion(config, {
       model: config.model,
-      temperature: options.temperature ?? 0.2,
+      temperature,
       messages,
-      ...(options.useTools
+      ...(canUseTools
         ? {
-            tools: TOOL_DEFINITIONS,
+            tools: allowedTools,
             tool_choice: 'auto',
           }
         : {}),
-    });
+    }, options.signal);
 
     const message = payload?.choices?.[0]?.message;
     if (!message) {
@@ -652,41 +714,63 @@ async function runAgent(options: {
     }
 
     const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
-    if (options.useTools && toolCalls.length > 0) {
+    if (canUseTools && toolCalls.length > 0) {
+      const toolSignature = JSON.stringify(
+        toolCalls.map((toolCall: NonNullable<AiMessage['tool_calls']>[number]) => ({
+          name: toolCall.function.name,
+          arguments: toolCall.function.arguments ?? '',
+        })),
+      );
+      if (toolSignature === lastToolSignature) {
+        repeatedToolRoundCount += 1;
+      } else {
+        lastToolSignature = toolSignature;
+        repeatedToolRoundCount = 0;
+      }
+
+      if (repeatedToolRoundCount >= 1) {
+        break;
+      }
+
+      options.onStageChange?.('running_tools');
       messages.push({
         role: 'assistant',
         content: extractTextContent(message.content),
         tool_calls: toolCalls,
       });
 
-      for (const toolCall of toolCalls) {
+      const toolResults = await Promise.all(toolCalls.map(async (toolCall: NonNullable<AiMessage['tool_calls']>[number]) => {
         const executor = executors[toolCall.function.name];
         if (!executor) {
-          messages.push({
-            role: 'tool',
+          return {
+            role: 'tool' as const,
             tool_call_id: toolCall.id,
             content: JSON.stringify({ error: `Unknown tool: ${toolCall.function.name}` }),
-          });
-          continue;
+          };
         }
 
         try {
           const args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
+          throwIfAborted(options.signal);
           const result = await executor(args);
-          messages.push({
+          return {
             role: 'tool',
             tool_call_id: toolCall.id,
             content: JSON.stringify(result),
-          });
+          } as const;
         } catch (error) {
-          messages.push({
+          return {
             role: 'tool',
             tool_call_id: toolCall.id,
             content: JSON.stringify({
               error: error instanceof Error ? error.message : 'Tool execution failed',
             }),
-          });
+          } as const;
         }
+      }));
+
+      for (const toolResult of toolResults) {
+        messages.push(toolResult);
       }
 
       continue;
@@ -700,6 +784,10 @@ async function runAgent(options: {
     return text;
   }
 
+  if (canUseTools) {
+    return finalizeAgentResponse(config, messages, temperature, options.signal, options.onStageChange);
+  }
+
   throw new Error('AI exceeded the maximum tool-call steps');
 }
 
@@ -707,7 +795,6 @@ export async function parseCardManuscript(manuscript: string, currentCard: CardD
   const text = await runAgent({
     currentCard,
     useTools: true,
-    temperature: 0.1,
     systemPrompt: [
       'You are a Yu-Gi-Oh! card data editor assistant.  Your task is to parse',
       'free-form card manuscript text into structured card records.',
@@ -715,6 +802,7 @@ export async function parseCardManuscript(manuscript: string, currentCard: CardD
       '## Available tools',
       'You may call tools to inspect the current card and opened databases',
       'before producing the final JSON output.',
+      'Use only the minimum number of tool rounds you need, then return the final JSON.',
       '',
       '## Output format',
       'Return **only** a JSON object (no markdown fences, no explanation).',
@@ -792,162 +880,139 @@ export async function parseCardManuscript(manuscript: string, currentCard: CardD
     raw: text,
   };
 }
+/**
+ * Pre-fetches up to `maxScripts` reference Lua scripts from opened databases
+ * by searching for cards similar to `currentCard`. This runs locally and is
+ * fast, so we can embed the results directly in the AI prompt and skip
+ * tool-call round-trips entirely.
+ */
+async function prefetchReferenceScripts(
+  currentCard: CardDataEntry,
+  maxScripts = 2,
+  signal?: AbortSignal,
+): Promise<{ code: number; name: string; script: string }[]> {
+  const results: { code: number; name: string; script: string }[] = [];
+  const seenCodes = new Set<number>();
+  const currentCode = Number(currentCard.code ?? 0);
+  if (currentCode > 0) seenCodes.add(currentCode);
 
-export async function generateCardScript(currentCard: CardDataEntry) {
+  // Strategy 1: Search by card name keywords
+  const cardName = String(currentCard.name ?? '').trim();
+  if (cardName) {
+    // Extract the first meaningful keyword (skip single-char words)
+    const keywords = cardName.split(/[\s・・/／]+/).filter((w) => w.length >= 2);
+    const searchTerm = keywords[0] ?? cardName.slice(0, 4);
+    throwIfAborted(signal);
+    const found = await searchCards(searchTerm, 'all', undefined, 4);
+    for (const item of found) {
+      throwIfAborted(signal);
+      if (results.length >= maxScripts) break;
+      const code = Number(item.card?.code ?? 0);
+      if (code <= 0 || seenCodes.has(code)) continue;
+      // Only consider cards that have effect text (not normal monsters)
+      if (!item.card?.desc) continue;
+      seenCodes.add(code);
+      throwIfAborted(signal);
+      const scriptResult = await readCardScript(code, item.db?.path);
+      if (scriptResult.exists && scriptResult.content) {
+        results.push({ code, name: String(item.card?.name ?? ''), script: scriptResult.content });
+      }
+    }
+  }
+
+  // Strategy 2: If we still need more, search by card description keywords
+  if (results.length < maxScripts) {
+    const desc = String(currentCard.desc ?? '').trim();
+    // Extract a short effect keyword from the description
+    const effectKeywords = desc.match(/(?:特殊召喚|破壊|除外|墓地|ドロー|無効|Special Summon|destroy|negate|draw|banish)/i);
+    const fallbackSearch = effectKeywords?.[0] ?? '';
+    if (fallbackSearch) {
+      throwIfAborted(signal);
+      const found = await searchCards(fallbackSearch, 'all', undefined, 4);
+      for (const item of found) {
+        throwIfAborted(signal);
+        if (results.length >= maxScripts) break;
+        const code = Number(item.card?.code ?? 0);
+        if (code <= 0 || seenCodes.has(code)) continue;
+        if (!item.card?.desc) continue;
+        seenCodes.add(code);
+        throwIfAborted(signal);
+        const scriptResult = await readCardScript(code, item.db?.path);
+        if (scriptResult.exists && scriptResult.content) {
+          results.push({ code, name: String(item.card?.name ?? ''), script: scriptResult.content });
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
+export async function generateCardScript(currentCard: CardDataEntry, options?: {
+  signal?: AbortSignal;
+  onStageChange?: (stage: AgentStage) => void;
+}) {
+  // Pre-fetch reference scripts locally — this is fast and avoids slow
+  // AI tool-call round-trips (each round-trip is ~3-10s).
+  options?.onStageChange?.('collecting_references');
+  const referenceScripts = await prefetchReferenceScripts(currentCard, 2, options?.signal);
+
+  const referenceSection = referenceScripts.length > 0
+    ? [
+        '',
+        '## Reference scripts (from opened databases)',
+        'Use these as style/pattern references. Do NOT copy them verbatim — adapt to the current card.',
+        ...referenceScripts.map((ref, i) => [
+          `### Reference ${i + 1}: ${ref.name} (id: ${ref.code})`,
+          '```lua',
+          ref.script.length > 3000 ? ref.script.slice(0, 3000) + '\n-- [truncated]' : ref.script,
+          '```',
+        ].join('\n')),
+      ].join('\n')
+    : '';
+
   return runAgent({
     currentCard,
     useTools: true,
-    temperature: 0.25,
+    maxSteps: 3,
+    toolNames: ['search_cards', 'read_card_script'],
+    signal: options?.signal,
+    onStageChange: options?.onStageChange,
     systemPrompt: [
       'You are an expert EDOPro/YGOPro Lua card scripter.',
-      'Your task is to generate a complete, runnable Lua script for a Yu-Gi-Oh! card.',
+      'Generate a complete, runnable Lua script for the current Yu-Gi-Oh! card.',
       '',
-      '## Available tools',
-      'Use the available tools to:',
-      '- Inspect the current card data',
-      '- Search and look up reference cards in opened databases',
-      '- Read existing Lua scripts for similar cards as reference',
-      'Use tools before writing the final script when helpful.',
+      '## Tool usage',
+      'Reference scripts have already been pre-fetched and included in the prompt.',
+      'Only call tools if the pre-fetched references are insufficient and you need',
+      'a very specific card script not already provided. In most cases, do NOT call any tools.',
       '',
       '## Output format',
-      'Return **only** the final Lua script.',
-      '- No markdown code fences',
-      '- No surrounding explanation or commentary',
-      '- Include concise TODO comments in Lua only when the card text is ambiguous',
-      '',
-      '## Script structure',
-      'A standard YGOPro script follows this pattern:',
-      '',
-      '```',
-      '-- Card Name',
-      'local s,id = GetID()',
-      'function s.initial_effect(c)',
-      '  -- register effects here',
-      'end',
-      '```',
-      '',
-      '## Registering effects',
-      'Every effect follows a 3-step pattern:',
-      '1. Create: `local e1 = Effect.CreateEffect(c)`',
-      '2. Configure: set type, code, target, operation, condition, cost, etc.',
-      '3. Register: `c:RegisterEffect(e1)`',
-      '',
-      '### Key Effect properties',
-      '- `e:SetType(type)` — EFFECT_TYPE_SINGLE, EFFECT_TYPE_FIELD, EFFECT_TYPE_IGNITION,',
-      '  EFFECT_TYPE_TRIGGER_O, EFFECT_TYPE_TRIGGER_F, EFFECT_TYPE_QUICK_O,',
-      '  EFFECT_TYPE_QUICK_F, EFFECT_TYPE_ACTIVATE, EFFECT_TYPE_CONTINUOUS,',
-      '  EFFECT_TYPE_EQUIP, EFFECT_TYPE_FLIP',
-      '- `e:SetCode(code)` — what the effect does:',
-      '  EVENT_SUMMON, EVENT_SPSUMMON, EVENT_FLIP_SUMMON, EVENT_DESTROY,',
-      '  EVENT_TO_GRAVE, EVENT_REMOVE, EVENT_BATTLE_START, EVENT_DAMAGE_STEP,',
-      '  EVENT_BATTLE_DAMAGE, EFFECT_DESTROY, EFFECT_SPSUMMON, EFFECT_DRAW,',
-      '  EFFECT_DAMAGE, EFFECT_RECOVER, EFFECT_UPDATE_ATTACK, EFFECT_UPDATE_DEFENSE,',
-      '  EFFECT_CHANGE_ATTRIBUTE, EFFECT_CHANGE_RACE, EFFECT_CHANGE_LEVEL,',
-      '  EFFECT_CANNOT_ATTACK, EFFECT_CANNOT_SPECIAL_SUMMON, EFFECT_DISABLE,',
-      '  EFFECT_DISABLE_EFFECT, EFFECT_IMMUNE_EFFECT, EFFECT_INDESTRUCTABLE,',
-      '  EFFECT_CANNOT_TRIGGER, EFFECT_EXTRA_ATTACK, EFFECT_CHANGE_DAMAGE,',
-      '  EFFECT_SET_ATTACK, EFFECT_SET_DEFENSE',
-      '- `e:SetProperty(prop)` — EFFECT_FLAG_PLAYER_TARGET, EFFECT_FLAG_CARD_TARGET, etc.',
-      '- `e:SetRange(range)` — where the effect is active:',
-      '  LOCATION_MZONE, LOCATION_SZONE, LOCATION_HAND, LOCATION_DECK,',
-      '  LOCATION_GRAVE, LOCATION_REMOVED, LOCATION_EXTRA, LOCATION_FZONE',
-      '- `e:SetCountLimit(n)` — once-per-turn limit (usually 1)',
-      '- `e:SetCategory(cat)` — CATEGORY_DESTROY, CATEGORY_DRAW, CATEGORY_SEARCH,',
-      '  CATEGORY_TOHAND, CATEGORY_TODECK, CATEGORY_TOGRAVE, CATEGORY_REMOVE,',
-      '  CATEGORY_SPECIAL_SUMMON, CATEGORY_DAMAGE, CATEGORY_RECOVER,',
-      '  CATEGORY_EQUIP, CATEGORY_NEGATE, CATEGORY_DISABLE,',
-      '  CATEGORY_ATKCHANGE, CATEGORY_DEFCHANGE, CATEGORY_POSITION,',
-      '  CATEGORY_TOKEN, CATEGORY_FUSION_SUMMON, CATEGORY_SYNCHRO_SUMMON,',
-      '  CATEGORY_XYZ_SUMMON, CATEGORY_LINK_SUMMON',
-      '- `e:SetCondition(func)` — `function s.condition(e,tp,eg,ep,ev,re,r,rp)`',
-      '- `e:SetCost(func)` — `function s.cost(e,tp,eg,ep,ev,re,r,rp,chk)`',
-      '- `e:SetTarget(func)` — `function s.target(e,tp,eg,ep,ev,re,r,rp,chk)`',
-      '- `e:SetOperation(func)` — `function s.operation(e,tp,eg,ep,ev,re,r,rp)`',
-      '- `e:SetValue(val)` — a numeric value or a function returning one',
-      '',
-      '## Common patterns',
-      '',
-      '### Special Summon',
-      '```',
-      'if chk==0 then return Duel.GetLocationCount(tp,LOCATION_MZONE)>0',
-      '  and Duel.IsExistingMatchingCard(s.spfilter,tp,loc,0,1,nil,e,tp) end',
-      'Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_SPSUMMON)',
-      'local g=Duel.SelectMatchingCard(tp,s.spfilter,tp,loc,0,1,1,nil,e,tp)',
-      'Duel.SpecialSummon(g,0,tp,tp,false,false,POS_FACEUP)',
-      '```',
-      '',
-      '### Destroy cards',
-      '```',
-      'if chk==0 then return Duel.IsExistingMatchingCard(s.desfilter,tp,0,LOCATION_MZONE,1,nil) end',
-      'Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_DESTROY)',
-      'local g=Duel.SelectMatchingCard(tp,s.desfilter,tp,0,LOCATION_MZONE,1,1,nil)',
-      'Duel.Destroy(g,REASON_EFFECT)',
-      '```',
-      '',
-      '### Draw cards',
-      '```',
-      'if chk==0 then return Duel.IsPlayerCanDraw(tp,n) end',
-      'Duel.Draw(tp,n,REASON_EFFECT)',
-      '```',
-      '',
-      '### Spell/Trap activation (EFFECT_TYPE_ACTIVATE)',
-      '```',
-      'local e1=Effect.CreateEffect(c)',
-      'e1:SetType(EFFECT_TYPE_ACTIVATE)',
-      'e1:SetCode(EVENT_FREE_CHAIN)  -- or specific event',
-      'e1:SetTarget(s.target)',
-      'e1:SetOperation(s.operation)',
-      'c:RegisterEffect(e1)',
-      '```',
-      '',
-      '### Continuous ATK/DEF modifier',
-      '```',
-      'local e1=Effect.CreateEffect(c)',
-      'e1:SetType(EFFECT_TYPE_SINGLE)',
-      'e1:SetCode(EFFECT_UPDATE_ATTACK)',
-      'e1:SetValue(500)',
-      'c:RegisterEffect(e1)',
-      '```',
-      '',
-      '### negate activation',
-      '```',
-      'Duel.NegateActivation(ev)',
-      'if re:GetHandler():IsRelateToEffect(re) then Duel.Destroy(eg,REASON_EFFECT) end',
-      '```',
+      'Return only the final Lua script.',
+      'Do not use markdown fences or any explanation.',
+      'If the card text is ambiguous, keep the script runnable and add brief Lua TODO comments only where needed.',
       '',
       '## Important conventions',
-      '- Always start with `local s,id = GetID()`',
-      '- Use `s.` prefix for all local functions: `s.condition`, `s.target`, etc.',
-      '- Use `Duel.GetTurnPlayer()==tp` for turn player checks',
-      '- For hard OPT: `e:SetCountLimit(1,id)` or `e:SetCountLimit(1,id+EFFECT_COUNT_CODE_OATH)`',
-      '- For filter functions, name them descriptively: `s.spfilter`, `s.desfilter`',
-      '- Testing `chk==0` returns a boolean; the real action happens when `chk~=0`',
-      '- For Xyz/Synchro/Link/Fusion material, use corresponding summoning procedures',
-      '- Use `aux.AddMaterialCodeCheck` for specific material requirements',
-      '- `Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_*)` before Select functions',
-      '- For cost: tribute `Duel.Release(g,REASON_COST)`, discard `Duel.SendtoGrave(g,REASON_COST+REASON_DISCARD)`',
-      '- Card specific ids in counters: `id+EFFECT_COUNT_CODE_OATH`',
-      '- For Pendulum: set scale effects with LOCATION_PZONE',
-      '- For Link Monsters: use `Link.CreateEffect` helpers when available',
-      '- For once-per-turn trigger effects, always use `SetCountLimit(1,id)`',
+      '- Always start with `local s,id=GetID()` or equivalent valid EDOPro style.',
+      '- Use the `s.` prefix for helper functions.',
+      '- Register complete effects with proper condition/cost/target/operation functions.',
+      '- Use `e:SetCountLimit(1,id)` for hard once-per-turn when appropriate.',
+      '- Use correct summon procedures and helpers for Fusion/Synchro/Xyz/Link/Pendulum cards.',
+      '- Keep the script runnable; avoid placeholder pseudocode.',
       '',
       '## Type-specific guidelines',
-      '- **Normal Monster**: no effects needed, return minimal script with just GetID',
-      '- **Effect Monster**: implement trigger/ignition/continuous effects as described',
-      '- **Spell**: use EFFECT_TYPE_ACTIVATE, EVENT_FREE_CHAIN for regular spells',
-      '- **Quick-Play Spell**: can be activated during opponent\'s turn',
-      '- **Continuous Spell/Trap**: effects stay on field',
-      '- **Counter Trap**: negate effects, use EVENT_CHAINING typically',
-      '- **Pendulum**: need both monster effects and Pendulum scale effects',
-      '- **Link Monster**: no DEF, link arrows are defined in CDB data not in script',
+      '- Normal Monster: minimal script is acceptable.',
+      '- Spell/Trap: use activation effects and proper event codes.',
+      '- Pendulum: include scale-side effects when the text requires them.',
+      '- Link Monster: do not invent DEF-related logic.',
     ].join('\n'),
     userPrompt: [
       'Generate the complete Lua script for the current card.',
       '',
       'Current card data:',
       JSON.stringify(serializeCardForAi(currentCard)),
+      referenceSection,
       '',
-      'You may use opened databases to find similar cards and reference their scripts.',
       'Return only the finished Lua code.',
     ].join('\n'),
   });
@@ -964,7 +1029,6 @@ export async function translateCardImageFields(input: {
   const text = await runAgent({
     currentCard: input.currentCard,
     useTools: false,
-    temperature: 0.2,
     systemPrompt: [
       'You are a Yu-Gi-Oh! card localization assistant.',
       'Your task is to translate card text fields for card image rendering.',
