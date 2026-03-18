@@ -37,7 +37,8 @@
   import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
   import CardImageDrawer from "$lib/components/CardImageDrawer.svelte";
   import { appSettingsState, hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
-  import { generateCardScript, parseCardManuscript } from "$lib/utils/ai";
+  import { generateCardScript, parseCardManuscript, type AgentStage } from "$lib/utils/ai";
+  import { writeErrorLog } from "$lib/utils/errorLog";
 
   type CardScriptInfo = {
     path: string;
@@ -62,6 +63,8 @@
   let manuscriptInput = $state("");
   let isParsingManuscript = $state(false);
   let isGeneratingScript = $state(false);
+  let scriptGenerationStage = $state<AgentStage | "">("");
+  let scriptGenerationAbortController = $state<AbortController | null>(null);
 
   let isEditingExisting = $derived(originalCardCode !== null);
   let isLink = $derived((draftCard.type & 0x4000000) !== 0);
@@ -305,6 +308,7 @@
 
     window.addEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
     return () => {
+      scriptGenerationAbortController?.abort();
       window.removeEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
     };
   });
@@ -408,6 +412,25 @@
     return `${(fenced?.[1] ?? trimmed).trim()}\n`;
   }
 
+  function isAbortError(error: unknown) {
+    return error instanceof DOMException && error.name === "AbortError";
+  }
+
+  function getScriptGenerationStageLabel(stage: AgentStage | "") {
+    switch (stage) {
+      case "collecting_references":
+        return $_("editor.script_stage_collecting_references");
+      case "requesting_model":
+        return $_("editor.script_stage_requesting_model");
+      case "running_tools":
+        return $_("editor.script_stage_running_tools");
+      case "finalizing_response":
+        return $_("editor.script_stage_finalizing_response");
+      default:
+        return $_("editor.script_generating");
+    }
+  }
+
   async function ensureAiReady() {
     await loadAppSettings();
     if (hasConfiguredSecretKey()) {
@@ -465,6 +488,11 @@
       await invoke("open_in_system_editor", { path: info.path });
     } catch (error) {
       console.error("Failed to open script", error);
+      void writeErrorLog({
+        source: "editor.script.open",
+        error,
+        extra: { cdbPath: $activeTab?.path ?? "", cardCode: code },
+      });
       showToast($_("editor.script_open_failed"), "error");
     }
   }
@@ -493,7 +521,15 @@
       }
 
       isGeneratingScript = true;
-      const generatedScript = normalizeGeneratedScript(await generateCardScript(draftCard));
+      scriptGenerationStage = "collecting_references";
+      const abortController = new AbortController();
+      scriptGenerationAbortController = abortController;
+      const generatedScript = normalizeGeneratedScript(await generateCardScript(draftCard, {
+        signal: abortController.signal,
+        onStageChange: (stage) => {
+          scriptGenerationStage = stage;
+        },
+      }));
       const written = await invoke<CardScriptInfo>("write_card_script", {
         cdbPath: $activeTab.path,
         cardId: code,
@@ -503,11 +539,26 @@
       await invoke("open_in_system_editor", { path: written.path });
       showToast($_("editor.script_generated", { values: { code: String(code) } }), "success");
     } catch (error) {
+      if (isAbortError(error)) {
+        showToast($_("editor.script_generation_canceled"), "info");
+        return;
+      }
       console.error("Failed to generate script", error);
+      void writeErrorLog({
+        source: "editor.script.generate",
+        error,
+        extra: { cdbPath: $activeTab?.path ?? "", cardCode: code, cardName: draftCard.name ?? "" },
+      });
       showToast($_("editor.script_generate_failed"), "error");
     } finally {
       isGeneratingScript = false;
+      scriptGenerationStage = "";
+      scriptGenerationAbortController = null;
     }
+  }
+
+  function handleCancelGenerateScript() {
+    scriptGenerationAbortController?.abort();
   }
 
   async function saveParsedCardsIndividually(cards: CardDataEntry[]) {
@@ -606,6 +657,15 @@
       isParseModalOpen = false;
     } catch (error) {
       console.error("Failed to parse manuscript", error);
+      void writeErrorLog({
+        source: "editor.ai.parse-manuscript",
+        error,
+        extra: {
+          cdbPath: $activeTab?.path ?? "",
+          currentCardCode: draftCard.code ?? 0,
+          manuscriptPreview: manuscriptInput.slice(0, 500),
+        },
+      });
       showToast($_("editor.ai_parse_failed"), "error");
     } finally {
       isParsingManuscript = false;
@@ -910,9 +970,17 @@
         <button class="btn-secondary btn-sm" onclick={handleNewCard}>{$_("editor.new_card")}</button>
         <button class="btn-secondary btn-sm" onclick={handleOpenParseModal}>{$_("editor.ai_parse_button")}</button>
         <button class="btn-secondary btn-sm" onclick={handleOpenScript}>{$_("editor.script_button")}</button>
-        <button class="btn-secondary btn-sm" onclick={handleGenerateScript} disabled={isGeneratingScript}>
-          {isGeneratingScript ? $_("editor.script_generating") : $_("editor.script_generate_button")}
-        </button>
+        <div class="script-generate-group">
+          <button class="btn-secondary btn-sm" onclick={handleGenerateScript} disabled={isGeneratingScript}>
+            {isGeneratingScript ? $_("editor.script_generating") : $_("editor.script_generate_button")}
+          </button>
+          {#if isGeneratingScript}
+            <button class="btn-secondary btn-sm" type="button" onclick={handleCancelGenerateScript}>
+              {$_("editor.script_cancel_button")}
+            </button>
+            <span class="script-stage-text">{getScriptGenerationStageLabel(scriptGenerationStage)}</span>
+          {/if}
+        </div>
         <button class="btn-secondary btn-sm" onclick={openCardImageDrawer}>{$_("editor.card_image_button")}</button>
       </div>
       <div class="btn-group">
@@ -1364,6 +1432,19 @@
   .editor-bottom-left {
     display: flex;
     gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .script-generate-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .script-stage-text {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
   }
   .btn-group {
     display: flex;

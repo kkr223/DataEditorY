@@ -12,6 +12,7 @@
   import { dispatchAppShortcut } from '$lib/utils/shortcuts';
   import { appShellState, activateEditorView, closeSettingsView, openSettingsView } from '$lib/stores/appShell.svelte';
   import { loadAppSettings } from '$lib/stores/appSettings.svelte';
+  import { writeErrorLog } from '$lib/utils/errorLog';
   import Toast from '$lib/components/Toast.svelte';
   
   // initialize immediately
@@ -257,9 +258,31 @@
     }
 
     void loadAppSettings();
+    const handleWindowError = (event: ErrorEvent) => {
+      void writeErrorLog({
+        source: 'window.error',
+        error: event.error ?? event.message,
+        extra: {
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+        },
+      });
+    };
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      void writeErrorLog({
+        source: 'window.unhandledrejection',
+        error: event.reason,
+      });
+    };
+
     window.addEventListener('keydown', handleGlobalKeydown);
+    window.addEventListener('error', handleWindowError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
     return () => {
       window.removeEventListener('keydown', handleGlobalKeydown);
+      window.removeEventListener('error', handleWindowError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
   });
 </script>

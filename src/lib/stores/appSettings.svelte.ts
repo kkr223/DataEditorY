@@ -3,9 +3,11 @@ import { convertFileSrc, invoke, isTauri } from '@tauri-apps/api/core';
 export interface AppSettingsPayload {
   apiBaseUrl: string;
   model: string;
+  temperature: number;
   scriptTemplate: string;
   hasSecretKey: boolean;
   coverImagePath: string | null;
+  errorLogPath: string;
 }
 
 const DEFAULT_COVER_SRC = '/resources/cover.jpg';
@@ -15,10 +17,20 @@ function createDefaultSettings(): AppSettingsPayload {
   return {
     apiBaseUrl: '',
     model: 'gpt-4o-mini',
+    temperature: 1,
     scriptTemplate: '-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n',
     hasSecretKey: false,
     coverImagePath: null,
+    errorLogPath: '',
   };
+}
+
+function normalizeTemperature(value: number | null | undefined) {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.min(2, Math.max(0, Number(value)));
 }
 
 function resolveCoverSrc(path: string | null, revision: number): string {
@@ -46,9 +58,11 @@ function applySettings(payload: AppSettingsPayload) {
   appSettingsState.values = {
     apiBaseUrl: payload.apiBaseUrl ?? '',
     model: payload.model?.trim() || 'gpt-4o-mini',
+    temperature: normalizeTemperature(payload.temperature),
     scriptTemplate: payload.scriptTemplate?.trim() ? payload.scriptTemplate : createDefaultSettings().scriptTemplate,
     hasSecretKey: Boolean(payload.hasSecretKey),
     coverImagePath: payload.coverImagePath ?? null,
+    errorLogPath: payload.errorLogPath ?? '',
   };
   if (appSettingsState.values.model) {
     appSettingsState.modelOptions = Array.from(new Set([
@@ -97,6 +111,7 @@ export async function loadAppSettings(force = false) {
 export async function saveAppSettings(input: {
   apiBaseUrl: string;
   model?: string;
+  temperature?: number;
   scriptTemplate: string;
   secretKey?: string;
   clearSecretKey?: boolean;
@@ -107,6 +122,7 @@ export async function saveAppSettings(input: {
       request: {
         apiBaseUrl: input.apiBaseUrl,
         model: input.model,
+        temperature: normalizeTemperature(input.temperature ?? appSettingsState.values.temperature),
         scriptTemplate: input.scriptTemplate,
         secretKey: input.secretKey,
         clearSecretKey: input.clearSecretKey,
@@ -142,6 +158,7 @@ export function hasConfiguredSecretKey() {
 export async function connectAiProvider(input: {
   apiBaseUrl: string;
   secretKey?: string;
+  temperature?: number;
   scriptTemplate: string;
   preferredModel?: string;
   persist?: boolean;
@@ -194,6 +211,7 @@ export async function connectAiProvider(input: {
         ...appSettingsState.values,
         apiBaseUrl,
         model: selectedModel,
+        temperature: normalizeTemperature(input.temperature ?? appSettingsState.values.temperature),
       };
       return { models, selectedModel };
     }
@@ -201,6 +219,7 @@ export async function connectAiProvider(input: {
     await saveAppSettings({
       apiBaseUrl,
       model: selectedModel,
+      temperature: input.temperature ?? appSettingsState.values.temperature,
       scriptTemplate: input.scriptTemplate,
       secretKey: input.secretKey,
     });

@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
+    io::Write,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -16,9 +17,12 @@ use tauri::{AppHandle, Manager};
 const SETTINGS_FILE_NAME: &str = "settings.json";
 const CIPHER_KEY_FILE_NAME: &str = "cipher.key";
 const CUSTOM_COVER_FILE_NAME: &str = "cover.jpg";
+const LOGS_DIR_NAME: &str = "logs";
+const ERROR_LOG_FILE_NAME: &str = "error.log";
 const DEFAULT_SCRIPT_TEMPLATE: &str =
     "-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n";
 const DEFAULT_AI_MODEL: &str = "gpt-4o-mini";
+const DEFAULT_AI_TEMPERATURE: f64 = 1.0;
 const SECRET_VERSION_PREFIX: &str = "v1";
 const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
 
@@ -27,6 +31,7 @@ const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
 struct PersistedAppSettings {
     api_base_url: String,
     model: String,
+    temperature: f64,
     script_template: String,
     encrypted_secret_key: Option<String>,
 }
@@ -36,6 +41,7 @@ impl Default for PersistedAppSettings {
         Self {
             api_base_url: String::new(),
             model: DEFAULT_AI_MODEL.to_string(),
+            temperature: DEFAULT_AI_TEMPERATURE,
             script_template: DEFAULT_SCRIPT_TEMPLATE.to_string(),
             encrypted_secret_key: None,
         }
@@ -47,9 +53,11 @@ impl Default for PersistedAppSettings {
 struct AppSettingsPayload {
     api_base_url: String,
     model: String,
+    temperature: f64,
     script_template: String,
     has_secret_key: bool,
     cover_image_path: Option<String>,
+    error_log_path: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,6 +65,7 @@ struct AppSettingsPayload {
 struct SaveAppSettingsRequest {
     api_base_url: String,
     model: Option<String>,
+    temperature: Option<f64>,
     script_template: String,
     secret_key: Option<String>,
     clear_secret_key: Option<bool>,
@@ -67,6 +76,15 @@ struct SaveAppSettingsRequest {
 struct CardScriptInfo {
     path: String,
     exists: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppendErrorLogRequest {
+    source: String,
+    message: String,
+    stack: Option<String>,
+    extra: Option<String>,
 }
 
 fn ensure_app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -81,6 +99,24 @@ fn settings_file_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn custom_cover_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(ensure_app_config_dir(app)?.join(CUSTOM_COVER_FILE_NAME))
+}
+
+fn logs_dir_path(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(ensure_app_config_dir(app)?.join(LOGS_DIR_NAME))
+}
+
+fn error_log_path(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = logs_dir_path(app)?;
+    fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
+    let path = dir.join(ERROR_LOG_FILE_NAME);
+    if !path.exists() {
+        fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .map_err(|err| err.to_string())?;
+    }
+    Ok(path)
 }
 
 fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSettings, String> {
@@ -99,6 +135,7 @@ fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSettings, Stri
     if settings.script_template.trim().is_empty() {
         settings.script_template = DEFAULT_SCRIPT_TEMPLATE.to_string();
     }
+    settings.temperature = normalize_temperature(Some(settings.temperature));
 
     Ok(settings)
 }
@@ -126,6 +163,13 @@ fn normalize_script_template(value: String) -> String {
         DEFAULT_SCRIPT_TEMPLATE.to_string()
     } else {
         value.replace("\r\n", "\n")
+    }
+}
+
+fn normalize_temperature(value: Option<f64>) -> f64 {
+    match value {
+        Some(item) if item.is_finite() => item.clamp(0.0, 2.0),
+        _ => DEFAULT_AI_TEMPERATURE,
     }
 }
 
@@ -237,6 +281,7 @@ fn to_settings_payload(
         } else {
             settings.model
         },
+        temperature: normalize_temperature(Some(settings.temperature)),
         script_template: if settings.script_template.trim().is_empty() {
             DEFAULT_SCRIPT_TEMPLATE.to_string()
         } else {
@@ -248,7 +293,15 @@ fn to_settings_payload(
         } else {
             None
         },
+        error_log_path: error_log_path(app)?.to_string_lossy().to_string(),
     })
+}
+
+fn now_local_timestamp() -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    format!("{}.{}", now.as_secs(), now.subsec_millis())
 }
 
 fn build_card_script_path(cdb_path: &str, card_id: u32) -> Result<PathBuf, String> {
@@ -336,6 +389,11 @@ fn read_cdb(path: String) -> Result<Vec<u8>, String> {
 }
 
 #[tauri::command]
+fn read_text_file(path: String) -> Result<String, String> {
+    fs::read_to_string(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn write_cdb(path: String, data: Vec<u8>) -> Result<(), String> {
     if let Some(parent) = Path::new(&path).parent() {
         let _ = fs::create_dir_all(parent);
@@ -413,6 +471,7 @@ fn save_app_settings(app: AppHandle, request: SaveAppSettingsRequest) -> Result<
     let mut settings = load_persisted_settings(&app)?;
     settings.api_base_url = normalize_base_url(request.api_base_url);
     settings.model = normalize_model(request.model);
+    settings.temperature = normalize_temperature(request.temperature.or(Some(settings.temperature)));
     settings.script_template = normalize_script_template(request.script_template);
 
     if request.clear_secret_key.unwrap_or(false) {
@@ -496,6 +555,30 @@ fn open_in_system_editor(path: String) -> Result<(), String> {
     open_with_preferred_editor(Path::new(&path))
 }
 
+#[tauri::command]
+fn append_error_log(app: AppHandle, request: AppendErrorLogRequest) -> Result<String, String> {
+    let path = error_log_path(&app)?;
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|err| err.to_string())?;
+
+    writeln!(file, "[{}] {}", now_local_timestamp(), request.source).map_err(|err| err.to_string())?;
+    writeln!(file, "message: {}", request.message).map_err(|err| err.to_string())?;
+
+    if let Some(stack) = request.stack.filter(|value| !value.trim().is_empty()) {
+        writeln!(file, "stack:\n{}", stack).map_err(|err| err.to_string())?;
+    }
+
+    if let Some(extra) = request.extra.filter(|value| !value.trim().is_empty()) {
+        writeln!(file, "extra: {}", extra).map_err(|err| err.to_string())?;
+    }
+
+    writeln!(file).map_err(|err| err.to_string())?;
+    Ok(path.to_string_lossy().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -504,6 +587,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             read_cdb,
+            read_text_file,
             write_cdb,
             write_file,
             copy_image,
@@ -516,7 +600,8 @@ pub fn run() {
             clear_cover_image,
             get_card_script_info,
             write_card_script,
-            open_in_system_editor
+            open_in_system_editor,
+            append_error_log
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

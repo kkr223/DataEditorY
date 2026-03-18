@@ -1,6 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { open } from '@tauri-apps/plugin-dialog';
+  import { invoke } from '@tauri-apps/api/core';
   import {
     appSettingsState,
     clearCustomCoverImage,
@@ -10,13 +11,24 @@
     setCustomCoverImage,
   } from '$lib/stores/appSettings.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
+  import { writeErrorLog } from '$lib/utils/errorLog';
 
   let apiBaseUrl = $state('');
   let model = $state('gpt-4o-mini');
+  let temperature = $state(1);
   let scriptTemplate = $state('');
   let secretKey = $state('');
   let isHydrated = false;
   let triedAutoConnect = false;
+
+  function getNormalizedTemperature() {
+    const value = Number(temperature);
+    if (!Number.isFinite(value)) {
+      return 1;
+    }
+
+    return Math.min(2, Math.max(0, value));
+  }
 
   async function handlePickCover() {
     const selected = await open({
@@ -31,6 +43,7 @@
       showToast($_('settings.cover_saved'), 'success');
     } catch (error) {
       console.error('Failed to set cover image', error);
+      void writeErrorLog({ source: 'settings.cover.pick', error });
       showToast($_('settings.cover_save_failed'), 'error');
     }
   }
@@ -41,6 +54,7 @@
       showToast($_('settings.cover_cleared'), 'success');
     } catch (error) {
       console.error('Failed to clear cover image', error);
+      void writeErrorLog({ source: 'settings.cover.clear', error });
       showToast($_('settings.cover_save_failed'), 'error');
     }
   }
@@ -50,6 +64,7 @@
       await saveAppSettings({
         apiBaseUrl,
         model,
+        temperature: getNormalizedTemperature(),
         scriptTemplate,
         secretKey,
       });
@@ -57,6 +72,7 @@
       showToast($_('settings.save_success'), 'success');
     } catch (error) {
       console.error('Failed to save settings', error);
+      void writeErrorLog({ source: 'settings.save', error });
       showToast($_('settings.save_failed'), 'error');
     }
   }
@@ -66,6 +82,7 @@
       const result = await connectAiProvider({
         apiBaseUrl,
         secretKey,
+        temperature: getNormalizedTemperature(),
         scriptTemplate,
         preferredModel: model,
       });
@@ -74,6 +91,11 @@
       showToast($_('settings.connect_success'), 'success');
     } catch (error) {
       console.error('Failed to connect AI provider', error);
+      void writeErrorLog({
+        source: 'settings.ai.connect',
+        error,
+        extra: { apiBaseUrl },
+      });
       showToast($_('settings.connect_failed'), 'error');
     }
   }
@@ -83,11 +105,17 @@
       await saveAppSettings({
         apiBaseUrl,
         model,
+        temperature: getNormalizedTemperature(),
         scriptTemplate,
       });
       showToast($_('settings.model_saved'), 'success');
     } catch (error) {
       console.error('Failed to save selected model', error);
+      void writeErrorLog({
+        source: 'settings.ai.model.change',
+        error,
+        extra: { apiBaseUrl, model },
+      });
       showToast($_('settings.save_failed'), 'error');
     }
   }
@@ -97,6 +125,7 @@
       await saveAppSettings({
         apiBaseUrl,
         model,
+        temperature: getNormalizedTemperature(),
         scriptTemplate,
         clearSecretKey: true,
       });
@@ -104,7 +133,25 @@
       showToast($_('settings.secret_cleared'), 'success');
     } catch (error) {
       console.error('Failed to clear secret key', error);
+      void writeErrorLog({ source: 'settings.secret.clear', error });
       showToast($_('settings.save_failed'), 'error');
+    }
+  }
+
+  async function handleOpenErrorLog() {
+    const path = appSettingsState.values.errorLogPath;
+    if (!path) return;
+
+    try {
+      await invoke('open_in_system_editor', { path });
+    } catch (error) {
+      console.error('Failed to open error log', error);
+      void writeErrorLog({
+        source: 'settings.error-log.open',
+        error,
+        extra: { path: appSettingsState.values.errorLogPath },
+      });
+      showToast($_('settings.error_log_open_failed'), 'error');
     }
   }
 
@@ -117,6 +164,7 @@
 
     apiBaseUrl = appSettingsState.values.apiBaseUrl;
     model = appSettingsState.values.model;
+    temperature = appSettingsState.values.temperature;
     scriptTemplate = appSettingsState.values.scriptTemplate;
     if (!isHydrated) {
       secretKey = '';
@@ -199,6 +247,18 @@
       </label>
 
       <label class="field">
+        <span>{$_('settings.temperature')}</span>
+        <input
+          type="number"
+          min="0"
+          max="2"
+          step="0.1"
+          bind:value={temperature}
+        />
+        <small class="field-hint">{$_('settings.temperature_hint')}</small>
+      </label>
+
+      <label class="field">
         <span>{$_('settings.secret_key')}</span>
         <input
           type="password"
@@ -245,6 +305,20 @@
       <span>{$_('settings.script_template')}</span>
       <textarea rows="8" bind:value={scriptTemplate}></textarea>
     </label>
+  </section>
+
+  <section class="settings-card">
+    <div class="card-header">
+      <div>
+        <h3>{$_('settings.error_log_title')}</h3>
+        <p>{$_('settings.error_log_description')}</p>
+      </div>
+      <button class="btn-secondary" type="button" onclick={handleOpenErrorLog}>
+        {$_('settings.error_log_open')}
+      </button>
+    </div>
+
+    <div class="log-path">{appSettingsState.values.errorLogPath || '-'}</div>
   </section>
 </section>
 
@@ -346,6 +420,12 @@
     font-size: 0.85rem;
   }
 
+  .field-hint {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
   input,
   textarea,
   select {
@@ -391,6 +471,18 @@
 
   .connect-hint.error {
     color: #dc2626;
+  }
+
+  .log-path {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    padding: 0.8rem 0.9rem;
+    border-radius: 10px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    word-break: break-all;
   }
 
   button {
