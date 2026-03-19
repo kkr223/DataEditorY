@@ -12,7 +12,7 @@
         "@types/sql.js": "^1.4.9",
         "sql.js": "^1.14.1",
         "svelte-i18n": "^4.0.1",
-        "ygopro-cdb-encode": "1.1.0-2",
+        "ygopro-cdb-encode": "^1.1.0-2",
       },
       "devDependencies": {
         "@sveltejs/adapter-static": "^3.0.6",

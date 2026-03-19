@@ -14,6 +14,7 @@ export interface SearchFilters {
   setcode2?: string;
   setcode3?: string;
   setcode4?: string;
+  rule?: string;
 }
 
 export interface SearchFilterState {
@@ -32,6 +33,7 @@ export interface SearchFilterState {
   setcode2: string;
   setcode3: string;
   setcode4: string;
+  rule: string;
 }
 
 export interface SelectOption<T = string | number> {
@@ -68,4 +70,5 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilterState = {
   setcode2: '',
   setcode3: '',
   setcode4: '',
+  rule: '',
 };
