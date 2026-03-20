@@ -646,6 +646,12 @@ async function openCdbAtPath(selected: string): Promise<string | null> {
   }
 }
 
+export async function openCdbPath(path: string): Promise<string | null> {
+  const normalizedPath = path.trim();
+  if (!normalizedPath) return null;
+  return openCdbAtPath(normalizedPath);
+}
+
 function buildSearchQuery(filters: SearchFilters = {}) {
   const conditions: string[] = [];
   const params: Record<string, string | number> = {};
@@ -839,9 +845,7 @@ export async function openCdbFile(): Promise<string | null> {
 }
 
 export async function openCdbHistoryEntry(path: string): Promise<string | null> {
-  const normalizedPath = path.trim();
-  if (!normalizedPath) return null;
-  return openCdbAtPath(normalizedPath);
+  return openCdbPath(path);
 }
 
 /** Create a new .cdb file, save it and open as a new tab. */

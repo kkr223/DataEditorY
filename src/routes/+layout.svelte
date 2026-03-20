@@ -3,9 +3,11 @@
   import '../app.css';
   import { setupI18n } from '$lib/i18n';
   import { _, locale, isLoading } from 'svelte-i18n';
+  import { invoke, isTauri } from '@tauri-apps/api/core';
+  import { listen, TauriEvent } from '@tauri-apps/api/event';
   import { ask } from '@tauri-apps/plugin-dialog';
   import { CardDataEntry } from 'ygopro-cdb-encode';
-  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation, recentCdbHistory, loadRecentCdbHistory, openCdbHistoryEntry } from '$lib/stores/db';
+  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation, recentCdbHistory, loadRecentCdbHistory, openCdbHistoryEntry, openCdbPath } from '$lib/stores/db';
   import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
   import { clearSelection, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
@@ -22,8 +24,14 @@
   let theme = $state<'dark' | 'light'>('dark');
   let isOpenHistoryVisible = $state(false);
   let openHistoryHideTimer: ReturnType<typeof setTimeout> | null = null;
+  let isFileDragActive = $state(false);
+  let dragOverlayMessage = $state('');
 
   const OPEN_HISTORY_HIDE_DELAY_MS = 180;
+
+  type DragDropPayload = {
+    paths?: string[];
+  };
 
   function applyTheme(next: 'dark' | 'light') {
     theme = next;
@@ -78,6 +86,38 @@
       return;
     }
     activateEditorView();
+  }
+
+  function isCdbFilePath(path: string) {
+    return path.trim().toLowerCase().endsWith('.cdb');
+  }
+
+  async function handleExternalOpenPaths(paths: string[]) {
+    const filteredPaths = Array.from(new Set(paths.map((item) => item.trim()).filter((item) => item && isCdbFilePath(item))));
+    if (filteredPaths.length === 0) {
+      return;
+    }
+
+    let hasOpened = false;
+    for (const path of filteredPaths) {
+      const openedId = await openCdbPath(path);
+      hasOpened = hasOpened || Boolean(openedId);
+    }
+
+    if (hasOpened) {
+      activateEditorView();
+    }
+  }
+
+  function updateFileDragState(paths: string[] = []) {
+    const hasCdb = paths.some((path) => isCdbFilePath(path));
+    isFileDragActive = hasCdb;
+    dragOverlayMessage = hasCdb ? $_('nav.drag_open_cdb') : $_('nav.drag_invalid_file');
+  }
+
+  function clearFileDragState() {
+    isFileDragActive = false;
+    dragOverlayMessage = '';
   }
 
   async function handleCreate() {
@@ -299,6 +339,42 @@
 
     void loadAppSettings();
     loadRecentCdbHistory();
+    const unlisteners: Array<() => void> = [];
+
+    if (isTauri()) {
+      void invoke<string[]>('consume_pending_open_cdb_paths')
+        .then((paths) => handleExternalOpenPaths(paths))
+        .catch((error) => {
+          console.error('Failed to consume pending cdb paths:', error);
+          void writeErrorLog({ source: 'shell.consume-pending-open-cdb-paths', error });
+        });
+
+      void listen<string[]>('open-cdb-paths', (event) => {
+        void handleExternalOpenPaths(event.payload);
+      }).then((unlisten) => {
+        unlisteners.push(unlisten);
+      });
+
+      void listen<DragDropPayload>(TauriEvent.DRAG_DROP, (event) => {
+        clearFileDragState();
+        void handleExternalOpenPaths(event.payload?.paths ?? []);
+      }).then((unlisten) => {
+        unlisteners.push(unlisten);
+      });
+
+      void listen<DragDropPayload>(TauriEvent.DRAG_ENTER, (event) => {
+        updateFileDragState(event.payload?.paths ?? []);
+      }).then((unlisten) => {
+        unlisteners.push(unlisten);
+      });
+
+      void listen(TauriEvent.DRAG_LEAVE, () => {
+        clearFileDragState();
+      }).then((unlisten) => {
+        unlisteners.push(unlisten);
+      });
+    }
+
     const handleWindowError = (event: ErrorEvent) => {
       void writeErrorLog({
         source: 'window.error',
@@ -324,6 +400,9 @@
       if (openHistoryHideTimer) {
         clearTimeout(openHistoryHideTimer);
         openHistoryHideTimer = null;
+      }
+      for (const unlisten of unlisteners) {
+        unlisten();
       }
       window.removeEventListener('keydown', handleGlobalKeydown);
       window.removeEventListener('error', handleWindowError);
@@ -451,6 +530,17 @@
   <!-- Main Content Area -->
   <main class="main-content">
     {@render children()}
+    {#if isFileDragActive}
+      <div class="drag-overlay" aria-live="polite">
+        <div class="drag-overlay-panel">
+          <div class="drag-overlay-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          </div>
+          <h2>{dragOverlayMessage}</h2>
+          <p>{$_('nav.drag_open_cdb_hint')}</p>
+        </div>
+      </div>
+    {/if}
   </main>
 </div>
 {/if}
@@ -650,6 +740,57 @@
     background-color: var(--bg-base);
     position: relative;
     z-index: 1;
+  }
+
+  .drag-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+      radial-gradient(circle at top, rgba(59, 130, 246, 0.14), transparent 44%),
+      rgba(6, 10, 18, 0.56);
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+  }
+
+  .drag-overlay-panel {
+    width: min(520px, 100%);
+    padding: 36px 32px;
+    border: 1px solid color-mix(in srgb, var(--accent-primary) 48%, var(--border-color));
+    border-radius: 24px;
+    background: color-mix(in srgb, var(--bg-surface) 88%, #0b1220);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+    text-align: center;
+  }
+
+  .drag-overlay-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 76px;
+    height: 76px;
+    margin-bottom: 18px;
+    border-radius: 999px;
+    color: var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent-primary) 32%, transparent);
+  }
+
+  .drag-overlay-panel h2 {
+    margin: 0;
+    font-size: clamp(1.4rem, 1.5vw, 1.8rem);
+    color: var(--text-primary);
+  }
+
+  .drag-overlay-panel p {
+    margin: 10px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.98rem;
+    line-height: 1.6;
   }
 
   /* Tab Bar */
