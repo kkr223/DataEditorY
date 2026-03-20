@@ -1,13 +1,15 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { _ } from "svelte-i18n";
-  import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
+  import { isTauri } from "@tauri-apps/api/core";
   import { ask, message, save } from "@tauri-apps/plugin-dialog";
+  import { exists, writeFile } from "@tauri-apps/plugin-fs";
   import { dirname, join, resolveResource } from "@tauri-apps/api/path";
   import type { CardDataEntry } from "$lib/types";
   import { HAS_AI_FEATURE } from "$lib/config/build";
   import { showToast } from "$lib/stores/toast.svelte";
   import { hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
+  import { toMediaProtocolSrc } from "$lib/utils/mediaProtocol";
   import {
     CARD_IMAGE_ATTRIBUTE_OPTIONS,
     CARD_IMAGE_CARD_TYPE_OPTIONS,
@@ -103,7 +105,7 @@
 
     if (!resourcePathPromise) {
       resourcePathPromise = resolveResource("resources/yugioh-card")
-        .then((path) => convertFileSrc(path))
+        .then((path) => toMediaProtocolSrc(path))
         .catch((error) => {
           console.error("Failed to resolve yugioh-card resource path", error);
           resourcePathPromise = null;
@@ -515,7 +517,7 @@
 
   async function blobToUint8Array(blob: Blob) {
     const arrayBuffer = await blob.arrayBuffer();
-    return Array.from(new Uint8Array(arrayBuffer));
+    return new Uint8Array(arrayBuffer);
   }
 
   async function ensurePreviewCard() {
@@ -581,7 +583,7 @@
       if (!targetPath) return;
 
       const bytes = await blobToUint8Array(pngBlob);
-      await invoke("write_file", { path: targetPath, data: bytes });
+      await writeFile(targetPath, bytes);
       showToast($_("editor.card_image_download_success"), "success");
     } catch (error) {
       console.error("Failed to download generated card image", error);
@@ -609,23 +611,20 @@
       const picPath = await join(picsDir, `${card.code}.jpg`);
 
       let shouldOverwrite = true;
-      try {
-        await invoke("read_image", { path: picPath });
+      if (await exists(picPath)) {
         shouldOverwrite = await ask($_("editor.card_image_save_jpg_overwrite_confirm", {
           values: { code: String(card.code) },
         }), {
           title: $_("editor.card_image_save_jpg_overwrite_title"),
           kind: "warning",
         });
-      } catch {
-        shouldOverwrite = true;
       }
 
       if (!shouldOverwrite) return;
 
       const jpgBlob = await renderCardBlob(buildJpgData(), "jpg", 0.92);
       const bytes = await blobToUint8Array(jpgBlob);
-      await invoke("write_file", { path: picPath, data: bytes });
+      await writeFile(picPath, bytes);
       await onSavedJpg();
       showToast($_("editor.card_image_save_jpg_success", {
         values: { code: String(card.code) },

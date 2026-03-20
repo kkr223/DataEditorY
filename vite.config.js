@@ -13,6 +13,35 @@ export default defineConfig(async () => ({
     __APP_BUILD_LABEL__: JSON.stringify(variant.label),
     __APP_FEATURES__: JSON.stringify(variant.features),
   },
+  build: {
+    chunkSizeWarningLimit: 520,
+    rollupOptions: {
+      output: {
+        /** @param {string} id */
+        manualChunks(id) {
+          if (!id.includes("node_modules")) {
+            return;
+          }
+
+          if (id.includes("node_modules/yugioh-card")) {
+            return "vendor-yugioh-card";
+          }
+
+          if (id.includes("node_modules/cdb2yugiohcard")) {
+            return "vendor-card-image";
+          }
+
+          if (id.includes("node_modules/@tauri-apps")) {
+            return "vendor-tauri";
+          }
+
+          if (id.includes("node_modules/svelte-i18n")) {
+            return "vendor-i18n";
+          }
+        },
+      },
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

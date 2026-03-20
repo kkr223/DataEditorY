@@ -186,15 +186,7 @@ fn build_temp_path(app: &AppHandle, tab_id: &str) -> Result<PathBuf, String> {
     rand::thread_rng().fill_bytes(&mut nonce);
     Ok(app_temp_dir(app)?.join(format!(
         "{}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}.cdb",
-        tab_id,
-        nonce[0],
-        nonce[1],
-        nonce[2],
-        nonce[3],
-        nonce[4],
-        nonce[5],
-        nonce[6],
-        nonce[7]
+        tab_id, nonce[0], nonce[1], nonce[2], nonce[3], nonce[4], nonce[5], nonce[6], nonce[7]
     )))
 }
 
@@ -243,22 +235,32 @@ fn with_session_meta<T>(
     tab_id: &str,
     f: impl FnOnce(&CdbSessionMeta) -> Result<T, String>,
 ) -> Result<T, String> {
-    let sessions = state.0.lock().map_err(|_| "Failed to acquire cdb sessions".to_string())?;
+    let sessions = state
+        .0
+        .lock()
+        .map_err(|_| "Failed to acquire cdb sessions".to_string())?;
     let session = sessions
         .get(tab_id)
         .ok_or_else(|| format!("Unknown cdb tab: {tab_id}"))?;
     f(session)
 }
 
-fn bind_json_params(stmt: &mut Statement<'_>, params: &HashMap<String, JsonValue>) -> Result<(), String> {
+fn bind_json_params(
+    stmt: &mut Statement<'_>,
+    params: &HashMap<String, JsonValue>,
+) -> Result<(), String> {
     for (key, value) in params {
-        let parameter_name = if key.starts_with(':') || key.starts_with('@') || key.starts_with('$') {
+        let parameter_name = if key.starts_with(':') || key.starts_with('@') || key.starts_with('$')
+        {
             key.clone()
         } else {
             format!(":{key}")
         };
 
-        let Some(index) = stmt.parameter_index(&parameter_name).map_err(|err| err.to_string())? else {
+        let Some(index) = stmt
+            .parameter_index(&parameter_name)
+            .map_err(|err| err.to_string())?
+        else {
             continue;
         };
 
@@ -293,7 +295,11 @@ fn bind_json_params(stmt: &mut Statement<'_>, params: &HashMap<String, JsonValue
     Ok(())
 }
 
-fn count_cards(conn: &Connection, where_clause: &str, params: &HashMap<String, JsonValue>) -> Result<u32, String> {
+fn count_cards(
+    conn: &Connection,
+    where_clause: &str,
+    params: &HashMap<String, JsonValue>,
+) -> Result<u32, String> {
     let sql = format!(
         "SELECT COUNT(*) FROM datas INNER JOIN texts ON datas.id = texts.id WHERE {}",
         sanitize_clause(where_clause)
@@ -393,8 +399,15 @@ fn card_from_row(row: &rusqlite::Row<'_>) -> Result<CardDto, rusqlite::Error> {
     })
 }
 
-fn query_cards(conn: &Connection, query_clause: &str, params: &HashMap<String, JsonValue>) -> Result<Vec<CardDto>, String> {
-    let sql = format!("{SELECT_CARD_COLUMNS} WHERE {}", sanitize_clause(query_clause));
+fn query_cards(
+    conn: &Connection,
+    query_clause: &str,
+    params: &HashMap<String, JsonValue>,
+) -> Result<Vec<CardDto>, String> {
+    let sql = format!(
+        "{SELECT_CARD_COLUMNS} WHERE {}",
+        sanitize_clause(query_clause)
+    );
     let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
     bind_json_params(&mut stmt, params)?;
     let mut rows = stmt.query([]).map_err(|err| err.to_string())?;
@@ -417,12 +430,24 @@ fn get_card(conn: &Connection, card_id: u32) -> Result<Option<CardDto>, String> 
         .map_err(|err| err.to_string())
 }
 
-fn write_card(stmt_datas: &mut Statement<'_>, stmt_texts: &mut Statement<'_>, card: &CardDto) -> Result<(), String> {
+fn write_card(
+    stmt_datas: &mut Statement<'_>,
+    stmt_texts: &mut Statement<'_>,
+    card: &CardDto,
+) -> Result<(), String> {
     let is_link = (card.type_ & TYPE_LINK) != 0;
-    let stored_alias = if card.alias != 0 { card.alias } else { card.rule_code };
+    let stored_alias = if card.alias != 0 {
+        card.alias
+    } else {
+        card.rule_code
+    };
     let stored_level =
         (card.level & 0xff) | ((card.rscale & 0xff) << 16) | ((card.lscale & 0xff) << 24);
-    let stored_defense = if is_link { card.link_marker as i32 } else { card.defense };
+    let stored_defense = if is_link {
+        card.link_marker as i32
+    } else {
+        card.defense
+    };
     let setcode = to_packed_setcode(&card.setcode);
 
     stmt_datas
@@ -487,12 +512,19 @@ pub fn open_cdb_tab(
         let conn = open_connection(&temp_path)?;
         OpenCdbTabResponse {
             name: basename(&original_path),
-            cached_cards: query_cards(&conn, "1=1 ORDER BY datas.id LIMIT 50 OFFSET 0", &HashMap::new())?,
+            cached_cards: query_cards(
+                &conn,
+                "1=1 ORDER BY datas.id LIMIT 50 OFFSET 0",
+                &HashMap::new(),
+            )?,
             cached_total: count_cards(&conn, "1=1", &HashMap::new())?,
         }
     };
 
-    let mut sessions = state.0.lock().map_err(|_| "Failed to acquire cdb sessions".to_string())?;
+    let mut sessions = state
+        .0
+        .lock()
+        .map_err(|_| "Failed to acquire cdb sessions".to_string())?;
     if let Some(previous) = sessions.insert(
         tab_id,
         CdbSessionMeta {
@@ -525,7 +557,10 @@ pub fn create_cdb_tab(
 
     fs::copy(&temp_path, &original_path).map_err(|err| err.to_string())?;
 
-    let mut sessions = state.0.lock().map_err(|_| "Failed to acquire cdb sessions".to_string())?;
+    let mut sessions = state
+        .0
+        .lock()
+        .map_err(|_| "Failed to acquire cdb sessions".to_string())?;
     if let Some(previous) = sessions.insert(
         tab_id,
         CdbSessionMeta {
@@ -545,7 +580,10 @@ pub fn create_cdb_tab(
 
 #[tauri::command]
 pub fn close_cdb_tab(state: State<'_, OpenCdbSessions>, tab_id: String) -> Result<(), String> {
-    let mut sessions = state.0.lock().map_err(|_| "Failed to acquire cdb sessions".to_string())?;
+    let mut sessions = state
+        .0
+        .lock()
+        .map_err(|_| "Failed to acquire cdb sessions".to_string())?;
     if let Some(session) = sessions.remove(&tab_id) {
         cleanup_temp_path(&session.working_path);
     }
@@ -622,8 +660,12 @@ pub fn modify_cards(
         let mut conn = open_connection(&session.working_path)?;
         let tx = conn.transaction().map_err(|err| err.to_string())?;
         {
-            let mut stmt_datas = tx.prepare(INSERT_DATAS_STMT).map_err(|err| err.to_string())?;
-            let mut stmt_texts = tx.prepare(INSERT_TEXTS_STMT).map_err(|err| err.to_string())?;
+            let mut stmt_datas = tx
+                .prepare(INSERT_DATAS_STMT)
+                .map_err(|err| err.to_string())?;
+            let mut stmt_texts = tx
+                .prepare(INSERT_TEXTS_STMT)
+                .map_err(|err| err.to_string())?;
             for card in &request.cards {
                 write_card(&mut stmt_datas, &mut stmt_texts, card)?;
             }

@@ -35,10 +35,10 @@
     TYPE_BITS,
   } from "$lib/utils/card";
   import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
-  import CardImageDrawer from "$lib/components/CardImageDrawer.svelte";
   import { HAS_AI_FEATURE, HAS_CARD_IMAGE_FEATURE } from "$lib/config/build";
   import { appSettingsState, hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
   import { writeErrorLog } from "$lib/utils/errorLog";
+  import { toMediaProtocolSrc } from "$lib/utils/mediaProtocol";
   import type { AgentStage } from "$lib/utils/ai";
 
   type CardScriptInfo = {
@@ -46,19 +46,20 @@
     exists: boolean;
   };
 
+  type CardImageDrawerModule = typeof import("$lib/components/CardImageDrawer.svelte");
+
 
   let draftCard = $state<CardDataEntry>(createEmptyCard());
   let originalCardCode = $state<number | null>(null);
   let imageSrc = $state<string>("/resources/cover.jpg");
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
-  let activeObjectUrl: string | null = null;
-  let staleObjectUrl: string | null = null;
   let imageRequestToken = 0;
   let isImagePreviewOpen = $state(false);
   let imageClickTimer: ReturnType<typeof setTimeout> | null = null;
   let lastSyncedSelectedId: number | null = null;
   let isCardImageDrawerOpen = $state(false);
+  let cardImageDrawerModulePromise = $state<Promise<CardImageDrawerModule> | null>(null);
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
   let isParseModalOpen = $state(false);
   let manuscriptInput = $state("");
@@ -88,25 +89,13 @@
     }
   }
 
-  function resetImageUrls() {
-    clearImageClickTimer();
-    if (activeObjectUrl) {
-      URL.revokeObjectURL(activeObjectUrl);
-      activeObjectUrl = null;
-    }
-    if (staleObjectUrl) {
-      URL.revokeObjectURL(staleObjectUrl);
-      staleObjectUrl = null;
-    }
-  }
-
   function resetDraftCard() {
     lastSyncedSelectedId = null;
     originalCardCode = null;
     draftCard = createEmptyCard();
     syncSetcodesFromCard(draftCard);
     imageRequestToken++;
-    resetImageUrls();
+    clearImageClickTimer();
     imageSrc = getDefaultCoverSrc();
   }
 
@@ -117,14 +106,9 @@
     syncSetcodesFromCard(draftCard);
   }
 
-  function handleImageError() {
-    imageSrc = getDefaultCoverSrc();
-  }
-
-  function handleImageLoad() {
-    if (staleObjectUrl && staleObjectUrl !== activeObjectUrl) {
-      URL.revokeObjectURL(staleObjectUrl);
-      staleObjectUrl = null;
+  function handleImageError(failedSrc: string) {
+    if (imageSrc === failedSrc) {
+      imageSrc = getDefaultCoverSrc();
     }
   }
 
@@ -135,25 +119,13 @@
 
   async function resolveImageSrc(picsDir: string, code: number, bustCache = false): Promise<string> {
     const picPath = await join(picsDir, `${code}.jpg`);
-
-    try {
-      const bytes = await invoke<number[]>("read_image", { path: picPath });
-      const blob = new Blob([new Uint8Array(bytes)], { type: "image/jpeg" });
-      const objectUrl = URL.createObjectURL(blob);
-      if (activeObjectUrl) {
-        staleObjectUrl = activeObjectUrl;
-      }
-      activeObjectUrl = objectUrl;
-      return bustCache ? `${objectUrl}#${Date.now()}` : objectUrl;
-    } catch {
-      return getDefaultCoverSrc();
-    }
+    return toMediaProtocolSrc(picPath, bustCache ? Date.now() : undefined);
   }
 
   async function refreshDraftImage(code: number, bustCache = false) {
     if (!$activeTab?.path || code <= 0) {
       imageRequestToken++;
-      resetImageUrls();
+      clearImageClickTimer();
       imageSrc = getDefaultCoverSrc();
       return;
     }
@@ -331,43 +303,13 @@
       try {
         const picsDir = await getPicsDir($activeTab.path);
         const picPath = await join(picsDir, `${targetCode}.jpg`);
-        const bytes = await invoke<number[]>("read_image", { path: selected });
-        const blob = new Blob([new Uint8Array(bytes)]);
-        const imageUrl = URL.createObjectURL(blob);
-
-        try {
-          const image = new Image();
-          image.src = imageUrl;
-          await image.decode();
-
-          const maxWidth = 400;
-          const maxHeight = 580;
-          const scale = Math.min(1, maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
-          const width = Math.max(1, Math.round(image.naturalWidth * scale));
-          const height = Math.max(1, Math.round(image.naturalHeight * scale));
-
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          const context = canvas.getContext("2d");
-          if (!context) {
-            throw new Error("Canvas context unavailable");
-          }
-
-          context.drawImage(image, 0, 0, width, height);
-          const outputBlob = await new Promise<Blob | null>((resolve) => {
-            canvas.toBlob((result) => resolve(result), "image/jpeg", 0.92);
-          });
-
-          if (!outputBlob) {
-            throw new Error("Failed to encode image");
-          }
-
-          const outputBytes = Array.from(new Uint8Array(await outputBlob.arrayBuffer()));
-          await invoke("write_file", { path: picPath, data: outputBytes });
-        } finally {
-          URL.revokeObjectURL(imageUrl);
-        }
+        await invoke("import_card_image", {
+          src: selected,
+          dest: picPath,
+          maxWidth: 400,
+          maxHeight: 580,
+          quality: 92,
+        });
 
         imageSrc = await resolveImageSrc(picsDir, targetCode, true);
       } catch (error) {
@@ -397,6 +339,7 @@
 
   function openCardImageDrawer() {
     if (!HAS_CARD_IMAGE_FEATURE) return;
+    cardImageDrawerModulePromise ??= import("$lib/components/CardImageDrawer.svelte");
     isCardImageDrawerOpen = true;
   }
 
@@ -735,12 +678,6 @@
   });
 
   $effect(() => {
-    return () => {
-      resetImageUrls();
-    };
-  });
-
-  $effect(() => {
     const nextCoverSrc = getDefaultCoverSrc();
     if (nextCoverSrc === lastDefaultCoverSrc) return;
 
@@ -791,8 +728,7 @@
                   src={imageSrc}
                   alt="Card"
                   class="card-img"
-                  onload={handleImageLoad}
-                  onerror={handleImageError}
+                  onerror={() => handleImageError(imageSrc)}
                 />
               {/key}
             {:else}
@@ -1018,13 +954,17 @@
 {/if}
 
 {#if HAS_CARD_IMAGE_FEATURE}
-  <CardImageDrawer
-    open={isCardImageDrawerOpen}
-    card={draftCard}
-    cdbPath={$activeTab?.path ?? ""}
-    onSavedJpg={handleCardImageSaved}
-    onClose={closeCardImageDrawer}
-  />
+  {#if isCardImageDrawerOpen && cardImageDrawerModulePromise}
+    {#await cardImageDrawerModulePromise then module}
+      <module.default
+        open={isCardImageDrawerOpen}
+        card={draftCard}
+        cdbPath={$activeTab?.path ?? ""}
+        onSavedJpg={handleCardImageSaved}
+        onClose={closeCardImageDrawer}
+      />
+    {/await}
+  {/if}
 {/if}
 
 {#if HAS_AI_FEATURE && isParseModalOpen}
