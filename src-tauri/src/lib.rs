@@ -11,8 +11,9 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     process::Command,
+    sync::Mutex,
 };
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 const SETTINGS_FILE_NAME: &str = "settings.json";
 const CIPHER_KEY_FILE_NAME: &str = "cipher.key";
@@ -25,6 +26,7 @@ const DEFAULT_AI_MODEL: &str = "gpt-4o-mini";
 const DEFAULT_AI_TEMPERATURE: f64 = 1.0;
 const SECRET_VERSION_PREFIX: &str = "v1";
 const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
+const OPEN_CDB_PATHS_EVENT: &str = "open-cdb-paths";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -86,6 +88,8 @@ struct AppendErrorLogRequest {
     stack: Option<String>,
     extra: Option<String>,
 }
+
+struct PendingOpenCdbPaths(Mutex<Vec<String>>);
 
 fn ensure_app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
@@ -383,6 +387,62 @@ fn open_with_preferred_editor(path: &Path) -> Result<(), String> {
     Err("Unsupported platform".to_string())
 }
 
+fn normalize_cdb_path(path: &Path) -> Option<String> {
+    let extension = path.extension()?.to_str()?;
+    if !extension.eq_ignore_ascii_case("cdb") || !path.is_file() {
+        return None;
+    }
+
+    let resolved = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    Some(resolved.to_string_lossy().to_string())
+}
+
+fn dedupe_paths(paths: Vec<String>) -> Vec<String> {
+    let mut deduped = Vec::new();
+    for path in paths {
+        if !deduped.contains(&path) {
+            deduped.push(path);
+        }
+    }
+    deduped
+}
+
+fn collect_cdb_paths_from_args<I>(args: I) -> Vec<String>
+where
+    I: IntoIterator,
+    I::Item: Into<std::ffi::OsString>,
+{
+    dedupe_paths(
+        args.into_iter()
+            .filter_map(|arg| {
+                let value: std::ffi::OsString = arg.into();
+                normalize_cdb_path(Path::new(&value))
+            })
+            .collect(),
+    )
+}
+
+fn queue_open_cdb_paths(app: &AppHandle, paths: Vec<String>) {
+    if paths.is_empty() {
+        return;
+    }
+
+    if let Ok(mut pending) = app.state::<PendingOpenCdbPaths>().0.lock() {
+        for path in &paths {
+            if !pending.contains(path) {
+                pending.push(path.clone());
+            }
+        }
+    }
+
+    let _ = app.emit(OPEN_CDB_PATHS_EVENT, &paths);
+
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 #[tauri::command]
 fn read_cdb(path: String) -> Result<Vec<u8>, String> {
     fs::read(&path).map_err(|e| e.to_string())
@@ -579,12 +639,33 @@ fn append_error_log(app: AppHandle, request: AppendErrorLogRequest) -> Result<St
     Ok(path.to_string_lossy().to_string())
 }
 
+#[tauri::command]
+fn consume_pending_open_cdb_paths(
+    state: tauri::State<'_, PendingOpenCdbPaths>,
+) -> Result<Vec<String>, String> {
+    let mut pending = state
+        .0
+        .lock()
+        .map_err(|_| "Failed to acquire pending cdb paths".to_string())?;
+    Ok(std::mem::take(&mut *pending))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(PendingOpenCdbPaths(Mutex::new(Vec::new())))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let paths = collect_cdb_paths_from_args(argv.into_iter().skip(1));
+            queue_open_cdb_paths(app, paths);
+        }))
+        .setup(|app| {
+            let paths = collect_cdb_paths_from_args(std::env::args_os().skip(1));
+            queue_open_cdb_paths(&app.handle(), paths);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             read_cdb,
             read_text_file,
@@ -601,7 +682,8 @@ pub fn run() {
             get_card_script_info,
             write_card_script,
             open_in_system_editor,
-            append_error_log
+            append_error_log,
+            consume_pending_open_cdb_paths
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

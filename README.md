@@ -39,10 +39,23 @@ bun install
 bun run dev
 ```
 
+启动 `base` 变体的前端开发服务器：
+
+```bash
+bun run dev:base
+```
+
 启动 Tauri 桌面开发模式：
 
 ```bash
-bun run tauri dev
+bun run tauri:dev
+```
+
+启动指定变体的 Tauri 桌面开发模式：
+
+```bash
+bun run tauri:dev:base
+bun run tauri:dev:extra
 ```
 
 运行类型检查和 Svelte 检查：
@@ -59,13 +72,34 @@ bun run check
 bun run build
 ```
 
+分别构建 `base` / `extra` 前端资源：
+
+```bash
+bun run build:base
+bun run build:extra
+```
+
 构建桌面应用安装包或可执行文件：
 
 ```bash
-bun run tauri build
+bun run tauri:build
+```
+
+构建指定变体或一次构建两个变体：
+
+```bash
+bun run tauri:build:base
+bun run tauri:build:extra
+bun run tauri:build:all
 ```
 
 如果你习惯使用 `npm`，也可以将上面的 `bun` 命令替换为对应的 `npm` 命令。
+
+变体说明：
+
+- `base`：只保留 cdb 编辑功能，不包含制卡器与 AI 相关功能
+- `extra`：包含 cdb 编辑、制卡器与 AI 相关功能
+- 两个变体共用同一个主版本号，差异由 build variant 决定，而不是维护两套版本号
 
 Tauri 构建产物通常位于：
 

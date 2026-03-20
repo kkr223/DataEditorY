@@ -27,6 +27,11 @@ export interface CdbTab {
 export const tabs = writable<CdbTab[]>([]);
 export const activeTabId = writable<string | null>(null);
 
+export interface RecentCdbEntry {
+  path: string;
+  name: string;
+}
+
 type UndoOperation =
   | {
       kind: 'modify';
@@ -42,6 +47,10 @@ type UndoOperation =
     };
 
 const undoHistory = new Map<string, UndoOperation[]>();
+const RECENT_CDB_HISTORY_KEY = 'recent-cdb-history';
+const MAX_RECENT_CDB_HISTORY = 6;
+
+export const recentCdbHistory = writable<RecentCdbEntry[]>([]);
 
 export const activeTab = derived(
   [tabs, activeTabId],
@@ -51,6 +60,77 @@ export const activeTab = derived(
 export const isDbLoaded = derived(activeTab, ($activeTab) => $activeTab !== null);
 
 let sqlJsInstance: initSqlJs.SqlJsStatic | null = null;
+
+function canUseLocalStorage() {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
+
+function normalizeRecentCdbHistory(value: unknown): RecentCdbEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seenPaths = new Set<string>();
+  const entries: RecentCdbEntry[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+
+    const path = typeof item.path === 'string' ? item.path.trim() : '';
+    if (!path || seenPaths.has(path)) continue;
+
+    const name = typeof item.name === 'string' && item.name.trim()
+      ? item.name.trim()
+      : path.split(/[/\\]/).pop() || path;
+
+    seenPaths.add(path);
+    entries.push({ path, name });
+
+    if (entries.length >= MAX_RECENT_CDB_HISTORY) {
+      break;
+    }
+  }
+
+  return entries;
+}
+
+function persistRecentCdbHistory(entries: RecentCdbEntry[]) {
+  if (!canUseLocalStorage()) return;
+  window.localStorage.setItem(RECENT_CDB_HISTORY_KEY, JSON.stringify(entries));
+}
+
+function pushRecentCdbEntry(entry: RecentCdbEntry) {
+  recentCdbHistory.update((current) => {
+    const next = [
+      entry,
+      ...current.filter((item) => item.path !== entry.path),
+    ].slice(0, MAX_RECENT_CDB_HISTORY);
+    persistRecentCdbHistory(next);
+    return next;
+  });
+}
+
+export function loadRecentCdbHistory() {
+  if (!canUseLocalStorage()) return;
+
+  try {
+    const raw = window.localStorage.getItem(RECENT_CDB_HISTORY_KEY);
+    recentCdbHistory.set(normalizeRecentCdbHistory(raw ? JSON.parse(raw) : []));
+  } catch {
+    recentCdbHistory.set([]);
+  }
+}
+
+export function removeRecentCdbHistoryEntry(path: string) {
+  const normalizedPath = path.trim();
+  if (!normalizedPath) return;
+
+  recentCdbHistory.update((current) => {
+    const next = current.filter((item) => item.path !== normalizedPath);
+    persistRecentCdbHistory(next);
+    return next;
+  });
+}
 
 function cloneCard(card: CardDataEntry): CardDataEntry {
   return new CardDataEntry().fromPartial(card);
@@ -81,6 +161,13 @@ function toLikePattern(input: string): string {
   // for power-user filtering.  Otherwise wrap with % for substring match.
   const hasWildcard = normalized.includes('%') || normalized.includes('_');
   return hasWildcard ? normalized : `%${normalized}%`;
+}
+
+function splitSearchTerms(input: string): string[] {
+  return input
+    .split(/(?:%%|\s+)/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function parseSetcodeFilter(input: string): number | null {
@@ -334,7 +421,7 @@ function tokenizeRuleExpression(input: string): RuleToken[] {
       continue;
     }
 
-    const numberMatch = input.slice(index).match(/^\d+/);
+    const numberMatch = input.slice(index).match(/^-?\d+/);
     if (numberMatch) {
       tokens.push({ type: 'number', value: Number(numberMatch[0]) });
       index += numberMatch[0].length;
@@ -528,13 +615,75 @@ async function initDb() {
   }
 }
 
+async function openCdbAtPath(selected: string): Promise<string | null> {
+  const existing = get(tabs).find(t => t.path === selected);
+  if (existing) {
+    activeTabId.set(existing.id);
+    pushRecentCdbEntry({ path: existing.path, name: existing.name });
+    return existing.id;
+  }
+
+  await initDb();
+  try {
+    const data: number[] = await invoke('read_cdb', { path: selected });
+    const cdb = new YGOProCdb(sqlJsInstance as any).from(new Uint8Array(data));
+
+    const name = await basename(selected).catch(() => 'unknown.cdb');
+    const id = crypto.randomUUID();
+
+    // Pre-cache first page so tab switch is instant
+    let cachedCards: CardDataEntry[] = [];
+    let cachedTotal = 0;
+    try {
+      const totalResult = cdb.database.exec('SELECT COUNT(*) AS total FROM datas INNER JOIN texts ON datas.id = texts.id');
+      cachedTotal = totalResult.length > 0 ? Number(totalResult[0].values[0]?.[0] ?? 0) : 0;
+      cachedCards = cdb.find('1=1 ORDER BY datas.id LIMIT 50 OFFSET 0');
+    } catch { /* empty db */ }
+
+    const tab: CdbTab = {
+      id,
+      path: selected,
+      name,
+      cdb,
+      cachedCards,
+      cachedTotal,
+      cachedPage: 1,
+      cachedFilters: '{}',
+      cachedSelectedIds: cachedCards.length > 0 ? [cachedCards[0].code] : [],
+      cachedSelectedId: cachedCards[0]?.code ?? null,
+      cachedSelectionAnchorId: cachedCards[0]?.code ?? null,
+      isDirty: false
+    };
+    tabs.update(t => [...t, tab]);
+    activeTabId.set(id);
+    pushRecentCdbEntry({ path: selected, name });
+    return id;
+  } catch (err) {
+    console.error('Failed to read CDB:', err);
+    return null;
+  }
+}
+
+export async function openCdbPath(path: string): Promise<string | null> {
+  const normalizedPath = path.trim();
+  if (!normalizedPath) return null;
+  return openCdbAtPath(normalizedPath);
+}
+
 function buildSearchQuery(filters: SearchFilters = {}) {
   const conditions: string[] = [];
   const params: Record<string, string | number> = {};
 
   if (filters.name) {
-    conditions.push('(texts.name LIKE :name OR texts.desc LIKE :name)');
-    params.name = toLikePattern(filters.name);
+    const keywords = splitSearchTerms(filters.name);
+    if (keywords.length > 0) {
+      const keywordConditions = keywords.map((keyword, index) => {
+        const key = `name${index}`;
+        params[key] = toLikePattern(keyword);
+        return `(texts.name LIKE :${key} OR texts.desc LIKE :${key})`;
+      });
+      conditions.push(`(${keywordConditions.join(' AND ')})`);
+    }
   }
 
   if (filters.id) {
@@ -546,8 +695,15 @@ function buildSearchQuery(filters: SearchFilters = {}) {
   }
 
   if (filters.desc) {
-    conditions.push('texts.desc LIKE :desc');
-    params.desc = toLikePattern(filters.desc);
+    const keywords = splitSearchTerms(filters.desc);
+    if (keywords.length > 0) {
+      const keywordConditions = keywords.map((keyword, index) => {
+        const key = `desc${index}`;
+        params[key] = toLikePattern(keyword);
+        return `texts.desc LIKE :${key}`;
+      });
+      conditions.push(`(${keywordConditions.join(' AND ')})`);
+    }
   }
 
   if (filters.atkMin !== '' && filters.atkMin !== undefined) {
@@ -556,7 +712,7 @@ function buildSearchQuery(filters: SearchFilters = {}) {
   }
   if (filters.atkMax !== '' && filters.atkMax !== undefined) {
     const v = parseInt(filters.atkMax.toString());
-    if (!isNaN(v)) conditions.push(`datas.atk <= ${v} AND datas.atk >= 0`);
+    if (!isNaN(v)) conditions.push(`datas.atk <= ${v}`);
   }
   if (filters.defMin !== '' && filters.defMin !== undefined) {
     const v = parseInt(filters.defMin.toString());
@@ -564,7 +720,19 @@ function buildSearchQuery(filters: SearchFilters = {}) {
   }
   if (filters.defMax !== '' && filters.defMax !== undefined) {
     const v = parseInt(filters.defMax.toString());
-    if (!isNaN(v)) conditions.push(`datas.def <= ${v} AND datas.def >= 0`);
+    if (!isNaN(v)) conditions.push(`datas.def <= ${v}`);
+  }
+
+  const hasMonsterOnlyFilter =
+    (filters.atkMin !== '' && filters.atkMin !== undefined) ||
+    (filters.atkMax !== '' && filters.atkMax !== undefined) ||
+    (filters.defMin !== '' && filters.defMin !== undefined) ||
+    (filters.defMax !== '' && filters.defMax !== undefined) ||
+    (filters.attribute ?? '') !== '' ||
+    (filters.race ?? '') !== '';
+
+  if (hasMonsterOnlyFilter && filters.type && filters.type !== 'monster') {
+    conditions.push('1=0');
   }
 
   if (filters.type && TYPE_MAP[filters.type] !== undefined) {
@@ -715,52 +883,13 @@ export async function openCdbFile(): Promise<string | null> {
   });
 
   if (selected && typeof selected === 'string') {
-    const existing = get(tabs).find(t => t.path === selected);
-    if (existing) {
-      activeTabId.set(existing.id);
-      return existing.id;
-    }
-
-    await initDb();
-    try {
-      const data: number[] = await invoke('read_cdb', { path: selected });
-      const cdb = new YGOProCdb(sqlJsInstance as any).from(new Uint8Array(data));
-      
-      const name = await basename(selected).catch(() => 'unknown.cdb');
-      const id = crypto.randomUUID();
-      
-      // Pre-cache first page so tab switch is instant
-      let cachedCards: CardDataEntry[] = [];
-      let cachedTotal = 0;
-      try {
-        const totalResult = cdb.database.exec('SELECT COUNT(*) AS total FROM datas INNER JOIN texts ON datas.id = texts.id');
-        cachedTotal = totalResult.length > 0 ? Number(totalResult[0].values[0]?.[0] ?? 0) : 0;
-        cachedCards = cdb.find('1=1 ORDER BY datas.id LIMIT 50 OFFSET 0');
-      } catch { /* empty db */ }
-      
-      const tab: CdbTab = {
-        id,
-        path: selected,
-        name,
-        cdb,
-        cachedCards,
-        cachedTotal,
-        cachedPage: 1,
-        cachedFilters: '{}',
-        cachedSelectedIds: cachedCards.length > 0 ? [cachedCards[0].code] : [],
-        cachedSelectedId: cachedCards[0]?.code ?? null,
-        cachedSelectionAnchorId: cachedCards[0]?.code ?? null,
-        isDirty: false
-      };
-      tabs.update(t => [...t, tab]);
-      activeTabId.set(id);
-      return id;
-    } catch (err) {
-      console.error("Failed to read CDB:", err);
-      return null;
-    }
+    return openCdbAtPath(selected);
   }
   return null;
+}
+
+export async function openCdbHistoryEntry(path: string): Promise<string | null> {
+  return openCdbPath(path);
 }
 
 /** Create a new .cdb file, save it and open as a new tab. */
@@ -803,6 +932,7 @@ export async function createCdbFile(): Promise<string | null> {
       };
       tabs.update(t => [...t, tab]);
       activeTabId.set(id);
+      pushRecentCdbEntry({ path: selected, name });
       return id;
     } catch (err) {
       console.error("Failed to create CDB:", err);

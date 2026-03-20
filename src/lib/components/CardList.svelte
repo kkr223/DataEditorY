@@ -64,7 +64,10 @@
   }
 
   function runSearch() {
-    handleSearch(false, true);
+    const ok = handleSearch(false, true);
+    if (ok) {
+      closeFilter();
+    }
   }
 
   function handleSearchKeydown(event: KeyboardEvent) {
@@ -114,6 +117,9 @@
       </div>
       <button class="btn-primary" onclick={runSearch} disabled={!$isDbLoaded} title={$_('search.title')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </button>
+      <button class="btn-secondary btn-icon" onclick={handleReset} disabled={!$isDbLoaded} title={$_('search.reset')}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 3v6h6"></path></svg>
       </button>
       <button class="btn-secondary btn-icon" class:active={editorState.isFilterOpen} class:has-filters={hasActiveFilters} onclick={toggleFilter} title="Filters">
         {#if hasActiveFilters}
@@ -272,7 +278,6 @@
         </div>
       </div>
       <div class="filter-actions">
-        <button class="btn-secondary" onclick={handleReset}>{$_('search.reset')}</button>
         <button class="btn-secondary" onclick={closeFilter}>{$_('search.collapse')}</button>
       </div>
     </div>

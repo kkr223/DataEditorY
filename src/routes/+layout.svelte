@@ -3,9 +3,11 @@
   import '../app.css';
   import { setupI18n } from '$lib/i18n';
   import { _, locale, isLoading } from 'svelte-i18n';
+  import { invoke, isTauri } from '@tauri-apps/api/core';
+  import { listen, TauriEvent } from '@tauri-apps/api/event';
   import { ask } from '@tauri-apps/plugin-dialog';
   import { CardDataEntry } from 'ygopro-cdb-encode';
-  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation } from '$lib/stores/db';
+  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation, recentCdbHistory, loadRecentCdbHistory, openCdbHistoryEntry, openCdbPath, removeRecentCdbHistoryEntry } from '$lib/stores/db';
   import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
   import { clearSelection, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
@@ -20,6 +22,16 @@
 
   let { children } = $props();
   let theme = $state<'dark' | 'light'>('dark');
+  let isOpenHistoryVisible = $state(false);
+  let openHistoryHideTimer: ReturnType<typeof setTimeout> | null = null;
+  let isFileDragActive = $state(false);
+  let dragOverlayMessage = $state('');
+
+  const OPEN_HISTORY_HIDE_DELAY_MS = 180;
+
+  type DragDropPayload = {
+    paths?: string[];
+  };
 
   function applyTheme(next: 'dark' | 'light') {
     theme = next;
@@ -38,6 +50,78 @@
   async function handleOpen() {
     await openCdbFile();
     activateEditorView();
+  }
+
+  function showOpenHistory() {
+    if (openHistoryHideTimer) {
+      clearTimeout(openHistoryHideTimer);
+      openHistoryHideTimer = null;
+    }
+    isOpenHistoryVisible = true;
+  }
+
+  function hideOpenHistoryWithDelay() {
+    if (openHistoryHideTimer) {
+      clearTimeout(openHistoryHideTimer);
+    }
+
+    openHistoryHideTimer = setTimeout(() => {
+      isOpenHistoryVisible = false;
+      openHistoryHideTimer = null;
+    }, OPEN_HISTORY_HIDE_DELAY_MS);
+  }
+
+  function hideOpenHistoryImmediately() {
+    if (openHistoryHideTimer) {
+      clearTimeout(openHistoryHideTimer);
+      openHistoryHideTimer = null;
+    }
+    isOpenHistoryVisible = false;
+  }
+
+  async function handleOpenRecent(path: string) {
+    const openedId = await openCdbHistoryEntry(path);
+    if (!openedId) {
+      showToast($_('nav.open_recent_failed'), 'error');
+      return;
+    }
+    activateEditorView();
+  }
+
+  function handleRemoveRecent(path: string) {
+    removeRecentCdbHistoryEntry(path);
+  }
+
+  function isCdbFilePath(path: string) {
+    return path.trim().toLowerCase().endsWith('.cdb');
+  }
+
+  async function handleExternalOpenPaths(paths: string[]) {
+    const filteredPaths = Array.from(new Set(paths.map((item) => item.trim()).filter((item) => item && isCdbFilePath(item))));
+    if (filteredPaths.length === 0) {
+      return;
+    }
+
+    let hasOpened = false;
+    for (const path of filteredPaths) {
+      const openedId = await openCdbPath(path);
+      hasOpened = hasOpened || Boolean(openedId);
+    }
+
+    if (hasOpened) {
+      activateEditorView();
+    }
+  }
+
+  function updateFileDragState(paths: string[] = []) {
+    const hasCdb = paths.some((path) => isCdbFilePath(path));
+    isFileDragActive = hasCdb;
+    dragOverlayMessage = hasCdb ? $_('nav.drag_open_cdb') : $_('nav.drag_invalid_file');
+  }
+
+  function clearFileDragState() {
+    isFileDragActive = false;
+    dragOverlayMessage = '';
   }
 
   async function handleCreate() {
@@ -258,6 +342,43 @@
     }
 
     void loadAppSettings();
+    loadRecentCdbHistory();
+    const unlisteners: Array<() => void> = [];
+
+    if (isTauri()) {
+      void invoke<string[]>('consume_pending_open_cdb_paths')
+        .then((paths) => handleExternalOpenPaths(paths))
+        .catch((error) => {
+          console.error('Failed to consume pending cdb paths:', error);
+          void writeErrorLog({ source: 'shell.consume-pending-open-cdb-paths', error });
+        });
+
+      void listen<string[]>('open-cdb-paths', (event) => {
+        void handleExternalOpenPaths(event.payload);
+      }).then((unlisten) => {
+        unlisteners.push(unlisten);
+      });
+
+      void listen<DragDropPayload>(TauriEvent.DRAG_DROP, (event) => {
+        clearFileDragState();
+        void handleExternalOpenPaths(event.payload?.paths ?? []);
+      }).then((unlisten) => {
+        unlisteners.push(unlisten);
+      });
+
+      void listen<DragDropPayload>(TauriEvent.DRAG_ENTER, (event) => {
+        updateFileDragState(event.payload?.paths ?? []);
+      }).then((unlisten) => {
+        unlisteners.push(unlisten);
+      });
+
+      void listen(TauriEvent.DRAG_LEAVE, () => {
+        clearFileDragState();
+      }).then((unlisten) => {
+        unlisteners.push(unlisten);
+      });
+    }
+
     const handleWindowError = (event: ErrorEvent) => {
       void writeErrorLog({
         source: 'window.error',
@@ -280,6 +401,13 @@
     window.addEventListener('error', handleWindowError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
     return () => {
+      if (openHistoryHideTimer) {
+        clearTimeout(openHistoryHideTimer);
+        openHistoryHideTimer = null;
+      }
+      for (const unlisten of unlisteners) {
+        unlisten();
+      }
       window.removeEventListener('keydown', handleGlobalKeydown);
       window.removeEventListener('error', handleWindowError);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
@@ -303,10 +431,49 @@
         <h1>DataEditorY</h1>
       </div>
       <nav>
-        <button class="nav-item" onclick={handleOpen}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-          {$_('nav.open')}
-        </button>
+        <div
+          class="nav-item-group open-nav-group"
+          role="group"
+          aria-label={$_('nav.open_recent')}
+          onmouseenter={showOpenHistory}
+          onmouseleave={hideOpenHistoryWithDelay}
+          onfocusin={showOpenHistory}
+          onfocusout={hideOpenHistoryWithDelay}
+        >
+          <button class="nav-item" onclick={handleOpen} aria-haspopup="menu" aria-expanded={isOpenHistoryVisible}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            {$_('nav.open')}
+          </button>
+          <div class="open-history-popover" class:visible={isOpenHistoryVisible} role="menu" aria-label={$_('nav.open_recent')}>
+            <div class="open-history-header">{$_('nav.open_recent')}</div>
+            {#if $recentCdbHistory.length > 0}
+              {#each $recentCdbHistory as entry (entry.path)}
+                <div class="open-history-row">
+                  <button
+                    class="open-history-item"
+                    type="button"
+                    onclick={() => { hideOpenHistoryImmediately(); void handleOpenRecent(entry.path); }}
+                    title={entry.path}
+                  >
+                    <span class="open-history-name">{entry.name}</span>
+                    <span class="open-history-path">{entry.path}</span>
+                  </button>
+                  <button
+                    class="open-history-remove"
+                    type="button"
+                    aria-label={$_('nav.open_recent_remove')}
+                    title={$_('nav.open_recent_remove')}
+                    onclick={(event) => { event.stopPropagation(); handleRemoveRecent(entry.path); }}
+                  >
+                    ×
+                  </button>
+                </div>
+              {/each}
+            {:else}
+              <div class="open-history-empty">{$_('nav.open_recent_empty')}</div>
+            {/if}
+          </div>
+        </div>
         <button class="nav-item" onclick={handleCreate}>
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           {$_('nav.create')}
@@ -378,6 +545,17 @@
   <!-- Main Content Area -->
   <main class="main-content">
     {@render children()}
+    {#if isFileDragActive}
+      <div class="drag-overlay" aria-live="polite">
+        <div class="drag-overlay-panel">
+          <div class="drag-overlay-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          </div>
+          <h2>{dragOverlayMessage}</h2>
+          <p>{$_('nav.drag_open_cdb_hint')}</p>
+        </div>
+      </div>
+    {/if}
   </main>
 </div>
 {/if}
@@ -399,6 +577,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 var(--spacing-md);
+    position: relative;
+    z-index: 30;
   }
 
   .topbar-left {
@@ -424,6 +604,10 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
+  }
+
+  .nav-item-group {
+    position: relative;
   }
 
   .topbar-right {
@@ -469,10 +653,195 @@
     opacity: 0.8;
   }
 
+  .open-nav-group {
+    display: flex;
+    padding-bottom: 12px;
+    margin-bottom: -12px;
+  }
+
+  .open-history-popover {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    min-width: min(440px, 68vw);
+    max-width: min(520px, 78vw);
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-surface) 92%, var(--bg-base));
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+    pointer-events: none;
+    z-index: 80;
+  }
+
+  .open-history-popover::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    left: 22px;
+    width: 12px;
+    height: 12px;
+    border-top: 1px solid var(--border-color);
+    border-left: 1px solid var(--border-color);
+    background: inherit;
+    transform: rotate(45deg);
+  }
+
+  .open-history-popover.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .open-history-header {
+    padding: 2px 6px 8px;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .open-history-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    min-width: 0;
+    padding: 10px 42px 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.16s ease, border-color 0.16s ease;
+    font-family: inherit;
+  }
+
+  .open-history-item:hover {
+    background: var(--bg-surface-hover);
+    border-color: var(--border-color);
+  }
+
+  .open-history-row {
+    position: relative;
+  }
+
+  .open-history-remove {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+    transition: transform 0.16s ease, background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    z-index: 1;
+  }
+
+  .open-history-remove:hover {
+    background: var(--bg-surface-hover);
+    border-color: color-mix(in srgb, var(--text-secondary) 28%, var(--border-color));
+    color: var(--text-primary);
+    transform: scale(1.08);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+  }
+
+  .open-history-name {
+    font-size: 0.92rem;
+    font-weight: 600;
+  }
+
+  .open-history-path,
+  .open-history-empty {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    line-height: 1.4;
+    word-break: break-all;
+  }
+
+  .open-history-empty {
+    padding: 6px 8px 4px;
+  }
+
   .main-content {
     flex: 1;
     overflow: hidden;
     background-color: var(--bg-base);
+    position: relative;
+  }
+
+  .drag-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+      radial-gradient(circle at top, rgba(59, 130, 246, 0.14), transparent 44%),
+      rgba(6, 10, 18, 0.56);
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+  }
+
+  .drag-overlay-panel {
+    width: min(520px, 100%);
+    padding: 36px 32px;
+    border: 1px solid color-mix(in srgb, var(--accent-primary) 48%, var(--border-color));
+    border-radius: 24px;
+    background: color-mix(in srgb, var(--bg-surface) 88%, #0b1220);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+    text-align: center;
+  }
+
+  .drag-overlay-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 76px;
+    height: 76px;
+    margin-bottom: 18px;
+    border-radius: 999px;
+    color: var(--accent-primary);
+    background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent-primary) 32%, transparent);
+  }
+
+  .drag-overlay-panel h2 {
+    margin: 0;
+    font-size: clamp(1.4rem, 1.5vw, 1.8rem);
+    color: var(--text-primary);
+  }
+
+  .drag-overlay-panel p {
+    margin: 10px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.98rem;
+    line-height: 1.6;
   }
 
   /* Tab Bar */
@@ -483,6 +852,8 @@
     border-bottom: 1px solid var(--border-color);
     overflow-x: auto;
     flex-shrink: 0;
+    position: relative;
+    z-index: 10;
   }
 
   .tab-bar::-webkit-scrollbar {
@@ -572,5 +943,14 @@
   .tab-add:hover {
     color: var(--accent-primary);
     background-color: var(--bg-surface-hover);
+  }
+
+  @media (max-width: 720px) {
+    .open-history-popover {
+      left: 0;
+      right: auto;
+      min-width: min(320px, 88vw);
+      max-width: 88vw;
+    }
   }
 </style>
