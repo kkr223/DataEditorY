@@ -739,7 +739,6 @@
     overflow: hidden;
     background-color: var(--bg-base);
     position: relative;
-    z-index: 1;
   }
 
   .drag-overlay {

@@ -152,6 +152,13 @@ function toLikePattern(input: string): string {
   return hasWildcard ? normalized : `%${normalized}%`;
 }
 
+function splitSearchTerms(input: string): string[] {
+  return input
+    .split(/(?:%%|\s+)/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function parseSetcodeFilter(input: string): number | null {
   const normalized = input.trim();
   if (!normalized) return null;
@@ -403,7 +410,7 @@ function tokenizeRuleExpression(input: string): RuleToken[] {
       continue;
     }
 
-    const numberMatch = input.slice(index).match(/^\d+/);
+    const numberMatch = input.slice(index).match(/^-?\d+/);
     if (numberMatch) {
       tokens.push({ type: 'number', value: Number(numberMatch[0]) });
       index += numberMatch[0].length;
@@ -657,8 +664,15 @@ function buildSearchQuery(filters: SearchFilters = {}) {
   const params: Record<string, string | number> = {};
 
   if (filters.name) {
-    conditions.push('(texts.name LIKE :name OR texts.desc LIKE :name)');
-    params.name = toLikePattern(filters.name);
+    const keywords = splitSearchTerms(filters.name);
+    if (keywords.length > 0) {
+      const keywordConditions = keywords.map((keyword, index) => {
+        const key = `name${index}`;
+        params[key] = toLikePattern(keyword);
+        return `(texts.name LIKE :${key} OR texts.desc LIKE :${key})`;
+      });
+      conditions.push(`(${keywordConditions.join(' AND ')})`);
+    }
   }
 
   if (filters.id) {
@@ -670,8 +684,15 @@ function buildSearchQuery(filters: SearchFilters = {}) {
   }
 
   if (filters.desc) {
-    conditions.push('texts.desc LIKE :desc');
-    params.desc = toLikePattern(filters.desc);
+    const keywords = splitSearchTerms(filters.desc);
+    if (keywords.length > 0) {
+      const keywordConditions = keywords.map((keyword, index) => {
+        const key = `desc${index}`;
+        params[key] = toLikePattern(keyword);
+        return `texts.desc LIKE :${key}`;
+      });
+      conditions.push(`(${keywordConditions.join(' AND ')})`);
+    }
   }
 
   if (filters.atkMin !== '' && filters.atkMin !== undefined) {
@@ -680,7 +701,7 @@ function buildSearchQuery(filters: SearchFilters = {}) {
   }
   if (filters.atkMax !== '' && filters.atkMax !== undefined) {
     const v = parseInt(filters.atkMax.toString());
-    if (!isNaN(v)) conditions.push(`datas.atk <= ${v} AND datas.atk >= 0`);
+    if (!isNaN(v)) conditions.push(`datas.atk <= ${v}`);
   }
   if (filters.defMin !== '' && filters.defMin !== undefined) {
     const v = parseInt(filters.defMin.toString());
@@ -688,7 +709,19 @@ function buildSearchQuery(filters: SearchFilters = {}) {
   }
   if (filters.defMax !== '' && filters.defMax !== undefined) {
     const v = parseInt(filters.defMax.toString());
-    if (!isNaN(v)) conditions.push(`datas.def <= ${v} AND datas.def >= 0`);
+    if (!isNaN(v)) conditions.push(`datas.def <= ${v}`);
+  }
+
+  const hasMonsterOnlyFilter =
+    (filters.atkMin !== '' && filters.atkMin !== undefined) ||
+    (filters.atkMax !== '' && filters.atkMax !== undefined) ||
+    (filters.defMin !== '' && filters.defMin !== undefined) ||
+    (filters.defMax !== '' && filters.defMax !== undefined) ||
+    (filters.attribute ?? '') !== '' ||
+    (filters.race ?? '') !== '';
+
+  if (hasMonsterOnlyFilter && filters.type && filters.type !== 'monster') {
+    conditions.push('1=0');
   }
 
   if (filters.type && TYPE_MAP[filters.type] !== undefined) {

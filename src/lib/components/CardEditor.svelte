@@ -403,6 +403,12 @@
     isCardImageDrawerOpen = false;
   }
 
+  async function handleCardImageSaved() {
+    const targetCode = Number(draftCard.code ?? 0);
+    if (!Number.isInteger(targetCode) || targetCode <= 0) return;
+    await refreshDraftImage(targetCode, true);
+  }
+
   function getScriptTemplateContent(cardName: string, cardCode: number) {
     const safeName = cardName?.trim() || `Card ${cardCode}`;
     return (appSettingsState.values.scriptTemplate || "").replaceAll("{卡名}", safeName);
@@ -829,7 +835,7 @@
                   );
                 }}
               >
-                {#each Array.from({ length: 13 }, (_, i) => i) as lvl}
+                {#each Array.from({ length: 13 }, (_, i) => i + 1) as lvl}
                   <option value={lvl} selected={getPackedLevel(draftCard.level) === lvl}>{lvl}</option>
                 {/each}
               </select>
@@ -1014,6 +1020,7 @@
     open={isCardImageDrawerOpen}
     card={draftCard}
     cdbPath={$activeTab?.path ?? ""}
+    onSavedJpg={handleCardImageSaved}
     onClose={closeCardImageDrawer}
   />
 {/if}

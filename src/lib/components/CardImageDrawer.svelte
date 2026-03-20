@@ -52,11 +52,13 @@
     open = false,
     card,
     cdbPath = "",
+    onSavedJpg = async () => {},
     onClose = () => {},
   }: {
     open?: boolean;
     card: CardDataEntry;
     cdbPath?: string;
+    onSavedJpg?: () => void | Promise<void>;
     onClose?: () => void;
   } = $props();
 
@@ -87,6 +89,8 @@
   let lastHydrationKey = "";
   let lastFormLanguage = $state<CardImageLanguage>("sc");
   let previewTimer: ReturnType<typeof setTimeout> | null = null;
+  let previewWarmupTimer: ReturnType<typeof setTimeout> | null = null;
+  let previewFontsReady = $state(false);
 
   let yugiohCardConstructorPromise: Promise<YugiohCardConstructor> | null = null;
   let resourcePathPromise: Promise<string> | null = null;
@@ -389,9 +393,9 @@
   }
 
   function getPreviewScale() {
-    const availableWidth = Math.max(previewWidth + 32, 320);
-    const availableHeight = Math.max(previewHeight + 8, 420);
-    return Math.min(availableWidth / CARD_WIDTH, availableHeight / CARD_HEIGHT) * 1.32;
+    const availableWidth = Math.max(previewWidth - 40, 320);
+    const availableHeight = Math.max(previewHeight - 40, 420);
+    return Math.max(Math.min(availableWidth / CARD_WIDTH, availableHeight / CARD_HEIGHT) * 1.32, 0.1);
   }
 
   function buildPreviewData(): CardImageFormData {
@@ -531,7 +535,7 @@
   }
 
   async function refreshPreview() {
-    if (!open || !previewHost) return;
+    if (!open || !previewHost || !previewFontsReady) return;
 
     try {
       errorMessage = "";
@@ -541,6 +545,27 @@
       console.error("Failed to refresh card image preview", error);
       errorMessage = $_("editor.card_image_generate_failed");
     }
+  }
+
+  async function warmupPreviewAfterFontsReady() {
+    previewFontsReady = false;
+    try {
+      const fontSet = typeof document !== "undefined"
+        ? (document as Document & { fonts?: FontFaceSet }).fonts
+        : undefined;
+      if (fontSet?.ready) {
+        await fontSet.ready;
+      }
+    } catch {
+      // Ignore font readiness failures and still do a delayed refresh.
+    }
+
+    clearTimeout(previewWarmupTimer ?? undefined);
+    previewWarmupTimer = setTimeout(() => {
+      previewFontsReady = true;
+      destroyPreview();
+      void refreshPreview();
+    }, 100);
   }
 
   async function handleDownload() {
@@ -601,6 +626,7 @@
       const jpgBlob = await renderCardBlob(buildJpgData(), "jpg", 0.92);
       const bytes = await blobToUint8Array(jpgBlob);
       await invoke("write_file", { path: picPath, data: bytes });
+      await onSavedJpg();
       showToast($_("editor.card_image_save_jpg_success", {
         values: { code: String(card.code) },
       }), "success");
@@ -638,6 +664,7 @@
     if (!open) {
       lastHydrationKey = "";
       errorMessage = "";
+      previewFontsReady = false;
       destroyPreview();
       resetImageState();
       return;
@@ -649,6 +676,7 @@
       lastFormLanguage = form.language;
       resetImageState();
       destroyPreview();
+      void warmupPreviewAfterFontsReady();
     }
   });
 
@@ -710,6 +738,7 @@
   $effect(() => {
     return () => {
       clearTimeout(previewTimer ?? undefined);
+      clearTimeout(previewWarmupTimer ?? undefined);
       destroyPreview();
       previewResizeObserver?.disconnect();
       revokeSourceImageUrl();
@@ -906,14 +935,14 @@
   .btn-secondary { background: rgba(148, 163, 184, 0.14); color: var(--text-primary); border: 1px solid rgba(148, 163, 184, 0.22); }
   .btn-secondary:hover { background: rgba(148, 163, 184, 0.22); }
   button:disabled { cursor: not-allowed; opacity: 0.6; }
-  .drawer-backdrop { position: fixed; inset: 0; z-index: 1100; display: flex; justify-content: flex-end; background: rgba(9, 15, 24, 0.45); backdrop-filter: blur(2px); }
-  .drawer-panel { width: min(1180px, 94vw); height: 100vh; background: var(--bg-surface); border-left: 1px solid var(--border-color); box-shadow: -20px 0 40px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; }
+  .drawer-backdrop { position: fixed; inset: 0; z-index: 1200; display: flex; justify-content: flex-end; background: rgba(9, 15, 24, 0.45); backdrop-filter: blur(2px); }
+  .drawer-panel { width: min(1320px, 90vw); height: 100vh; background: var(--bg-surface); border-left: 1px solid var(--border-color); box-shadow: -20px 0 40px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; }
   .drawer-header, .drawer-footer { padding: 14px 18px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .drawer-footer { border-bottom: none; border-top: 1px solid var(--border-color); }
   .drawer-header h3, .section-title, .crop-header h4 { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
   .drawer-header p, .preview-header p, .preview-error, .field-hint, .crop-header p { font-size: 0.84rem; color: var(--text-secondary); }
   .close-btn { width: 32px; height: 32px; padding: 0; font-size: 1.4rem; line-height: 1; border-radius: 999px; background: var(--bg-surface-active); color: var(--text-primary); }
-  .drawer-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(460px, 1.02fr) minmax(420px, 0.98fr); }
+  .drawer-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(480px, 1.08fr) minmax(460px, 1fr); }
   .form-pane, .preview-pane { min-height: 0; overflow-y: auto; padding: 18px; }
   .preview-pane { border-left: 1px solid var(--border-color); background: radial-gradient(circle at top, rgba(56, 189, 248, 0.08), transparent 30%), var(--bg-base); display: flex; flex-direction: column; gap: 12px; }
   .form-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -931,8 +960,8 @@
   .toggle input { width: auto; margin: 0; }
   .preview-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .preview-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-  .preview-card-shell { position: relative; flex: 1; min-height: 560px; border: 1px solid var(--border-color); border-radius: 12px; background: radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 35%), linear-gradient(180deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.02)); overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 8px; }
-  .preview-stage { display: flex; justify-content: center; align-items: center; }
+  .preview-card-shell { position: relative; flex: 1; min-height: clamp(620px, 74vh, 940px); border: 1px solid var(--border-color); border-radius: 12px; background: radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 35%), linear-gradient(180deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.02)); overflow: auto; display: flex; align-items: center; justify-content: center; padding: 8px; }
+  .preview-stage { display: flex; justify-content: center; align-items: center; min-width: 100%; min-height: 100%; }
   .preview-error { display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; }
   .preview-error { color: #dc2626; }
   .crop-backdrop { position: fixed; inset: 0; z-index: 1200; background: rgba(2, 6, 12, 0.7); display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -946,6 +975,39 @@
   .crop-box-grid { position: absolute; inset: 0; background-image: linear-gradient(to right, rgba(255, 255, 255, 0.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 1px, transparent 1px); background-size: 33.333% 100%, 100% 33.333%; }
   .crop-resize-handle { position: absolute; right: -8px; bottom: -8px; width: 16px; height: 16px; border-radius: 999px; border: 2px solid #0f172a; background: #f8fafc; cursor: nwse-resize; padding: 0; }
   .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; border: 0; padding: 0; white-space: nowrap; clip-path: inset(50%); overflow: hidden; }
-  @media (max-width: 1080px) { .drawer-panel { width: 100vw; } .drawer-body { grid-template-columns: 1fr; } .preview-pane { border-left: none; border-top: 1px solid var(--border-color); min-height: 520px; } .preview-card-shell { min-height: 72vh; } }
+  @media (max-width: 1280px), (max-height: 820px) {
+    .drawer-panel {
+      width: min(1240px, 92vw);
+      height: 100vh;
+    }
+
+    .drawer-body {
+      grid-template-columns: minmax(430px, 0.98fr) minmax(400px, 1fr);
+    }
+
+    .form-pane,
+    .preview-pane {
+      padding: 16px;
+    }
+
+    .preview-card-shell {
+      min-height: clamp(480px, 68vh, 820px);
+    }
+  }
+  @media (max-width: 980px) {
+    .drawer-body {
+      grid-template-columns: 1fr;
+    }
+
+    .preview-pane {
+      border-left: none;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .preview-card-shell {
+      min-height: min(72vh, 760px);
+    }
+  }
+
   @media (max-width: 720px) { .field-grid, .toggle-grid { grid-template-columns: 1fr; } .field-span-2 { grid-column: span 1; } }
 </style>
