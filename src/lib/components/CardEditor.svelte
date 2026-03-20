@@ -36,9 +36,10 @@
   } from "$lib/utils/card";
   import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
   import CardImageDrawer from "$lib/components/CardImageDrawer.svelte";
+  import { HAS_AI_FEATURE, HAS_CARD_IMAGE_FEATURE } from "$lib/config/build";
   import { appSettingsState, hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
-  import { generateCardScript, parseCardManuscript, type AgentStage } from "$lib/utils/ai";
   import { writeErrorLog } from "$lib/utils/errorLog";
+  import type { AgentStage } from "$lib/utils/ai";
 
   type CardScriptInfo = {
     path: string;
@@ -394,6 +395,7 @@
   }
 
   function openCardImageDrawer() {
+    if (!HAS_CARD_IMAGE_FEATURE) return;
     isCardImageDrawerOpen = true;
   }
 
@@ -432,6 +434,10 @@
   }
 
   async function ensureAiReady() {
+    if (!HAS_AI_FEATURE) {
+      return false;
+    }
+
     await loadAppSettings();
     if (hasConfiguredSecretKey()) {
       return true;
@@ -524,6 +530,7 @@
       scriptGenerationStage = "collecting_references";
       const abortController = new AbortController();
       scriptGenerationAbortController = abortController;
+      const { generateCardScript } = await import("$lib/utils/ai");
       const generatedScript = normalizeGeneratedScript(await generateCardScript(draftCard, {
         signal: abortController.signal,
         onStageChange: (stage) => {
@@ -604,6 +611,7 @@
   }
 
   async function handleOpenParseModal() {
+    if (!HAS_AI_FEATURE) return;
     if (!(await ensureAiReady())) return;
 
     manuscriptInput = draftCard.name || draftCard.desc
@@ -625,6 +633,8 @@
   }
 
   async function handleParseManuscriptConfirm() {
+    if (!HAS_AI_FEATURE) return;
+
     if (!manuscriptInput.trim()) {
       showToast($_("editor.ai_parse_empty"), "info");
       return;
@@ -632,6 +642,7 @@
 
     try {
       isParsingManuscript = true;
+      const { parseCardManuscript } = await import("$lib/utils/ai");
       const result = await parseCardManuscript(manuscriptInput, draftCard);
       if (result.cards.length === 0) {
         showToast($_("editor.ai_parse_failed"), "error");
@@ -968,20 +979,26 @@
     <div class="editor-bottom">
       <div class="editor-bottom-left">
         <button class="btn-secondary btn-sm" onclick={handleNewCard}>{$_("editor.new_card")}</button>
-        <button class="btn-secondary btn-sm" onclick={handleOpenParseModal}>{$_("editor.ai_parse_button")}</button>
+        {#if HAS_AI_FEATURE}
+          <button class="btn-secondary btn-sm" onclick={handleOpenParseModal}>{$_("editor.ai_parse_button")}</button>
+        {/if}
         <button class="btn-secondary btn-sm" onclick={handleOpenScript}>{$_("editor.script_button")}</button>
-        <div class="script-generate-group">
-          <button class="btn-secondary btn-sm" onclick={handleGenerateScript} disabled={isGeneratingScript}>
-            {isGeneratingScript ? $_("editor.script_generating") : $_("editor.script_generate_button")}
-          </button>
-          {#if isGeneratingScript}
-            <button class="btn-secondary btn-sm" type="button" onclick={handleCancelGenerateScript}>
-              {$_("editor.script_cancel_button")}
+        {#if HAS_AI_FEATURE}
+          <div class="script-generate-group">
+            <button class="btn-secondary btn-sm" onclick={handleGenerateScript} disabled={isGeneratingScript}>
+              {isGeneratingScript ? $_("editor.script_generating") : $_("editor.script_generate_button")}
             </button>
-            <span class="script-stage-text">{getScriptGenerationStageLabel(scriptGenerationStage)}</span>
-          {/if}
-        </div>
-        <button class="btn-secondary btn-sm" onclick={openCardImageDrawer}>{$_("editor.card_image_button")}</button>
+            {#if isGeneratingScript}
+              <button class="btn-secondary btn-sm" type="button" onclick={handleCancelGenerateScript}>
+                {$_("editor.script_cancel_button")}
+              </button>
+              <span class="script-stage-text">{getScriptGenerationStageLabel(scriptGenerationStage)}</span>
+            {/if}
+          </div>
+        {/if}
+        {#if HAS_CARD_IMAGE_FEATURE}
+          <button class="btn-secondary btn-sm" onclick={openCardImageDrawer}>{$_("editor.card_image_button")}</button>
+        {/if}
       </div>
       <div class="btn-group">
         <button class="btn-secondary btn-sm" onclick={handleSaveAs}>{$_("editor.save_as")}</button>
@@ -992,14 +1009,16 @@
   </div>
 {/if}
 
-<CardImageDrawer
-  open={isCardImageDrawerOpen}
-  card={draftCard}
-  cdbPath={$activeTab?.path ?? ""}
-  onClose={closeCardImageDrawer}
-/>
+{#if HAS_CARD_IMAGE_FEATURE}
+  <CardImageDrawer
+    open={isCardImageDrawerOpen}
+    card={draftCard}
+    cdbPath={$activeTab?.path ?? ""}
+    onClose={closeCardImageDrawer}
+  />
+{/if}
 
-{#if isParseModalOpen}
+{#if HAS_AI_FEATURE && isParseModalOpen}
   <div
     class="ai-modal-backdrop"
     role="button"

@@ -13,10 +13,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: windows-latest
-          - platform: ubuntu-22.04
-          - platform: macos-latest
+        platform:
+          - windows-latest
+          - ubuntu-22.04
+          - macos-latest
+        variant:
+          - base
+          - extra
 
     runs-on: ${{ matrix.platform }}
 
@@ -50,10 +53,14 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
+      - name: Apply Tauri config for variant
+        run: node scripts/write-tauri-config.mjs ${{ matrix.variant }} src-tauri/tauri.conf.json
+
       - name: Build Tauri app and upload release assets
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_VARIANT: ${{ matrix.variant }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: DataEditorY ${{ github.ref_name }}
@@ -68,17 +75,34 @@ jobs:
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
-          $portableDir = "src-tauri/target/release/DataEditorY-windows-portable"
+          $variantLabel = if ("${{ matrix.variant }}" -eq "base") { "Base" } else { "Extra" }
+          $portableDir = "src-tauri/target/release/DataEditorY-$($variantLabel)-windows-portable"
           $resourceDir = "src-tauri/target/release/resources"
           $portableResourceDir = "$portableDir/resources"
-          $zipPath = "src-tauri/target/release/DataEditorY-windows-portable.zip"
+          $zipPath = "src-tauri/target/release/DataEditorY-$($variantLabel)-windows-portable.zip"
           $sourceResourceDir = "static/resources"
 
           Remove-Item $portableDir -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
 
           New-Item -ItemType Directory -Path $portableDir | Out-Null
-          Copy-Item "src-tauri/target/release/dataeditory.exe" -Destination "$portableDir/DataEditorY.exe"
+
+          $candidates = @(
+            "src-tauri/target/release/DataEditorY $($variantLabel).exe",
+            "src-tauri/target/release/DataEditorY.exe",
+            "src-tauri/target/release/dataeditory.exe"
+          )
+          $foundExe = $null
+          foreach ($cand in $candidates) {
+            if (Test-Path $cand) {
+              $foundExe = $cand
+              break
+            }
+          }
+          if (-not $foundExe) {
+            throw "Could not find compiled executable in target/release"
+          }
+          Copy-Item $foundExe -Destination "$portableDir/DataEditorY-$($variantLabel).exe"
 
           if (Test-Path $resourceDir) {
             Copy-Item $resourceDir -Destination $portableResourceDir -Recurse
@@ -88,9 +112,12 @@ jobs:
 
           $requiredResources = @(
             @{ RelativePath = "strings.conf"; SourcePath = "$sourceResourceDir/strings.conf" },
-            @{ RelativePath = "cover.jpg"; SourcePath = "$sourceResourceDir/cover.jpg" },
-            @{ RelativePath = "yugioh-card"; SourcePath = "$sourceResourceDir/yugioh-card" }
+            @{ RelativePath = "cover.jpg"; SourcePath = "$sourceResourceDir/cover.jpg" }
           )
+
+          if ("${{ matrix.variant }}" -eq "extra") {
+            $requiredResources += @{ RelativePath = "yugioh-card"; SourcePath = "$sourceResourceDir/yugioh-card" }
+          }
 
           foreach ($resource in $requiredResources) {
             $targetPath = Join-Path $portableResourceDir $resource.RelativePath
@@ -111,4 +138,7 @@ jobs:
         if: matrix.platform == 'windows-latest'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ github.ref_name }} src-tauri/target/release/DataEditorY-windows-portable.zip --clobber
+        shell: pwsh
+        run: |
+          $variantLabel = if ("${{ matrix.variant }}" -eq "base") { "Base" } else { "Extra" }
+          gh release upload ${{ github.ref_name }} "src-tauri/target/release/DataEditorY-$($variantLabel)-windows-portable.zip" --clobber

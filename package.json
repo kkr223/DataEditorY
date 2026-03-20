@@ -5,12 +5,25 @@
   "author": "kkr223",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "build": "svelte-kit sync && vite build && node scripts/remove-build-assets.mjs",
+    "dev:raw": "vite dev",
+    "dev": "node scripts/run-variant-build.mjs dev-frontend",
+    "dev:base": "node scripts/run-variant-build.mjs dev-frontend base",
+    "dev:extra": "node scripts/run-variant-build.mjs dev-frontend extra",
+    "build:web:raw": "svelte-kit sync && vite build && node scripts/remove-build-assets.mjs",
+    "build": "node scripts/run-variant-build.mjs frontend",
+    "build:base": "node scripts/run-variant-build.mjs frontend base",
+    "build:extra": "node scripts/run-variant-build.mjs frontend extra",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "tauri": "tauri"
+    "tauri": "node scripts/run-variant-build.mjs tauri",
+    "tauri:dev": "node scripts/run-variant-build.mjs tauri dev extra",
+    "tauri:dev:base": "node scripts/run-variant-build.mjs tauri dev base",
+    "tauri:dev:extra": "node scripts/run-variant-build.mjs tauri dev extra",
+    "tauri:build": "node scripts/run-variant-build.mjs tauri build extra",
+    "tauri:build:base": "node scripts/run-variant-build.mjs tauri build base",
+    "tauri:build:extra": "node scripts/run-variant-build.mjs tauri build extra",
+    "tauri:build:all": "node scripts/run-variant-build.mjs build-all"
   },
   "license": "MIT",
   "dependencies": {

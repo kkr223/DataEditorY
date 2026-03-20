@@ -2,6 +2,7 @@
   import { _ } from 'svelte-i18n';
   import { open } from '@tauri-apps/plugin-dialog';
   import { invoke } from '@tauri-apps/api/core';
+  import { HAS_AI_FEATURE } from '$lib/config/build';
   import {
     appSettingsState,
     clearCustomCoverImage,
@@ -20,6 +21,7 @@
   let secretKey = $state('');
   let isHydrated = false;
   let triedAutoConnect = false;
+  let settingsDescription = $derived($_(HAS_AI_FEATURE ? 'settings.description_extra' : 'settings.description_base'));
 
   function getNormalizedTemperature() {
     const value = Number(temperature);
@@ -78,6 +80,8 @@
   }
 
   async function handleConnect() {
+    if (!HAS_AI_FEATURE) return;
+
     try {
       const result = await connectAiProvider({
         apiBaseUrl,
@@ -101,6 +105,8 @@
   }
 
   async function handleModelChange() {
+    if (!HAS_AI_FEATURE) return;
+
     try {
       await saveAppSettings({
         apiBaseUrl,
@@ -121,6 +127,8 @@
   }
 
   async function handleClearSecretKey() {
+    if (!HAS_AI_FEATURE) return;
+
     try {
       await saveAppSettings({
         apiBaseUrl,
@@ -171,7 +179,7 @@
       isHydrated = true;
     }
 
-    if (!triedAutoConnect && appSettingsState.values.hasSecretKey && appSettingsState.values.apiBaseUrl) {
+    if (HAS_AI_FEATURE && !triedAutoConnect && appSettingsState.values.hasSecretKey && appSettingsState.values.apiBaseUrl) {
       triedAutoConnect = true;
       void connectAiProvider({
         apiBaseUrl: appSettingsState.values.apiBaseUrl,
@@ -191,14 +199,14 @@
   <div class="settings-header">
     <div>
       <h2>{$_('settings.title')}</h2>
-      <p>{$_('settings.description')}</p>
+      <p>{settingsDescription}</p>
     </div>
     <button class="btn-primary" type="button" onclick={handleSaveSettings} disabled={appSettingsState.saving}>
       {appSettingsState.saving ? $_('settings.saving') : $_('settings.save')}
     </button>
   </div>
 
-  <div class="settings-grid">
+  <div class="settings-grid" class:single-column={!HAS_AI_FEATURE}>
     <section class="settings-card cover-card">
       <div class="card-header">
         <div>
@@ -217,80 +225,82 @@
       </div>
     </section>
 
-    <section class="settings-card">
-      <div class="card-header">
-        <div>
-          <h3>{$_('settings.ai_title')}</h3>
-          <p>{$_('settings.ai_description')}</p>
+    {#if HAS_AI_FEATURE}
+      <section class="settings-card">
+        <div class="card-header">
+          <div>
+            <h3>{$_('settings.ai_title')}</h3>
+            <p>{$_('settings.ai_description')}</p>
+          </div>
         </div>
-      </div>
 
-      <label class="field">
-        <span>{$_('settings.base_url')}</span>
-        <input
-          type="text"
-          bind:value={apiBaseUrl}
-          placeholder="https://api.openai.com/v1"
-        />
-      </label>
+        <label class="field">
+          <span>{$_('settings.base_url')}</span>
+          <input
+            type="text"
+            bind:value={apiBaseUrl}
+            placeholder="https://api.openai.com/v1"
+          />
+        </label>
 
-      <label class="field">
-        <span>{$_('settings.model')}</span>
-        <select bind:value={model} onchange={handleModelChange} disabled={appSettingsState.connecting || appSettingsState.modelOptions.length === 0}>
-          {#if appSettingsState.modelOptions.length === 0}
-            <option value="">{$_('settings.model_placeholder')}</option>
+        <label class="field">
+          <span>{$_('settings.model')}</span>
+          <select bind:value={model} onchange={handleModelChange} disabled={appSettingsState.connecting || appSettingsState.modelOptions.length === 0}>
+            {#if appSettingsState.modelOptions.length === 0}
+              <option value="">{$_('settings.model_placeholder')}</option>
+            {/if}
+            {#each appSettingsState.modelOptions as item}
+              <option value={item}>{item}</option>
+            {/each}
+          </select>
+        </label>
+
+        <label class="field">
+          <span>{$_('settings.temperature')}</span>
+          <input
+            type="number"
+            min="0"
+            max="2"
+            step="0.1"
+            bind:value={temperature}
+          />
+          <small class="field-hint">{$_('settings.temperature_hint')}</small>
+        </label>
+
+        <label class="field">
+          <span>{$_('settings.secret_key')}</span>
+          <input
+            type="password"
+            bind:value={secretKey}
+            placeholder={appSettingsState.values.hasSecretKey ? $_('settings.secret_placeholder_saved') : $_('settings.secret_placeholder_empty')}
+          />
+        </label>
+
+        <div class="secret-row">
+          <span class:ready={appSettingsState.values.hasSecretKey}>
+            {appSettingsState.values.hasSecretKey ? $_('settings.secret_saved') : $_('settings.secret_missing')}
+          </span>
+          <div class="ai-action-row">
+            <button class="btn-secondary" type="button" onclick={handleConnect} disabled={appSettingsState.connecting}>
+              {appSettingsState.connecting ? $_('settings.connecting') : $_('settings.connect')}
+            </button>
+            <button class="btn-secondary" type="button" onclick={handleClearSecretKey}>
+              {$_('settings.secret_clear')}
+            </button>
+          </div>
+        </div>
+
+        <div class="connect-hint" class:error={appSettingsState.connectionError !== ''}>
+          {#if appSettingsState.connectionError}
+            {$_('settings.connect_error')}: {appSettingsState.connectionError}
+          {:else if appSettingsState.modelOptions.length > 0}
+            {$_('settings.connect_ready', { values: { count: String(appSettingsState.modelOptions.length) } })}
+          {:else}
+            {$_('settings.connect_hint')}
           {/if}
-          {#each appSettingsState.modelOptions as item}
-            <option value={item}>{item}</option>
-          {/each}
-        </select>
-      </label>
-
-      <label class="field">
-        <span>{$_('settings.temperature')}</span>
-        <input
-          type="number"
-          min="0"
-          max="2"
-          step="0.1"
-          bind:value={temperature}
-        />
-        <small class="field-hint">{$_('settings.temperature_hint')}</small>
-      </label>
-
-      <label class="field">
-        <span>{$_('settings.secret_key')}</span>
-        <input
-          type="password"
-          bind:value={secretKey}
-          placeholder={appSettingsState.values.hasSecretKey ? $_('settings.secret_placeholder_saved') : $_('settings.secret_placeholder_empty')}
-        />
-      </label>
-
-      <div class="secret-row">
-        <span class:ready={appSettingsState.values.hasSecretKey}>
-          {appSettingsState.values.hasSecretKey ? $_('settings.secret_saved') : $_('settings.secret_missing')}
-        </span>
-        <div class="ai-action-row">
-          <button class="btn-secondary" type="button" onclick={handleConnect} disabled={appSettingsState.connecting}>
-            {appSettingsState.connecting ? $_('settings.connecting') : $_('settings.connect')}
-          </button>
-          <button class="btn-secondary" type="button" onclick={handleClearSecretKey}>
-            {$_('settings.secret_clear')}
-          </button>
         </div>
-      </div>
-
-      <div class="connect-hint" class:error={appSettingsState.connectionError !== ''}>
-        {#if appSettingsState.connectionError}
-          {$_('settings.connect_error')}: {appSettingsState.connectionError}
-        {:else if appSettingsState.modelOptions.length > 0}
-          {$_('settings.connect_ready', { values: { count: String(appSettingsState.modelOptions.length) } })}
-        {:else}
-          {$_('settings.connect_hint')}
-        {/if}
-      </div>
-    </section>
+      </section>
+    {/if}
   </div>
 
   <section class="settings-card template-card">
@@ -368,6 +378,10 @@
     display: grid;
     grid-template-columns: minmax(320px, 420px) minmax(360px, 1fr);
     gap: 18px;
+  }
+
+  .settings-grid.single-column {
+    grid-template-columns: minmax(320px, 420px);
   }
 
   .settings-card {

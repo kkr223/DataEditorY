@@ -1,11 +1,18 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
+import { getBuildVariantConfig } from "./scripts/build-variant-config.mjs";
 
 const host = globalThis.process?.env?.TAURI_DEV_HOST;
+const variant = getBuildVariantConfig(globalThis.process?.env?.APP_VARIANT);
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [sveltekit()],
+  define: {
+    __APP_BUILD_VARIANT__: JSON.stringify(variant.key),
+    __APP_BUILD_LABEL__: JSON.stringify(variant.label),
+    __APP_FEATURES__: JSON.stringify(variant.features),
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

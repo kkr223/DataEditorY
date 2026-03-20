@@ -129,7 +129,9 @@
   },
   "settings": {
     "title": "设置",
-    "description": "在这里配置 AI、默认卡背和新建脚本模板。",
+    "description": "在这里配置默认卡背和新建脚本模板。",
+    "description_base": "在这里配置默认卡背和新建脚本模板。",
+    "description_extra": "在这里配置 AI、默认卡背和新建脚本模板。",
     "save": "保存设置",
     "saving": "保存中...",
     "save_success": "设置已保存",

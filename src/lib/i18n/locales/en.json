@@ -129,7 +129,9 @@
   },
   "settings": {
     "title": "Settings",
-    "description": "Configure AI access, the default cover image, and the script template here.",
+    "description": "Configure the default cover image and the script template here.",
+    "description_base": "Configure the default cover image and the script template here.",
+    "description_extra": "Configure AI access, the default cover image, and the script template here.",
     "save": "Save Settings",
     "saving": "Saving...",
     "save_success": "Settings saved",

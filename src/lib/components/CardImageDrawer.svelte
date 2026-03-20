@@ -5,6 +5,7 @@
   import { ask, message, save } from "@tauri-apps/plugin-dialog";
   import { dirname, join, resolveResource } from "@tauri-apps/api/path";
   import type { CardDataEntry } from "ygopro-cdb-encode";
+  import { HAS_AI_FEATURE } from "$lib/config/build";
   import { showToast } from "$lib/stores/toast.svelte";
   import { hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
   import {
@@ -24,7 +25,6 @@
     type CardImageLanguage,
     type CardImageFormData,
   } from "$lib/utils/cardImage";
-  import { translateCardImageFields } from "$lib/utils/ai";
   import { writeErrorLog } from "$lib/utils/errorLog";
 
   type YugiohCardConstructor = new (options: {
@@ -162,6 +162,10 @@
   }
 
   async function ensureAiReady() {
+    if (!HAS_AI_FEATURE) {
+      return false;
+    }
+
     await loadAppSettings();
     if (hasConfiguredSecretKey()) {
       return true;
@@ -184,6 +188,7 @@
 
     try {
       isTranslating = true;
+      const { translateCardImageFields } = await import("$lib/utils/ai");
       const targetLanguageLabel = getOptionLabel(
         CARD_IMAGE_LANGUAGE_OPTIONS.find((option) => option.value === form.language) ?? {
           value: form.language,
@@ -730,9 +735,11 @@
             <button class="btn-primary btn-sm upload-btn" type="button" onclick={openFilePicker}>
               {croppedImageDataUrl ? $_("editor.card_image_recrop") : $_("editor.card_image_upload")}
             </button>
-            <button class="btn-secondary btn-sm" type="button" onclick={handleAiTranslate} disabled={isTranslating}>
-              {isTranslating ? $_("editor.ai_translating") : $_("editor.card_image_ai_translate")}
-            </button>
+            {#if HAS_AI_FEATURE}
+              <button class="btn-secondary btn-sm" type="button" onclick={handleAiTranslate} disabled={isTranslating}>
+                {isTranslating ? $_("editor.ai_translating") : $_("editor.card_image_ai_translate")}
+              </button>
+            {/if}
             <span class="field-hint">
               {#if croppedImageDataUrl}
                 {$_("editor.card_image_ready")}
