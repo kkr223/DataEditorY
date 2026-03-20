@@ -5,6 +5,7 @@
     "open": "打开",
     "open_recent": "最近打开",
     "open_recent_empty": "还没有最近打开的 cdb 记录",
+    "open_recent_remove": "从历史记录删除",
     "open_recent_failed": "打开历史记录失败",
     "drag_open_cdb": "松开以打开 CDB",
     "drag_open_cdb_hint": "把 .cdb 文件拖进 DataEditorY 后松开，即可直接载入数据库",

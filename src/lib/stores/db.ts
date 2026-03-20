@@ -121,6 +121,17 @@ export function loadRecentCdbHistory() {
   }
 }
 
+export function removeRecentCdbHistoryEntry(path: string) {
+  const normalizedPath = path.trim();
+  if (!normalizedPath) return;
+
+  recentCdbHistory.update((current) => {
+    const next = current.filter((item) => item.path !== normalizedPath);
+    persistRecentCdbHistory(next);
+    return next;
+  });
+}
+
 function cloneCard(card: CardDataEntry): CardDataEntry {
   return new CardDataEntry().fromPartial(card);
 }

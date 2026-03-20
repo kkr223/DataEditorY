@@ -7,7 +7,7 @@
   import { listen, TauriEvent } from '@tauri-apps/api/event';
   import { ask } from '@tauri-apps/plugin-dialog';
   import { CardDataEntry } from 'ygopro-cdb-encode';
-  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation, recentCdbHistory, loadRecentCdbHistory, openCdbHistoryEntry, openCdbPath } from '$lib/stores/db';
+  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation, recentCdbHistory, loadRecentCdbHistory, openCdbHistoryEntry, openCdbPath, removeRecentCdbHistoryEntry } from '$lib/stores/db';
   import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
   import { clearSelection, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
@@ -86,6 +86,10 @@
       return;
     }
     activateEditorView();
+  }
+
+  function handleRemoveRecent(path: string) {
+    removeRecentCdbHistoryEntry(path);
   }
 
   function isCdbFilePath(path: string) {
@@ -444,15 +448,26 @@
             <div class="open-history-header">{$_('nav.open_recent')}</div>
             {#if $recentCdbHistory.length > 0}
               {#each $recentCdbHistory as entry (entry.path)}
-                <button
-                  class="open-history-item"
-                  type="button"
-                  onclick={() => { hideOpenHistoryImmediately(); void handleOpenRecent(entry.path); }}
-                  title={entry.path}
-                >
-                  <span class="open-history-name">{entry.name}</span>
-                  <span class="open-history-path">{entry.path}</span>
-                </button>
+                <div class="open-history-row">
+                  <button
+                    class="open-history-item"
+                    type="button"
+                    onclick={() => { hideOpenHistoryImmediately(); void handleOpenRecent(entry.path); }}
+                    title={entry.path}
+                  >
+                    <span class="open-history-name">{entry.name}</span>
+                    <span class="open-history-path">{entry.path}</span>
+                  </button>
+                  <button
+                    class="open-history-remove"
+                    type="button"
+                    aria-label={$_('nav.open_recent_remove')}
+                    title={$_('nav.open_recent_remove')}
+                    onclick={(event) => { event.stopPropagation(); handleRemoveRecent(entry.path); }}
+                  >
+                    ×
+                  </button>
+                </div>
               {/each}
             {:else}
               <div class="open-history-empty">{$_('nav.open_recent_empty')}</div>
@@ -696,12 +711,14 @@
   }
 
   .open-history-item {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 2px;
     width: 100%;
-    padding: 10px 12px;
+    min-width: 0;
+    padding: 10px 42px 10px 12px;
     border: 1px solid transparent;
     border-radius: 10px;
     background: transparent;
@@ -715,6 +732,41 @@
   .open-history-item:hover {
     background: var(--bg-surface-hover);
     border-color: var(--border-color);
+  }
+
+  .open-history-row {
+    position: relative;
+  }
+
+  .open-history-remove {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+    transition: transform 0.16s ease, background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    z-index: 1;
+  }
+
+  .open-history-remove:hover {
+    background: var(--bg-surface-hover);
+    border-color: color-mix(in srgb, var(--text-secondary) 28%, var(--border-color));
+    color: var(--text-primary);
+    transform: scale(1.08);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
   }
 
   .open-history-name {

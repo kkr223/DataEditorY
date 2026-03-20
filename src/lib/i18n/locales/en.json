@@ -5,6 +5,7 @@
     "open": "Open",
     "open_recent": "Recent CDBs",
     "open_recent_empty": "No recent CDB history yet",
+    "open_recent_remove": "Remove from recent history",
     "open_recent_failed": "Failed to open the recent CDB entry",
     "drag_open_cdb": "Drop to Open CDB",
     "drag_open_cdb_hint": "Drag a .cdb file into DataEditorY and release to load the database",
