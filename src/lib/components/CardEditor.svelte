@@ -15,7 +15,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { dirname, join } from "@tauri-apps/api/path";
   import { ask, message, open } from "@tauri-apps/plugin-dialog";
-  import { CardDataEntry } from "ygopro-cdb-encode";
+  import type { CardDataEntry } from "$lib/types";
   import {
     getSetcode,
     loadPopularSetcodes,
@@ -167,10 +167,11 @@
   }
 
   function toDbCard(card: CardDataEntry): CardDataEntry {
-    const dbCard = new CardDataEntry();
-    Object.assign(dbCard, card);
-    dbCard.strings = [...(card.strings ?? [])];
-    return dbCard;
+    return {
+      ...card,
+      setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
+      strings: [...(card.strings ?? [])],
+    };
   }
 
   async function saveDraftCard(targetCode: number, removeOriginal = false) {
@@ -178,14 +179,14 @@
     nextCard.code = targetCode;
     const dbCard = toDbCard(nextCard);
 
-    const ok = modifyCard(dbCard);
+    const ok = await modifyCard(dbCard);
     if (!ok) {
       showToast($_("editor.save_failed"), "error");
       return false;
     }
 
     if (removeOriginal && originalCardCode !== null && originalCardCode !== targetCode) {
-      const deleted = deleteCard(originalCardCode);
+      const deleted = await deleteCard(originalCardCode);
       if (!deleted) {
         showToast($_("editor.save_failed"), "error");
         return false;
@@ -195,7 +196,7 @@
     draftCard = cloneEditableCard(dbCard);
     originalCardCode = targetCode;
     setSingleSelectedCard(targetCode);
-    handleSearch(true);
+    await handleSearch(true);
     await refreshDraftImage(targetCode, true);
     showToast($_("editor.card_modified", { values: { code: String(targetCode) } }), "success");
     return true;
@@ -210,7 +211,7 @@
       return;
     }
 
-    const existing = getCardById(targetCode);
+    const existing = await getCardById(targetCode);
     if (isEditingExisting && originalCardCode === targetCode) {
       await saveDraftCard(targetCode);
       return;
@@ -260,7 +261,7 @@
       return;
     }
 
-    const existing = getCardById(targetCode);
+    const existing = await getCardById(targetCode);
     if (existing && existing.code !== originalCardCode) {
       const overwriteExisting = await ask($_("editor.overwrite_target_confirm", {
         values: { code: String(targetCode) },
@@ -282,10 +283,10 @@
     );
     if (!confirmed) return;
 
-    if (deleteCard(originalCardCode)) {
+    if (await deleteCard(originalCardCode)) {
       showToast($_("editor.card_deleted", { values: { code: String(originalCardCode) } }), "success");
       clearSelection();
-      handleSearch();
+      await handleSearch();
       resetDraftCard();
     }
   }
@@ -581,7 +582,8 @@
       return false;
     }
 
-    const conflicts = validCards.filter((card) => getCardById(Number(card.code)));
+    const existingCards = await Promise.all(validCards.map((card) => getCardById(Number(card.code))));
+    const conflicts = existingCards.filter((card) => card !== undefined);
     if (conflicts.length > 0) {
       const shouldOverwrite = await ask($_("editor.ai_parse_multi_overwrite_confirm", {
         values: { count: String(conflicts.length) },
@@ -595,7 +597,7 @@
     let savedCount = 0;
     let lastSavedCard: CardDataEntry | null = null;
     for (const card of validCards) {
-      const ok = modifyCard(toDbCard(card));
+      const ok = await modifyCard(toDbCard(card));
       if (!ok) {
         showToast($_("editor.save_failed"), "error");
         return false;
@@ -610,7 +612,7 @@
 
     loadCardIntoDraft(lastSavedCard);
     setSingleSelectedCard(lastSavedCard.code);
-    handleSearch(true);
+    await handleSearch(true);
     await refreshDraftImage(lastSavedCard.code, true);
     showToast($_("editor.ai_parse_multi_saved", { values: { count: String(savedCount) } }), "success");
     return true;

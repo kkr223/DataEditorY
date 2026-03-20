@@ -29,6 +29,7 @@ aes-gcm = "0.10"
 base64 = "0.22"
 rand = "0.8"
 sha2 = "0.10"
+rusqlite = { version = "0.31", features = ["bundled", "backup"] }
 
 [profile.release]
 # Faster linking with thin LTO

@@ -1,5 +1,4 @@
-import { CardDataEntry } from 'ygopro-cdb-encode';
-import type { BitOption, LinkMarkerOption, SelectOption } from '$lib/types';
+import type { BitOption, CardDataEntry, LinkMarkerOption, SelectOption } from '$lib/types';
 
 export const TYPE_BITS: BitOption[] = [
   { bit: 0x1, key: 'editor.subtype.monster' },

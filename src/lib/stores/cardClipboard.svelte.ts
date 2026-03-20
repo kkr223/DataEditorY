@@ -1,13 +1,13 @@
-import { CardDataEntry } from 'ygopro-cdb-encode';
+import type { CardDataEntry } from '$lib/types';
 
 let clipboardCards = $state.raw<CardDataEntry[]>([]);
 
 function cloneCard(card: CardDataEntry): CardDataEntry {
-  return new CardDataEntry().fromPartial({
+  return {
     ...card,
-    setcode: Array.isArray(card.setcode) ? [...card.setcode] : card.setcode,
+    setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
     strings: Array.isArray(card.strings) ? [...card.strings] : [],
-  });
+  };
 }
 
 export function setCardClipboard(cards: CardDataEntry[]) {

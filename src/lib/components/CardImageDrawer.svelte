@@ -4,7 +4,7 @@
   import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
   import { ask, message, save } from "@tauri-apps/plugin-dialog";
   import { dirname, join, resolveResource } from "@tauri-apps/api/path";
-  import type { CardDataEntry } from "ygopro-cdb-encode";
+  import type { CardDataEntry } from "$lib/types";
   import { HAS_AI_FEATURE } from "$lib/config/build";
   import { showToast } from "$lib/stores/toast.svelte";
   import { hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";

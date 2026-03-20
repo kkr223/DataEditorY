@@ -6,7 +6,7 @@
   import { invoke, isTauri } from '@tauri-apps/api/core';
   import { listen, TauriEvent } from '@tauri-apps/api/event';
   import { ask } from '@tauri-apps/plugin-dialog';
-  import { CardDataEntry } from 'ygopro-cdb-encode';
+  import type { CardDataEntry } from '$lib/types';
   import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation, recentCdbHistory, loadRecentCdbHistory, openCdbHistoryEntry, openCdbPath, removeRecentCdbHistoryEntry } from '$lib/stores/db';
   import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
   import { clearSelection, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
@@ -149,7 +149,7 @@
       if (!confirmed) return;
     }
 
-    closeTab(tabId);
+    await closeTab(tabId);
   }
 
   function isEditableTarget(target: EventTarget | null): boolean {
@@ -176,7 +176,8 @@
     }
 
     const clipboardCards = getCardClipboard();
-    const conflictingCards = clipboardCards.filter((card) => getCardById(card.code));
+    const existingCards = await Promise.all(clipboardCards.map((card) => getCardById(card.code)));
+    const conflictingCards = existingCards.filter((card) => card !== undefined);
     if (conflictingCards.length > 0) {
       const shouldOverwrite = await ask($_('editor.paste_conflict_confirm', {
         values: { count: String(conflictingCards.length) },
@@ -188,15 +189,19 @@
       if (!shouldOverwrite) return;
     }
 
-    const pastedCards = clipboardCards.map((card) => new CardDataEntry().fromPartial(card));
-    const ok = modifyCards(pastedCards);
+    const pastedCards = clipboardCards.map((card) => ({
+      ...card,
+      setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
+      strings: Array.isArray(card.strings) ? [...card.strings] : [],
+    } satisfies CardDataEntry));
+    const ok = await modifyCards(pastedCards);
     if (!ok) {
       showToast($_('editor.save_failed'), 'error');
       return;
     }
 
     const prevSelectedIds = getSelectedCardIds();
-    handleSearch(true);
+    await handleSearch(true);
     const visibleIds = pastedCards
       .map((card) => card.code)
       .filter((code) => getAllCardsMap().has(code));
@@ -228,13 +233,13 @@
 
     if (!confirmed) return;
 
-    const ok = deleteCards(selectedIds);
+    const ok = await deleteCards(selectedIds);
     if (!ok) {
       showToast($_('editor.save_failed'), 'error');
       return;
     }
 
-    handleSearch();
+    await handleSearch();
     showToast($_('editor.cards_deleted', { values: { count: String(selectedIds.length) } }), 'success');
   }
 
@@ -256,13 +261,13 @@
 
     if (!confirmed) return;
 
-    const ok = undoLastOperation();
+    const ok = await undoLastOperation();
     if (!ok) {
       showToast($_('editor.undo_failed'), 'error');
       return;
     }
 
-    handleSearch(true);
+    await handleSearch(true);
     showToast($_('editor.undo_success'), 'success');
   }
 

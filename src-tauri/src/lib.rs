@@ -15,6 +15,9 @@ use std::{
 };
 use tauri::{AppHandle, Emitter, Manager};
 
+mod cdb;
+use cdb::OpenCdbSessions;
+
 const SETTINGS_FILE_NAME: &str = "settings.json";
 const CIPHER_KEY_FILE_NAME: &str = "cipher.key";
 const CUSTOM_COVER_FILE_NAME: &str = "cover.jpg";
@@ -654,6 +657,7 @@ fn consume_pending_open_cdb_paths(
 pub fn run() {
     tauri::Builder::default()
         .manage(PendingOpenCdbPaths(Mutex::new(Vec::new())))
+        .manage(OpenCdbSessions(Mutex::new(std::collections::HashMap::new())))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
@@ -667,6 +671,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            cdb::open_cdb_tab,
+            cdb::create_cdb_tab,
+            cdb::close_cdb_tab,
+            cdb::save_cdb_tab,
+            cdb::search_cards_page,
+            cdb::query_cards_raw,
+            cdb::get_card_by_id,
+            cdb::modify_cards,
+            cdb::delete_cards,
             read_cdb,
             read_text_file,
             write_cdb,

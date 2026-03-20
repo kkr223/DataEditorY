@@ -1,5 +1,5 @@
 import { cdbToYugiohCard, type YugiohCardData } from "cdb2yugiohcard";
-import type { CardDataEntry } from "ygopro-cdb-encode";
+import type { CardDataEntry } from "$lib/types";
 
 export type CardImageFormData = YugiohCardData;
 export type CardImageLanguage = YugiohCardData["language"];
@@ -190,7 +190,7 @@ export function getCardImageLocaleDefaults(
   card: CardDataEntry,
   language: CardImageLanguage = "sc",
 ): CardImageFormData {
-  return normalizeCardImageFormData(cdbToYugiohCard(card, {
+  return normalizeCardImageFormData(cdbToYugiohCard(card as never, {
     language,
     image: "",
     package: "",

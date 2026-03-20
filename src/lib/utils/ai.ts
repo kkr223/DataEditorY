@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
-import type { CardDataEntry } from 'ygopro-cdb-encode';
-import { activeTab, tabs, SUBTYPE_MAP } from '$lib/stores/db';
+import type { CardDataEntry } from '$lib/types';
+import { activeTab, getCardByIdInTab, queryCardsRaw, tabs, SUBTYPE_MAP } from '$lib/stores/db';
 import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
 import { createEmptyCard } from '$lib/utils/card';
 
@@ -543,10 +543,10 @@ function getScopedTabs(dbScope: string | undefined, dbPath: string | undefined) 
   return allTabs;
 }
 
-function pickCardFromDb(code: number, dbPath?: string) {
+async function pickCardFromDb(code: number, dbPath?: string) {
   const matchedTabs = getScopedTabs(undefined, dbPath);
   for (const tab of matchedTabs) {
-    const card = tab.cdb.findById(code);
+    const card = await getCardByIdInTab(tab.id, code);
     if (card) {
       return {
         db: { name: tab.name, path: tab.path },
@@ -557,7 +557,7 @@ function pickCardFromDb(code: number, dbPath?: string) {
 
   if (!dbPath) {
     for (const tab of get(tabs)) {
-      const card = tab.cdb.findById(code);
+      const card = await getCardByIdInTab(tab.id, code);
       if (card) {
         return {
           db: { name: tab.name, path: tab.path },
@@ -581,12 +581,13 @@ async function searchCards(query: string, dbScope?: string, dbPath?: string, lim
 
   for (const tab of getScopedTabs(dbScope, dbPath)) {
     const safeLike = normalizedQuery ? `%${escapeLikeWildcards(normalizedQuery)}%` : '';
-    const cards = normalizedQuery
-      ? tab.cdb.find(
-          `(texts.name LIKE :name OR texts.desc LIKE :name) ORDER BY datas.id LIMIT ${safeLimit}`,
-          { name: safeLike },
-        )
-      : tab.cdb.find(`1=1 ORDER BY datas.id LIMIT ${safeLimit}`);
+    const cards = await queryCardsRaw(
+      tab.id,
+      normalizedQuery
+        ? `(texts.name LIKE :name OR texts.desc LIKE :name) ORDER BY datas.id LIMIT ${safeLimit}`
+        : `1=1 ORDER BY datas.id LIMIT ${safeLimit}`,
+      normalizedQuery ? { name: safeLike } : {},
+    );
 
     for (const card of cards) {
       result.push({
