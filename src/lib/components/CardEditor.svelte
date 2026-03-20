@@ -40,6 +40,7 @@
   import { writeErrorLog } from "$lib/utils/errorLog";
   import { toMediaProtocolSrc } from "$lib/utils/mediaProtocol";
   import type { AgentStage } from "$lib/utils/ai";
+  import SetcodeField from "$lib/components/SetcodeField.svelte";
 
   type CardScriptInfo = {
     path: string;
@@ -47,6 +48,8 @@
   };
 
   type CardImageDrawerModule = typeof import("$lib/components/CardImageDrawer.svelte");
+
+  const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
 
 
   let draftCard = $state<CardDataEntry>(createEmptyCard());
@@ -71,6 +74,7 @@
   let isEditingExisting = $derived(originalCardCode !== null);
   let isLink = $derived((draftCard.type & 0x4000000) !== 0);
   let isPend = $derived((draftCard.type & 0x1000000) !== 0);
+  let popularSetcodeValues = $derived.by(() => new Set(popularSetcodes.map((option) => option.value)));
 
   function getDefaultCoverSrc() {
     return appSettingsState.coverImageSrc || "/resources/cover.jpg";
@@ -80,6 +84,34 @@
     for (let i = 0; i < 4; i++) {
       setcodeHexes[i] = getSetcode(card.setcode, i).replace(/^0x/i, "");
     }
+  }
+
+  function handleSetcodeSelectChange(index: number, value: string) {
+    if (value === "") {
+      setcodeHexes[index] = "";
+      draftCard.setcode = updateSetcode(draftCard.setcode, index, "");
+      return;
+    }
+
+    if (value === "__custom__") {
+      return;
+    }
+
+    setcodeHexes[index] = value.replace(/^0x/i, "");
+    draftCard.setcode = updateSetcode(draftCard.setcode, index, value);
+  }
+
+  function handleSetcodeHexChange(index: number, value: string) {
+    const normalized = value
+      .replace(/[^0-9a-f]/gi, "")
+      .slice(0, 4)
+      .toUpperCase();
+    setcodeHexes[index] = normalized;
+    draftCard.setcode = updateSetcode(
+      draftCard.setcode,
+      index,
+      normalized ? `0x${normalized}` : "",
+    );
   }
 
   function clearImageClickTimer() {
@@ -819,49 +851,16 @@
         <div class="fg">
           <span class="group-label">{$_("editor.setcodes")}</span>
           <div class="setcode-grid">
-            {#each Array.from({ length: 4 }, (_, i) => i) as idx}
-              {@const hexString = setcodeHexes[idx] ? "0x" + setcodeHexes[idx].padStart(4, "0").toUpperCase() : ""}
-              {@const matchedOpt = hexString !== "" ? popularSetcodes.find((o) => o.value.toLowerCase() === hexString.toLowerCase()) : null}
-              {@const dropdownValue = hexString === "" ? "" : matchedOpt ? matchedOpt.value : "__custom__"}
-              <div class="setcode-row">
-                <select
-                  value={dropdownValue}
-                  onchange={(e) => {
-                    const val = (e.target as HTMLSelectElement).value;
-                    if (val === "") {
-                      setcodeHexes[idx] = "";
-                      draftCard.setcode = updateSetcode(draftCard.setcode, idx, "");
-                    } else if (val !== "__custom__") {
-                      setcodeHexes[idx] = val.replace(/^0x/i, "");
-                      draftCard.setcode = updateSetcode(draftCard.setcode, idx, val);
-                    }
-                  }}
-                >
-                  <option value="">—</option>
-                  {#each popularSetcodes as opt}
-                    <option value={opt.value} selected={dropdownValue === opt.value}>{opt.label}</option>
-                  {/each}
-                  {#if dropdownValue === "__custom__"}
-                    <option value="__custom__" selected>{$_("editor.custom")} ({hexString})</option>
-                  {/if}
-                </select>
-                <div class="hex-input">
-                  <span class="hex-prefix">0x</span>
-                  <input
-                    type="text"
-                    bind:value={setcodeHexes[idx]}
-                    oninput={() => {
-                      draftCard.setcode = updateSetcode(
-                        draftCard.setcode,
-                        idx,
-                        setcodeHexes[idx] ? "0x" + setcodeHexes[idx] : "",
-                      );
-                    }}
-                    maxlength="4"
-                    placeholder="0000"
-                  />
-                </div>
-              </div>
+            {#each SETCODE_SLOT_INDICES as idx (idx)}
+              <SetcodeField
+                index={idx}
+                hexValue={setcodeHexes[idx]}
+                options={popularSetcodes}
+                knownValues={popularSetcodeValues}
+                customLabel={$_("editor.custom")}
+                onSelectChange={handleSetcodeSelectChange}
+                onHexChange={handleSetcodeHexChange}
+              />
             {/each}
           </div>
         </div>
@@ -1258,50 +1257,6 @@
     padding: 6px;
     border-radius: 4px;
     border: 1px solid var(--border-color);
-  }
-  .setcode-row {
-    display: flex;
-    gap: 4px;
-  }
-  .setcode-row select {
-    flex: 2;
-    padding: 2px 4px;
-    font-size: 0.84rem;
-  }
-  .hex-input {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    background: var(--bg-base);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .hex-input:focus-within {
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 1px var(--accent-primary);
-  }
-  .hex-prefix {
-    padding: 0 4px;
-    color: var(--text-secondary);
-    font-size: 0.82rem;
-    font-family: monospace;
-    background: var(--bg-surface);
-    border-right: 1px solid var(--border-color);
-    height: 100%;
-    display: flex;
-    align-items: center;
-  }
-  .hex-input input {
-    border: none;
-    border-radius: 0;
-    padding: 2px 4px;
-    font-family: monospace;
-    font-size: 0.88rem;
-  }
-  .hex-input input:focus {
-    box-shadow: none;
-    outline: none;
   }
   .link-marker-grid {
     display: grid;

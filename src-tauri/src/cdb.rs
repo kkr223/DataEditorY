@@ -1,5 +1,5 @@
 use rand::RngCore;
-use rusqlite::{Connection, OptionalExtension, Statement};
+use rusqlite::{Connection, Statement};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::{
@@ -306,7 +306,7 @@ fn count_cards(
     );
     let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
     bind_json_params(&mut stmt, params)?;
-    let mut rows = stmt.query([]).map_err(|err| err.to_string())?;
+    let mut rows = stmt.raw_query();
     let Some(row) = rows.next().map_err(|err| err.to_string())? else {
         return Ok(0);
     };
@@ -410,7 +410,7 @@ fn query_cards(
     );
     let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
     bind_json_params(&mut stmt, params)?;
-    let mut rows = stmt.query([]).map_err(|err| err.to_string())?;
+    let mut rows = stmt.raw_query();
     let mut cards = Vec::new();
 
     while let Some(row) = rows.next().map_err(|err| err.to_string())? {
@@ -423,11 +423,16 @@ fn query_cards(
 fn get_card(conn: &Connection, card_id: u32) -> Result<Option<CardDto>, String> {
     let sql = format!("{SELECT_CARD_COLUMNS} WHERE datas.id = :id LIMIT 1");
     let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
-    stmt.raw_bind_parameter(1, i64::from(card_id))
+    let Some(index) = stmt.parameter_index(":id").map_err(|err| err.to_string())? else {
+        return Err("Missing :id parameter in get_card query".to_string());
+    };
+    stmt.raw_bind_parameter(index, i64::from(card_id))
         .map_err(|err| err.to_string())?;
-    stmt.query_row([], card_from_row)
-        .optional()
-        .map_err(|err| err.to_string())
+    let mut rows = stmt.raw_query();
+    let Some(row) = rows.next().map_err(|err| err.to_string())? else {
+        return Ok(None);
+    };
+    card_from_row(row).map(Some).map_err(|err| err.to_string())
 }
 
 fn write_card(
