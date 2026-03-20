@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "dataeditory",
+  "productName": "DataEditorY Extra",
   "version": "1.2.1",
-  "identifier": "com.kkr223.dataeditory",
+  "identifier": "com.kkr223.dataeditory.extra",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "DataEditorY",
+        "title": "DataEditorY Extra",
         "width": 1280,
         "height": 800,
         "minWidth": 1024,
