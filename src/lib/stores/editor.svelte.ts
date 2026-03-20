@@ -2,9 +2,8 @@ import { get } from 'svelte/store';
 import { locale } from 'svelte-i18n';
 import { cacheActiveTabSelection, getRuleExpressionErrorMessage, RuleExpressionError, searchCardsPage } from '$lib/stores/db';
 import { showToast } from '$lib/stores/toast.svelte';
-import type { CardDataEntry } from 'ygopro-cdb-encode';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import type { SearchFilterState } from '$lib/types';
+import type { CardDataEntry, SearchFilterState } from '$lib/types';
 
 // allCards is a large array (potentially 10k+ items) that is only used for
 // read-only rendering in CardList. Using $state.raw avoids Svelte 5's deep
@@ -158,7 +157,7 @@ export function selectCardRange(cardId: number, preserveExisting = false) {
   applySelection(nextIds, cardId, anchorId);
 }
 
-export function handleSearch(preserveSelection = false, resetPage = false) {
+export async function handleSearch(preserveSelection = false, resetPage = false) {
   const prevSelectedId = editorState.selectedId;
   const prevSelectedIds = [...editorState.selectedIds];
   const prevAnchorId = editorState.selectionAnchorId;
@@ -171,7 +170,7 @@ export function handleSearch(preserveSelection = false, resetPage = false) {
   let cards: CardDataEntry[];
   let total: number;
   try {
-    ({ cards, total } = searchCardsPage(editorState.searchFilters, editorState.currentPage));
+    ({ cards, total } = await searchCardsPage(editorState.searchFilters, editorState.currentPage));
     clearSearchError();
   } catch (err) {
     editorState.currentPage = prevPage;
@@ -211,5 +210,5 @@ export function handleReset() {
   editorState.searchFilters = { ...DEFAULT_SEARCH_FILTERS };
   clearSearchError();
   editorState.currentPage = 1;
-  handleSearch();
+  return handleSearch();
 }

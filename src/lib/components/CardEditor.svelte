@@ -15,7 +15,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { dirname, join } from "@tauri-apps/api/path";
   import { ask, message, open } from "@tauri-apps/plugin-dialog";
-  import { CardDataEntry } from "ygopro-cdb-encode";
+  import type { CardDataEntry } from "$lib/types";
   import {
     getSetcode,
     loadPopularSetcodes,
@@ -35,16 +35,21 @@
     TYPE_BITS,
   } from "$lib/utils/card";
   import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
-  import CardImageDrawer from "$lib/components/CardImageDrawer.svelte";
   import { HAS_AI_FEATURE, HAS_CARD_IMAGE_FEATURE } from "$lib/config/build";
   import { appSettingsState, hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
   import { writeErrorLog } from "$lib/utils/errorLog";
+  import { toMediaProtocolSrc } from "$lib/utils/mediaProtocol";
   import type { AgentStage } from "$lib/utils/ai";
+  import SetcodeField from "$lib/components/SetcodeField.svelte";
 
   type CardScriptInfo = {
     path: string;
     exists: boolean;
   };
+
+  type CardImageDrawerModule = typeof import("$lib/components/CardImageDrawer.svelte");
+
+  const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
 
 
   let draftCard = $state<CardDataEntry>(createEmptyCard());
@@ -52,13 +57,12 @@
   let imageSrc = $state<string>("/resources/cover.jpg");
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
-  let activeObjectUrl: string | null = null;
-  let staleObjectUrl: string | null = null;
   let imageRequestToken = 0;
   let isImagePreviewOpen = $state(false);
   let imageClickTimer: ReturnType<typeof setTimeout> | null = null;
   let lastSyncedSelectedId: number | null = null;
   let isCardImageDrawerOpen = $state(false);
+  let cardImageDrawerModulePromise = $state<Promise<CardImageDrawerModule> | null>(null);
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
   let isParseModalOpen = $state(false);
   let manuscriptInput = $state("");
@@ -70,6 +74,7 @@
   let isEditingExisting = $derived(originalCardCode !== null);
   let isLink = $derived((draftCard.type & 0x4000000) !== 0);
   let isPend = $derived((draftCard.type & 0x1000000) !== 0);
+  let popularSetcodeValues = $derived.by(() => new Set(popularSetcodes.map((option) => option.value)));
 
   function getDefaultCoverSrc() {
     return appSettingsState.coverImageSrc || "/resources/cover.jpg";
@@ -81,22 +86,38 @@
     }
   }
 
+  function handleSetcodeSelectChange(index: number, value: string) {
+    if (value === "") {
+      setcodeHexes[index] = "";
+      draftCard.setcode = updateSetcode(draftCard.setcode, index, "");
+      return;
+    }
+
+    if (value === "__custom__") {
+      return;
+    }
+
+    setcodeHexes[index] = value.replace(/^0x/i, "");
+    draftCard.setcode = updateSetcode(draftCard.setcode, index, value);
+  }
+
+  function handleSetcodeHexChange(index: number, value: string) {
+    const normalized = value
+      .replace(/[^0-9a-f]/gi, "")
+      .slice(0, 4)
+      .toUpperCase();
+    setcodeHexes[index] = normalized;
+    draftCard.setcode = updateSetcode(
+      draftCard.setcode,
+      index,
+      normalized ? `0x${normalized}` : "",
+    );
+  }
+
   function clearImageClickTimer() {
     if (imageClickTimer) {
       clearTimeout(imageClickTimer);
       imageClickTimer = null;
-    }
-  }
-
-  function resetImageUrls() {
-    clearImageClickTimer();
-    if (activeObjectUrl) {
-      URL.revokeObjectURL(activeObjectUrl);
-      activeObjectUrl = null;
-    }
-    if (staleObjectUrl) {
-      URL.revokeObjectURL(staleObjectUrl);
-      staleObjectUrl = null;
     }
   }
 
@@ -106,7 +127,7 @@
     draftCard = createEmptyCard();
     syncSetcodesFromCard(draftCard);
     imageRequestToken++;
-    resetImageUrls();
+    clearImageClickTimer();
     imageSrc = getDefaultCoverSrc();
   }
 
@@ -117,14 +138,9 @@
     syncSetcodesFromCard(draftCard);
   }
 
-  function handleImageError() {
-    imageSrc = getDefaultCoverSrc();
-  }
-
-  function handleImageLoad() {
-    if (staleObjectUrl && staleObjectUrl !== activeObjectUrl) {
-      URL.revokeObjectURL(staleObjectUrl);
-      staleObjectUrl = null;
+  function handleImageError(failedSrc: string) {
+    if (imageSrc === failedSrc) {
+      imageSrc = getDefaultCoverSrc();
     }
   }
 
@@ -135,25 +151,13 @@
 
   async function resolveImageSrc(picsDir: string, code: number, bustCache = false): Promise<string> {
     const picPath = await join(picsDir, `${code}.jpg`);
-
-    try {
-      const bytes = await invoke<number[]>("read_image", { path: picPath });
-      const blob = new Blob([new Uint8Array(bytes)], { type: "image/jpeg" });
-      const objectUrl = URL.createObjectURL(blob);
-      if (activeObjectUrl) {
-        staleObjectUrl = activeObjectUrl;
-      }
-      activeObjectUrl = objectUrl;
-      return bustCache ? `${objectUrl}#${Date.now()}` : objectUrl;
-    } catch {
-      return getDefaultCoverSrc();
-    }
+    return toMediaProtocolSrc(picPath, bustCache ? Date.now() : undefined);
   }
 
   async function refreshDraftImage(code: number, bustCache = false) {
     if (!$activeTab?.path || code <= 0) {
       imageRequestToken++;
-      resetImageUrls();
+      clearImageClickTimer();
       imageSrc = getDefaultCoverSrc();
       return;
     }
@@ -167,10 +171,11 @@
   }
 
   function toDbCard(card: CardDataEntry): CardDataEntry {
-    const dbCard = new CardDataEntry();
-    Object.assign(dbCard, card);
-    dbCard.strings = [...(card.strings ?? [])];
-    return dbCard;
+    return {
+      ...card,
+      setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
+      strings: [...(card.strings ?? [])],
+    };
   }
 
   async function saveDraftCard(targetCode: number, removeOriginal = false) {
@@ -178,14 +183,14 @@
     nextCard.code = targetCode;
     const dbCard = toDbCard(nextCard);
 
-    const ok = modifyCard(dbCard);
+    const ok = await modifyCard(dbCard);
     if (!ok) {
       showToast($_("editor.save_failed"), "error");
       return false;
     }
 
     if (removeOriginal && originalCardCode !== null && originalCardCode !== targetCode) {
-      const deleted = deleteCard(originalCardCode);
+      const deleted = await deleteCard(originalCardCode);
       if (!deleted) {
         showToast($_("editor.save_failed"), "error");
         return false;
@@ -195,7 +200,7 @@
     draftCard = cloneEditableCard(dbCard);
     originalCardCode = targetCode;
     setSingleSelectedCard(targetCode);
-    handleSearch(true);
+    await handleSearch(true);
     await refreshDraftImage(targetCode, true);
     showToast($_("editor.card_modified", { values: { code: String(targetCode) } }), "success");
     return true;
@@ -210,7 +215,7 @@
       return;
     }
 
-    const existing = getCardById(targetCode);
+    const existing = await getCardById(targetCode);
     if (isEditingExisting && originalCardCode === targetCode) {
       await saveDraftCard(targetCode);
       return;
@@ -260,7 +265,7 @@
       return;
     }
 
-    const existing = getCardById(targetCode);
+    const existing = await getCardById(targetCode);
     if (existing && existing.code !== originalCardCode) {
       const overwriteExisting = await ask($_("editor.overwrite_target_confirm", {
         values: { code: String(targetCode) },
@@ -282,10 +287,10 @@
     );
     if (!confirmed) return;
 
-    if (deleteCard(originalCardCode)) {
+    if (await deleteCard(originalCardCode)) {
       showToast($_("editor.card_deleted", { values: { code: String(originalCardCode) } }), "success");
       clearSelection();
-      handleSearch();
+      await handleSearch();
       resetDraftCard();
     }
   }
@@ -330,43 +335,13 @@
       try {
         const picsDir = await getPicsDir($activeTab.path);
         const picPath = await join(picsDir, `${targetCode}.jpg`);
-        const bytes = await invoke<number[]>("read_image", { path: selected });
-        const blob = new Blob([new Uint8Array(bytes)]);
-        const imageUrl = URL.createObjectURL(blob);
-
-        try {
-          const image = new Image();
-          image.src = imageUrl;
-          await image.decode();
-
-          const maxWidth = 400;
-          const maxHeight = 580;
-          const scale = Math.min(1, maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
-          const width = Math.max(1, Math.round(image.naturalWidth * scale));
-          const height = Math.max(1, Math.round(image.naturalHeight * scale));
-
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          const context = canvas.getContext("2d");
-          if (!context) {
-            throw new Error("Canvas context unavailable");
-          }
-
-          context.drawImage(image, 0, 0, width, height);
-          const outputBlob = await new Promise<Blob | null>((resolve) => {
-            canvas.toBlob((result) => resolve(result), "image/jpeg", 0.92);
-          });
-
-          if (!outputBlob) {
-            throw new Error("Failed to encode image");
-          }
-
-          const outputBytes = Array.from(new Uint8Array(await outputBlob.arrayBuffer()));
-          await invoke("write_file", { path: picPath, data: outputBytes });
-        } finally {
-          URL.revokeObjectURL(imageUrl);
-        }
+        await invoke("import_card_image", {
+          src: selected,
+          dest: picPath,
+          maxWidth: 400,
+          maxHeight: 580,
+          quality: 92,
+        });
 
         imageSrc = await resolveImageSrc(picsDir, targetCode, true);
       } catch (error) {
@@ -396,6 +371,7 @@
 
   function openCardImageDrawer() {
     if (!HAS_CARD_IMAGE_FEATURE) return;
+    cardImageDrawerModulePromise ??= import("$lib/components/CardImageDrawer.svelte");
     isCardImageDrawerOpen = true;
   }
 
@@ -581,7 +557,8 @@
       return false;
     }
 
-    const conflicts = validCards.filter((card) => getCardById(Number(card.code)));
+    const existingCards = await Promise.all(validCards.map((card) => getCardById(Number(card.code))));
+    const conflicts = existingCards.filter((card) => card !== undefined);
     if (conflicts.length > 0) {
       const shouldOverwrite = await ask($_("editor.ai_parse_multi_overwrite_confirm", {
         values: { count: String(conflicts.length) },
@@ -595,7 +572,7 @@
     let savedCount = 0;
     let lastSavedCard: CardDataEntry | null = null;
     for (const card of validCards) {
-      const ok = modifyCard(toDbCard(card));
+      const ok = await modifyCard(toDbCard(card));
       if (!ok) {
         showToast($_("editor.save_failed"), "error");
         return false;
@@ -610,7 +587,7 @@
 
     loadCardIntoDraft(lastSavedCard);
     setSingleSelectedCard(lastSavedCard.code);
-    handleSearch(true);
+    await handleSearch(true);
     await refreshDraftImage(lastSavedCard.code, true);
     showToast($_("editor.ai_parse_multi_saved", { values: { count: String(savedCount) } }), "success");
     return true;
@@ -733,12 +710,6 @@
   });
 
   $effect(() => {
-    return () => {
-      resetImageUrls();
-    };
-  });
-
-  $effect(() => {
     const nextCoverSrc = getDefaultCoverSrc();
     if (nextCoverSrc === lastDefaultCoverSrc) return;
 
@@ -789,8 +760,7 @@
                   src={imageSrc}
                   alt="Card"
                   class="card-img"
-                  onload={handleImageLoad}
-                  onerror={handleImageError}
+                  onerror={() => handleImageError(imageSrc)}
                 />
               {/key}
             {:else}
@@ -881,49 +851,16 @@
         <div class="fg">
           <span class="group-label">{$_("editor.setcodes")}</span>
           <div class="setcode-grid">
-            {#each Array.from({ length: 4 }, (_, i) => i) as idx}
-              {@const hexString = setcodeHexes[idx] ? "0x" + setcodeHexes[idx].padStart(4, "0").toUpperCase() : ""}
-              {@const matchedOpt = hexString !== "" ? popularSetcodes.find((o) => o.value.toLowerCase() === hexString.toLowerCase()) : null}
-              {@const dropdownValue = hexString === "" ? "" : matchedOpt ? matchedOpt.value : "__custom__"}
-              <div class="setcode-row">
-                <select
-                  value={dropdownValue}
-                  onchange={(e) => {
-                    const val = (e.target as HTMLSelectElement).value;
-                    if (val === "") {
-                      setcodeHexes[idx] = "";
-                      draftCard.setcode = updateSetcode(draftCard.setcode, idx, "");
-                    } else if (val !== "__custom__") {
-                      setcodeHexes[idx] = val.replace(/^0x/i, "");
-                      draftCard.setcode = updateSetcode(draftCard.setcode, idx, val);
-                    }
-                  }}
-                >
-                  <option value="">—</option>
-                  {#each popularSetcodes as opt}
-                    <option value={opt.value} selected={dropdownValue === opt.value}>{opt.label}</option>
-                  {/each}
-                  {#if dropdownValue === "__custom__"}
-                    <option value="__custom__" selected>{$_("editor.custom")} ({hexString})</option>
-                  {/if}
-                </select>
-                <div class="hex-input">
-                  <span class="hex-prefix">0x</span>
-                  <input
-                    type="text"
-                    bind:value={setcodeHexes[idx]}
-                    oninput={() => {
-                      draftCard.setcode = updateSetcode(
-                        draftCard.setcode,
-                        idx,
-                        setcodeHexes[idx] ? "0x" + setcodeHexes[idx] : "",
-                      );
-                    }}
-                    maxlength="4"
-                    placeholder="0000"
-                  />
-                </div>
-              </div>
+            {#each SETCODE_SLOT_INDICES as idx (idx)}
+              <SetcodeField
+                index={idx}
+                hexValue={setcodeHexes[idx]}
+                options={popularSetcodes}
+                knownValues={popularSetcodeValues}
+                customLabel={$_("editor.custom")}
+                onSelectChange={handleSetcodeSelectChange}
+                onHexChange={handleSetcodeHexChange}
+              />
             {/each}
           </div>
         </div>
@@ -1016,13 +953,17 @@
 {/if}
 
 {#if HAS_CARD_IMAGE_FEATURE}
-  <CardImageDrawer
-    open={isCardImageDrawerOpen}
-    card={draftCard}
-    cdbPath={$activeTab?.path ?? ""}
-    onSavedJpg={handleCardImageSaved}
-    onClose={closeCardImageDrawer}
-  />
+  {#if isCardImageDrawerOpen && cardImageDrawerModulePromise}
+    {#await cardImageDrawerModulePromise then module}
+      <module.default
+        open={isCardImageDrawerOpen}
+        card={draftCard}
+        cdbPath={$activeTab?.path ?? ""}
+        onSavedJpg={handleCardImageSaved}
+        onClose={closeCardImageDrawer}
+      />
+    {/await}
+  {/if}
 {/if}
 
 {#if HAS_AI_FEATURE && isParseModalOpen}
@@ -1316,50 +1257,6 @@
     padding: 6px;
     border-radius: 4px;
     border: 1px solid var(--border-color);
-  }
-  .setcode-row {
-    display: flex;
-    gap: 4px;
-  }
-  .setcode-row select {
-    flex: 2;
-    padding: 2px 4px;
-    font-size: 0.84rem;
-  }
-  .hex-input {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    background: var(--bg-base);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .hex-input:focus-within {
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 1px var(--accent-primary);
-  }
-  .hex-prefix {
-    padding: 0 4px;
-    color: var(--text-secondary);
-    font-size: 0.82rem;
-    font-family: monospace;
-    background: var(--bg-surface);
-    border-right: 1px solid var(--border-color);
-    height: 100%;
-    display: flex;
-    align-items: center;
-  }
-  .hex-input input {
-    border: none;
-    border-radius: 0;
-    padding: 2px 4px;
-    font-family: monospace;
-    font-size: 0.88rem;
-  }
-  .hex-input input:focus {
-    box-shadow: none;
-    outline: none;
   }
   .link-marker-grid {
     display: grid;

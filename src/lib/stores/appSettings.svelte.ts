@@ -1,4 +1,5 @@
-import { convertFileSrc, invoke, isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
+import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 
 export interface AppSettingsPayload {
   apiBaseUrl: string;
@@ -38,7 +39,7 @@ function resolveCoverSrc(path: string | null, revision: number): string {
     return DEFAULT_COVER_SRC;
   }
 
-  return `${convertFileSrc(path)}?v=${revision}`;
+  return toMediaProtocolSrc(path, revision);
 }
 
 export const appSettingsState = $state({

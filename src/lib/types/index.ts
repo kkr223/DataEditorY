@@ -17,6 +17,27 @@ export interface SearchFilters {
   setcode4?: string;
 }
 
+export interface CardDataEntry {
+  code: number;
+  alias: number;
+  setcode: number[];
+  type: number;
+  attack: number;
+  defense: number;
+  level: number;
+  race: number;
+  attribute: number;
+  category: number;
+  ot: number;
+  name: string;
+  desc: string;
+  strings: string[];
+  lscale: number;
+  rscale: number;
+  linkMarker: number;
+  ruleCode: number;
+}
+
 export interface SearchFilterState {
   id: string;
   name: string;

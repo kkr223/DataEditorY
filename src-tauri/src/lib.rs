@@ -3,17 +3,28 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
+use image::{codecs::jpeg::JpegEncoder, GenericImageView};
+use mime_guess::from_path;
+use percent_encoding::percent_decode_str;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
+    io::BufWriter,
     io::Write,
     path::{Path, PathBuf},
     process::Command,
     sync::Mutex,
 };
+use tauri::http::{
+    header::{ACCESS_CONTROL_ALLOW_ORIGIN, CACHE_CONTROL, CONTENT_TYPE},
+    Method, Request, Response, StatusCode,
+};
 use tauri::{AppHandle, Emitter, Manager};
+
+mod cdb;
+use cdb::OpenCdbSessions;
 
 const SETTINGS_FILE_NAME: &str = "settings.json";
 const CIPHER_KEY_FILE_NAME: &str = "cipher.key";
@@ -27,6 +38,112 @@ const DEFAULT_AI_TEMPERATURE: f64 = 1.0;
 const SECRET_VERSION_PREFIX: &str = "v1";
 const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
 const OPEN_CDB_PATHS_EVENT: &str = "open-cdb-paths";
+const MEDIA_PROTOCOL_NAME: &str = "app-media";
+
+fn media_protocol_error(status: StatusCode, message: &str) -> Response<Vec<u8>> {
+    Response::builder()
+        .status(status)
+        .header(CONTENT_TYPE, "text/plain; charset=utf-8")
+        .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(CACHE_CONTROL, "no-cache")
+        .body(message.as_bytes().to_vec())
+        .unwrap()
+}
+
+fn media_protocol_extension_allowed(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|ext| ext.to_str()),
+        Some(ext)
+            if matches!(
+                ext.to_ascii_lowercase().as_str(),
+                "png"
+                    | "jpg"
+                    | "jpeg"
+                    | "webp"
+                    | "gif"
+                    | "bmp"
+                    | "svg"
+                    | "json"
+                    | "ttf"
+                    | "otf"
+                    | "woff"
+                    | "woff2"
+            )
+    )
+}
+
+fn decode_media_protocol_path(request: &Request<Vec<u8>>) -> Result<PathBuf, String> {
+    let raw_path = request.uri().path();
+    let encoded_path = raw_path.strip_prefix('/').unwrap_or(raw_path);
+    let decoded_path = percent_decode_str(encoded_path)
+        .decode_utf8()
+        .map_err(|err| err.to_string())?;
+    let path = PathBuf::from(decoded_path.as_ref());
+
+    if !path.is_absolute() {
+        return Err("Only absolute media paths are supported".to_string());
+    }
+
+    Ok(path)
+}
+
+fn handle_media_protocol_request(request: Request<Vec<u8>>) -> Response<Vec<u8>> {
+    if request.method() != Method::GET && request.method() != Method::HEAD {
+        return media_protocol_error(StatusCode::METHOD_NOT_ALLOWED, "Unsupported method");
+    }
+
+    let path = match decode_media_protocol_path(&request) {
+        Ok(path) => path,
+        Err(message) => return media_protocol_error(StatusCode::BAD_REQUEST, &message),
+    };
+
+    if !media_protocol_extension_allowed(&path) {
+        return media_protocol_error(StatusCode::FORBIDDEN, "Unsupported media file type");
+    }
+
+    let metadata = match fs::metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return media_protocol_error(StatusCode::NOT_FOUND, "Media file not found");
+        }
+        Err(err) => {
+            return media_protocol_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &format!("Failed to read media metadata: {err}"),
+            );
+        }
+    };
+
+    if !metadata.is_file() {
+        return media_protocol_error(StatusCode::FORBIDDEN, "Media path is not a file");
+    }
+
+    let content_type = from_path(&path)
+        .first_or_octet_stream()
+        .essence_str()
+        .to_string();
+    let body = if request.method() == Method::HEAD {
+        Vec::new()
+    } else {
+        match fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                return media_protocol_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &format!("Failed to read media file: {err}"),
+                );
+            }
+        }
+    };
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(CONTENT_TYPE, content_type)
+        .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(CACHE_CONTROL, "no-cache")
+        .body(body)
+        .unwrap()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -207,7 +324,14 @@ fn legacy_cipher_key(app: &AppHandle) -> [u8; 32] {
     hasher.update(APP_IDENTIFIER.as_bytes());
     hasher.update(app.package_info().name.as_bytes());
 
-    for key in ["COMPUTERNAME", "HOSTNAME", "USERNAME", "USER", "APPDATA", "HOME"] {
+    for key in [
+        "COMPUTERNAME",
+        "HOSTNAME",
+        "USERNAME",
+        "USER",
+        "APPDATA",
+        "HOME",
+    ] {
         if let Ok(value) = std::env::var(key) {
             hasher.update(value.as_bytes());
         }
@@ -486,6 +610,49 @@ fn read_image(path: String) -> Result<Vec<u8>, String> {
 }
 
 #[tauri::command]
+fn import_card_image(
+    src: String,
+    dest: String,
+    max_width: u32,
+    max_height: u32,
+    quality: u8,
+) -> Result<(), String> {
+    let image = image::open(&src).map_err(|err| err.to_string())?;
+    let (width, height) = image.dimensions();
+    if width == 0 || height == 0 {
+        return Err("Image has invalid dimensions".to_string());
+    }
+
+    let width_scale = max_width as f32 / width as f32;
+    let height_scale = max_height as f32 / height as f32;
+    let scale = width_scale.min(height_scale).min(1.0);
+    let target_width = ((width as f32 * scale).round() as u32).max(1);
+    let target_height = ((height as f32 * scale).round() as u32).max(1);
+
+    let resized = if target_width == width && target_height == height {
+        image
+    } else {
+        image.resize(
+            target_width,
+            target_height,
+            image::imageops::FilterType::Lanczos3,
+        )
+    };
+
+    if let Some(parent) = Path::new(&dest).parent() {
+        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+    }
+
+    let file = fs::File::create(&dest).map_err(|err| err.to_string())?;
+    let mut writer = BufWriter::new(file);
+    let mut encoder = JpegEncoder::new_with_quality(&mut writer, quality.clamp(1, 100));
+    encoder
+        .encode_image(&resized)
+        .map_err(|err| err.to_string())?;
+    writer.flush().map_err(|err| err.to_string())
+}
+
+#[tauri::command]
 fn load_strings_conf(app: AppHandle) -> Result<String, String> {
     let mut candidates: Vec<PathBuf> = Vec::new();
 
@@ -497,7 +664,12 @@ fn load_strings_conf(app: AppHandle) -> Result<String, String> {
     if let Ok(current_dir) = std::env::current_dir() {
         candidates.push(current_dir.join("strings.conf"));
         candidates.push(current_dir.join("static").join("strings.conf"));
-        candidates.push(current_dir.join("static").join("resources").join("strings.conf"));
+        candidates.push(
+            current_dir
+                .join("static")
+                .join("resources")
+                .join("strings.conf"),
+        );
     }
 
     if let Ok(current_exe) = std::env::current_exe() {
@@ -527,11 +699,15 @@ fn load_app_settings(app: AppHandle) -> Result<AppSettingsPayload, String> {
 }
 
 #[tauri::command]
-fn save_app_settings(app: AppHandle, request: SaveAppSettingsRequest) -> Result<AppSettingsPayload, String> {
+fn save_app_settings(
+    app: AppHandle,
+    request: SaveAppSettingsRequest,
+) -> Result<AppSettingsPayload, String> {
     let mut settings = load_persisted_settings(&app)?;
     settings.api_base_url = normalize_base_url(request.api_base_url);
     settings.model = normalize_model(request.model);
-    settings.temperature = normalize_temperature(request.temperature.or(Some(settings.temperature)));
+    settings.temperature =
+        normalize_temperature(request.temperature.or(Some(settings.temperature)));
     settings.script_template = normalize_script_template(request.script_template);
 
     if request.clear_secret_key.unwrap_or(false) {
@@ -624,7 +800,8 @@ fn append_error_log(app: AppHandle, request: AppendErrorLogRequest) -> Result<St
         .open(&path)
         .map_err(|err| err.to_string())?;
 
-    writeln!(file, "[{}] {}", now_local_timestamp(), request.source).map_err(|err| err.to_string())?;
+    writeln!(file, "[{}] {}", now_local_timestamp(), request.source)
+        .map_err(|err| err.to_string())?;
     writeln!(file, "message: {}", request.message).map_err(|err| err.to_string())?;
 
     if let Some(stack) = request.stack.filter(|value| !value.trim().is_empty()) {
@@ -653,7 +830,13 @@ fn consume_pending_open_cdb_paths(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .register_uri_scheme_protocol(MEDIA_PROTOCOL_NAME, |_ctx, request| {
+            handle_media_protocol_request(request)
+        })
         .manage(PendingOpenCdbPaths(Mutex::new(Vec::new())))
+        .manage(OpenCdbSessions(
+            Mutex::new(std::collections::HashMap::new()),
+        ))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
@@ -667,12 +850,22 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            cdb::open_cdb_tab,
+            cdb::create_cdb_tab,
+            cdb::close_cdb_tab,
+            cdb::save_cdb_tab,
+            cdb::search_cards_page,
+            cdb::query_cards_raw,
+            cdb::get_card_by_id,
+            cdb::modify_cards,
+            cdb::delete_cards,
             read_cdb,
             read_text_file,
             write_cdb,
             write_file,
             copy_image,
             read_image,
+            import_card_image,
             load_strings_conf,
             load_app_settings,
             save_app_settings,

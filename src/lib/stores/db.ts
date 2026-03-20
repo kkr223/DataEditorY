@@ -1,10 +1,7 @@
 import { writable, get, derived } from 'svelte/store';
-import initSqlJs from 'sql.js';
-import { YGOProCdb, CardDataEntry } from 'ygopro-cdb-encode';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { basename } from '@tauri-apps/api/path';
-import type { SearchFilters } from '$lib/types';
+import type { CardDataEntry, SearchFilters } from '$lib/types';
 import en from '$lib/i18n/locales/en.json';
 import zh from '$lib/i18n/locales/zh.json';
 
@@ -12,7 +9,6 @@ export interface CdbTab {
   id: string;
   path: string;
   name: string;
-  cdb: YGOProCdb;
   /** Cached current page results from last search for fast tab switching */
   cachedCards: CardDataEntry[];
   cachedTotal: number;
@@ -59,7 +55,16 @@ export const activeTab = derived(
 
 export const isDbLoaded = derived(activeTab, ($activeTab) => $activeTab !== null);
 
-let sqlJsInstance: initSqlJs.SqlJsStatic | null = null;
+interface OpenCdbTabResponse {
+  name: string;
+  cachedCards: CardDataEntry[];
+  cachedTotal: number;
+}
+
+interface SearchCardsPageResponse {
+  cards: CardDataEntry[];
+  total: number;
+}
 
 function canUseLocalStorage() {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -133,7 +138,11 @@ export function removeRecentCdbHistoryEntry(path: string) {
 }
 
 function cloneCard(card: CardDataEntry): CardDataEntry {
-  return new CardDataEntry().fromPartial(card);
+  return {
+    ...card,
+    setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
+    strings: Array.isArray(card.strings) ? [...card.strings] : [],
+  };
 }
 
 function getUndoStack(tabId: string): UndoOperation[] {
@@ -607,14 +616,6 @@ function parseRuleExpression(input: string): string | null {
   return expression;
 }
 
-async function initDb() {
-  if (!sqlJsInstance) {
-    sqlJsInstance = await initSqlJs({
-      locateFile: file => `/${file}`
-    });
-  }
-}
-
 async function openCdbAtPath(selected: string): Promise<string | null> {
   const existing = get(tabs).find(t => t.path === selected);
   if (existing) {
@@ -623,40 +624,26 @@ async function openCdbAtPath(selected: string): Promise<string | null> {
     return existing.id;
   }
 
-  await initDb();
   try {
-    const data: number[] = await invoke('read_cdb', { path: selected });
-    const cdb = new YGOProCdb(sqlJsInstance as any).from(new Uint8Array(data));
-
-    const name = await basename(selected).catch(() => 'unknown.cdb');
     const id = crypto.randomUUID();
-
-    // Pre-cache first page so tab switch is instant
-    let cachedCards: CardDataEntry[] = [];
-    let cachedTotal = 0;
-    try {
-      const totalResult = cdb.database.exec('SELECT COUNT(*) AS total FROM datas INNER JOIN texts ON datas.id = texts.id');
-      cachedTotal = totalResult.length > 0 ? Number(totalResult[0].values[0]?.[0] ?? 0) : 0;
-      cachedCards = cdb.find('1=1 ORDER BY datas.id LIMIT 50 OFFSET 0');
-    } catch { /* empty db */ }
+    const response = await invoke<OpenCdbTabResponse>('open_cdb_tab', { tabId: id, path: selected });
 
     const tab: CdbTab = {
       id,
       path: selected,
-      name,
-      cdb,
-      cachedCards,
-      cachedTotal,
+      name: response.name,
+      cachedCards: response.cachedCards,
+      cachedTotal: response.cachedTotal,
       cachedPage: 1,
       cachedFilters: '{}',
-      cachedSelectedIds: cachedCards.length > 0 ? [cachedCards[0].code] : [],
-      cachedSelectedId: cachedCards[0]?.code ?? null,
-      cachedSelectionAnchorId: cachedCards[0]?.code ?? null,
+      cachedSelectedIds: response.cachedCards.length > 0 ? [response.cachedCards[0].code] : [],
+      cachedSelectedId: response.cachedCards[0]?.code ?? null,
+      cachedSelectionAnchorId: response.cachedCards[0]?.code ?? null,
       isDirty: false
     };
     tabs.update(t => [...t, tab]);
     activeTabId.set(id);
-    pushRecentCdbEntry({ path: selected, name });
+    pushRecentCdbEntry({ path: selected, name: response.name });
     return id;
   } catch (err) {
     console.error('Failed to read CDB:', err);
@@ -903,24 +890,14 @@ export async function createCdbFile(): Promise<string | null> {
   });
 
   if (selected && typeof selected === 'string') {
-    await initDb();
     try {
-      // The library constructor already creates an empty in-memory database
-      // and initializes the standard datas/texts tables for us.
-      const cdb = new YGOProCdb(sqlJsInstance as any);
-
-      // Save initial file to disk immediately so it exists
-      const bytes = cdb.export();
-      await invoke('write_cdb', { path: selected, data: Array.from(bytes) });
-
-      const name = await basename(selected).catch(() => 'newcard.cdb');
       const id = crypto.randomUUID();
-      
+      const response = await invoke<OpenCdbTabResponse>('create_cdb_tab', { tabId: id, path: selected });
+
       const tab: CdbTab = {
         id,
         path: selected,
-        name,
-        cdb,
+        name: response.name,
         cachedCards: [],
         cachedTotal: 0,
         cachedPage: 1,
@@ -932,7 +909,7 @@ export async function createCdbFile(): Promise<string | null> {
       };
       tabs.update(t => [...t, tab]);
       activeTabId.set(id);
-      pushRecentCdbEntry({ path: selected, name });
+      pushRecentCdbEntry({ path: selected, name: response.name });
       return id;
     } catch (err) {
       console.error("Failed to create CDB:", err);
@@ -943,10 +920,16 @@ export async function createCdbFile(): Promise<string | null> {
 }
 
 /** Close a tab by its id */
-export function closeTab(tabId: string) {
+export async function closeTab(tabId: string) {
   const currentTabs = get(tabs);
   const idx = currentTabs.findIndex(t => t.id === tabId);
   if (idx === -1) return;
+
+  try {
+    await invoke('close_cdb_tab', { tabId });
+  } catch (err) {
+    console.error('Failed to close CDB tab:', err);
+  }
 
   const newTabs = currentTabs.filter(t => t.id !== tabId);
   tabs.set(newTabs);
@@ -968,8 +951,7 @@ export async function saveCdbFile(): Promise<boolean> {
   if (!tab) return false;
 
   try {
-    const bytes = tab.cdb.export();
-    await invoke('write_cdb', { path: tab.path, data: Array.from(bytes) });
+    await invoke('save_cdb_tab', { tabId: tab.id });
     markActiveTabDirty(false);
     return true;
   } catch (err) {
@@ -1066,7 +1048,7 @@ export function getLastUndoLabel(): string | null {
   return stack[stack.length - 1]?.label ?? null;
 }
 
-export function undoLastOperation(): boolean {
+export async function undoLastOperation(): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
 
@@ -1076,19 +1058,33 @@ export function undoLastOperation(): boolean {
 
   try {
     if (operation.kind === 'modify') {
-      for (let index = 0; index < operation.affectedIds.length; index += 1) {
-        const cardId = operation.affectedIds[index];
-        const previousCard = operation.previousCards[index];
+      const cardsToRestore = operation.previousCards.filter((card): card is CardDataEntry => card !== null);
+      const deletedIds = operation.affectedIds.filter((cardId, index) => operation.previousCards[index] === null);
 
-        if (previousCard) {
-          tab.cdb.addCard(cloneCard(previousCard));
-        } else {
-          tab.cdb.database.run('DELETE FROM datas WHERE id = ?', [cardId]);
-          tab.cdb.database.run('DELETE FROM texts WHERE id = ?', [cardId]);
-        }
+      if (cardsToRestore.length > 0) {
+        await invoke('modify_cards', {
+          request: {
+            tabId: tab.id,
+            cards: cardsToRestore.map((card) => cloneCard(card)),
+          },
+        });
       }
-    } else {
-      tab.cdb.addCard(operation.deletedCards.map((card) => cloneCard(card)));
+
+      if (deletedIds.length > 0) {
+        await invoke('delete_cards', {
+          request: {
+            tabId: tab.id,
+            cardIds: deletedIds,
+          },
+        });
+      }
+    } else if (operation.deletedCards.length > 0) {
+      await invoke('modify_cards', {
+        request: {
+          tabId: tab.id,
+          cards: operation.deletedCards.map((card) => cloneCard(card)),
+        },
+      });
     }
 
     markActiveTabDirty(true);
@@ -1100,50 +1096,43 @@ export function undoLastOperation(): boolean {
   }
 }
 
-export function getCardById(cardId: number): CardDataEntry | undefined {
+export async function getCardById(cardId: number): Promise<CardDataEntry | undefined> {
   const tab = get(activeTab);
   if (!tab) return undefined;
-  return tab.cdb.findById(cardId);
+  return getCardByIdInTab(tab.id, cardId);
 }
 
-/** Modify (upsert) a card in the active tab's in-memory CDB */
-export function modifyCard(card: CardDataEntry): boolean {
-  const tab = get(activeTab);
-  if (!tab) return false;
-
+export async function getCardByIdInTab(tabId: string, cardId: number): Promise<CardDataEntry | undefined> {
   try {
-    const previousCard = tab.cdb.findById(card.code);
-    // addCard does an INSERT OR REPLACE, so it works for both insert and update
-    tab.cdb.addCard(card);
-    pushUndoOperation(tab.id, {
-      kind: 'modify',
-      label: previousCard ? `Edit card ${card.code}` : `Create card ${card.code}`,
-      affectedIds: [card.code],
-      previousCards: [previousCard ? cloneCard(previousCard) : null],
-    });
-    markActiveTabDirty(true);
-    return true;
+    return await invoke<CardDataEntry | null>('get_card_by_id', { tabId, cardId }) ?? undefined;
   } catch (err) {
-    console.error("Failed to modify card:", err);
-    return false;
+    console.error('Failed to fetch card by id:', err);
+    return undefined;
   }
 }
 
-export function modifyCards(cards: CardDataEntry[]): boolean {
+/** Modify (upsert) a card in the active tab's working CDB */
+export async function modifyCard(card: CardDataEntry): Promise<boolean> {
+  return modifyCards([card]);
+}
+
+export async function modifyCards(cards: CardDataEntry[]): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
 
   try {
-    const previousCards = cards.map((card) => {
-      const existing = tab.cdb.findById(card.code);
-      return existing ? cloneCard(existing) : null;
+    const previousCards = await Promise.all(cards.map((card) => getCardByIdInTab(tab.id, card.code)));
+    await invoke('modify_cards', {
+      request: {
+        tabId: tab.id,
+        cards: cards.map((card) => cloneCard(card)),
+      },
     });
-    tab.cdb.addCard(cards);
     pushUndoOperation(tab.id, {
       kind: 'modify',
       label: cards.length === 1 ? `Edit card ${cards[0].code}` : `Modify ${cards.length} cards`,
       affectedIds: cards.map((card) => card.code),
-      previousCards,
+      previousCards: previousCards.map((card) => card ?? null),
     });
     markActiveTabDirty(true);
     return true;
@@ -1153,45 +1142,27 @@ export function modifyCards(cards: CardDataEntry[]): boolean {
   }
 }
 
-/** Delete a card from the active tab's in-memory CDB by id */
-export function deleteCard(cardId: number): boolean {
-  const tab = get(activeTab);
-  if (!tab) return false;
-
-  try {
-    const deletedCard = tab.cdb.findById(cardId);
-    tab.cdb.database.run('DELETE FROM datas WHERE id = ?', [cardId]);
-    tab.cdb.database.run('DELETE FROM texts WHERE id = ?', [cardId]);
-    if (deletedCard) {
-      pushUndoOperation(tab.id, {
-        kind: 'delete',
-        label: `Delete card ${cardId}`,
-        affectedIds: [cardId],
-        deletedCards: [cloneCard(deletedCard)],
-      });
-    }
-    markActiveTabDirty(true);
-    return true;
-  } catch (err) {
-    console.error("Failed to delete card:", err);
-    return false;
-  }
+/** Delete a card from the active tab's working CDB by id */
+export async function deleteCard(cardId: number): Promise<boolean> {
+  return deleteCards([cardId]);
 }
 
-export function deleteCards(cardIds: number[]): boolean {
+export async function deleteCards(cardIds: number[]): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
 
   try {
-    const deletedCards = cardIds
-      .map((cardId) => tab.cdb.findById(cardId))
+    const deletedCards = (await Promise.all(cardIds.map((cardId) => getCardByIdInTab(tab.id, cardId))))
       .filter((card): card is CardDataEntry => card !== undefined)
       .map((card) => cloneCard(card));
-    if (cardIds.length > 0) {
-      const placeholders = cardIds.map(() => '?').join(',');
-      tab.cdb.database.run(`DELETE FROM datas WHERE id IN (${placeholders})`, cardIds);
-      tab.cdb.database.run(`DELETE FROM texts WHERE id IN (${placeholders})`, cardIds);
-    }
+
+    await invoke('delete_cards', {
+      request: {
+        tabId: tab.id,
+        cardIds,
+      },
+    });
+
     if (deletedCards.length > 0) {
       pushUndoOperation(tab.id, {
         kind: 'delete',
@@ -1208,26 +1179,54 @@ export function deleteCards(cardIds: number[]): boolean {
   }
 }
 
+export async function queryCardsRaw(tabId: string, queryClause: string, params: Record<string, string | number> = {}): Promise<CardDataEntry[]> {
+  try {
+    return await invoke<CardDataEntry[]>('query_cards_raw', {
+      request: {
+        tabId,
+        queryClause,
+        params,
+      },
+    });
+  } catch (err) {
+    console.error('Failed to query cards:', err);
+    return [];
+  }
+}
+
 /** Search one page of cards in the active tab's CDB */
-export function searchCardsPage(filters: SearchFilters = {}, page = 1, pageSize = 50): { cards: CardDataEntry[]; total: number } {
+export async function searchCardsPage(filters: SearchFilters = {}, page = 1, pageSize = 50): Promise<{ cards: CardDataEntry[]; total: number }> {
   const tab = get(activeTab);
   if (!tab) return { cards: [], total: 0 };
 
   try {
     const { whereClause, params } = buildSearchQuery(filters);
     const safePage = Math.max(1, page);
-    const offset = (safePage - 1) * pageSize;
-    const totalStmt = `SELECT COUNT(*) AS total FROM datas INNER JOIN texts ON datas.id = texts.id WHERE ${whereClause}`;
-    const totalResult = tab.cdb.database.exec(totalStmt, params);
-    const total = totalResult.length > 0 ? Number(totalResult[0].values[0]?.[0] ?? 0) : 0;
-    const cards = tab.cdb.find(`${whereClause} ORDER BY datas.id LIMIT ${pageSize} OFFSET ${offset}`, params);
+    const response = await invoke<SearchCardsPageResponse>('search_cards_page', {
+      request: {
+        tabId: tab.id,
+        whereClause,
+        params,
+        page: safePage,
+        pageSize,
+      },
+    });
 
-    tab.cachedCards = cards;
-    tab.cachedTotal = total;
-    tab.cachedPage = safePage;
-    tab.cachedFilters = JSON.stringify(filters);
+    tabs.update((currentTabs) =>
+      currentTabs.map((item) =>
+        item.id === tab.id
+          ? {
+              ...item,
+              cachedCards: response.cards,
+              cachedTotal: response.total,
+              cachedPage: safePage,
+              cachedFilters: JSON.stringify(filters),
+            }
+          : item
+      )
+    );
 
-    return { cards, total };
+    return response;
   } catch (err) {
     if (err instanceof RuleExpressionError) {
       throw err;
