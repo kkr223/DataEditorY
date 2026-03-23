@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    io::{BufWriter, Read, Seek, Write},
+    io::{BufReader, BufWriter, Seek, Write},
     path::{Path, PathBuf},
     process::Command,
     sync::Mutex,
@@ -489,11 +489,8 @@ fn add_path_to_zip<W: Write + Seek>(
         } else {
             format!("{entry_name}/")
         };
-        zip.add_directory(
-            dir_name,
-            SimpleFileOptions::default().compression_method(CompressionMethod::Deflated),
-        )
-        .map_err(|err| err.to_string())?;
+        zip.add_directory(dir_name, SimpleFileOptions::default())
+            .map_err(|err| err.to_string())?;
 
         for child in fs::read_dir(path).map_err(|err| err.to_string())? {
             let child = child.map_err(|err| err.to_string())?;
@@ -504,14 +501,14 @@ fn add_path_to_zip<W: Write + Seek>(
 
     zip.start_file(
         entry_name,
-        SimpleFileOptions::default().compression_method(CompressionMethod::Deflated),
+        SimpleFileOptions::default().compression_method(CompressionMethod::Stored),
     )
     .map_err(|err| err.to_string())?;
 
-    let mut file = fs::File::open(path).map_err(|err| err.to_string())?;
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).map_err(|err| err.to_string())?;
-    zip.write_all(&buffer).map_err(|err| err.to_string())
+    let mut file = BufReader::new(fs::File::open(path).map_err(|err| err.to_string())?);
+    std::io::copy(&mut file, zip)
+        .map(|_| ())
+        .map_err(|err| err.to_string())
 }
 
 fn vscode_candidates() -> Vec<PathBuf> {
