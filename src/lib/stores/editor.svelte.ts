@@ -77,6 +77,19 @@ export function getAllCardsMap(): Map<number, CardDataEntry> {
   return _allCardsMap;
 }
 
+export function updateVisibleCards(cards: CardDataEntry[]): void {
+  if (cards.length === 0) return;
+
+  const nextByCode = new Map(cards.map((card) => [card.code, card]));
+  _allCards = _allCards.map((card) => nextByCode.get(card.code) ?? card);
+
+  const map = new Map<number, CardDataEntry>();
+  for (const c of _allCards) {
+    map.set(c.code, c);
+  }
+  _allCardsMap = map;
+}
+
 export function getTotalCards(): number {
   return _totalCards;
 }

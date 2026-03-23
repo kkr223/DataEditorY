@@ -4,6 +4,7 @@
   import { _ } from "svelte-i18n";
   import {
     activeTab,
+    activeTabId,
     deleteCard,
     getCardById,
     isDbLoaded,
@@ -37,6 +38,7 @@
   import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
   import { HAS_AI_FEATURE, HAS_CARD_IMAGE_FEATURE } from "$lib/config/build";
   import { appSettingsState, hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
+  import { openOrCreateScriptTab, syncScriptTabFromSavedContent } from "$lib/stores/scriptEditor.svelte";
   import { writeErrorLog } from "$lib/utils/errorLog";
   import { toMediaProtocolSrc } from "$lib/utils/mediaProtocol";
   import type { AgentStage } from "$lib/utils/ai";
@@ -61,6 +63,7 @@
   let isImagePreviewOpen = $state(false);
   let imageClickTimer: ReturnType<typeof setTimeout> | null = null;
   let lastSyncedSelectedId: number | null = null;
+  let lastLoadedCardSnapshot = $state("");
   let isCardImageDrawerOpen = $state(false);
   let cardImageDrawerModulePromise = $state<Promise<CardImageDrawerModule> | null>(null);
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
@@ -123,6 +126,7 @@
 
   function resetDraftCard() {
     lastSyncedSelectedId = null;
+    lastLoadedCardSnapshot = "";
     originalCardCode = null;
     draftCard = createEmptyCard();
     syncSetcodesFromCard(draftCard);
@@ -133,9 +137,33 @@
 
   function loadCardIntoDraft(card: CardDataEntry) {
     lastSyncedSelectedId = card.code;
+    lastLoadedCardSnapshot = buildCardSnapshot(card);
     originalCardCode = card.code;
     draftCard = cloneEditableCard(card);
     syncSetcodesFromCard(draftCard);
+  }
+
+  function buildCardSnapshot(card: CardDataEntry) {
+    return JSON.stringify({
+      code: card.code,
+      alias: card.alias,
+      name: card.name,
+      desc: card.desc,
+      strings: card.strings,
+      setcode: card.setcode,
+      type: card.type,
+      attack: card.attack,
+      defense: card.defense,
+      level: card.level,
+      race: card.race,
+      attribute: card.attribute,
+      lscale: card.lscale,
+      rscale: card.rscale,
+      linkMarker: card.linkMarker,
+      category: card.category,
+      ot: card.ot,
+      ruleCode: card.ruleCode,
+    });
   }
 
   function handleImageError(failedSrc: string) {
@@ -449,12 +477,12 @@
     if (!code) return;
 
     try {
-      let info = await invoke<CardScriptInfo>("get_card_script_info", {
+      const existingInfo = await invoke<CardScriptInfo>("get_card_script_info", {
         cdbPath: $activeTab.path,
         cardId: code,
       });
 
-      if (!info.exists) {
+      if (!existingInfo.exists) {
         const shouldCreate = await ask($_("editor.script_create_confirm", {
           values: { code: String(code) },
         }), {
@@ -464,16 +492,19 @@
 
         if (!shouldCreate) return;
 
-        info = await invoke<CardScriptInfo>("write_card_script", {
-          cdbPath: $activeTab.path,
-          cardId: code,
-          content: getScriptTemplateContent(draftCard.name ?? "", code),
-          overwrite: false,
-        });
-        showToast($_("editor.script_created", { values: { code: String(code) } }), "success");
       }
 
-      await invoke("open_in_system_editor", { path: info.path });
+      const opened = await openOrCreateScriptTab({
+        cdbPath: $activeTab.path,
+        sourceTabId: $activeTabId,
+        cardCode: code,
+        cardName: draftCard.name ?? "",
+        templateContent: getScriptTemplateContent(draftCard.name ?? "", code),
+      });
+
+      if (opened.createdFromTemplate) {
+        showToast($_("editor.script_created", { values: { code: String(code) } }), "success");
+      }
     } catch (error) {
       console.error("Failed to open script", error);
       void writeErrorLog({
@@ -525,7 +556,14 @@
         content: generatedScript,
         overwrite: true,
       });
-      await invoke("open_in_system_editor", { path: written.path });
+      syncScriptTabFromSavedContent({
+        cdbPath: $activeTab.path,
+        sourceTabId: $activeTabId,
+        cardCode: code,
+        cardName: draftCard.name ?? "",
+        scriptPath: written.path,
+        content: generatedScript,
+      });
       showToast($_("editor.script_generated", { values: { code: String(code) } }), "success");
     } catch (error) {
       if (isAbortError(error)) {
@@ -689,7 +727,8 @@
     const selectedId = editorState.selectedId;
     const card = getAllCardsMap().get(selectedId ?? -1);
     if (card) {
-      if (lastSyncedSelectedId !== card.code) {
+      const nextSnapshot = buildCardSnapshot(card);
+      if (lastSyncedSelectedId !== card.code || lastLoadedCardSnapshot !== nextSnapshot) {
         untrack(() => {
           loadCardIntoDraft(card);
         });

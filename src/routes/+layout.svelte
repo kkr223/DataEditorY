@@ -10,6 +10,7 @@
   import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation, recentCdbHistory, loadRecentCdbHistory, openCdbHistoryEntry, openCdbPath, removeRecentCdbHistoryEntry } from '$lib/stores/db';
   import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
   import { clearSelection, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
+  import { activeScriptTabId, closeScriptTab, getScriptTabDisplayName, hasUnsavedScriptChanges, saveActiveScriptTab, scriptTabs, activateScriptTab } from '$lib/stores/scriptEditor.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
   import { dispatchAppShortcut } from '$lib/utils/shortcuts';
   import { appShellState, activateEditorView, closeSettingsView, openSettingsView } from '$lib/stores/appShell.svelte';
@@ -130,6 +131,12 @@
   }
 
   async function handleSave() {
+    if (appShellState.mainView === 'script') {
+      const ok = await saveActiveScriptTab();
+      showToast($_(ok ? 'editor.script_save_success' : 'editor.script_save_failed'), ok ? 'success' : 'error');
+      return;
+    }
+
     const ok = await saveCdbFile();
     showToast($_(ok ? 'editor.save_success' : 'editor.save_failed'), ok ? 'success' : 'error');
   }
@@ -150,6 +157,24 @@
     }
 
     await closeTab(tabId);
+  }
+
+  async function handleCloseScriptTab(tabId: string) {
+    const tab = $scriptTabs.find((item) => item.id === tabId);
+    if (!tab) return;
+
+    if (hasUnsavedScriptChanges(tabId)) {
+      const confirmed = await ask($_('editor.unsaved_close_confirm', {
+        values: { name: getScriptTabDisplayName(tab) },
+      }), {
+        title: $_('editor.unsaved_close_title'),
+        kind: 'warning',
+      });
+
+      if (!confirmed) return;
+    }
+
+    closeScriptTab(tabId);
   }
 
   function isEditableTarget(target: EventTarget | null): boolean {
@@ -502,7 +527,7 @@
   </header>
 
   <!-- Tab Bar -->
-  {#if $tabs.length > 0 || appShellState.settingsOpen}
+  {#if $tabs.length > 0 || $scriptTabs.length > 0 || appShellState.settingsOpen}
   <div class="tab-bar">
     {#if appShellState.settingsOpen}
       <button
@@ -538,6 +563,27 @@
           tabindex="0"
           onclick={(e) => { e.stopPropagation(); void handleCloseTab(tab.id); }}
           onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); void handleCloseTab(tab.id); } }}
+        >×</span>
+      </button>
+    {/each}
+    {#each $scriptTabs as tab (tab.id)}
+      <button
+        class="tab-item script-tab"
+        class:active={$activeScriptTabId === tab.id && appShellState.mainView === 'script'}
+        onclick={() => activateScriptTab(tab.id)}
+        title={tab.scriptPath}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M10 13h4"></path><path d="M10 17h4"></path><path d="M8 9h1"></path></svg>
+        <span class="tab-name">{getScriptTabDisplayName(tab)}</span>
+        {#if tab.isDirty}
+          <span class="tab-dirty" aria-label={$_('editor.unsaved_badge')} title={$_('editor.unsaved_badge')}>•</span>
+        {/if}
+        <span
+          class="tab-close"
+          role="button"
+          tabindex="0"
+          onclick={(e) => { e.stopPropagation(); void handleCloseScriptTab(tab.id); }}
+          onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); void handleCloseScriptTab(tab.id); } }}
         >×</span>
       </button>
     {/each}

@@ -15,6 +15,7 @@
 
   type CardListModule = typeof import('$lib/components/CardList.svelte');
   type CardEditorModule = typeof import('$lib/components/CardEditor.svelte');
+  type LuaScriptEditorModule = typeof import('$lib/components/LuaScriptEditor.svelte');
   type SettingsPanelModule = typeof import('$lib/components/SettingsPanel.svelte');
 
   function restoreSearchFilters() {
@@ -42,11 +43,16 @@
 
   let cardListModulePromise = $state<Promise<CardListModule> | null>(null);
   let cardEditorModulePromise = $state<Promise<CardEditorModule> | null>(null);
+  let luaScriptEditorModulePromise = $state<Promise<LuaScriptEditorModule> | null>(null);
   let settingsPanelModulePromise = $state<Promise<SettingsPanelModule> | null>(null);
 
   function ensureEditorModules() {
     cardListModulePromise ??= import('$lib/components/CardList.svelte');
     cardEditorModulePromise ??= import('$lib/components/CardEditor.svelte');
+  }
+
+  function ensureScriptEditorModule() {
+    luaScriptEditorModulePromise ??= import('$lib/components/LuaScriptEditor.svelte');
   }
 
   function ensureSettingsPanelModule() {
@@ -90,6 +96,11 @@
       return;
     }
 
+    if (appShellState.mainView === 'script') {
+      ensureScriptEditorModule();
+      return;
+    }
+
     ensureEditorModules();
   });
 </script>
@@ -97,6 +108,12 @@
 {#if appShellState.mainView === 'settings'}
   {#if settingsPanelModulePromise}
     {#await settingsPanelModulePromise then module}
+      <module.default />
+    {/await}
+  {/if}
+{:else if appShellState.mainView === 'script'}
+  {#if luaScriptEditorModulePromise}
+    {#await luaScriptEditorModulePromise then module}
       <module.default />
     {/await}
   {/if}

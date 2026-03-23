@@ -1,0 +1,65 @@
+{
+    "condition": {
+		"prefix": "#con",
+		"body": [
+			"function s.$1con(e,tp,eg,ep,ev,re,r,rp)",
+			"\t$2",
+			"end"
+		],
+		"description": "condition"
+	},
+    "cost": {
+		"prefix": "#ct",
+		"body": [
+			"function s.$1cost(e,tp,eg,ep,ev,re,r,rp,chk$2)",
+			"\tif chk==0 then return $3 end",
+			"\t$4",
+			"end"
+		],
+		"description": "cost"
+	},
+	"target": {
+		"prefix": "#tg",
+		"body": [
+			"function s.$1tg(e,tp,eg,ep,ev,re,r,rp,chk$2)",
+			"\tif chk==0 then return $3 end",
+			"\t$4",
+			"end"
+		],
+		"description": "target"
+	},
+	"operation": {
+		"prefix": "#op",
+		"body": [
+			"function s.$1op(e,tp,eg,ep,ev,re,r,rp)",
+			"\t$2",
+			"end"
+		],
+		"description": "operation"
+	},
+	"filter": {
+		"prefix": "#fl",
+		"body": [
+			"function s.$1filter(c$2)",
+			"\treturn $3",
+			"end"
+		],
+		"description": "filter"
+	},
+	"selectmatchcard":{
+		"prefix": "#slma",
+		"body": [
+			"Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_$1)",
+			"local g=Duel.SelectMatchingCard(tp,s.$2,tp,$3,$4,1,1,nil$5)"
+		],
+		"description": "selectmatchcard"
+	},
+	"selecttarget":{
+		"prefix": "#sltg",
+		"body": [
+			"Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_$1)",
+			"local tg=Duel.SelectTarget(tp,s.$2,tp,$3,$4,1,1,nil$5)"
+		],
+		"description": "selecttarget"
+	}
+}

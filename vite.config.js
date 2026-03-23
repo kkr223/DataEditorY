@@ -38,6 +38,7 @@ export default defineConfig(async () => ({
           if (id.includes("node_modules/svelte-i18n")) {
             return "vendor-i18n";
           }
+
         },
       },
     },
