@@ -2,7 +2,10 @@ import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { getBuildVariantConfig } from "./scripts/build-variant-config.mjs";
 
-const host = globalThis.process?.env?.TAURI_DEV_HOST;
+const DEFAULT_DEV_HOST = "127.0.0.1";
+const DEFAULT_DEV_PORT = 43127;
+const DEFAULT_HMR_PORT = 43128;
+const host = globalThis.process?.env?.TAURI_DEV_HOST || DEFAULT_DEV_HOST;
 const variant = getBuildVariantConfig(globalThis.process?.env?.APP_VARIANT);
 
 // https://vite.dev/config/
@@ -50,16 +53,14 @@ export default defineConfig(async () => ({
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
-    port: 1420,
+    port: DEFAULT_DEV_PORT,
     strictPort: true,
-    host: host || false,
-    hmr: host
-      ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
-      : undefined,
+    host,
+    hmr: {
+      protocol: "ws",
+      host,
+      port: DEFAULT_HMR_PORT,
+    },
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
