@@ -40,6 +40,22 @@ cd DataEditorY
 bun install
 ```
 
+### Linux / Arch 运行提醒
+
+在部分较新的 Arch Linux 环境中，`AppImage` 版本可能出现启动后白屏，或中文显示异常。
+
+如果遇到白屏，可先尝试：
+
+```bash
+LD_PRELOAD=/usr/lib/libwayland-client.so ./DataEditorY*.AppImage
+```
+
+如果界面可以正常显示，但中文字体异常或缺字，通常是系统未安装中文字体，可执行：
+
+```bash
+sudo pacman -S noto-fonts noto-fonts-cjk
+```
+
 ## 开发与构建
 
 常用命令：
