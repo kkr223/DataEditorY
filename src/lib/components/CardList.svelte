@@ -209,6 +209,8 @@
               <option value="tuner">{$_('search.subtypes_monster.tuner')}</option>
               <option value="flip">{$_('search.subtypes_monster.flip')}</option>
               <option value="toon">{$_('search.subtypes_monster.toon')}</option>
+              <option value="token">{$_('search.subtypes_monster.token')}</option>
+              <option value="spssummon">{$_('search.subtypes_monster.spssummon')}</option>
             {:else if editorState.searchFilters.type === 'spell'}
               <option value="normal">{$_('search.subtypes_spell.normal')}</option>
               <option value="quickplay">{$_('search.subtypes_spell.quickplay')}</option>

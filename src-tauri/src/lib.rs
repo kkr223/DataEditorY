@@ -596,6 +596,11 @@ fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn path_exists(path: String) -> Result<bool, String> {
+    Ok(Path::new(&path).exists())
+}
+
+#[tauri::command]
 fn copy_image(src: String, dest: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&dest).parent() {
         let _ = fs::create_dir_all(parent);
@@ -863,6 +868,7 @@ pub fn run() {
             read_text_file,
             write_cdb,
             write_file,
+            path_exists,
             copy_image,
             read_image,
             import_card_image,

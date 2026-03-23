@@ -142,6 +142,7 @@ function cloneCard(card: CardDataEntry): CardDataEntry {
     ...card,
     setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
     strings: Array.isArray(card.strings) ? [...card.strings] : [],
+    ruleCode: Number(card.ruleCode ?? 0),
   };
 }
 
