@@ -1,9 +1,8 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { _ } from "svelte-i18n";
-  import { isTauri } from "@tauri-apps/api/core";
+  import { invoke, isTauri } from "@tauri-apps/api/core";
   import { ask, message, save } from "@tauri-apps/plugin-dialog";
-  import { exists, writeFile } from "@tauri-apps/plugin-fs";
   import { dirname, join, resolveResource } from "@tauri-apps/api/path";
   import type { CardDataEntry } from "$lib/types";
   import { HAS_AI_FEATURE } from "$lib/config/build";
@@ -583,7 +582,7 @@
       if (!targetPath) return;
 
       const bytes = await blobToUint8Array(pngBlob);
-      await writeFile(targetPath, bytes);
+      await invoke("write_file", { path: targetPath, data: Array.from(bytes) });
       showToast($_("editor.card_image_download_success"), "success");
     } catch (error) {
       console.error("Failed to download generated card image", error);
@@ -611,7 +610,7 @@
       const picPath = await join(picsDir, `${card.code}.jpg`);
 
       let shouldOverwrite = true;
-      if (await exists(picPath)) {
+      if (await invoke<boolean>("path_exists", { path: picPath })) {
         shouldOverwrite = await ask($_("editor.card_image_save_jpg_overwrite_confirm", {
           values: { code: String(card.code) },
         }), {
@@ -624,7 +623,7 @@
 
       const jpgBlob = await renderCardBlob(buildJpgData(), "jpg", 0.92);
       const bytes = await blobToUint8Array(jpgBlob);
-      await writeFile(picPath, bytes);
+      await invoke("write_file", { path: picPath, data: Array.from(bytes) });
       await onSavedJpg();
       showToast($_("editor.card_image_save_jpg_success", {
         values: { code: String(card.code) },

@@ -197,6 +197,14 @@ struct CardScriptInfo {
     exists: bool,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CardScriptDocument {
+    path: String,
+    exists: bool,
+    content: String,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AppendErrorLogRequest {
@@ -285,6 +293,10 @@ fn normalize_script_template(value: String) -> String {
     } else {
         value.replace("\r\n", "\n")
     }
+}
+
+fn normalize_script_content(value: String) -> String {
+    value.replace("\r\n", "\n")
 }
 
 fn normalize_temperature(value: Option<f64>) -> f64 {
@@ -596,6 +608,11 @@ fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn path_exists(path: String) -> Result<bool, String> {
+    Ok(Path::new(&path).exists())
+}
+
+#[tauri::command]
 fn copy_image(src: String, dest: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&dest).parent() {
         let _ = fs::create_dir_all(parent);
@@ -764,6 +781,25 @@ fn get_card_script_info(cdb_path: String, card_id: u32) -> Result<CardScriptInfo
 }
 
 #[tauri::command]
+fn read_card_script(cdb_path: String, card_id: u32) -> Result<CardScriptDocument, String> {
+    let script_path = build_card_script_path(&cdb_path, card_id)?;
+    if !script_path.exists() {
+        return Ok(CardScriptDocument {
+            path: script_path.to_string_lossy().to_string(),
+            exists: false,
+            content: String::new(),
+        });
+    }
+
+    let content = fs::read_to_string(&script_path).map_err(|err| err.to_string())?;
+    Ok(CardScriptDocument {
+        path: script_path.to_string_lossy().to_string(),
+        exists: true,
+        content: normalize_script_content(content),
+    })
+}
+
+#[tauri::command]
 fn write_card_script(
     cdb_path: String,
     card_id: u32,
@@ -779,7 +815,21 @@ fn write_card_script(
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
 
-    fs::write(&script_path, content).map_err(|err| err.to_string())?;
+    fs::write(&script_path, normalize_script_content(content)).map_err(|err| err.to_string())?;
+    Ok(CardScriptInfo {
+        path: script_path.to_string_lossy().to_string(),
+        exists: true,
+    })
+}
+
+#[tauri::command]
+fn save_card_script(cdb_path: String, card_id: u32, content: String) -> Result<CardScriptInfo, String> {
+    let script_path = build_card_script_path(&cdb_path, card_id)?;
+    if let Some(parent) = script_path.parent() {
+        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+    }
+
+    fs::write(&script_path, normalize_script_content(content)).map_err(|err| err.to_string())?;
     Ok(CardScriptInfo {
         path: script_path.to_string_lossy().to_string(),
         exists: true,
@@ -863,6 +913,7 @@ pub fn run() {
             read_text_file,
             write_cdb,
             write_file,
+            path_exists,
             copy_image,
             read_image,
             import_card_image,
@@ -873,7 +924,9 @@ pub fn run() {
             set_cover_image,
             clear_cover_image,
             get_card_script_info,
+            read_card_script,
             write_card_script,
+            save_card_script,
             open_in_system_editor,
             append_error_log,
             consume_pending_open_cdb_paths

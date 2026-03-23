@@ -1,0 +1,147 @@
+[
+  {
+    "name": "condition",
+    "prefix": "#con",
+    "body": [
+      "function s.$1con(e,tp,eg,ep,ev,re,r,rp)",
+      "\t$2",
+      "end"
+    ],
+    "description": "condition",
+    "sortText": "1001"
+  },
+  {
+    "name": "cost",
+    "prefix": "#ct",
+    "body": [
+      "function s.$1cost(e,tp,eg,ep,ev,re,r,rp,chk$2)",
+      "\tif chk==0 then return $3 end",
+      "\t$4",
+      "end"
+    ],
+    "description": "cost",
+    "sortText": "1002"
+  },
+  {
+    "name": "target",
+    "prefix": "#tg",
+    "body": [
+      "function s.$1tg(e,tp,eg,ep,ev,re,r,rp,chk$2)",
+      "\tif chk==0 then return $3 end",
+      "\t$4",
+      "end"
+    ],
+    "description": "target",
+    "sortText": "1003"
+  },
+  {
+    "name": "operation",
+    "prefix": "#op",
+    "body": [
+      "function s.$1op(e,tp,eg,ep,ev,re,r,rp)",
+      "\t$2",
+      "end"
+    ],
+    "description": "operation",
+    "sortText": "1004"
+  },
+  {
+    "name": "filter",
+    "prefix": "#fl",
+    "body": [
+      "function s.$1filter(c$2)",
+      "\treturn $3",
+      "end"
+    ],
+    "description": "filter",
+    "sortText": "1005"
+  },
+  {
+    "name": "selectmatchcard",
+    "prefix": "#slma",
+    "body": [
+      "Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_$1)",
+      "local g=Duel.SelectMatchingCard(tp,s.$2,tp,$3,$4,1,1,nil$5)"
+    ],
+    "description": "selectmatchcard",
+    "sortText": "1006"
+  },
+  {
+    "name": "selecttarget",
+    "prefix": "#sltg",
+    "body": [
+      "Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_$1)",
+      "local tg=Duel.SelectTarget(tp,s.$2,tp,$3,$4,1,1,nil$5)"
+    ],
+    "description": "selecttarget",
+    "sortText": "1007"
+  },
+  {
+    "name": "Script Header",
+    "prefix": "ygo.header",
+    "body": [
+      "-- ${1:Card Name}",
+      "local s,id=GetID()",
+      "function s.initial_effect(c)",
+      "\t$0",
+      "end"
+    ],
+    "description": "Create the standard YGOPro script header.",
+    "sortText": "0001"
+  },
+  {
+    "name": "Ignition Effect",
+    "prefix": "ygo.ignition",
+    "body": [
+      "local e1=Effect.CreateEffect(c)",
+      "e1:SetDescription(aux.Stringid(id,${1:0}))",
+      "e1:SetCategory(${2:CATEGORY_DRAW})",
+      "e1:SetType(EFFECT_TYPE_IGNITION)",
+      "e1:SetRange(${3:LOCATION_MZONE})",
+      "e1:SetCountLimit(1,id)",
+      "e1:SetTarget(s.${4:target})",
+      "e1:SetOperation(s.${5:operation})",
+      "c:RegisterEffect(e1)"
+    ],
+    "description": "Register a basic ignition effect.",
+    "sortText": "0002"
+  },
+  {
+    "name": "Trigger Effect",
+    "prefix": "ygo.trigger",
+    "body": [
+      "local e1=Effect.CreateEffect(c)",
+      "e1:SetDescription(aux.Stringid(id,${1:0}))",
+      "e1:SetCategory(${2:CATEGORY_SPECIAL_SUMMON})",
+      "e1:SetType(EFFECT_TYPE_SINGLE+EFFECT_TYPE_TRIGGER_O)",
+      "e1:SetProperty(EFFECT_FLAG_DELAY)",
+      "e1:SetCode(${3:EVENT_TO_GRAVE})",
+      "e1:SetCountLimit(1,id)",
+      "e1:SetTarget(s.${4:target})",
+      "e1:SetOperation(s.${5:operation})",
+      "c:RegisterEffect(e1)"
+    ],
+    "description": "Register a delayed trigger effect.",
+    "sortText": "0003"
+  },
+  {
+    "name": "Quick Effect",
+    "prefix": "ygo.quick",
+    "body": [
+      "local e1=Effect.CreateEffect(c)",
+      "e1:SetDescription(aux.Stringid(id,${1:0}))",
+      "e1:SetCategory(${2:CATEGORY_NEGATE})",
+      "e1:SetType(EFFECT_TYPE_QUICK_O)",
+      "e1:SetCode(${3:EVENT_FREE_CHAIN})",
+      "e1:SetRange(${4:LOCATION_MZONE})",
+      "e1:SetHintTiming(0,TIMINGS_CHECK_MONSTER)",
+      "e1:SetCountLimit(1,id)",
+      "e1:SetCondition(s.${5:condition})",
+      "e1:SetTarget(s.${6:target})",
+      "e1:SetOperation(s.${7:operation})",
+      "c:RegisterEffect(e1)"
+    ],
+    "description": "Register a quick effect with the common options.",
+    "sortText": "0004"
+  }
+]

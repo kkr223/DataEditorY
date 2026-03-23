@@ -118,6 +118,7 @@ export function cloneEditableCard(card: CardDataEntry): CardDataEntry {
     ...card,
     setcode: Array.isArray(card.setcode) ? [...card.setcode] : card.setcode,
     strings: Array.isArray(card.strings) ? [...card.strings] : [],
+    ruleCode: Number(card.ruleCode ?? 0),
   } as CardDataEntry;
 
   while (clone.strings.length < 16) clone.strings.push('');
@@ -145,5 +146,6 @@ export function createEmptyCard(): CardDataEntry {
     lscale: 0,
     rscale: 0,
     linkMarker: 0,
+    ruleCode: 0,
   } as CardDataEntry;
 }

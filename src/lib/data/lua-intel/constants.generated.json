@@ -1,0 +1,5138 @@
+[
+  {
+    "name": "MIN_ID",
+    "value": "128",
+    "description": "0x80, by DataManager::GetDesc()",
+    "category": "min/max value"
+  },
+  {
+    "name": "MAX_ID",
+    "value": "268435455",
+    "description": "28 bits, by DataManager::GetDesc()",
+    "category": "min/max value"
+  },
+  {
+    "name": "MAX_COUNTER",
+    "value": "65535",
+    "description": "max number for adding/removing counters, by card::add_counter(), field::remove_counter()",
+    "category": "min/max value"
+  },
+  {
+    "name": "MAX_PARAMETER",
+    "value": "0xffff",
+    "description": "",
+    "category": "min/max value"
+  },
+  {
+    "name": "MAX_XYZ_LEVEL",
+    "value": "0x0fff",
+    "description": "",
+    "category": "min/max value"
+  },
+  {
+    "name": "LOCATION_DECK",
+    "value": "0x01",
+    "description": "卡组",
+    "category": "Locations 区域"
+  },
+  {
+    "name": "LOCATION_HAND",
+    "value": "0x02",
+    "description": "手牌",
+    "category": "Locations 区域"
+  },
+  {
+    "name": "LOCATION_MZONE",
+    "value": "0x04",
+    "description": "主要怪兽区(0-4)+额外怪兽区(5-6)",
+    "category": "Locations 区域"
+  },
+  {
+    "name": "LOCATION_SZONE",
+    "value": "0x08",
+    "description": "魔陷区(0-4)+场地区(5)",
+    "category": "Locations 区域"
+  },
+  {
+    "name": "LOCATION_GRAVE",
+    "value": "0x10",
+    "description": "墓地",
+    "category": "Locations 区域"
+  },
+  {
+    "name": "LOCATION_REMOVED",
+    "value": "0x20",
+    "description": "除外区",
+    "category": "Locations 区域"
+  },
+  {
+    "name": "LOCATION_EXTRA",
+    "value": "0x40",
+    "description": "额外",
+    "category": "Locations 区域"
+  },
+  {
+    "name": "LOCATION_OVERLAY",
+    "value": "0x80",
+    "description": "超量素材",
+    "category": "Locations 区域"
+  },
+  {
+    "name": "LOCATION_ONFIELD",
+    "value": "0x0c",
+    "description": "场上（LOCATION_MZONE+LOCATION_SZONE）",
+    "category": "Locations 区域"
+  },
+  {
+    "name": "LOCATION_DECKBOT",
+    "value": "0x10001",
+    "description": "弹回卡组底部",
+    "category": "Locations (for redirect) 若在重定向类效果中仅指定LOCATION_DECK则为弹回卡组顶部"
+  },
+  {
+    "name": "LOCATION_DECKSHF",
+    "value": "0x20001",
+    "description": "弹回卡组并洗牌",
+    "category": "Locations (for redirect) 若在重定向类效果中仅指定LOCATION_DECK则为弹回卡组顶部"
+  },
+  {
+    "name": "SEQ_DECKTOP",
+    "value": "0",
+    "description": "弹回卡组顶端",
+    "category": "Sequences (for Duel.SendtoDeck)"
+  },
+  {
+    "name": "SEQ_DECKBOTTOM",
+    "value": "1",
+    "description": "弹回卡组底端",
+    "category": "Sequences (for Duel.SendtoDeck)"
+  },
+  {
+    "name": "SEQ_DECKSHUFFLE",
+    "value": "2",
+    "description": "弹回卡组并洗牌（洗牌前暂时放在底端）",
+    "category": "Sequences (for Duel.SendtoDeck)"
+  },
+  {
+    "name": "LOCATION_FZONE",
+    "value": "0x100",
+    "description": "场地区",
+    "category": "Locations of spell cards"
+  },
+  {
+    "name": "LOCATION_PZONE",
+    "value": "0x200",
+    "description": "灵摆区",
+    "category": "Locations of spell cards"
+  },
+  {
+    "name": "POS_FACEUP_ATTACK",
+    "value": "0x1",
+    "description": "表侧攻击",
+    "category": "Positions 表示形式"
+  },
+  {
+    "name": "POS_FACEDOWN_ATTACK",
+    "value": "0x2",
+    "description": "(reserved)",
+    "category": "Positions 表示形式"
+  },
+  {
+    "name": "POS_FACEUP_DEFENSE",
+    "value": "0x4",
+    "description": "表侧守备",
+    "category": "Positions 表示形式"
+  },
+  {
+    "name": "POS_FACEDOWN_DEFENSE",
+    "value": "0x8",
+    "description": "里侧守备",
+    "category": "Positions 表示形式"
+  },
+  {
+    "name": "POS_FACEUP",
+    "value": "0x5",
+    "description": "正面表示",
+    "category": "Positions 表示形式"
+  },
+  {
+    "name": "POS_FACEDOWN",
+    "value": "0xa",
+    "description": "背面表示",
+    "category": "Positions 表示形式"
+  },
+  {
+    "name": "POS_ATTACK",
+    "value": "0x3",
+    "description": "攻击表示",
+    "category": "Positions 表示形式"
+  },
+  {
+    "name": "POS_DEFENSE",
+    "value": "0xc",
+    "description": "守备表示",
+    "category": "Positions 表示形式"
+  },
+  {
+    "name": "NO_FLIP_EFFECT",
+    "value": "0x10000",
+    "description": "不发动反转效果",
+    "category": "Positions 表示形式"
+  },
+  {
+    "name": "TYPE_MONSTER",
+    "value": "0x1",
+    "description": "怪兽卡",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_SPELL",
+    "value": "0x2",
+    "description": "魔法卡",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_TRAP",
+    "value": "0x4",
+    "description": "陷阱卡",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_NORMAL",
+    "value": "0x10",
+    "description": "通常怪兽",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_EFFECT",
+    "value": "0x20",
+    "description": "效果",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_FUSION",
+    "value": "0x40",
+    "description": "融合",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_RITUAL",
+    "value": "0x80",
+    "description": "仪式",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_TRAPMONSTER",
+    "value": "0x100",
+    "description": "陷阱怪兽",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_SPIRIT",
+    "value": "0x200",
+    "description": "灵魂",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_UNION",
+    "value": "0x400",
+    "description": "同盟",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_DUAL",
+    "value": "0x800",
+    "description": "二重",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_TUNER",
+    "value": "0x1000",
+    "description": "调整",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_SYNCHRO",
+    "value": "0x2000",
+    "description": "同调",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_TOKEN",
+    "value": "0x4000",
+    "description": "衍生物",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_QUICKPLAY",
+    "value": "0x10000",
+    "description": "速攻",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_CONTINUOUS",
+    "value": "0x20000",
+    "description": "永续",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_EQUIP",
+    "value": "0x40000",
+    "description": "装备",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_FIELD",
+    "value": "0x80000",
+    "description": "场地",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_COUNTER",
+    "value": "0x100000",
+    "description": "反击",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_FLIP",
+    "value": "0x200000",
+    "description": "翻转",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_TOON",
+    "value": "0x400000",
+    "description": "卡通",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_XYZ",
+    "value": "0x800000",
+    "description": "超量",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_PENDULUM",
+    "value": "0x1000000",
+    "description": "灵摆",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_SPSUMMON",
+    "value": "0x2000000",
+    "description": "特殊召唤",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPE_LINK",
+    "value": "0x4000000",
+    "description": "连接",
+    "category": "Types 卡片类型"
+  },
+  {
+    "name": "TYPES_TOKEN_MONSTER",
+    "value": "0x4011",
+    "description": "",
+    "category": "组合类型"
+  },
+  {
+    "name": "TYPES_NORMAL_TRAP_MONSTER",
+    "value": "0x111",
+    "description": "",
+    "category": "组合类型"
+  },
+  {
+    "name": "TYPES_EFFECT_TRAP_MONSTER",
+    "value": "0x121",
+    "description": "",
+    "category": "组合类型"
+  },
+  {
+    "name": "ATTRIBUTE_ALL",
+    "value": "0x7f",
+    "description": "All",
+    "category": "Attributes 属性"
+  },
+  {
+    "name": "ATTRIBUTE_EARTH",
+    "value": "0x01",
+    "description": "地",
+    "category": "Attributes 属性"
+  },
+  {
+    "name": "ATTRIBUTE_WATER",
+    "value": "0x02",
+    "description": "水",
+    "category": "Attributes 属性"
+  },
+  {
+    "name": "ATTRIBUTE_FIRE",
+    "value": "0x04",
+    "description": "炎",
+    "category": "Attributes 属性"
+  },
+  {
+    "name": "ATTRIBUTE_WIND",
+    "value": "0x08",
+    "description": "风",
+    "category": "Attributes 属性"
+  },
+  {
+    "name": "ATTRIBUTE_LIGHT",
+    "value": "0x10",
+    "description": "光",
+    "category": "Attributes 属性"
+  },
+  {
+    "name": "ATTRIBUTE_DARK",
+    "value": "0x20",
+    "description": "暗",
+    "category": "Attributes 属性"
+  },
+  {
+    "name": "ATTRIBUTE_DIVINE",
+    "value": "0x40",
+    "description": "神",
+    "category": "Attributes 属性"
+  },
+  {
+    "name": "RACE_ALL",
+    "value": "0x3ffffff",
+    "description": "全种族",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_WARRIOR",
+    "value": "0x1",
+    "description": "战士",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_SPELLCASTER",
+    "value": "0x2",
+    "description": "魔法师",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_FAIRY",
+    "value": "0x4",
+    "description": "天使",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_FIEND",
+    "value": "0x8",
+    "description": "恶魔",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_ZOMBIE",
+    "value": "0x10",
+    "description": "不死",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_MACHINE",
+    "value": "0x20",
+    "description": "机械",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_AQUA",
+    "value": "0x40",
+    "description": "水",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_PYRO",
+    "value": "0x80",
+    "description": "炎",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_ROCK",
+    "value": "0x100",
+    "description": "岩石",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_WINDBEAST",
+    "value": "0x200",
+    "description": "鸟兽",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_PLANT",
+    "value": "0x400",
+    "description": "植物",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_INSECT",
+    "value": "0x800",
+    "description": "昆虫",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_THUNDER",
+    "value": "0x1000",
+    "description": "雷",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_DRAGON",
+    "value": "0x2000",
+    "description": "龙",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_BEAST",
+    "value": "0x4000",
+    "description": "兽",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_BEASTWARRIOR",
+    "value": "0x8000",
+    "description": "兽战士",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_DINOSAUR",
+    "value": "0x10000",
+    "description": "恐龙",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_FISH",
+    "value": "0x20000",
+    "description": "鱼",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_SEASERPENT",
+    "value": "0x40000",
+    "description": "海龙",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_REPTILE",
+    "value": "0x80000",
+    "description": "爬虫类",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_PSYCHO",
+    "value": "0x100000",
+    "description": "念动力",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_DIVINE",
+    "value": "0x200000",
+    "description": "幻神兽",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_CREATORGOD",
+    "value": "0x400000",
+    "description": "创造神",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_WYRM",
+    "value": "0x800000",
+    "description": "幻龙",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_CYBERSE",
+    "value": "0x1000000",
+    "description": "电子界",
+    "category": "Races 种族"
+  },
+  {
+    "name": "RACE_ILLUSION",
+    "value": "0x2000000",
+    "description": "幻想魔",
+    "category": "Races 种族"
+  },
+  {
+    "name": "REASON_DESTROY",
+    "value": "0x1",
+    "description": "破坏",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_RELEASE",
+    "value": "0x2",
+    "description": "解放",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_TEMPORARY",
+    "value": "0x4",
+    "description": "暂时",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_MATERIAL",
+    "value": "0x8",
+    "description": "作为融合/同调/超量素材或用於儀式/升級召喚",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_SUMMON",
+    "value": "0x10",
+    "description": "召唤",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_BATTLE",
+    "value": "0x20",
+    "description": "战斗破坏",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_EFFECT",
+    "value": "0x40",
+    "description": "效果",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_COST",
+    "value": "0x80",
+    "description": "用於代價或無法支付代價而破壞",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_ADJUST",
+    "value": "0x100",
+    "description": "调整（御前试合）",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_LOST_TARGET",
+    "value": "0x200",
+    "description": "失去装备对象",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_RULE",
+    "value": "0x400",
+    "description": "规则",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_SPSUMMON",
+    "value": "0x800",
+    "description": "特殊召唤",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_DISSUMMON",
+    "value": "0x1000",
+    "description": "召唤失败",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_FLIP",
+    "value": "0x2000",
+    "description": "翻转",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_DISCARD",
+    "value": "0x4000",
+    "description": "丢弃",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_RDAMAGE",
+    "value": "0x8000",
+    "description": "回復轉換後的傷害",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_RRECOVER",
+    "value": "0x10000",
+    "description": "傷害轉換後的回復",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_RETURN",
+    "value": "0x20000",
+    "description": "回到墓地",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_FUSION",
+    "value": "0x40000",
+    "description": "用於融合召喚",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_SYNCHRO",
+    "value": "0x80000",
+    "description": "用於同调召喚",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_RITUAL",
+    "value": "0x100000",
+    "description": "用於仪式召喚",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_XYZ",
+    "value": "0x200000",
+    "description": "用於超量召喚",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_REPLACE",
+    "value": "0x1000000",
+    "description": "代替",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_DRAW",
+    "value": "0x2000000",
+    "description": "抽卡",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_REDIRECT",
+    "value": "0x4000000",
+    "description": "改变去向（大宇宙，带菌等）",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_REVEAL",
+    "value": "0x8000000",
+    "description": "翻开卡组（森罗）",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_LINK",
+    "value": "0x10000000",
+    "description": "用于连接召唤",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_LOST_OVERLAY",
+    "value": "0x20000000",
+    "description": "超量素材随着超量怪兽离场",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_MAINTENANCE",
+    "value": "0x40000000",
+    "description": "维持代价",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "REASON_ACTION",
+    "value": "0x80000000",
+    "description": "攻击宣言之际等",
+    "category": "Reason 卡片到当前位置的原因"
+  },
+  {
+    "name": "LOCATION_REASON_TOFIELD",
+    "value": "0x1",
+    "description": "Duel.GetLocationCount()預設值,凱薩競技場",
+    "category": "Location Reason"
+  },
+  {
+    "name": "LOCATION_REASON_CONTROL",
+    "value": "0x2",
+    "description": "Card.IsControlerCanBeChanged()使用",
+    "category": "Location Reason"
+  },
+  {
+    "name": "SUMMON_TYPE_NORMAL",
+    "value": "0x10000000",
+    "description": "通常召唤(EFFECT_SUMMON_PROC,EFFECT_SET_PROC 可用Value修改數值)",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_TYPE_ADVANCE",
+    "value": "0x11000000",
+    "description": "上级召唤",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_TYPE_DUAL",
+    "value": "0x12000000",
+    "description": "再度召唤（二重）",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_TYPE_FLIP",
+    "value": "0x20000000",
+    "description": "翻转召唤",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_TYPE_SPECIAL",
+    "value": "0x40000000",
+    "description": "特殊召唤(EFFECT_SPSUMMON_PROC,EFFECT_SPSUMMON_PROC_G 可用Value修改數值)",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_TYPE_FUSION",
+    "value": "0x43000000",
+    "description": "融合召唤",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_TYPE_RITUAL",
+    "value": "0x45000000",
+    "description": "仪式召唤",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_TYPE_SYNCHRO",
+    "value": "0x46000000",
+    "description": "同调召唤",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_TYPE_XYZ",
+    "value": "0x49000000",
+    "description": "超量召唤",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_TYPE_PENDULUM",
+    "value": "0x4a000000",
+    "description": "灵摆召唤",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_TYPE_LINK",
+    "value": "0x4c000000",
+    "description": "连接召唤",
+    "category": "Summon Type --召唤类型"
+  },
+  {
+    "name": "SUMMON_VALUE_SELF",
+    "value": "0x1",
+    "description": "自身效果或条件",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_SYNCHRO_MATERIAL",
+    "value": "0x11",
+    "description": "特殊召唤并作为同调素材（黑羽-东云之东风检查）",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_DARK_SANCTUARY",
+    "value": "0x12",
+    "description": "暗黑圣域",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_MONSTER_REBORN",
+    "value": "0x13",
+    "description": "死者苏生（千年的启示）",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_MASK_CHANGE",
+    "value": "0x14",
+    "description": "",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_ASSAULT_MODE",
+    "value": "0x15",
+    "description": "",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_LV",
+    "value": "0x1000",
+    "description": "对应LV怪兽的效果",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_GLADIATOR",
+    "value": "0x2000",
+    "description": "剑斗兽",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_EVOLTILE",
+    "value": "0x4000",
+    "description": "进化虫",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_DARK_FUSION",
+    "value": "SUMMON_TYPE_FUSION|0x16",
+    "description": "",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_FOSSIL_FUSION",
+    "value": "SUMMON_TYPE_FUSION|0x17",
+    "description": "",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "SUMMON_VALUE_FUTURE_FUSION",
+    "value": "SUMMON_TYPE_FUSION|0x18",
+    "description": "",
+    "category": "Summon Value --特定的召唤方式"
+  },
+  {
+    "name": "STATUS_DISABLED",
+    "value": "0x0001",
+    "description": "效果被无效",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_TO_ENABLE",
+    "value": "0x0002",
+    "description": "将变成有效",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_TO_DISABLE",
+    "value": "0x0004",
+    "description": "将变成无效",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_PROC_COMPLETE",
+    "value": "0x0008",
+    "description": "完成正规召唤（解除苏生限制）",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_SET_TURN",
+    "value": "0x0010",
+    "description": "在本回合覆盖",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_NO_LEVEL",
+    "value": "0x0020",
+    "description": "无等级",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_BATTLE_RESULT",
+    "value": "0x0040",
+    "description": "傷害計算結果預計要破壞的怪獸",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_SPSUMMON_STEP",
+    "value": "0x0080",
+    "description": "效果特召處理中",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_CANNOT_CHANGE_FORM",
+    "value": "0x0100",
+    "description": "回合玩家不能手动改变表示形式",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_SUMMONING",
+    "value": "0x0200",
+    "description": "召唤中",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_EFFECT_ENABLED",
+    "value": "0x0400",
+    "description": "卡片準備就緒(不在移動、召喚、魔法陷阱發動中)",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_SUMMON_TURN",
+    "value": "0x0800",
+    "description": "在本回合召喚/SET",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_DESTROY_CONFIRMED",
+    "value": "0x1000",
+    "description": "预定被破坏",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_LEAVE_CONFIRMED",
+    "value": "0x2000",
+    "description": "連鎖處理完後送去墓地的魔法陷阱",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_BATTLE_DESTROYED",
+    "value": "0x4000",
+    "description": "战斗破坏确定後尚未移動",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_COPYING_EFFECT",
+    "value": "0x8000",
+    "description": "正在复制效果",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_CHAINING",
+    "value": "0x10000",
+    "description": "正在連鎖串中",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_SUMMON_DISABLED",
+    "value": "0x20000",
+    "description": "召唤无效後尚未移動",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_ACTIVATE_DISABLED",
+    "value": "0x40000",
+    "description": "发动无效後尚未移動",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_EFFECT_REPLACED",
+    "value": "0x80000",
+    "description": "效果被替代(红莲霸权)",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_FLIP_SUMMONING",
+    "value": "0x100000",
+    "description": "反转召唤中",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_ATTACK_CANCELED",
+    "value": "0x200000",
+    "description": "若其為攻擊者，則攻擊中止",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_INITIALIZING",
+    "value": "0x400000",
+    "description": "正在初始化",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_TO_HAND_WITHOUT_CONFIRM",
+    "value": "0x800000",
+    "description": "非公开的卡被效果加入手卡但未给对方确认",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_JUST_POS",
+    "value": "0x1000000",
+    "description": "已改變表示形式(用於STATUS_CONTINUOUS_POS判定)",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_CONTINUOUS_POS",
+    "value": "0x2000000",
+    "description": "改變後再次設定成其他表示形式",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_FORBIDDEN",
+    "value": "0x4000000",
+    "description": "不能play",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_ACT_FROM_HAND",
+    "value": "0x8000000",
+    "description": "從手牌发动",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_OPPO_BATTLE",
+    "value": "0x10000000",
+    "description": "和對手的怪兽戰鬥",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_FLIP_SUMMON_TURN",
+    "value": "0x20000000",
+    "description": "在本回合反转召唤",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_SPSUMMON_TURN",
+    "value": "0x40000000",
+    "description": "在本回合特殊召唤",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "STATUS_FLIP_SUMMON_DISABLED",
+    "value": "0x80000000",
+    "description": "反转召唤被无效",
+    "category": "Status --卡片当前状态"
+  },
+  {
+    "name": "ASSUME_CODE",
+    "value": "1",
+    "description": "",
+    "category": "Assume"
+  },
+  {
+    "name": "ASSUME_TYPE",
+    "value": "2",
+    "description": "",
+    "category": "Assume"
+  },
+  {
+    "name": "ASSUME_LEVEL",
+    "value": "3",
+    "description": "",
+    "category": "Assume"
+  },
+  {
+    "name": "ASSUME_RANK",
+    "value": "4",
+    "description": "",
+    "category": "Assume"
+  },
+  {
+    "name": "ASSUME_ATTRIBUTE",
+    "value": "5",
+    "description": "",
+    "category": "Assume"
+  },
+  {
+    "name": "ASSUME_RACE",
+    "value": "6",
+    "description": "",
+    "category": "Assume"
+  },
+  {
+    "name": "ASSUME_ATTACK",
+    "value": "7",
+    "description": "",
+    "category": "Assume"
+  },
+  {
+    "name": "ASSUME_DEFENSE",
+    "value": "8",
+    "description": "",
+    "category": "Assume"
+  },
+  {
+    "name": "LINK_MARKER_BOTTOM_LEFT",
+    "value": "0x001",
+    "description": "↙",
+    "category": "Link Marker"
+  },
+  {
+    "name": "LINK_MARKER_BOTTOM",
+    "value": "0x002",
+    "description": "↓",
+    "category": "Link Marker"
+  },
+  {
+    "name": "LINK_MARKER_BOTTOM_RIGHT",
+    "value": "0x004",
+    "description": "↘",
+    "category": "Link Marker"
+  },
+  {
+    "name": "LINK_MARKER_LEFT",
+    "value": "0x008",
+    "description": "←",
+    "category": "Link Marker"
+  },
+  {
+    "name": "LINK_MARKER_RIGHT",
+    "value": "0x020",
+    "description": "→",
+    "category": "Link Marker"
+  },
+  {
+    "name": "LINK_MARKER_TOP_LEFT",
+    "value": "0x040",
+    "description": "↖",
+    "category": "Link Marker"
+  },
+  {
+    "name": "LINK_MARKER_TOP",
+    "value": "0x080",
+    "description": "↑",
+    "category": "Link Marker"
+  },
+  {
+    "name": "LINK_MARKER_TOP_RIGHT",
+    "value": "0x100",
+    "description": "↗",
+    "category": "Link Marker"
+  },
+  {
+    "name": "COUNTER_WITHOUT_PERMIT",
+    "value": "0x1000",
+    "description": "可以放置在非特定對象的指示物",
+    "category": "Counter --指示物"
+  },
+  {
+    "name": "COUNTER_NEED_ENABLE",
+    "value": "0x2000",
+    "description": "N/A",
+    "category": "Counter --指示物"
+  },
+  {
+    "name": "PHASE_DRAW",
+    "value": "0x01",
+    "description": "抽卡阶段",
+    "category": "Phase --阶段"
+  },
+  {
+    "name": "PHASE_STANDBY",
+    "value": "0x02",
+    "description": "准备阶段",
+    "category": "Phase --阶段"
+  },
+  {
+    "name": "PHASE_MAIN1",
+    "value": "0x04",
+    "description": "主要阶段1",
+    "category": "Phase --阶段"
+  },
+  {
+    "name": "PHASE_BATTLE_START",
+    "value": "0x08",
+    "description": "战斗阶段开始",
+    "category": "Phase --阶段"
+  },
+  {
+    "name": "PHASE_BATTLE_STEP",
+    "value": "0x10",
+    "description": "战斗步驟",
+    "category": "Phase --阶段"
+  },
+  {
+    "name": "PHASE_DAMAGE",
+    "value": "0x20",
+    "description": "伤害步驟",
+    "category": "Phase --阶段"
+  },
+  {
+    "name": "PHASE_DAMAGE_CAL",
+    "value": "0x40",
+    "description": "伤害计算时",
+    "category": "Phase --阶段"
+  },
+  {
+    "name": "PHASE_BATTLE",
+    "value": "0x80",
+    "description": "战斗阶段結束",
+    "category": "Phase --阶段"
+  },
+  {
+    "name": "PHASE_MAIN2",
+    "value": "0x100",
+    "description": "主要阶段2",
+    "category": "Phase --阶段"
+  },
+  {
+    "name": "PHASE_END",
+    "value": "0x200",
+    "description": "结束阶段",
+    "category": "Phase --阶段"
+  },
+  {
+    "name": "PLAYER_NONE",
+    "value": "2",
+    "description": "2个玩家都不是",
+    "category": "Player --玩家"
+  },
+  {
+    "name": "PLAYER_ALL",
+    "value": "3",
+    "description": "2个玩家都是",
+    "category": "Player --玩家"
+  },
+  {
+    "name": "CHAININFO_CHAIN_COUNT",
+    "value": "0x01",
+    "description": "连锁数",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_EFFECT",
+    "value": "0x02",
+    "description": "连锁的效果",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_PLAYER",
+    "value": "0x04",
+    "description": "连锁的玩家",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_CONTROLER",
+    "value": "0x08",
+    "description": "连锁的卡的控制者",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_LOCATION",
+    "value": "0x10",
+    "description": "连锁的位置",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_SEQUENCE",
+    "value": "0x20",
+    "description": "连锁的位置的编号（指怪兽和魔陷区的格子）",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TARGET_CARDS",
+    "value": "0x40",
+    "description": "连锁的效果的对象（以下3个需要在target函数里设置）",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TARGET_PLAYER",
+    "value": "0x80",
+    "description": "连锁的效果的对象（玩家）",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TARGET_PARAM",
+    "value": "0x100",
+    "description": "连锁的效果的参数值",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_DISABLE_REASON",
+    "value": "0x200",
+    "description": "无效的原因效果",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_DISABLE_PLAYER",
+    "value": "0x400",
+    "description": "无效的玩家",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_CHAIN_ID",
+    "value": "0x800",
+    "description": "连锁ID",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TYPE",
+    "value": "0x1000",
+    "description": "连锁类型",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_EXTTYPE",
+    "value": "0x2000",
+    "description": "连锁额外类型",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_POSITION",
+    "value": "0x4000",
+    "description": "连锁发生时的表示形式",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_CODE",
+    "value": "0x8000",
+    "description": "连锁发生时的密码",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_CODE2",
+    "value": "0x10000",
+    "description": "连锁发生时的其他密码",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_LEVEL",
+    "value": "0x40000",
+    "description": "连锁发生时的等级",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_RANK",
+    "value": "0x80000",
+    "description": "连锁发生时的阶级",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_ATTRIBUTE",
+    "value": "0x100000",
+    "description": "连锁发生时的属性",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_RACE",
+    "value": "0x200000",
+    "description": "连锁发生时的种族",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_ATTACK",
+    "value": "0x400000",
+    "description": "连锁发生时的攻击力",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "CHAININFO_TRIGGERING_DEFENSE",
+    "value": "0x800000",
+    "description": "连锁发生时的守备力",
+    "category": "Chain info --连锁信息"
+  },
+  {
+    "name": "SUMMON_INFO_CODE",
+    "value": "0x01",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "SUMMON_INFO_CODE2",
+    "value": "0x02",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "SUMMON_INFO_TYPE",
+    "value": "0x04",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "SUMMON_INFO_LEVEL",
+    "value": "0x08",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "SUMMON_INFO_RANK",
+    "value": "0x10",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "SUMMON_INFO_ATTRIBUTE",
+    "value": "0x20",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "SUMMON_INFO_RACE",
+    "value": "0x40",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "SUMMON_INFO_ATTACK",
+    "value": "0x80",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "SUMMON_INFO_DEFENSE",
+    "value": "0x100",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "SUMMON_INFO_REASON_EFFECT",
+    "value": "0x200",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "SUMMON_INFO_REASON_PLAYER",
+    "value": "0x400",
+    "description": "",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_SELF_TURN",
+    "value": "0x10000000",
+    "description": "自己回合的階段重置",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_OPPO_TURN",
+    "value": "0x20000000",
+    "description": "对方回合的階段重置",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_PHASE",
+    "value": "0x40000000",
+    "description": "阶段结束重置(一般和上面那些阶段配合使用)",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_CHAIN",
+    "value": "0x80000000",
+    "description": "连锁结束重置",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_EVENT",
+    "value": "0x1000",
+    "description": "指定的條件下重置(一般和下面这些事件配合使用)",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_CARD",
+    "value": "0x2000",
+    "description": "重置Owner為指定卡片的效果",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_CODE",
+    "value": "0x4000",
+    "description": "重置指定Code的single效果(不含EFFECT_FLAG_SINGLE_RANGE)",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_COPY",
+    "value": "0x8000",
+    "description": "重置以复制取得的效果",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_DISABLE",
+    "value": "0x00010000",
+    "description": "效果无效重置(只適用於owner==handler的效果)",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_TURN_SET",
+    "value": "0x00020000",
+    "description": "变里侧重置(皆為事件觸發前重置)",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_TOGRAVE",
+    "value": "0x00040000",
+    "description": "去墓地重置",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_REMOVE",
+    "value": "0x00080000",
+    "description": "除外重置",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_TEMP_REMOVE",
+    "value": "0x00100000",
+    "description": "暂时除外重置",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_TOHAND",
+    "value": "0x00200000",
+    "description": "回手牌或加入手牌重置",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_TODECK",
+    "value": "0x00400000",
+    "description": "回卡组重置",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_LEAVE",
+    "value": "0x00800000",
+    "description": "从怪兽区或魔法区到不同区域",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_TOFIELD",
+    "value": "0x01000000",
+    "description": "除了返回场上以外，从不同区域移动到怪兽区或魔法区",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_CONTROL",
+    "value": "0x02000000",
+    "description": "控制者变更重置",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_OVERLAY",
+    "value": "0x04000000",
+    "description": "超量叠放重置",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESET_MSCHANGE",
+    "value": "0x08000000",
+    "description": "从怪兽区到魔法区，或者从魔法区到怪兽区(move_to_field()、寶玉獸)",
+    "category": "Summon info"
+  },
+  {
+    "name": "RESETS_STANDARD",
+    "value": "0x1fe0000",
+    "description": "RESET_TOFIELD+RESET_LEAVE+RESET_TODECK+RESET_TOHAND+RESET_TEMP_REMOVE+RESET_REMOVE+RESET_TOGRAVE+RESET_TURN_SET",
+    "category": "组合时点"
+  },
+  {
+    "name": "RESETS_REDIRECT",
+    "value": "0xc7e0000",
+    "description": "RESETS_STANDARD+RESET_OVERLAY+RESET_MSCHANGE-RESET_TOFIELD-RESET_LEAVE (EFFECT_LEAVE_FIELD_REDIRECT)",
+    "category": "组合时点"
+  },
+  {
+    "name": "RESETS_WITHOUT_TEMP_REMOVE",
+    "value": "0x56e0000",
+    "description": "RESETS_STANDARD-RESET_TEMP_REMOVE-RESET_LEAVE+RESET_OVERLAY",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_SINGLE",
+    "value": "0x0001",
+    "description": "自己状态变化时触发",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_FIELD",
+    "value": "0x0002",
+    "description": "场上所有卡状态变化时触发",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_EQUIP",
+    "value": "0x0004",
+    "description": "装备效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_ACTIONS",
+    "value": "0x0008",
+    "description": "触发型，以下類型會自動添加此屬性（对峙的G）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_ACTIVATE",
+    "value": "0x0010",
+    "description": "魔陷发动",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_FLIP",
+    "value": "0x0020",
+    "description": "翻转效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_IGNITION",
+    "value": "0x0040",
+    "description": "起动效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_TRIGGER_O",
+    "value": "0x0080",
+    "description": "诱发选发效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_QUICK_O",
+    "value": "0x0100",
+    "description": "诱发即时效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_TRIGGER_F",
+    "value": "0x0200",
+    "description": "诱发必发效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_QUICK_F",
+    "value": "0x0400",
+    "description": "诱发即时必发效果（熊猫龙等）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_CONTINUOUS",
+    "value": "0x0800",
+    "description": "由事件觸發的輔助用效果/永續效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_XMATERIAL",
+    "value": "0x1000",
+    "description": "作为超量素材时超量怪兽获得的效果（十二兽）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_GRANT",
+    "value": "0x2000",
+    "description": "使其他卡片获得效果（天气模样）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TYPE_TARGET",
+    "value": "0x4000",
+    "description": "影响持续取的对象的效果（基本只用于魔陷）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_INITIAL",
+    "value": "0x0001",
+    "description": "卡片记载的效果(internal)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_FUNC_VALUE",
+    "value": "0x0002",
+    "description": "此效果的Value属性是函数(internal)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_COUNT_LIMIT",
+    "value": "0x0004",
+    "description": "发动次数限制(internal)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_FIELD_ONLY",
+    "value": "0x0008",
+    "description": "此效果是注册给玩家的(internal)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_CARD_TARGET",
+    "value": "0x0010",
+    "description": "取对象效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_IGNORE_RANGE",
+    "value": "0x0020",
+    "description": "影响所有区域的卡（大宇宙）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_ABSOLUTE_TARGET",
+    "value": "0x0040",
+    "description": "Target Range固定為某個玩家的視角所見的自己/對方(internal)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_IGNORE_IMMUNE",
+    "value": "0x0080",
+    "description": "无视效果免疫",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_SET_AVAILABLE",
+    "value": "0x0100",
+    "description": "裡側狀態可發動的效果、影响场上里侧的卡的永續型效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_CAN_FORBIDDEN",
+    "value": "0x0200",
+    "description": "可被禁止令停止適用的效果（與EFFECT_FLAG_CANNOT_DISABLE並用）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_CANNOT_DISABLE",
+    "value": "0x0400",
+    "description": "效果不会被无效",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_PLAYER_TARGET",
+    "value": "0x0800",
+    "description": "含有\"以玩家为对象\"的特性（精靈之鏡）、影響玩家的永續型效果(SetTargetRange()改成指定玩家)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_BOTH_SIDE",
+    "value": "0x1000",
+    "description": "双方都能使用（部分场地，弹压）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_COPY",
+    "value": "0x2000",
+    "description": "复制得到的效果(internal)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_DAMAGE_STEP",
+    "value": "0x4000",
+    "description": "可以在伤害步骤发动",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_DAMAGE_CAL",
+    "value": "0x8000",
+    "description": "可以在伤害计算时发动",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_DELAY",
+    "value": "0x10000",
+    "description": "場合型誘發效果、用於永續效果的EFFECT_TYPE_CONTINUOUS",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_SINGLE_RANGE",
+    "value": "0x20000",
+    "description": "只对自己有效",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_UNCOPYABLE",
+    "value": "0x40000",
+    "description": "不能复制的原始效果（效果外文本）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_OATH",
+    "value": "0x80000",
+    "description": "誓约效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_SPSUM_PARAM",
+    "value": "0x100000",
+    "description": "指定召喚/规则特殊召唤的位置和表示形式(熔岩魔神)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_REPEAT",
+    "value": "0x200000",
+    "description": "N/A",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_NO_TURN_RESET",
+    "value": "0x400000",
+    "description": "发条等“这张卡在场上只能发动一次”的效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_EVENT_PLAYER",
+    "value": "0x800000",
+    "description": "发动/处理效果的玩家为触发事件的玩家而不是卡片的持有者，如仪式魔人，万魔殿",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_OWNER_RELATE",
+    "value": "0x1000000",
+    "description": "与效果owner关联的效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_CANNOT_INACTIVATE",
+    "value": "0x2000000",
+    "description": "發動不會被無效",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_CLIENT_HINT",
+    "value": "0x4000000",
+    "description": "客户端提示",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_CONTINUOUS_TARGET",
+    "value": "0x8000000",
+    "description": "建立持續對象的永續魔法/永續陷阱/早埋系以外的裝備魔法卡",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_LIMIT_ZONE",
+    "value": "0x10000000",
+    "description": "限制魔法·陷阱卡发动时可以放置的区域",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_ACTIVATE_CONDITION",
+    "value": "0x20000000",
+    "description": "诱发效果即将发动时检查条件（手卡诱发之外的无此标记的诱发效果为触发事件时检查）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_CVAL_CHECK",
+    "value": "0x40000000",
+    "description": "N/A",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_IMMEDIATELY_APPLY",
+    "value": "0x80000000",
+    "description": "卡在发动时效果就立即适用",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_COIN",
+    "value": "0x100000000",
+    "description": "",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_DICE",
+    "value": "0x200000000",
+    "description": "",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_FUSION_SUMMON",
+    "value": "0x400000000",
+    "description": "",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG2_REPEAT_UPDATE",
+    "value": "0x0001",
+    "description": "最后计算的攻击力上升",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG2_COF",
+    "value": "0x0002",
+    "description": "通常魔法卡在MP1以外发动（邪恶的仪式的特殊处理）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG2_WICKED",
+    "value": "0x0004",
+    "description": "神之化身/恐惧之源的攻击力变化最后计算",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG2_OPTION",
+    "value": "0x0008",
+    "description": "子機",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_IMMUNE_EFFECT",
+    "value": "1",
+    "description": "效果免疫",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DISABLE",
+    "value": "2",
+    "description": "效果无效（技能抽取）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_DISABLE",
+    "value": "3",
+    "description": "卡的效果不能被无效",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_CONTROL",
+    "value": "4",
+    "description": "设置控制权",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_CHANGE_CONTROL",
+    "value": "5",
+    "description": "不能改变控制权",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_ACTIVATE",
+    "value": "6",
+    "description": "玩家不能发动效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_TRIGGER",
+    "value": "7",
+    "description": "卡不能发动效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DISABLE_EFFECT",
+    "value": "8",
+    "description": "效果无效（聖杯）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DISABLE_CHAIN",
+    "value": "9",
+    "description": "在連鎖串中無效(processor.cpp)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DISABLE_TRAPMONSTER",
+    "value": "10",
+    "description": "陷阱怪兽无效",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_INACTIVATE",
+    "value": "12",
+    "description": "发动不能被无效",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_DISEFFECT",
+    "value": "13",
+    "description": "发动的效果不能被无效",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_CHANGE_POSITION",
+    "value": "14",
+    "description": "不能改变表示形式",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TRAP_ACT_IN_HAND",
+    "value": "15",
+    "description": "陷阱可以从手牌发动",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TRAP_ACT_IN_SET_TURN",
+    "value": "16",
+    "description": "陷阱可以在盖放的回合发动",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REMAIN_FIELD",
+    "value": "17",
+    "description": "X回合内留在场上（光之护封剑等）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MONSTER_SSET",
+    "value": "18",
+    "description": "怪兽可以在魔陷区放置",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_SUMMON",
+    "value": "20",
+    "description": "不能召唤怪兽",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_FLIP_SUMMON",
+    "value": "21",
+    "description": "不能翻转召唤怪兽",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_SPECIAL_SUMMON",
+    "value": "22",
+    "description": "不能特殊召唤怪兽",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_MSET",
+    "value": "23",
+    "description": "不能覆盖怪兽",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_SSET",
+    "value": "24",
+    "description": "不能覆盖魔陷",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_DRAW",
+    "value": "25",
+    "description": "不能抽卡",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_DISABLE_SUMMON",
+    "value": "26",
+    "description": "召唤不会无效",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_DISABLE_SPSUMMON",
+    "value": "27",
+    "description": "特殊召唤不会无效",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_SUMMON_COUNT_LIMIT",
+    "value": "28",
+    "description": "设置每回合召唤次数",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_SUMMON_COUNT",
+    "value": "29",
+    "description": "增加召唤（通常召唤）次数",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SPSUMMON_CONDITION",
+    "value": "30",
+    "description": "特殊召唤条件",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REVIVE_LIMIT",
+    "value": "31",
+    "description": "有苏生限制的怪獸(Card.EnableReviveLimit())",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SUMMON_PROC",
+    "value": "32",
+    "description": "召唤规则效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_LIMIT_SUMMON_PROC",
+    "value": "33",
+    "description": "召唤规则限制",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SPSUMMON_PROC",
+    "value": "34",
+    "description": "特殊召唤规则",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_SET_COUNT",
+    "value": "35",
+    "description": "增加盖放（通常召唤）次数",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_PROC",
+    "value": "36",
+    "description": "放置（通常召唤）规则",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_LIMIT_SET_PROC",
+    "value": "37",
+    "description": "放置（通常召唤）规则限制",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DIVINE_LIGHT",
+    "value": "38",
+    "description": "神圣光辉",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_DISABLE_FLIP_SUMMON",
+    "value": "39",
+    "description": "翻转召唤不会无效",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_INDESTRUCTABLE",
+    "value": "40",
+    "description": "不会被破坏",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_INDESTRUCTABLE_EFFECT",
+    "value": "41",
+    "description": "不会被效果破坏",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_INDESTRUCTABLE_BATTLE",
+    "value": "42",
+    "description": "不会被战斗破坏",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UNRELEASABLE_SUM",
+    "value": "43",
+    "description": "不能做上级召唤的祭品",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UNRELEASABLE_NONSUM",
+    "value": "44",
+    "description": "不能做上级召唤以外的祭品",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DESTROY_SUBSTITUTE",
+    "value": "45",
+    "description": "必選的代替破壞(此卡被破壞時用其他卡代替)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_RELEASE",
+    "value": "46",
+    "description": "不能进行解放行为",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_INDESTRUCTABLE_COUNT",
+    "value": "47",
+    "description": "一回合几次不会被破坏",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UNRELEASABLE_EFFECT",
+    "value": "48",
+    "description": "不能被解放",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DESTROY_REPLACE",
+    "value": "50",
+    "description": "可選的代替破壞(將破壞改成其他動作)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_RELEASE_REPLACE",
+    "value": "51",
+    "description": "代替解放",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SEND_REPLACE",
+    "value": "52",
+    "description": "可以不送去XX而送去OO（甜点城堡等）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_DISCARD_HAND",
+    "value": "55",
+    "description": "不能丢弃手牌",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_DISCARD_DECK",
+    "value": "56",
+    "description": "不能把卡组的卡送去墓地",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_USE_AS_COST",
+    "value": "57",
+    "description": "不能作为COST使用",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_PLACE_COUNTER",
+    "value": "58",
+    "description": "不能放置counter",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_TO_GRAVE_AS_COST",
+    "value": "59",
+    "description": "不能作为COST送去墓地",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_LEAVE_FIELD_REDIRECT",
+    "value": "60",
+    "description": "离场时重新指定去向",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TO_HAND_REDIRECT",
+    "value": "61",
+    "description": "回手牌时重新指定去向",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TO_DECK_REDIRECT",
+    "value": "62",
+    "description": "回卡组时重新指定去向",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TO_GRAVE_REDIRECT",
+    "value": "63",
+    "description": "去墓地时重新指定去向",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REMOVE_REDIRECT",
+    "value": "64",
+    "description": "除外时重新指定去向",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_TO_HAND",
+    "value": "65",
+    "description": "不能加入手牌",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_TO_DECK",
+    "value": "66",
+    "description": "不能回卡组",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_REMOVE",
+    "value": "67",
+    "description": "不能除外",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_TO_GRAVE",
+    "value": "68",
+    "description": "不能去墓地",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_TURN_SET",
+    "value": "69",
+    "description": "不能变里侧",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_BE_BATTLE_TARGET",
+    "value": "70",
+    "description": "不能成为攻击对象",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_BE_EFFECT_TARGET",
+    "value": "71",
+    "description": "不能成为效果对象",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_IGNORE_BATTLE_TARGET",
+    "value": "72",
+    "description": "不能成为攻击对象-鶸型（传说的渔人）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_DIRECT_ATTACK",
+    "value": "73",
+    "description": "不能直接攻击",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DIRECT_ATTACK",
+    "value": "74",
+    "description": "可以直接攻击",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DUAL_STATUS",
+    "value": "75",
+    "description": "二重状态",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EQUIP_LIMIT",
+    "value": "76",
+    "description": "装备对象限制",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DUAL_SUMMONABLE",
+    "value": "77",
+    "description": "可以再度召唤",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UNION_LIMIT",
+    "value": "78",
+    "description": "",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REVERSE_DAMAGE",
+    "value": "80",
+    "description": "伤害变回复",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REVERSE_RECOVER",
+    "value": "81",
+    "description": "回复变伤害",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_DAMAGE",
+    "value": "82",
+    "description": "改变伤害数值",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REFLECT_DAMAGE",
+    "value": "83",
+    "description": "反射伤害",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_ATTACK",
+    "value": "85",
+    "description": "不能攻击",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_ATTACK_ANNOUNCE",
+    "value": "86",
+    "description": "不能攻击宣言",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_CHANGE_POS_E",
+    "value": "87",
+    "description": "不会被卡的效果变成守备表示（攻击性云魔物）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ACTIVATE_COST",
+    "value": "90",
+    "description": "发动代价（魔力之枷）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SUMMON_COST",
+    "value": "91",
+    "description": "召唤代价",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SPSUMMON_COST",
+    "value": "92",
+    "description": "特殊召唤代价（暴君龙）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLIPSUMMON_COST",
+    "value": "93",
+    "description": "翻转召唤代价",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MSET_COST",
+    "value": "94",
+    "description": "怪兽放置代价",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SSET_COST",
+    "value": "95",
+    "description": "魔陷放置代价",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ATTACK_COST",
+    "value": "96",
+    "description": "攻击代价（霞之谷猎鹰）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UPDATE_ATTACK",
+    "value": "100",
+    "description": "增减攻击力",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_ATTACK",
+    "value": "101",
+    "description": "设置自身攻击力、攻击力变成X特殊召唤、持续改变攻击力",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_ATTACK_FINAL",
+    "value": "102",
+    "description": "暂时改变攻击力（所有置入连锁的效果）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_BASE_ATTACK",
+    "value": "103",
+    "description": "设置自身原本攻击力、持续改变原本攻击力",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UPDATE_DEFENSE",
+    "value": "104",
+    "description": "增减守备力",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_DEFENSE",
+    "value": "105",
+    "description": "设置自身守备力、守备力变成X特殊召唤、持续改变守备力",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_DEFENSE_FINAL",
+    "value": "106",
+    "description": "暂时改变守备力（所有置入连锁的效果）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_BASE_DEFENSE",
+    "value": "107",
+    "description": "设置自身原本守备力、持续改变原本守备力",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REVERSE_UPDATE",
+    "value": "108",
+    "description": "倒置增减攻击力、防御力（天邪鬼）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SWAP_AD",
+    "value": "109",
+    "description": "交换攻守(超級漏洞人)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SWAP_BASE_AD",
+    "value": "110",
+    "description": "交换原本攻守",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_BASE_ATTACK_FINAL",
+    "value": "111",
+    "description": "暂时改变原本攻击力",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_BASE_DEFENSE_FINAL",
+    "value": "112",
+    "description": "暂时改变原本防御力",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_CODE",
+    "value": "113",
+    "description": "增加卡名",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_CODE",
+    "value": "114",
+    "description": "改变卡名",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_TYPE",
+    "value": "115",
+    "description": "增加卡片种类（types）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REMOVE_TYPE",
+    "value": "116",
+    "description": "删除卡片种类",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_TYPE",
+    "value": "117",
+    "description": "改变卡片种类",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_RACE",
+    "value": "120",
+    "description": "增加种族",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REMOVE_RACE",
+    "value": "121",
+    "description": "删除种族",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_RACE",
+    "value": "122",
+    "description": "改变种族",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_ATTRIBUTE",
+    "value": "125",
+    "description": "增加属性",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REMOVE_ATTRIBUTE",
+    "value": "126",
+    "description": "删除属性",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_ATTRIBUTE",
+    "value": "127",
+    "description": "改变属性",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UPDATE_LEVEL",
+    "value": "130",
+    "description": "改变等级",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_LEVEL",
+    "value": "131",
+    "description": "设置等级",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UPDATE_RANK",
+    "value": "132",
+    "description": "改变阶级",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_RANK",
+    "value": "133",
+    "description": "设置阶级",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UPDATE_LSCALE",
+    "value": "134",
+    "description": "改变左刻度",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_LSCALE",
+    "value": "135",
+    "description": "设置左刻度",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UPDATE_RSCALE",
+    "value": "136",
+    "description": "改变右刻度",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_RSCALE",
+    "value": "137",
+    "description": "设置右刻度",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_POSITION",
+    "value": "140",
+    "description": "設定表示形式",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SELF_DESTROY",
+    "value": "141",
+    "description": "不入連鎖的破壞（罪系列等）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SELF_TOGRAVE",
+    "value": "142",
+    "description": "不入連鎖的送墓",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DOUBLE_TRIBUTE",
+    "value": "150",
+    "description": "可以作为2个祭品",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DECREASE_TRIBUTE",
+    "value": "151",
+    "description": "减少祭品",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DECREASE_TRIBUTE_SET",
+    "value": "152",
+    "description": "减少放置怪兽的祭品",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_RELEASE",
+    "value": "153",
+    "description": "必須使用的代替解放（灵魂交错）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TRIBUTE_LIMIT",
+    "value": "154",
+    "description": "祭品限制",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_RELEASE_SUM",
+    "value": "155",
+    "description": "代替召唤解放（帝王的烈旋）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TRIPLE_TRIBUTE",
+    "value": "156",
+    "description": "N/A",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_EXTRA_TRIBUTE",
+    "value": "157",
+    "description": "增加可使用的祭品（真龙）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_RELEASE_NONSUM",
+    "value": "158",
+    "description": "代替效果COST的解放（闇黒世界）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_PUBLIC",
+    "value": "160",
+    "description": "公开手牌",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_COUNTER_PERMIT",
+    "value": "0x10000",
+    "description": "允许放置指示物类型",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_COUNTER_LIMIT",
+    "value": "0x20000",
+    "description": "允许放置指示物数量",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_RCOUNTER_REPLACE",
+    "value": "0x30000",
+    "description": "代替取除指示物",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_LPCOST_CHANGE",
+    "value": "170",
+    "description": "改变生命值代价數值",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_LPCOST_REPLACE",
+    "value": "171",
+    "description": "以其他動作代替生命值代价",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SKIP_DP",
+    "value": "180",
+    "description": "跳过抽卡阶段",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SKIP_SP",
+    "value": "181",
+    "description": "跳过准备阶段",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SKIP_M1",
+    "value": "182",
+    "description": "跳过主要阶段1",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SKIP_BP",
+    "value": "183",
+    "description": "跳过战斗阶段",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SKIP_M2",
+    "value": "184",
+    "description": "跳过主要阶段2",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_BP",
+    "value": "185",
+    "description": "不能进入战斗阶段",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_M2",
+    "value": "186",
+    "description": "不能进入主要阶段2",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_EP",
+    "value": "187",
+    "description": "不能进入结束阶段",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SKIP_TURN",
+    "value": "188",
+    "description": "跳过整个回合",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DEFENSE_ATTACK",
+    "value": "190",
+    "description": "可以守备表示攻击",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MUST_ATTACK",
+    "value": "191",
+    "description": "必须攻击",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FIRST_ATTACK",
+    "value": "192",
+    "description": "必须第一个攻击",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ATTACK_ALL",
+    "value": "193",
+    "description": "可以攻击所有怪兽",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_ATTACK",
+    "value": "194",
+    "description": "增加攻击次数",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MUST_BE_ATTACKED",
+    "value": "195",
+    "description": "N/A",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ONLY_BE_ATTACKED",
+    "value": "196",
+    "description": "只能攻击此卡",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ATTACK_DISABLED",
+    "value": "197",
+    "description": "攻击已被無效(Duel.NegateAttack()成功的標記)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_NO_BATTLE_DAMAGE",
+    "value": "200",
+    "description": "不会给对方造成战斗伤害",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_AVOID_BATTLE_DAMAGE",
+    "value": "201",
+    "description": "不会对自己造成战斗伤害",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REFLECT_BATTLE_DAMAGE",
+    "value": "202",
+    "description": "战斗伤害由对方代为承受",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_PIERCE",
+    "value": "203",
+    "description": "贯穿伤害",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_BATTLE_DESTROY_REDIRECT",
+    "value": "204",
+    "description": "战斗破坏时重新指定去向",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_BATTLE_DAMAGE_TO_EFFECT",
+    "value": "205",
+    "description": "战斗伤害视为效果伤害",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_BOTH_BATTLE_DAMAGE",
+    "value": "206",
+    "description": "战斗伤害由双方承受",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ALSO_BATTLE_DAMAGE",
+    "value": "207",
+    "description": "对自己的战斗伤害让对方也承受",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_BATTLE_DAMAGE",
+    "value": "208",
+    "description": "改变此卡给予的战斗伤害、改变玩家受到的战斗伤害",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TOSS_COIN_REPLACE",
+    "value": "220",
+    "description": "重新抛硬币",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TOSS_DICE_REPLACE",
+    "value": "221",
+    "description": "重新掷骰子",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FUSION_MATERIAL",
+    "value": "230",
+    "description": "指定融合素材的條件",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHAIN_MATERIAL",
+    "value": "231",
+    "description": "改变融合素材选取方法（连锁素材、电子融合支援）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_SYNCHRO_MATERIAL",
+    "value": "232",
+    "description": "在手卡或对方场上也可以当作自己的同调素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_XYZ_MATERIAL",
+    "value": "233",
+    "description": "在对方场上也可以当作自己的超量素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FUSION_SUBSTITUTE",
+    "value": "234",
+    "description": "代替融合素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_BE_FUSION_MATERIAL",
+    "value": "235",
+    "description": "不能做融合素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_BE_SYNCHRO_MATERIAL",
+    "value": "236",
+    "description": "不能做同调素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SYNCHRO_MATERIAL_CUSTOM",
+    "value": "237",
+    "description": "自定义Tuner的同调过程",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_BE_XYZ_MATERIAL",
+    "value": "238",
+    "description": "不能做超量素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_BE_LINK_MATERIAL",
+    "value": "239",
+    "description": "不能做连接素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SYNCHRO_LEVEL",
+    "value": "240",
+    "description": "做同调素材时的等级",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_RITUAL_LEVEL",
+    "value": "241",
+    "description": "做仪式祭品时的等级",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_XYZ_LEVEL",
+    "value": "242",
+    "description": "做超量素材时的等级",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_RITUAL_MATERIAL",
+    "value": "243",
+    "description": "在墓地当做仪式祭品",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_NONTUNER",
+    "value": "244",
+    "description": "同调召唤时可以当作调整以外的怪兽（幻影王 幽骑）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_OVERLAY_REMOVE_REPLACE",
+    "value": "245",
+    "description": "代替去除超量素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SCRAP_CHIMERA",
+    "value": "246",
+    "description": "废铁奇美拉",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TUNE_MAGICIAN_X",
+    "value": "247",
+    "description": "调弦之魔术师超量素材限制",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TUNE_MAGICIAN_F",
+    "value": "248",
+    "description": "调弦之魔术师融合素材限制",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_PRE_MONSTER",
+    "value": "250",
+    "description": "可存取怪獸的各項數值(Card.AddMonsterAttribute()專用)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MATERIAL_CHECK",
+    "value": "251",
+    "description": "检查素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DISABLE_FIELD",
+    "value": "260",
+    "description": "无效区域（扰乱王等）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_USE_EXTRA_MZONE",
+    "value": "261",
+    "description": "怪兽区域封锁",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_USE_EXTRA_SZONE",
+    "value": "262",
+    "description": "魔法区域封锁",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MAX_MZONE",
+    "value": "263",
+    "description": "怪獸区格數上限",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MAX_SZONE",
+    "value": "264",
+    "description": "魔陷区格數上限",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MUST_USE_MZONE",
+    "value": "265",
+    "description": "必须使用怪兽区的格子",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_HAND_LIMIT",
+    "value": "270",
+    "description": "手牌数量限制",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DRAW_COUNT",
+    "value": "271",
+    "description": "抽卡阶段的抽卡数",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SPIRIT_DONOT_RETURN",
+    "value": "280",
+    "description": "灵魂怪兽不返回手牌",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SPIRIT_MAYNOT_RETURN",
+    "value": "281",
+    "description": "灵魂怪兽可以不返回手牌",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_ENVIRONMENT",
+    "value": "290",
+    "description": "改变场地",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_NECRO_VALLEY",
+    "value": "291",
+    "description": "王家长眠之谷",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FORBIDDEN",
+    "value": "292",
+    "description": "不能Play(禁止令)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_NECRO_VALLEY_IM",
+    "value": "293",
+    "description": "不受「王家长眠之谷」的影响",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REVERSE_DECK",
+    "value": "294",
+    "description": "翻转卡组",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REMOVE_BRAINWASHING",
+    "value": "295",
+    "description": "洗脑解除",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_BP_TWICE",
+    "value": "296",
+    "description": "2次战斗阶段",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UNIQUE_CHECK",
+    "value": "297",
+    "description": "場上只能存在1張(Card.SetUniqueOnField()專用)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MATCH_KILL",
+    "value": "300",
+    "description": "Match胜利(胜利龙)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SYNCHRO_CHECK",
+    "value": "310",
+    "description": "基因组斗士",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_QP_ACT_IN_NTPHAND",
+    "value": "311",
+    "description": "对方回合从自己手卡发动（失乐的圣女）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MUST_BE_SMATERIAL",
+    "value": "312",
+    "description": "必须作为同调素材（波动龙 声子龙）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TO_GRAVE_REDIRECT_CB",
+    "value": "313",
+    "description": "重新指定去向(寶玉獸)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_INVOLVING_BATTLE_DAMAGE",
+    "value": "314",
+    "description": "改变此卡的战斗产生的战斗伤害",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_RANK_FINAL",
+    "value": "315",
+    "description": "N/A",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MUST_BE_FMATERIAL",
+    "value": "316",
+    "description": "必须作为融合素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MUST_BE_XMATERIAL",
+    "value": "317",
+    "description": "必须作为超量素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MUST_BE_LMATERIAL",
+    "value": "318",
+    "description": "必须作为连接素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SPSUMMON_PROC_G",
+    "value": "320",
+    "description": "P召唤规则",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SPSUMMON_COUNT_LIMIT",
+    "value": "330",
+    "description": "特殊召唤次数限制",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_LEFT_SPSUMMON_COUNT",
+    "value": "331",
+    "description": "剩餘召喚次數(召喚限制網)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_SELECT_BATTLE_TARGET",
+    "value": "332",
+    "description": "對手不能選擇為攻擊對象",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CANNOT_SELECT_EFFECT_TARGET",
+    "value": "333",
+    "description": "對手不能選擇為效果對象",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_SETCODE",
+    "value": "334",
+    "description": "视为「XX」字段的效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_NO_EFFECT_DAMAGE",
+    "value": "335",
+    "description": "玩家已受到\"效果傷害變成0\"的效果影響（只用于检查，实际免伤仍需要EFFECT_CHANGE_DAMAGE等）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UNSUMMONABLE_CARD",
+    "value": "336",
+    "description": "N/A",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DISABLE_CHAIN_FIELD",
+    "value": "337",
+    "description": "N/A",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DISCARD_COST_CHANGE",
+    "value": "338",
+    "description": "反制陷阱捨棄手牌的代價改變(解放之阿里阿德涅)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_HAND_SYNCHRO",
+    "value": "339",
+    "description": "用手牌的怪獸當作同步素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_FUSION_CODE",
+    "value": "340",
+    "description": "作为融合素材时可以当作某一卡名(融合识别)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_FUSION_SETCODE",
+    "value": "341",
+    "description": "作为融合素材时可以当作某一字段(魔玩具改造)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_RISE_TO_FULL_HEIGHT",
+    "value": "342",
+    "description": "N/A",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ONLY_ATTACK_MONSTER",
+    "value": "343",
+    "description": "只能攻擊X",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MUST_ATTACK_MONSTER",
+    "value": "344",
+    "description": "若攻擊則必須攻擊X",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_PATRICIAN_OF_DARKNESS",
+    "value": "345",
+    "description": "由對手選擇攻擊對象(黑暗貴族)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_ATTACK_MONSTER",
+    "value": "346",
+    "description": "對怪獸攻擊X次",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_UNION_STATUS",
+    "value": "347",
+    "description": "同盟状态",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_OLDUNION_STATUS",
+    "value": "348",
+    "description": "旧同盟状态",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_FUSION_ATTRIBUTE",
+    "value": "349",
+    "description": "reserve",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REMOVE_FUSION_ATTRIBUTE",
+    "value": "350",
+    "description": "reserve",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_FUSION_ATTRIBUTE",
+    "value": "351",
+    "description": "用作融合素材时的属性",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_FUSION_MATERIAL",
+    "value": "352",
+    "description": "增加融合素材(万溶炼金师)",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TUNER_MATERIAL_LIMIT",
+    "value": "353",
+    "description": "同调素材限制",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_LINK_CODE",
+    "value": "354",
+    "description": "用作连接素材时的卡名",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_LINK_SETCODE",
+    "value": "355",
+    "description": "reserve",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_LINK_ATTRIBUTE",
+    "value": "356",
+    "description": "用作连接素材时的属性",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ADD_LINK_RACE",
+    "value": "357",
+    "description": "用作连接素材时的种族",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_LINK_MATERIAL",
+    "value": "358",
+    "description": "手卡的连接素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_QP_ACT_IN_SET_TURN",
+    "value": "359",
+    "description": "速攻魔法可以在盖放的回合发动",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_EXTRA_PENDULUM_SUMMON",
+    "value": "360",
+    "description": "extra pendulum summon",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_MATERIAL_LIMIT",
+    "value": "361",
+    "description": "",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_BATTLE_ATTACK",
+    "value": "362",
+    "description": "战斗的伤害计算用设置的攻击力进行",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SET_BATTLE_DEFENSE",
+    "value": "363",
+    "description": "战斗的伤害计算用设置的守备力进行",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_OVERLAY_RITUAL_MATERIAL",
+    "value": "364",
+    "description": "此卡的超量素材也能用于仪式召唤",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_GRAVE_ATTRIBUTE",
+    "value": "365",
+    "description": "墓地的卡将会改变属性（升级转变）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_CHANGE_GRAVE_RACE",
+    "value": "366",
+    "description": "墓地的卡将会改变种族（升级转变）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_ACTIVATION_COUNT_LIMIT",
+    "value": "367",
+    "description": "reserve",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_LIMIT_SPECIAL_SUMMON_POSITION",
+    "value": "368",
+    "description": "不能以特定表示形式特殊召唤",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_TUNER",
+    "value": "369",
+    "description": "同调召唤时可以当作调整（百檎龙-苹果鳞虫）",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_KAISER_COLOSSEUM",
+    "value": "370",
+    "description": "皇帝斗技场",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_REPLACE_DAMAGE",
+    "value": "371",
+    "description": "伤害由特定行动代替",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_XYZ_MIN_COUNT",
+    "value": "372",
+    "description": "只能用在X只以上的超量召唤",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_SYNCHRO_LEVEL_EX",
+    "value": "373",
+    "description": "支持使用没有等级的怪兽作为同调素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_RITUAL_LEVEL_EX",
+    "value": "374",
+    "description": "支持使用没有等级的怪兽作为仪式素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_DOUBLE_XMATERIAL",
+    "value": "375",
+    "description": "召唤需3只以上作素材的超量怪兽时可以作为2只数量的素材",
+    "category": "组合时点"
+  },
+  {
+    "name": "EFFECT_FLAG_EFFECT",
+    "value": "0x20000000",
+    "description": "标记类效果，即RegisterFlagEffect()创建的效果",
+    "category": "组合时点"
+  },
+  {
+    "name": "EVENT_STARTUP",
+    "value": "1000",
+    "description": "N/A",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_FLIP",
+    "value": "1001",
+    "description": "翻转时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_FREE_CHAIN",
+    "value": "1002",
+    "description": "自由时点（强脱等，还有昴星团等诱发即时效果）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_DESTROY",
+    "value": "1010",
+    "description": "確定被破壞的卡片移動前",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_REMOVE",
+    "value": "1011",
+    "description": "除外时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_TO_HAND",
+    "value": "1012",
+    "description": "加入手牌时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_TO_DECK",
+    "value": "1013",
+    "description": "回卡组时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_TO_GRAVE",
+    "value": "1014",
+    "description": "送去墓地时(不含REASON_RETURN)",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_LEAVE_FIELD",
+    "value": "1015",
+    "description": "离场时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CHANGE_POS",
+    "value": "1016",
+    "description": "表示形式变更时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_RELEASE",
+    "value": "1017",
+    "description": "解放时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_DISCARD",
+    "value": "1018",
+    "description": "丢弃手牌时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_LEAVE_FIELD_P",
+    "value": "1019",
+    "description": "離場的卡片移動前",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CHAIN_SOLVING",
+    "value": "1020",
+    "description": "连锁处理开始时（EVENT_CHAIN_ACTIVATING之後）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CHAIN_ACTIVATING",
+    "value": "1021",
+    "description": "连锁处理准备中",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CHAIN_SOLVED",
+    "value": "1022",
+    "description": "连锁处理结束时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CHAIN_ACTIVATED",
+    "value": "1023",
+    "description": "N/A",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CHAIN_NEGATED",
+    "value": "1024",
+    "description": "连锁发动无效时（EVENT_CHAIN_ACTIVATING之後）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CHAIN_DISABLED",
+    "value": "1025",
+    "description": "连锁效果无效时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CHAIN_END",
+    "value": "1026",
+    "description": "连锁串结束时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CHAINING",
+    "value": "1027",
+    "description": "效果发动时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BECOME_TARGET",
+    "value": "1028",
+    "description": "成为效果对象时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_DESTROYED",
+    "value": "1029",
+    "description": "被破坏时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_MOVE",
+    "value": "1030",
+    "description": "移動卡片(急兔馬)",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_LEAVE_GRAVE",
+    "value": "1031",
+    "description": "离开墓地时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_LEAVE_DECK",
+    "value": "1032",
+    "description": "离开卡组或额外卡组时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_ADJUST",
+    "value": "1040",
+    "description": "adjust_all()调整後（御前试合）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BREAK_EFFECT",
+    "value": "1050",
+    "description": "Duel.BreakEffect()被调用时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_SUMMON_SUCCESS",
+    "value": "1100",
+    "description": "通常召唤成功时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_FLIP_SUMMON_SUCCESS",
+    "value": "1101",
+    "description": "翻转召唤成功时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_SPSUMMON_SUCCESS",
+    "value": "1102",
+    "description": "特殊召唤成功时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_SUMMON",
+    "value": "1103",
+    "description": "召唤之际（怪兽还没上场、神宣等时点）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_FLIP_SUMMON",
+    "value": "1104",
+    "description": "翻转召唤之际",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_SPSUMMON",
+    "value": "1105",
+    "description": "特殊召唤之际",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_MSET",
+    "value": "1106",
+    "description": "放置怪兽时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_SSET",
+    "value": "1107",
+    "description": "放置魔陷时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BE_MATERIAL",
+    "value": "1108",
+    "description": "作为同调/超量/连结素材、用于升级召唤的解放、作为仪式/融合召唤的素材",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BE_PRE_MATERIAL",
+    "value": "1109",
+    "description": "将要作为同调/超量/连结素材、用于升级召唤的解放",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_DRAW",
+    "value": "1110",
+    "description": "抽卡时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_DAMAGE",
+    "value": "1111",
+    "description": "造成战斗/效果伤害时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_RECOVER",
+    "value": "1112",
+    "description": "回复生命值时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_PREDRAW",
+    "value": "1113",
+    "description": "抽卡阶段通常抽卡前",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_SUMMON_NEGATED",
+    "value": "1114",
+    "description": "召唤被无效时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_FLIP_SUMMON_NEGATED",
+    "value": "1115",
+    "description": "反转召唤被无效时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_SPSUMMON_NEGATED",
+    "value": "1116",
+    "description": "特殊召唤被无效时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_SPSUMMON_SUCCESS_G_P",
+    "value": "1117",
+    "description": "EFFECT_SPSUMMON_PROC_G特殊召唤成功前(只能使用EFFECT_TYPE_CONTINUOUS)",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CONTROL_CHANGED",
+    "value": "1120",
+    "description": "控制权变更",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_EQUIP",
+    "value": "1121",
+    "description": "装备卡装备时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_ATTACK_ANNOUNCE",
+    "value": "1130",
+    "description": "攻击宣言时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BE_BATTLE_TARGET",
+    "value": "1131",
+    "description": "被选为攻击对象时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BATTLE_START",
+    "value": "1132",
+    "description": "伤害步骤开始时（反转前）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BATTLE_CONFIRM",
+    "value": "1133",
+    "description": "伤害计算前（反转後）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_PRE_DAMAGE_CALCULATE",
+    "value": "1134",
+    "description": "伤害计算时（羽斬）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_DAMAGE_CALCULATING",
+    "value": "1135",
+    "description": "N/A",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_PRE_BATTLE_DAMAGE",
+    "value": "1136",
+    "description": "即将产生战斗伤害(只能使用EFFECT_TYPE_CONTINUOUS)",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BATTLE_END",
+    "value": "1137",
+    "description": "N/A",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BATTLED",
+    "value": "1138",
+    "description": "伤害计算后（异女、同反转效果时点）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BATTLE_DESTROYING",
+    "value": "1139",
+    "description": "以战斗破坏怪兽送去墓地时（BF-苍炎之修罗）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BATTLE_DESTROYED",
+    "value": "1140",
+    "description": "被战斗破坏送去墓地时（杀人番茄等）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_DAMAGE_STEP_END",
+    "value": "1141",
+    "description": "伤害步骤结束时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_ATTACK_DISABLED",
+    "value": "1142",
+    "description": "攻击无效时（翻倍机会）",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_BATTLE_DAMAGE",
+    "value": "1143",
+    "description": "造成战斗伤害时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_TOSS_DICE",
+    "value": "1150",
+    "description": "掷骰子的结果产生后",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_TOSS_COIN",
+    "value": "1151",
+    "description": "抛硬币的结果产生后",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_TOSS_COIN_NEGATE",
+    "value": "1152",
+    "description": "重新抛硬币",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_TOSS_DICE_NEGATE",
+    "value": "1153",
+    "description": "重新掷骰子",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_LEVEL_UP",
+    "value": "1200",
+    "description": "等级上升时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_PAY_LPCOST",
+    "value": "1201",
+    "description": "支付生命值时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_DETACH_MATERIAL",
+    "value": "1202",
+    "description": "去除超量素材时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_RETURN_TO_GRAVE",
+    "value": "1203",
+    "description": "回到墓地时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_TURN_END",
+    "value": "1210",
+    "description": "回合结束时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_PHASE",
+    "value": "0x1000",
+    "description": "阶段结束时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_PHASE_START",
+    "value": "0x2000",
+    "description": "阶段开始时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_ADD_COUNTER",
+    "value": "0x10000",
+    "description": "增加指示物时",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_REMOVE_COUNTER",
+    "value": "0x20000",
+    "description": "去除指示物时(A指示物)，Card.RemoveCounter()必須手動觸發此事件",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "EVENT_CUSTOM",
+    "value": "0x10000000",
+    "description": "自訂事件",
+    "category": "下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）"
+  },
+  {
+    "name": "CATEGORY_DESTROY",
+    "value": "0x1",
+    "description": "破坏效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_RELEASE",
+    "value": "0x2",
+    "description": "解放效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_REMOVE",
+    "value": "0x4",
+    "description": "除外效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_TOHAND",
+    "value": "0x8",
+    "description": "回手牌效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_TODECK",
+    "value": "0x10",
+    "description": "回卡组效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_TOGRAVE",
+    "value": "0x20",
+    "description": "送去墓地效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_DECKDES",
+    "value": "0x40",
+    "description": "包含從卡组送去墓地或特殊召唤效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_HANDES",
+    "value": "0x80",
+    "description": "捨棄手牌效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_SUMMON",
+    "value": "0x100",
+    "description": "含召唤的效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_SPECIAL_SUMMON",
+    "value": "0x200",
+    "description": "含特殊召唤的效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_TOKEN",
+    "value": "0x400",
+    "description": "含衍生物效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_GRAVE_ACTION",
+    "value": "0x800",
+    "description": "包含特殊召喚以外移動墓地的卡的效果（屋敷わらし）",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_POSITION",
+    "value": "0x1000",
+    "description": "改变表示形式效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_CONTROL",
+    "value": "0x2000",
+    "description": "改变控制权效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_DISABLE",
+    "value": "0x4000",
+    "description": "使效果无效效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_DISABLE_SUMMON",
+    "value": "0x8000",
+    "description": "无效召唤效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_DRAW",
+    "value": "0x10000",
+    "description": "抽卡效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_SEARCH",
+    "value": "0x20000",
+    "description": "检索卡组效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_EQUIP",
+    "value": "0x40000",
+    "description": "把自己装备效果（请勿用于把其他卡装备的效果）",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_DAMAGE",
+    "value": "0x80000",
+    "description": "伤害效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_RECOVER",
+    "value": "0x100000",
+    "description": "回复效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_ATKCHANGE",
+    "value": "0x200000",
+    "description": "改变攻击效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_DEFCHANGE",
+    "value": "0x400000",
+    "description": "改变防御效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_COUNTER",
+    "value": "0x800000",
+    "description": "指示物效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_COIN",
+    "value": "0x1000000",
+    "description": "硬币效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_DICE",
+    "value": "0x2000000",
+    "description": "骰子效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_LEAVE_GRAVE",
+    "value": "0x4000000",
+    "description": "涉及墓地的效果(王家長眠之谷)",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_GRAVE_SPSUMMON",
+    "value": "0x8000000",
+    "description": "包含從墓地特殊召喚的效果（屋敷わらし、冥神）",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_NEGATE",
+    "value": "0x10000000",
+    "description": "使发动无效效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_ANNOUNCE",
+    "value": "0x20000000",
+    "description": "發動時宣言卡名的效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_FUSION_SUMMON",
+    "value": "0x40000000",
+    "description": "融合召唤效果（暴走魔法阵）",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_TOEXTRA",
+    "value": "0x80000000",
+    "description": "回额外卡组效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_MSET",
+    "value": "0x100000000",
+    "description": "包含盖放怪兽的效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_SSET",
+    "value": "0x200000000",
+    "description": "包含盖放魔陷的效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "HINT_EVENT",
+    "value": "1",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "HINT_MESSAGE",
+    "value": "2",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "HINT_SELECTMSG",
+    "value": "3",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "HINT_OPSELECTED",
+    "value": "4",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "HINT_EFFECT",
+    "value": "5",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "HINT_RACE",
+    "value": "6",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "HINT_ATTRIB",
+    "value": "7",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "HINT_CODE",
+    "value": "8",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "HINT_NUMBER",
+    "value": "9",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "HINT_CARD",
+    "value": "10",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "HINT_ZONE",
+    "value": "11",
+    "description": "",
+    "category": "Hint"
+  },
+  {
+    "name": "CHINT_TURN",
+    "value": "1",
+    "description": "",
+    "category": "Card Hint"
+  },
+  {
+    "name": "CHINT_CARD",
+    "value": "2",
+    "description": "",
+    "category": "Card Hint"
+  },
+  {
+    "name": "CHINT_RACE",
+    "value": "3",
+    "description": "",
+    "category": "Card Hint"
+  },
+  {
+    "name": "CHINT_ATTRIBUTE",
+    "value": "4",
+    "description": "",
+    "category": "Card Hint"
+  },
+  {
+    "name": "CHINT_NUMBER",
+    "value": "5",
+    "description": "",
+    "category": "Card Hint"
+  },
+  {
+    "name": "CHINT_DESC",
+    "value": "6",
+    "description": "",
+    "category": "Card Hint"
+  },
+  {
+    "name": "OPCODE_ADD",
+    "value": "0x40000000",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_SUB",
+    "value": "0x40000001",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_MUL",
+    "value": "0x40000002",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_DIV",
+    "value": "0x40000003",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_AND",
+    "value": "0x40000004",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_OR",
+    "value": "0x40000005",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_NEG",
+    "value": "0x40000006",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_NOT",
+    "value": "0x40000007",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_ISCODE",
+    "value": "0x40000100",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_ISSETCARD",
+    "value": "0x40000101",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_ISTYPE",
+    "value": "0x40000102",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_ISRACE",
+    "value": "0x40000103",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "OPCODE_ISATTRIBUTE",
+    "value": "0x40000104",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "DOUBLE_DAMAGE",
+    "value": "-2147483648",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "HALF_DAMAGE",
+    "value": "-2147483647",
+    "description": "",
+    "category": "Opcode"
+  },
+  {
+    "name": "HINTMSG_RELEASE",
+    "value": "500",
+    "description": "请选择要解放的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_DISCARD",
+    "value": "501",
+    "description": "请选择要丢弃的手牌",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_DESTROY",
+    "value": "502",
+    "description": "请选择要破坏的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_REMOVE",
+    "value": "503",
+    "description": "请选择要除外的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_TOGRAVE",
+    "value": "504",
+    "description": "请选择要送去墓地的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_RTOHAND",
+    "value": "505",
+    "description": "请选择要返回手牌的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_ATOHAND",
+    "value": "506",
+    "description": "请选择要加入手牌的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_TODECK",
+    "value": "507",
+    "description": "请选择要返回卡组的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_SUMMON",
+    "value": "508",
+    "description": "请选择要召唤的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_SPSUMMON",
+    "value": "509",
+    "description": "请选择要特殊召唤的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_SET",
+    "value": "510",
+    "description": "请选择要盖放的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_FMATERIAL",
+    "value": "511",
+    "description": "请选择要作为融合素材的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_SMATERIAL",
+    "value": "512",
+    "description": "请选择要作为同调素材的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_XMATERIAL",
+    "value": "513",
+    "description": "请选择要作为超量素材的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_FACEUP",
+    "value": "514",
+    "description": "请选择表侧表示的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_FACEDOWN",
+    "value": "515",
+    "description": "请选择里侧表示的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_ATTACK",
+    "value": "516",
+    "description": "请选择攻击表示的怪兽",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_DEFENSE",
+    "value": "517",
+    "description": "请选择守备表示的怪兽",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_EQUIP",
+    "value": "518",
+    "description": "请选择要装备的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_REMOVEXYZ",
+    "value": "519",
+    "description": "请选择要取除的超量素材",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_CONTROL",
+    "value": "520",
+    "description": "请选择要改变控制权的怪兽",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_DESREPLACE",
+    "value": "521",
+    "description": "请选择要代替破坏的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_FACEUPATTACK",
+    "value": "522",
+    "description": "请选择表侧攻击表示的怪兽",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_FACEUPDEFENSE",
+    "value": "523",
+    "description": "请选择表侧守备表示的怪兽",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_FACEDOWNATTACK",
+    "value": "524",
+    "description": "请选择里侧攻击表示的怪兽",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_FACEDOWNDEFENSE",
+    "value": "525",
+    "description": "请选择里侧守备表示的怪兽",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_CONFIRM",
+    "value": "526",
+    "description": "请选择给对方确认的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_TOFIELD",
+    "value": "527",
+    "description": "请选择要放置到场上的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_POSCHANGE",
+    "value": "528",
+    "description": "请选择要改变表示形式的怪兽",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_SELF",
+    "value": "529",
+    "description": "请选择自己的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_OPPO",
+    "value": "530",
+    "description": "请选择对方的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_TRIBUTE",
+    "value": "531",
+    "description": "请选择上级召唤用需要解放的怪兽",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_DEATTACHFROM",
+    "value": "532",
+    "description": "请选择要取除超量素材的怪兽",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_LMATERIAL",
+    "value": "533",
+    "description": "请选择要作为连接素材的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_ATTACKTARGET",
+    "value": "549",
+    "description": "请选择攻击的对象",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_EFFECT",
+    "value": "550",
+    "description": "请选择要发动的效果",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_TARGET",
+    "value": "551",
+    "description": "请选择效果的对象",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_COIN",
+    "value": "552",
+    "description": "请选择硬币的正反面",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_DICE",
+    "value": "553",
+    "description": "请选择骰子的结果",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_CARDTYPE",
+    "value": "554",
+    "description": "请选择一个种类",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_OPTION",
+    "value": "555",
+    "description": "请选择一个选项",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_RESOLVEEFFECT",
+    "value": "556",
+    "description": "请选择要发动/处理的效果",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_SELECT",
+    "value": "560",
+    "description": "请选择",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_POSITION",
+    "value": "561",
+    "description": "请选择表示形式",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_ATTRIBUTE",
+    "value": "562",
+    "description": "请选择要宣言的属性",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_RACE",
+    "value": "563",
+    "description": "请选择要宣言的种族",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_CODE",
+    "value": "564",
+    "description": "请宣言一个卡名",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINGMSG_NUMBER",
+    "value": "565",
+    "description": "请选择一个数字",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINGMSG_LVRANK",
+    "value": "567",
+    "description": "请宣言一个等级",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_RESOLVECARD",
+    "value": "568",
+    "description": "请选择要处理效果的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_ZONE",
+    "value": "569",
+    "description": "请选择[%ls]的位置",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_DISABLEZONE",
+    "value": "570",
+    "description": "请选择要变成不能使用的卡片区域",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_TOZONE",
+    "value": "571",
+    "description": "请选择要移动到的位置",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_COUNTER",
+    "value": "572",
+    "description": "请选择要放置指示物的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_DISABLE",
+    "value": "573",
+    "description": "请选择要无效的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_OPERATECARD",
+    "value": "574",
+    "description": "请选择要操作的卡",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINTMSG_FIELD_FIRST",
+    "value": "575",
+    "description": "请选择场上的卡（按取消可选择其他区域的卡）",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "SELECT_HEADS",
+    "value": "60",
+    "description": "正面",
+    "category": "Select --请选择"
+  },
+  {
+    "name": "SELECT_TAILS",
+    "value": "61",
+    "description": "反面",
+    "category": "Select --请选择"
+  },
+  {
+    "name": "TIMING_DRAW_PHASE",
+    "value": "0x1",
+    "description": "抽卡阶段时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_STANDBY_PHASE",
+    "value": "0x2",
+    "description": "准备阶段时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_MAIN_END",
+    "value": "0x4",
+    "description": "主要阶段结束时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_BATTLE_START",
+    "value": "0x8",
+    "description": "战斗阶段开始时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_BATTLE_END",
+    "value": "0x10",
+    "description": "战斗阶段结束时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_END_PHASE",
+    "value": "0x20",
+    "description": "结束阶段时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_SUMMON",
+    "value": "0x40",
+    "description": "召唤时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_SPSUMMON",
+    "value": "0x80",
+    "description": "特殊召唤时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_FLIPSUMMON",
+    "value": "0x100",
+    "description": "翻转召唤时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_MSET",
+    "value": "0x200",
+    "description": "放置怪兽时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_SSET",
+    "value": "0x400",
+    "description": "放置魔陷时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_POS_CHANGE",
+    "value": "0x800",
+    "description": "表示形式变更时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_ATTACK",
+    "value": "0x1000",
+    "description": "攻击宣言时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_DAMAGE_STEP",
+    "value": "0x2000",
+    "description": "伤害步骤时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_DAMAGE_CAL",
+    "value": "0x4000",
+    "description": "伤害计算时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_CHAIN_END",
+    "value": "0x8000",
+    "description": "连锁结束时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_DRAW",
+    "value": "0x10000",
+    "description": "抽卡时点（不是抽卡阶段",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_DAMAGE",
+    "value": "0x20000",
+    "description": "造成伤害时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_RECOVER",
+    "value": "0x40000",
+    "description": "回复时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_DESTROY",
+    "value": "0x80000",
+    "description": "破坏时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_REMOVE",
+    "value": "0x100000",
+    "description": "除外时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_TOHAND",
+    "value": "0x200000",
+    "description": "加入手牌时点（检索、回收等）",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_TODECK",
+    "value": "0x400000",
+    "description": "回卡组时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_TOGRAVE",
+    "value": "0x800000",
+    "description": "进墓地时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_BATTLE_PHASE",
+    "value": "0x1000000",
+    "description": "战斗阶段时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_EQUIP",
+    "value": "0x2000000",
+    "description": "装备时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_BATTLE_STEP_END",
+    "value": "0x4000000",
+    "description": "戰鬥步驟結束時",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMING_BATTLED",
+    "value": "0x8000000",
+    "description": "伤害计算后时点",
+    "category": "Timing --提示时点，可以给freechain卡片增加自动提示时点"
+  },
+  {
+    "name": "TIMINGS_CHECK_MONSTER",
+    "value": "0x1c0",
+    "description": "怪兽正面上场",
+    "category": "组合时点"
+  },
+  {
+    "name": "GLOBALFLAG_DECK_REVERSE_CHECK",
+    "value": "0x1",
+    "description": "卡组翻转标记",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "GLOBALFLAG_BRAINWASHING_CHECK",
+    "value": "0x2",
+    "description": "洗脑解除标记",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "GLOBALFLAG_SCRAP_CHIMERA",
+    "value": "0x4",
+    "description": "废铁奇美拉标记",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "GLOBALFLAG_DELAYED_QUICKEFFECT",
+    "value": "0x8",
+    "description": "N/A",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "GLOBALFLAG_DETACH_EVENT",
+    "value": "0x10",
+    "description": "EVENT_DETACH_MATERIAL",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "GLOBALFLAG_MUST_BE_SMATERIAL",
+    "value": "0x20",
+    "description": "N/A",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "GLOBALFLAG_SPSUMMON_COUNT",
+    "value": "0x40",
+    "description": "玩家的特殊召唤次数限制",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "GLOBALFLAG_XMAT_COUNT_LIMIT",
+    "value": "0x80",
+    "description": "超量素材数量限制标记（光天使 天座）",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "GLOBALFLAG_SELF_TOGRAVE",
+    "value": "0x100",
+    "description": "不入連鎖的送墓檢查(EFFECT_SELF_TOGRAVE)",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "GLOBALFLAG_SPSUMMON_ONCE",
+    "value": "0x200",
+    "description": "1回合只能特殊召喚1次(Card.SetSPSummonOnce())",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "GLOBALFLAG_TUNE_MAGICIAN",
+    "value": "0x400",
+    "description": "超量素材检查标记（调弦之魔术师）",
+    "category": "Global flag --特殊标记"
+  },
+  {
+    "name": "EFFECT_COUNT_CODE_OATH",
+    "value": "0x10000000",
+    "description": "发动次数限制(誓约次数, 发动被无效不计数)",
+    "category": "count_code"
+  },
+  {
+    "name": "EFFECT_COUNT_CODE_DUEL",
+    "value": "0x20000000",
+    "description": "决斗中使用次数",
+    "category": "count_code"
+  },
+  {
+    "name": "EFFECT_COUNT_CODE_CHAIN",
+    "value": "0x40000000",
+    "description": "同一连锁中使用次数",
+    "category": "count_code"
+  },
+  {
+    "name": "EFFECT_COUNT_CODE_SINGLE",
+    "value": "0x1",
+    "description": "同一张卡的多个效果公共使用次数",
+    "category": "count_code"
+  },
+  {
+    "name": "DUEL_TEST_MODE",
+    "value": "0x01",
+    "description": "测试模式(目前暫無)",
+    "category": "特殊选项"
+  },
+  {
+    "name": "DUEL_ATTACK_FIRST_TURN",
+    "value": "0x02",
+    "description": "第一回合可以攻击(用于残局)",
+    "category": "特殊选项"
+  },
+  {
+    "name": "DUEL_OLD_REPLAY",
+    "value": "0x04",
+    "description": "旧录像",
+    "category": "特殊选项"
+  },
+  {
+    "name": "DUEL_OBSOLETE_RULING",
+    "value": "0x08",
+    "description": "使用舊規則",
+    "category": "特殊选项"
+  },
+  {
+    "name": "DUEL_PSEUDO_SHUFFLE",
+    "value": "0x10",
+    "description": "不洗牌",
+    "category": "特殊选项"
+  },
+  {
+    "name": "DUEL_TAG_MODE",
+    "value": "0x20",
+    "description": "双打PP",
+    "category": "特殊选项"
+  },
+  {
+    "name": "DUEL_SIMPLE_AI",
+    "value": "0x40",
+    "description": "AI(用于残局)",
+    "category": "特殊选项"
+  },
+  {
+    "name": "DUEL_RETURN_DECK_TOP",
+    "value": "0x80",
+    "description": "回卡组洗切的卡放到卡组最上方（不洗牌模式下曾经的默认行为）",
+    "category": "特殊选项"
+  },
+  {
+    "name": "DUEL_REVEAL_DECK_SEQ",
+    "value": "0x100",
+    "description": "从卡组选卡显示实际顺序（曾经的默认行为）",
+    "category": "特殊选项"
+  },
+  {
+    "name": "MASTER_RULE3",
+    "value": "3",
+    "description": "Master Rule 3 (2014)",
+    "category": "Duel rule (Debug.ReloadFieldBegin)"
+  },
+  {
+    "name": "NEW_MASTER_RULE",
+    "value": "4",
+    "description": "New Master Rule (2017)",
+    "category": "Duel rule (Debug.ReloadFieldBegin)"
+  },
+  {
+    "name": "MASTER_RULE_2020",
+    "value": "5",
+    "description": "Master Rule 2020",
+    "category": "Duel rule (Debug.ReloadFieldBegin)"
+  },
+  {
+    "name": "ACTIVITY_SUMMON",
+    "value": "1",
+    "description": "",
+    "category": "custom: 1-5,7 (binary: 1-5)"
+  },
+  {
+    "name": "ACTIVITY_NORMALSUMMON",
+    "value": "2",
+    "description": "",
+    "category": "custom: 1-5,7 (binary: 1-5)"
+  },
+  {
+    "name": "ACTIVITY_SPSUMMON",
+    "value": "3",
+    "description": "",
+    "category": "custom: 1-5,7 (binary: 1-5)"
+  },
+  {
+    "name": "ACTIVITY_FLIPSUMMON",
+    "value": "4",
+    "description": "",
+    "category": "custom: 1-5,7 (binary: 1-5)"
+  },
+  {
+    "name": "ACTIVITY_ATTACK",
+    "value": "5",
+    "description": "",
+    "category": "custom: 1-5,7 (binary: 1-5)"
+  },
+  {
+    "name": "ACTIVITY_BATTLE_PHASE",
+    "value": "6",
+    "description": "not available in custom counter",
+    "category": "custom: 1-5,7 (binary: 1-5)"
+  },
+  {
+    "name": "ACTIVITY_CHAIN",
+    "value": "7",
+    "description": "only available in custom counter",
+    "category": "custom: 1-5,7 (binary: 1-5)"
+  },
+  {
+    "name": "CARD_MARINE_DOLPHIN",
+    "value": "78734254",
+    "description": "海洋海豚(double name)",
+    "category": "Special cards"
+  },
+  {
+    "name": "CARD_TWINKLE_MOSS",
+    "value": "13857930",
+    "description": "光輝苔蘚(double name)",
+    "category": "Special cards"
+  },
+  {
+    "name": "CARD_QUESTION",
+    "value": "38723936",
+    "description": "谜题",
+    "category": "Special cards"
+  },
+  {
+    "name": "FLAG_ID_CHAINING",
+    "value": "1",
+    "description": "",
+    "category": "Special flag effect id"
+  },
+  {
+    "name": "FLAG_ID_UNION",
+    "value": "2",
+    "description": "",
+    "category": "Special flag effect id"
+  },
+  {
+    "name": "FLAG_ID_NO_NORMAL_DRAW",
+    "value": "3",
+    "description": "",
+    "category": "Special flag effect id"
+  },
+  {
+    "name": "FLAG_ID_ALLURE_QUEEN",
+    "value": "4",
+    "description": "",
+    "category": "Special flag effect id"
+  },
+  {
+    "name": "FLAG_ID_ARCANA_COIN",
+    "value": "5",
+    "description": "",
+    "category": "Special flag effect id"
+  },
+  {
+    "name": "FLAG_ID_REVERSAL_OF_FATE",
+    "value": "36690018",
+    "description": "",
+    "category": "Special flag effect id"
+  }
+]

@@ -142,6 +142,7 @@ function cloneCard(card: CardDataEntry): CardDataEntry {
     ...card,
     setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
     strings: Array.isArray(card.strings) ? [...card.strings] : [],
+    ruleCode: Number(card.ruleCode ?? 0),
   };
 }
 
@@ -950,12 +951,19 @@ export async function saveCdbFile(): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
 
+  return saveCdbTab(tab.id);
+}
+
+export async function saveCdbTab(tabId: string): Promise<boolean> {
+  const tab = get(tabs).find((item) => item.id === tabId);
+  if (!tab) return false;
+
   try {
     await invoke('save_cdb_tab', { tabId: tab.id });
-    markActiveTabDirty(false);
+    markTabDirty(tab.id, false);
     return true;
   } catch (err) {
-    console.error("Failed to save CDB:", err);
+    console.error('Failed to save CDB:', err);
     return false;
   }
 }
@@ -1026,12 +1034,32 @@ export function hasUnsavedChanges(tabId: string | null = get(activeTabId)): bool
   return tab?.isDirty ?? false;
 }
 
+function markTabDirty(tabId: string, isDirty = true) {
+  tabs.update((currentTabs) =>
+    currentTabs.map((tab) => (tab.id === tabId ? { ...tab, isDirty } : tab))
+  );
+}
+
 export function markActiveTabDirty(isDirty = true) {
   const tabId = get(activeTabId);
   if (!tabId) return;
 
+  markTabDirty(tabId, isDirty);
+}
+
+function syncCachedCardsInTab(tabId: string, cards: CardDataEntry[]) {
+  if (cards.length === 0) return;
+
+  const nextByCode = new Map(cards.map((card) => [card.code, cloneCard(card)]));
   tabs.update((currentTabs) =>
-    currentTabs.map((tab) => (tab.id === tabId ? { ...tab, isDirty } : tab))
+    currentTabs.map((tab) =>
+      tab.id === tabId
+        ? {
+            ...tab,
+            cachedCards: tab.cachedCards.map((cachedCard) => nextByCode.get(cachedCard.code) ?? cachedCard),
+          }
+        : tab
+    )
   );
 }
 
@@ -1116,8 +1144,8 @@ export async function modifyCard(card: CardDataEntry): Promise<boolean> {
   return modifyCards([card]);
 }
 
-export async function modifyCards(cards: CardDataEntry[]): Promise<boolean> {
-  const tab = get(activeTab);
+export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): Promise<boolean> {
+  const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab) return false;
 
   try {
@@ -1134,12 +1162,19 @@ export async function modifyCards(cards: CardDataEntry[]): Promise<boolean> {
       affectedIds: cards.map((card) => card.code),
       previousCards: previousCards.map((card) => card ?? null),
     });
-    markActiveTabDirty(true);
+    syncCachedCardsInTab(tab.id, cards);
+    markTabDirty(tab.id, true);
     return true;
   } catch (err) {
-    console.error("Failed to modify cards:", err);
+    console.error('Failed to modify cards:', err);
     return false;
   }
+}
+
+export async function modifyCards(cards: CardDataEntry[]): Promise<boolean> {
+  const tab = get(activeTab);
+  if (!tab) return false;
+  return modifyCardsInTab(tab.id, cards);
 }
 
 /** Delete a card from the active tab's working CDB by id */
