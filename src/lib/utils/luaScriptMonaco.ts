@@ -4,7 +4,8 @@ import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution';
 import 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
 import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import { luaCatalog } from '$lib/data/lua-intel/catalog.generated';
+import { luaCatalog as defaultLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
+import { loadExternalLuaCatalog } from '$lib/utils/luaIntelCatalog';
 import type { CardDataEntry, LuaFunctionItem } from '$lib/types';
 
 type LuaModelContext = {
@@ -16,23 +17,48 @@ type LuaModelContext = {
 
 const LUA_MARKER_OWNER = 'dataeditory-lua';
 const modelContexts = new Map<string, LuaModelContext>();
-const functionsByName = new Map(luaCatalog.functions.map((item) => [item.name, item]));
-const functionsByNamespace = new Map<string, LuaFunctionItem[]>();
-const functionsByShortName = new Map<string, LuaFunctionItem[]>();
 const METHOD_NAMESPACES = new Set(['Card', 'Effect', 'Group']);
-const constantDescriptionsByName = new Map(luaCatalog.constants.map((item) => [item.name, item.description || item.value]));
+let luaCatalog = defaultLuaCatalog;
+let functionsByName = new Map<string, LuaFunctionItem>();
+let functionsByNamespace = new Map<string, LuaFunctionItem[]>();
+let functionsByShortName = new Map<string, LuaFunctionItem[]>();
+let constantDescriptionsByName = new Map<string, string>();
 
 let providersRegistered = false;
+let catalogLoadPromise: Promise<void> | null = null;
 
-for (const item of luaCatalog.functions) {
-  const namespaceItems = functionsByNamespace.get(item.namespace) ?? [];
-  namespaceItems.push(item);
-  functionsByNamespace.set(item.namespace, namespaceItems);
+function rebuildCatalogIndexes() {
+  functionsByName = new Map(luaCatalog.functions.map((item) => [item.name, item]));
+  functionsByNamespace = new Map<string, LuaFunctionItem[]>();
+  functionsByShortName = new Map<string, LuaFunctionItem[]>();
+  constantDescriptionsByName = new Map(luaCatalog.constants.map((item) => [item.name, item.description || item.value]));
 
-  const shortNameItems = functionsByShortName.get(item.shortName) ?? [];
-  shortNameItems.push(item);
-  functionsByShortName.set(item.shortName, shortNameItems);
+  for (const item of luaCatalog.functions) {
+    const namespaceItems = functionsByNamespace.get(item.namespace) ?? [];
+    namespaceItems.push(item);
+    functionsByNamespace.set(item.namespace, namespaceItems);
+
+    const shortNameItems = functionsByShortName.get(item.shortName) ?? [];
+    shortNameItems.push(item);
+    functionsByShortName.set(item.shortName, shortNameItems);
+  }
 }
+
+async function ensureLuaCatalogLoaded() {
+  if (!catalogLoadPromise) {
+    catalogLoadPromise = (async () => {
+      const externalCatalog = await loadExternalLuaCatalog();
+      if (externalCatalog) {
+        luaCatalog = externalCatalog;
+      }
+      rebuildCatalogIndexes();
+    })();
+  }
+
+  await catalogLoadPromise;
+}
+
+rebuildCatalogIndexes();
 
 declare global {
   interface Window {
@@ -544,6 +570,7 @@ function registerProviders() {
 }
 
 export async function loadMonaco() {
+  await ensureLuaCatalogLoaded();
   ensureMonacoEnvironment();
   registerProviders();
   syncMonacoTheme();

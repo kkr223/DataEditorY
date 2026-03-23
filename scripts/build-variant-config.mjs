@@ -35,6 +35,9 @@ const BUILD_VARIANTS = {
 const REQUIRED_BUNDLE_RESOURCES = {
   '../static/resources/strings.conf': 'resources/strings.conf',
   '../static/resources/cover.jpg': 'resources/cover.jpg',
+  '../static/resources/_functions.txt': 'resources/lua-intel/_functions.txt',
+  '../static/resources/constant.lua': 'resources/lua-intel/constant.lua',
+  '../static/resources/snippets.json': 'resources/lua-intel/snippets.json',
 };
 
 const CARD_IMAGE_BUNDLE_RESOURCE = {

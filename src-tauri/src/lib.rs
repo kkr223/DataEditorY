@@ -11,8 +11,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    io::BufWriter,
-    io::Write,
+    io::{BufWriter, Read, Seek, Write},
     path::{Path, PathBuf},
     process::Command,
     sync::Mutex,
@@ -22,6 +21,7 @@ use tauri::http::{
     Method, Request, Response, StatusCode,
 };
 use tauri::{AppHandle, Emitter, Manager};
+use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
 mod cdb;
 use cdb::OpenCdbSessions;
@@ -203,6 +203,12 @@ struct CardScriptDocument {
     path: String,
     exists: bool,
     content: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ZipPackageInfo {
+    path: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -450,6 +456,62 @@ fn build_card_script_path(cdb_path: &str, card_id: u32) -> Result<PathBuf, Strin
         .parent()
         .ok_or_else(|| "Unable to resolve the database directory".to_string())?;
     Ok(cdb_dir.join("script").join(format!("c{card_id}.lua")))
+}
+
+fn path_to_zip_entry(path: &Path, base_dir: &Path) -> Result<String, String> {
+    let relative = path
+        .strip_prefix(base_dir)
+        .map_err(|err| err.to_string())?;
+    let entry = relative
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy().into_owned())
+        .collect::<Vec<_>>()
+        .join("/");
+
+    if entry.is_empty() {
+        return Err("Unable to build zip entry path".to_string());
+    }
+
+    Ok(entry)
+}
+
+fn add_path_to_zip<W: Write + Seek>(
+    zip: &mut ZipWriter<W>,
+    path: &Path,
+    base_dir: &Path,
+) -> Result<(), String> {
+    let metadata = fs::metadata(path).map_err(|err| err.to_string())?;
+    let entry_name = path_to_zip_entry(path, base_dir)?;
+
+    if metadata.is_dir() {
+        let dir_name = if entry_name.ends_with('/') {
+            entry_name
+        } else {
+            format!("{entry_name}/")
+        };
+        zip.add_directory(
+            dir_name,
+            SimpleFileOptions::default().compression_method(CompressionMethod::Deflated),
+        )
+        .map_err(|err| err.to_string())?;
+
+        for child in fs::read_dir(path).map_err(|err| err.to_string())? {
+            let child = child.map_err(|err| err.to_string())?;
+            add_path_to_zip(zip, &child.path(), base_dir)?;
+        }
+        return Ok(());
+    }
+
+    zip.start_file(
+        entry_name,
+        SimpleFileOptions::default().compression_method(CompressionMethod::Deflated),
+    )
+    .map_err(|err| err.to_string())?;
+
+    let mut file = fs::File::open(path).map_err(|err| err.to_string())?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).map_err(|err| err.to_string())?;
+    zip.write_all(&buffer).map_err(|err| err.to_string())
 }
 
 fn vscode_candidates() -> Vec<PathBuf> {
@@ -837,6 +899,43 @@ fn save_card_script(cdb_path: String, card_id: u32, content: String) -> Result<C
 }
 
 #[tauri::command]
+fn package_cdb_assets_as_zip(cdb_path: String, output_path: String) -> Result<ZipPackageInfo, String> {
+    let cdb_file_path = PathBuf::from(&cdb_path);
+    if !cdb_file_path.exists() || !cdb_file_path.is_file() {
+        return Err("CDB file not found".to_string());
+    }
+
+    let cdb_dir = cdb_file_path
+        .parent()
+        .ok_or_else(|| "Unable to resolve the database directory".to_string())?;
+    let pics_dir = cdb_dir.join("pics");
+    let script_dir = cdb_dir.join("script");
+    let output_file_path = PathBuf::from(&output_path);
+
+    if let Some(parent) = output_file_path.parent() {
+        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+    }
+
+    let zip_file = fs::File::create(&output_file_path).map_err(|err| err.to_string())?;
+    let writer = BufWriter::new(zip_file);
+    let mut zip = ZipWriter::new(writer);
+
+    add_path_to_zip(&mut zip, &cdb_file_path, cdb_dir)?;
+    if pics_dir.exists() && pics_dir.is_dir() {
+        add_path_to_zip(&mut zip, &pics_dir, cdb_dir)?;
+    }
+    if script_dir.exists() && script_dir.is_dir() {
+        add_path_to_zip(&mut zip, &script_dir, cdb_dir)?;
+    }
+
+    zip.finish().map_err(|err| err.to_string())?;
+
+    Ok(ZipPackageInfo {
+        path: output_file_path.to_string_lossy().to_string(),
+    })
+}
+
+#[tauri::command]
 fn open_in_system_editor(path: String) -> Result<(), String> {
     open_with_preferred_editor(Path::new(&path))
 }
@@ -927,6 +1026,7 @@ pub fn run() {
             read_card_script,
             write_card_script,
             save_card_script,
+            package_cdb_assets_as_zip,
             open_in_system_editor,
             append_error_log,
             consume_pending_open_cdb_paths

@@ -5,12 +5,12 @@
   import { _, locale, isLoading } from 'svelte-i18n';
   import { invoke, isTauri } from '@tauri-apps/api/core';
   import { listen, TauriEvent } from '@tauri-apps/api/event';
-  import { ask } from '@tauri-apps/plugin-dialog';
+  import { ask, save } from '@tauri-apps/plugin-dialog';
   import type { CardDataEntry } from '$lib/types';
-  import { openCdbFile, createCdbFile, tabs, activeTabId, closeTab, saveCdbFile, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation, recentCdbHistory, loadRecentCdbHistory, openCdbHistoryEntry, openCdbPath, removeRecentCdbHistoryEntry } from '$lib/stores/db';
+  import { openCdbFile, createCdbFile, tabs, activeTabId, activeTab, closeTab, saveCdbFile, saveCdbTab, getCardById, hasUnsavedChanges, isDbLoaded, deleteCards, modifyCards, hasUndoableAction, getLastUndoLabel, undoLastOperation, recentCdbHistory, loadRecentCdbHistory, openCdbHistoryEntry, openCdbPath, removeRecentCdbHistoryEntry } from '$lib/stores/db';
   import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
   import { clearSelection, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
-  import { activeScriptTabId, closeScriptTab, getScriptTabDisplayName, hasUnsavedScriptChanges, saveActiveScriptTab, scriptTabs, activateScriptTab } from '$lib/stores/scriptEditor.svelte';
+  import { activeScriptTab, activeScriptTabId, closeScriptTab, getScriptTabDisplayName, hasUnsavedScriptChanges, saveActiveScriptTab, scriptTabs, activateScriptTab } from '$lib/stores/scriptEditor.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
   import { dispatchAppShortcut } from '$lib/utils/shortcuts';
   import { appShellState, activateEditorView, closeSettingsView, openSettingsView } from '$lib/stores/appShell.svelte';
@@ -139,6 +139,88 @@
 
     const ok = await saveCdbFile();
     showToast($_(ok ? 'editor.save_success' : 'editor.save_failed'), ok ? 'success' : 'error');
+  }
+
+  function getCurrentPackageCdbPath() {
+    if (appShellState.mainView === 'script' && $activeScriptTab?.cdbPath) {
+      return $activeScriptTab.cdbPath;
+    }
+
+    return $activeTab?.path ?? null;
+  }
+
+  async function ensureCurrentContextSavedForPackaging(targetCdbPath: string) {
+    if (appShellState.mainView === 'script' && $activeScriptTab?.cdbPath === targetCdbPath && $activeScriptTab.isDirty) {
+      const confirmed = await ask($_('editor.package_zip_unsaved_script_confirm'), {
+        title: $_('editor.package_zip_unsaved_title'),
+        kind: 'warning',
+      });
+      if (!confirmed) return false;
+
+      const ok = await saveActiveScriptTab();
+      if (!ok) {
+        showToast($_('editor.script_save_failed'), 'error');
+        return false;
+      }
+    }
+
+    const sourceTab = $tabs.find((item) => item.path === targetCdbPath) ?? null;
+    if (sourceTab?.isDirty) {
+      const confirmed = await ask($_('editor.package_zip_unsaved_cdb_confirm', {
+        values: { name: sourceTab.name },
+      }), {
+        title: $_('editor.package_zip_unsaved_title'),
+        kind: 'warning',
+      });
+      if (!confirmed) return false;
+
+      const ok = await saveCdbTab(sourceTab.id);
+      if (!ok) {
+        showToast($_('editor.save_failed'), 'error');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  async function handlePackageZip() {
+    const cdbPath = getCurrentPackageCdbPath();
+    if (!cdbPath) {
+      showToast($_('editor.package_zip_no_cdb'), 'info');
+      return;
+    }
+
+    if (!(await ensureCurrentContextSavedForPackaging(cdbPath))) {
+      return;
+    }
+
+    const outputPath = await save({
+      defaultPath: cdbPath.replace(/\.cdb$/i, '.zip'),
+      filters: [{ name: 'ZIP', extensions: ['zip'] }],
+    });
+    if (!outputPath) {
+      return;
+    }
+
+    try {
+      const result = await invoke<{ path: string }>('package_cdb_assets_as_zip', {
+        cdbPath,
+        outputPath,
+      });
+      showToast($_('editor.package_zip_success', { values: { path: result.path } }), 'success', 3200);
+    } catch (error) {
+      console.error('Failed to package cdb assets as zip', error);
+      void writeErrorLog({
+        source: 'shell.package-cdb-assets-as-zip',
+        error,
+        extra: {
+          cdbPath,
+          outputPath,
+        },
+      });
+      showToast($_('editor.package_zip_failed'), 'error');
+    }
   }
 
   async function handleCloseTab(tabId: string) {
@@ -512,6 +594,10 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a2 2 0 0 1 2 2v.35a1 1 0 0 0 .57.9l.31.15a1 1 0 0 0 1.04-.1l.25-.18a2 2 0 0 1 2.8.24l.99 1.15a2 2 0 0 1-.15 2.82l-.26.22a1 1 0 0 0-.3.98l.1.35a1 1 0 0 0 .77.7l.32.07a2 2 0 0 1 1.56 1.95v1.5a2 2 0 0 1-1.56 1.95l-.32.07a1 1 0 0 0-.77.7l-.1.35a1 1 0 0 0 .3.98l.26.22a2 2 0 0 1 .15 2.82l-.99 1.15a2 2 0 0 1-2.8.24l-.25-.18a1 1 0 0 0-1.04-.1l-.31.15a1 1 0 0 0-.57.9V19a2 2 0 0 1-2 2h-1.5a2 2 0 0 1-2-2v-.35a1 1 0 0 0-.57-.9l-.31-.15a1 1 0 0 0-1.04.1l-.25.18a2 2 0 0 1-2.8-.24l-.99-1.15a2 2 0 0 1 .15-2.82l.26-.22a1 1 0 0 0 .3-.98l-.1-.35a1 1 0 0 0-.77-.7l-.32-.07A2 2 0 0 1 2 15.75v-1.5A2 2 0 0 1 3.56 12.3l.32-.07a1 1 0 0 0 .77-.7l.1-.35a1 1 0 0 0-.3-.98l-.26-.22a2 2 0 0 1-.15-2.82l.99-1.15a2 2 0 0 1 2.8-.24l.25.18a1 1 0 0 0 1.04.1l.31-.15a1 1 0 0 0 .57-.9V5a2 2 0 0 1 2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           {$_('nav.settings')}
         </button>
+        <button class="nav-item" onclick={handlePackageZip} disabled={!getCurrentPackageCdbPath()}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"></path><path d="M1 3h22v5H1z"></path><path d="M10 12h4"></path><path d="M12 3v18"></path></svg>
+          {$_('nav.package_zip')}
+        </button>
       </nav>
     </div>
     <div class="topbar-right">
@@ -697,6 +783,16 @@
   .nav-item:hover {
     background-color: var(--bg-surface-hover);
     color: var(--text-primary);
+  }
+
+  .nav-item:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .nav-item:disabled:hover {
+    background: transparent;
+    color: var(--text-secondary);
   }
 
 
