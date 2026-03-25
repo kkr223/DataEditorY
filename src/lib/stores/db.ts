@@ -190,6 +190,26 @@ function parseSetcodeFilter(input: string): number | null {
   return parseInt(hex, 16) & 0xffff;
 }
 
+function normalizeRegexSource(input: string): string | null {
+  const normalized = input.trim();
+  if (!normalized) return null;
+
+  const slashPattern = normalized.match(/^\/([\s\S]+)\/([a-z]*)$/i);
+  if (!slashPattern) {
+    return normalized;
+  }
+
+  const [, body, flags] = slashPattern;
+  if (!body) return null;
+
+  try {
+    void new RegExp(body, flags);
+    return body;
+  } catch {
+    return normalized;
+  }
+}
+
 type RuleToken =
   | { type: 'identifier'; value: string }
   | { type: 'number'; value: number }
@@ -675,10 +695,20 @@ function buildSearchQuery(filters: SearchFilters = {}) {
   }
 
   if (filters.id) {
-    const parsedId = parseInt(filters.id);
-    if (!isNaN(parsedId)) {
+    const normalizedId = filters.id.trim();
+    if (/^\d+$/.test(normalizedId)) {
+      const parsedId = parseInt(normalizedId, 10);
       conditions.push('(datas.id = :id OR datas.alias = :id)');
       params.id = parsedId;
+    } else {
+      const regexSource = normalizeRegexSource(normalizedId);
+      if (regexSource) {
+        conditions.push(`(
+          REGEXP(:idRegex, CAST(datas.id AS TEXT))
+          OR REGEXP(:idRegex, CAST(datas.alias AS TEXT))
+        )`);
+        params.idRegex = regexSource;
+      }
     }
   }
 

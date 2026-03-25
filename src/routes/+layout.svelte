@@ -259,9 +259,27 @@
     closeScriptTab(tabId);
   }
 
+  function toElement(target: EventTarget | null): HTMLElement | null {
+    if (target instanceof HTMLElement) return target;
+    if (target instanceof Node) {
+      return target.parentElement;
+    }
+    return null;
+  }
+
   function isEditableTarget(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) return false;
-    return target.isContentEditable || !!target.closest('input, textarea, select, [contenteditable="true"]');
+    const candidates = [toElement(target), toElement(document.activeElement)];
+
+    return candidates.some((element) =>
+      Boolean(
+        element
+        && (
+          element.isContentEditable
+          || element.matches('input, textarea, select, [contenteditable="true"]')
+          || !!element.closest('input, textarea, select, [contenteditable="true"], .monaco-editor, .monaco-diff-editor')
+        ),
+      ),
+    );
   }
 
   async function handleCopySelection() {
@@ -381,11 +399,21 @@
   function handleGlobalKeydown(event: KeyboardEvent) {
     if (event.defaultPrevented || event.repeat || event.isComposing) return;
 
+    if (event.key === 'F5') {
+      event.preventDefault();
+      return;
+    }
+
     const isPrimary = event.ctrlKey || event.metaKey;
     if (!isPrimary || event.altKey) return;
     const isEditable = isEditableTarget(event.target);
 
     const key = event.key.toLowerCase();
+
+    if (key === 'r' && !event.shiftKey) {
+      event.preventDefault();
+      return;
+    }
 
     if (isEditable && key !== 's') {
       return;
@@ -509,7 +537,12 @@
       });
     };
 
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+
     window.addEventListener('keydown', handleGlobalKeydown);
+    window.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('error', handleWindowError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
     return () => {
@@ -521,6 +554,7 @@
         unlisten();
       }
       window.removeEventListener('keydown', handleGlobalKeydown);
+      window.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('error', handleWindowError);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };

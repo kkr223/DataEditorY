@@ -1,6 +1,5 @@
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { resolveResource } from '@tauri-apps/api/path';
-import { readTextFile } from '@tauri-apps/plugin-fs';
 import { luaCatalog as generatedLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
 import type { LuaCatalog, LuaConstantItem, LuaFunctionItem, LuaSnippetItem } from '$lib/types';
 
@@ -142,6 +141,124 @@ function parseFunctions(text: string): LuaFunctionItem[] {
   return items;
 }
 
+function parseTypedDefinitions(text: string): LuaFunctionItem[] {
+  const lines = text.split('\n').map(normalizeLine);
+  const items: LuaFunctionItem[] = [];
+  let descriptionLines: string[] = [];
+  let parameterTypes = new Map<string, { type: string; optional: boolean }>();
+  let returnTypes: string[] = [];
+
+  function resetPendingAnnotations() {
+    descriptionLines = [];
+    parameterTypes = new Map<string, { type: string; optional: boolean }>();
+    returnTypes = [];
+  }
+
+  function normalizeAnnotatedType(typeText: string) {
+    return typeText.replace(/\s+default:\s+.+$/, '').trim();
+  }
+
+  function getDisplayParameterName(parameterName: string) {
+    if (parameterName === '...') {
+      return parameterName;
+    }
+
+    const annotation = parameterTypes.get(parameterName);
+    return annotation?.optional ? `${parameterName}?` : parameterName;
+  }
+
+  function flushTypedFunction(name: string, parameterNames: string[]) {
+    const namespace = name.includes('.') ? name.split('.')[0] : 'global';
+    const shortName = name.includes('.') ? name.split('.').at(-1) ?? name : name;
+    const parameters = parameterNames.map((parameterName) => {
+      const annotation = parameterTypes.get(parameterName);
+      const type = annotation?.type ?? 'any';
+      return `${type} ${getDisplayParameterName(parameterName)}`;
+    });
+    const signatureParameters = parameterNames.map((parameterName) => getDisplayParameterName(parameterName));
+
+    items.push({
+      name,
+      namespace,
+      shortName,
+      signature: `${name}(${signatureParameters.join(', ')})`,
+      returnType: returnTypes.length > 0 ? returnTypes.join(', ') : 'void',
+      parameters,
+      description: descriptionLines.join('\n').trim(),
+      raw: `function ${name}(${parameterNames.join(', ')}) end`,
+      category: 'Typed Definitions',
+    });
+  }
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      resetPendingAnnotations();
+      continue;
+    }
+
+    if (trimmed.startsWith('---@param ')) {
+      const match = trimmed.match(/^---@param\s+(\.\.\.|[A-Za-z_][\w]*)(\?)?\s+(.+?)(?:\s+#.*)?$/);
+      if (match) {
+        parameterTypes.set(match[1], {
+          type: normalizeAnnotatedType(match[3]),
+          optional: Boolean(match[2]),
+        });
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith('---@return ')) {
+      const match = trimmed.match(/^---@return\s+(.+?)(?:\s+#.*)?$/);
+      if (match) {
+        returnTypes.push(match[1].trim());
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith('---') && !trimmed.startsWith('---@')) {
+      descriptionLines.push(trimmed.replace(/^---\s?/, '').trim());
+      continue;
+    }
+
+    const functionMatch = trimmed.match(/^function\s+([A-Za-z_][\w.]*)\s*\((.*?)\)\s*end$/);
+    if (functionMatch) {
+      const parameterNames = functionMatch[2]
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      flushTypedFunction(functionMatch[1], parameterNames);
+      resetPendingAnnotations();
+      continue;
+    }
+
+    resetPendingAnnotations();
+  }
+
+  return items;
+}
+
+function mergeFunctions(primary: LuaFunctionItem[], secondary: LuaFunctionItem[]) {
+  const merged = new Map<string, LuaFunctionItem>();
+
+  for (const item of secondary) {
+    merged.set(item.name, { ...item });
+  }
+
+  for (const item of primary) {
+    const fallback = merged.get(item.name);
+    merged.set(item.name, {
+      ...(fallback ?? {}),
+      ...item,
+      description: item.description || fallback?.description || '',
+      category: item.category || fallback?.category,
+      raw: item.raw || fallback?.raw || '',
+    });
+  }
+
+  return Array.from(merged.values());
+}
+
 function buildBuiltinSnippets(): LuaSnippetItem[] {
   return [
     {
@@ -255,12 +372,16 @@ function parseCustomSnippets(text: string): LuaSnippetItem[] {
 
 function buildLuaCatalog(source: {
   constants: string;
+  typedDefinitions: string;
   functions: string;
   snippets: string;
 }): LuaCatalog {
   return {
     constants: parseConstants(source.constants),
-    functions: parseFunctions(source.functions),
+    functions: mergeFunctions(
+      parseTypedDefinitions(source.typedDefinitions),
+      parseFunctions(source.functions),
+    ),
     snippets: [
       ...parseCustomSnippets(source.snippets),
       ...buildBuiltinSnippets(),
@@ -272,7 +393,7 @@ function buildLuaCatalog(source: {
 async function readLuaIntelResource(filename: string) {
   const resourcePath = `${LUA_INTEL_RESOURCE_DIR}/${filename}`;
   const absolutePath = await resolveResource(resourcePath);
-  return readTextFile(absolutePath);
+  return invoke<string>('read_text_file', { path: absolutePath });
 }
 
 export async function loadExternalLuaCatalog() {
@@ -281,13 +402,14 @@ export async function loadExternalLuaCatalog() {
   }
 
   try {
-    const [constants, functions, snippets] = await Promise.all([
+    const [constants, typedDefinitions, functions, snippets] = await Promise.all([
       readLuaIntelResource('constant.lua'),
+      readLuaIntelResource('def.lua'),
       readLuaIntelResource('_functions.txt'),
       readLuaIntelResource('snippets.json'),
     ]);
 
-    return buildLuaCatalog({ constants, functions, snippets });
+    return buildLuaCatalog({ constants, typedDefinitions, functions, snippets });
   } catch (error) {
     console.warn('Failed to load external Lua intel resources, falling back to generated catalog.', error);
     return null;
