@@ -757,6 +757,7 @@ dependencies = [
  "mime_guess",
  "percent-encoding",
  "rand 0.8.5",
+ "regex",
  "rusqlite",
  "serde",
  "serde_json",

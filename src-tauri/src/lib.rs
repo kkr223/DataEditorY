@@ -7,9 +7,11 @@ use image::{codecs::jpeg::JpegEncoder, GenericImageView};
 use mime_guess::from_path;
 use percent_encoding::percent_decode_str;
 use rand::RngCore;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::{HashSet, VecDeque},
     fs,
     io::{BufReader, BufWriter, Seek, Write},
     path::{Path, PathBuf},
@@ -456,6 +458,102 @@ fn build_card_script_path(cdb_path: &str, card_id: u32) -> Result<PathBuf, Strin
         .parent()
         .ok_or_else(|| "Unable to resolve the database directory".to_string())?;
     Ok(cdb_dir.join("script").join(format!("c{card_id}.lua")))
+}
+
+fn collect_card_ids_from_cdb(cdb_path: &Path) -> Result<Vec<u32>, String> {
+    let conn = rusqlite::Connection::open(cdb_path).map_err(|err| err.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id FROM datas")
+        .map_err(|err| err.to_string())?;
+    let rows = stmt
+        .query_map([], |row| row.get::<_, i64>(0))
+        .map_err(|err| err.to_string())?;
+
+    let mut ids = Vec::new();
+    for row in rows {
+        let id = row.map_err(|err| err.to_string())?;
+        if id > 0 {
+            ids.push(id as u32);
+        }
+    }
+
+    Ok(ids)
+}
+
+fn resolve_script_dependency_path(
+    cdb_dir: &Path,
+    script_dir: &Path,
+    raw_path: &str,
+) -> Option<PathBuf> {
+    let trimmed = raw_path.trim().replace('\\', "/");
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let relative = Path::new(&trimmed);
+    let joined = if relative.is_absolute() {
+        relative.to_path_buf()
+    } else if trimmed.starts_with("script/") {
+        cdb_dir.join(relative)
+    } else {
+        script_dir.join(relative)
+    };
+
+    let normalized = joined.canonicalize().unwrap_or(joined);
+    if normalized.starts_with(cdb_dir) && normalized.is_file() {
+        Some(normalized)
+    } else {
+        None
+    }
+}
+
+fn collect_script_paths_for_package(cdb_file_path: &Path, cdb_dir: &Path) -> Result<Vec<PathBuf>, String> {
+    let script_dir = cdb_dir.join("script");
+    if !script_dir.exists() || !script_dir.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let load_script_pattern = Regex::new(r#"Duel\.LoadScript\s*\(\s*["']([^"']+)["']\s*\)"#)
+        .map_err(|err| err.to_string())?;
+    let mut queued = VecDeque::new();
+    let mut visited = HashSet::new();
+    let mut collected = Vec::new();
+
+    for card_id in collect_card_ids_from_cdb(cdb_file_path)? {
+        let script_path = script_dir.join(format!("c{card_id}.lua"));
+        if script_path.is_file() {
+            queued.push_back(script_path);
+        }
+    }
+
+    while let Some(path) = queued.pop_front() {
+        let normalized = path.canonicalize().unwrap_or(path.clone());
+        if !visited.insert(normalized.clone()) {
+            continue;
+        }
+
+        collected.push(normalized.clone());
+
+        let content = match fs::read_to_string(&normalized) {
+            Ok(content) => content,
+            Err(_) => continue,
+        };
+
+        for capture in load_script_pattern.captures_iter(&content) {
+            let Some(raw_dependency) = capture.get(1).map(|item| item.as_str()) else {
+                continue;
+            };
+
+            if let Some(dependency_path) =
+                resolve_script_dependency_path(cdb_dir, &script_dir, raw_dependency)
+            {
+                queued.push_back(dependency_path);
+            }
+        }
+    }
+
+    collected.sort();
+    Ok(collected)
 }
 
 fn path_to_zip_entry(path: &Path, base_dir: &Path) -> Result<String, String> {
@@ -906,7 +1004,6 @@ fn package_cdb_assets_as_zip(cdb_path: String, output_path: String) -> Result<Zi
         .parent()
         .ok_or_else(|| "Unable to resolve the database directory".to_string())?;
     let pics_dir = cdb_dir.join("pics");
-    let script_dir = cdb_dir.join("script");
     let output_file_path = PathBuf::from(&output_path);
 
     if let Some(parent) = output_file_path.parent() {
@@ -921,8 +1018,8 @@ fn package_cdb_assets_as_zip(cdb_path: String, output_path: String) -> Result<Zi
     if pics_dir.exists() && pics_dir.is_dir() {
         add_path_to_zip(&mut zip, &pics_dir, cdb_dir)?;
     }
-    if script_dir.exists() && script_dir.is_dir() {
-        add_path_to_zip(&mut zip, &script_dir, cdb_dir)?;
+    for script_path in collect_script_paths_for_package(&cdb_file_path, cdb_dir)? {
+        add_path_to_zip(&mut zip, &script_path, cdb_dir)?;
     }
 
     zip.finish().map_err(|err| err.to_string())?;

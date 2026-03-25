@@ -48,6 +48,9 @@
   const MIN_EXPORT_SCALE_PERCENT = 10;
   const MAX_EXPORT_SCALE_PERCENT = 100;
   const DEFAULT_EXPORT_SCALE_PERCENT = 43;
+  const MIN_PREVIEW_ZOOM_PERCENT = 60;
+  const MAX_PREVIEW_ZOOM_PERCENT = 135;
+  const DEFAULT_PREVIEW_ZOOM_PERCENT = 88;
 
   let {
     open = false,
@@ -82,6 +85,7 @@
   let dragStartBox = $state<CropBox>({ x: 0, y: 0, size: 0 });
   let previewWidth = $state(360);
   let previewHeight = $state(640);
+  let previewZoomPercent = $state(DEFAULT_PREVIEW_ZOOM_PERCENT);
   let exportScalePercent = $state(DEFAULT_EXPORT_SCALE_PERCENT);
   let isDownloading = $state(false);
   let isSavingJpg = $state(false);
@@ -153,6 +157,7 @@
     cropBox = { x: 0, y: 0, size: 0 };
     dragMode = null;
     dragPointerId = null;
+    previewZoomPercent = DEFAULT_PREVIEW_ZOOM_PERCENT;
     exportScalePercent = DEFAULT_EXPORT_SCALE_PERCENT;
     revokeSourceImageUrl();
   }
@@ -394,33 +399,93 @@
   }
 
   function getPreviewScale() {
-    const availableWidth = Math.max(previewWidth - 40, 320);
-    const availableHeight = Math.max(previewHeight - 40, 420);
-    return Math.max(Math.min(availableWidth / CARD_WIDTH, availableHeight / CARD_HEIGHT) * 1.32, 0.1);
+    const availableWidth = Math.max(previewWidth - 48, 280);
+    const availableHeight = Math.max(previewHeight - 56, 360);
+    const baseScale = Math.min(availableWidth / CARD_WIDTH, availableHeight / CARD_HEIGHT);
+    return Math.max(baseScale * (previewZoomPercent / 100), 0.08);
+  }
+
+  function applyAutoRarityStyle(data: CardImageFormData): CardImageFormData {
+    const rarity = String(data.rare ?? "").trim().toLowerCase();
+    if (!rarity || data.color || data.gradient) {
+      return data;
+    }
+
+    const styleMap: Record<string, Pick<CardImageFormData, "color" | "gradient" | "gradientColor1" | "gradientColor2">> = {
+      ur: {
+        color: "#f3cc63",
+        gradient: true,
+        gradientColor1: "#8a5d17",
+        gradientColor2: "#f8e6a2",
+      },
+      gr: {
+        color: "#d8dde6",
+        gradient: true,
+        gradientColor1: "#6d7683",
+        gradientColor2: "#f4f7fb",
+      },
+      hr: {
+        color: "#eef2f8",
+        gradient: true,
+        gradientColor1: "#8e99a9",
+        gradientColor2: "#ffffff",
+      },
+      ser: {
+        color: "#edf2f8",
+        gradient: true,
+        gradientColor1: "#8b95a4",
+        gradientColor2: "#ffffff",
+      },
+      gser: {
+        color: "#f1d377",
+        gradient: true,
+        gradientColor1: "#8a6422",
+        gradientColor2: "#fff1be",
+      },
+      pser: {
+        color: "#f5d6ef",
+        gradient: true,
+        gradientColor1: "#855f86",
+        gradientColor2: "#fff5fd",
+      },
+    };
+
+    const style = styleMap[rarity];
+    return style ? { ...data, ...style } : data;
   }
 
   function buildPreviewData(): CardImageFormData {
-    return normalizeCardImageFormData({
+    return applyAutoRarityStyle(normalizeCardImageFormData({
       ...form,
       image: croppedImageDataUrl,
       scale: Math.max(getPreviewScale(), 0.1),
-    });
+    }));
   }
 
   function buildJpgData(): CardImageFormData {
-    return normalizeCardImageFormData({
+    return applyAutoRarityStyle(normalizeCardImageFormData({
       ...form,
       image: croppedImageDataUrl,
       scale: exportScalePercent / 100,
-    });
+    }));
   }
 
   function buildPngData(): CardImageFormData {
-    return normalizeCardImageFormData({
+    return applyAutoRarityStyle(normalizeCardImageFormData({
       ...form,
       image: croppedImageDataUrl,
       scale: 1,
-    });
+    }));
+  }
+
+  function handlePreviewWheel(event: WheelEvent) {
+    event.preventDefault();
+    const stepSize = event.ctrlKey || event.metaKey ? 8 : 5;
+    const step = event.deltaY < 0 ? stepSize : -stepSize;
+    previewZoomPercent = Math.max(
+      MIN_PREVIEW_ZOOM_PERCENT,
+      Math.min(MAX_PREVIEW_ZOOM_PERCENT, previewZoomPercent + step),
+    );
   }
 
   function trackPreviewDependencies() {
@@ -461,6 +526,7 @@
     void croppedImageDataUrl;
     void previewWidth;
     void previewHeight;
+    void previewZoomPercent;
   }
 
   async function renderCardBlob(
@@ -867,7 +933,7 @@
             </div>
           </div>
 
-          <div class="preview-card-shell" bind:this={previewShell}>
+          <div class="preview-card-shell" bind:this={previewShell} onwheel={handlePreviewWheel}>
             <div class="preview-stage" bind:this={previewHost}></div>
           </div>
 
@@ -958,8 +1024,8 @@
   .toggle input { width: auto; margin: 0; }
   .preview-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .preview-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-  .preview-card-shell { position: relative; flex: 1; min-height: clamp(620px, 74vh, 940px); border: 1px solid var(--border-color); border-radius: 12px; background: radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 35%), linear-gradient(180deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.02)); overflow: auto; display: flex; align-items: center; justify-content: center; padding: 8px; }
-  .preview-stage { display: flex; justify-content: center; align-items: center; min-width: 100%; min-height: 100%; }
+  .preview-card-shell { position: relative; flex: 1; min-height: clamp(620px, 74vh, 940px); border: 1px solid var(--border-color); border-radius: 12px; background: radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 35%), linear-gradient(180deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.02)); overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 16px 8px 24px; overscroll-behavior: contain; }
+  .preview-stage { display: flex; justify-content: center; align-items: flex-start; min-width: 100%; min-height: 100%; }
   .preview-error { display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; }
   .preview-error { color: #dc2626; }
   .crop-backdrop { position: fixed; inset: 0; z-index: 1200; background: rgba(2, 6, 12, 0.7); display: flex; align-items: center; justify-content: center; padding: 24px; }

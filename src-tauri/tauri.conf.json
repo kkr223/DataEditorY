@@ -38,7 +38,8 @@
       "../static/resources/_functions.txt": "resources/lua-intel/_functions.txt",
       "../static/resources/constant.lua": "resources/lua-intel/constant.lua",
       "../static/resources/snippets.json": "resources/lua-intel/snippets.json",
-      "../static/resources/yugioh-card": "resources/yugioh-card"
+      "../static/resources/yugioh-card": "resources/yugioh-card",
+      "../static/resources/def.lua": "resources/lua-intel/def.lua"
     },
     "fileAssociations": [
       {

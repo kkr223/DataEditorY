@@ -35,6 +35,8 @@
   let scriptGenerationStage = $state<AgentStage | ''>('');
   let scriptGenerationAbortController = $state<AbortController | null>(null);
   let suggestHintText = $state('');
+  let suggestHintPlacement = $state<'top' | 'bottom'>('top');
+  let hoverAbove = true;
   let suggestHintTimer: ReturnType<typeof setInterval> | null = null;
   let themeObserver: MutationObserver | null = null;
 
@@ -226,10 +228,49 @@
 
   function clearSuggestHint() {
     suggestHintText = '';
+    suggestHintPlacement = 'top';
     if (suggestHintTimer) {
       clearInterval(suggestHintTimer);
       suggestHintTimer = null;
     }
+  }
+
+  function syncSuggestHintPlacement() {
+    if (!editorInstance) return;
+
+    const position = editorInstance.getPosition();
+    if (!position) {
+      suggestHintPlacement = 'top';
+      return;
+    }
+
+    const visiblePosition = editorInstance.getScrolledVisiblePosition(position);
+    if (!visiblePosition) {
+      suggestHintPlacement = 'top';
+      return;
+    }
+
+    const threshold = Math.max(visiblePosition.height * 4, 96);
+    suggestHintPlacement = visiblePosition.top <= threshold ? 'bottom' : 'top';
+  }
+
+  function syncHoverPlacement(
+    position: { lineNumber: number; column: number } | null | undefined,
+  ) {
+    if (!editorInstance || !position) return;
+
+    const visiblePosition = editorInstance.getScrolledVisiblePosition(position);
+    if (!visiblePosition) return;
+
+    const nextHoverAbove = visiblePosition.top > Math.max(visiblePosition.height * 4, 96);
+    if (nextHoverAbove === hoverAbove) return;
+
+    hoverAbove = nextHoverAbove;
+    editorInstance.updateOptions({
+      hover: {
+        above: hoverAbove,
+      },
+    });
   }
 
   function extractFocusedSuggestLabel() {
@@ -267,6 +308,9 @@
     const label = extractFocusedSuggestLabel();
     const description = label ? monacoModule.lookupCompletionDescription(label) : null;
     suggestHintText = description ?? '';
+    if (suggestHintText) {
+      syncSuggestHintPlacement();
+    }
   }
 
   function ensureSuggestHintPolling() {
@@ -467,6 +511,7 @@
 
     editorInstance = loadedMonaco.editor.create(editorHost, {
       automaticLayout: true,
+      contextmenu: false,
       minimap: { enabled: false },
       fontSize: 14,
       lineHeight: 22,
@@ -480,6 +525,10 @@
       smoothScrolling: true,
       suggest: {
         showInlineDetails: true,
+        snippetsPreventQuickSuggestions: false,
+      },
+      hover: {
+        above: true,
       },
       padding: {
         top: 0,
@@ -503,6 +552,10 @@
 
     editorInstance.onKeyUp(() => {
       refreshSuggestHint();
+    });
+
+    editorInstance.onMouseMove((event) => {
+      syncHoverPlacement(event.target.position);
     });
 
     editorInstance.onDidBlurEditorText(() => {
@@ -608,7 +661,7 @@
     <div class="script-layout">
       <div class="script-editor-shell">
         {#if suggestHintText}
-          <div class="suggest-inline-hint">{suggestHintText}</div>
+          <div class="suggest-inline-hint" class:top={suggestHintPlacement === 'top'} class:bottom={suggestHintPlacement === 'bottom'}>{suggestHintText}</div>
         {/if}
         <div class="script-editor" bind:this={editorHost}></div>
       </div>
@@ -733,7 +786,7 @@
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1);
-    background: #1c2422;
+    background: #121714;
   }
 
   .script-editor :global(.monaco-editor),
@@ -745,16 +798,16 @@
         to bottom,
         rgba(0, 0, 0, 0) 0,
         rgba(0, 0, 0, 0) 21px,
-        rgba(174, 216, 186, 0.07) 21px,
-        rgba(174, 216, 186, 0.07) 22px
+        rgba(186, 227, 198, 0.08) 21px,
+        rgba(186, 227, 198, 0.08) 22px
       ),
-      #1c2422 !important;
+      #121714 !important;
   }
 
   .script-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(84, 135, 108, 0.22) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(84, 135, 108, 0.14) !important;
-    --vscode-editor-lineHighlightBackground: rgba(84, 135, 108, 0.1) !important;
+    --vscode-editor-selectionBackground: rgba(87, 166, 121, 0.28) !important;
+    --vscode-editor-inactiveSelectionBackground: rgba(87, 166, 121, 0.18) !important;
+    --vscode-editor-lineHighlightBackground: rgba(118, 184, 151, 0.12) !important;
     --vscode-editorError-background: rgba(196, 122, 112, 0.12) !important;
     --vscode-editorError-border: rgba(196, 122, 112, 0.28) !important;
     --vscode-editorWarning-background: rgba(196, 168, 102, 0.1) !important;
@@ -765,12 +818,12 @@
 
   .script-editor :global(.monaco-editor .focused .selected-text),
   .script-editor :global(.monaco-editor .selected-text) {
-    background-color: rgba(84, 135, 108, 0.22) !important;
+    background-color: rgba(87, 166, 121, 0.28) !important;
   }
 
   .script-editor :global(.monaco-editor .view-overlays .current-line),
   .script-editor :global(.monaco-editor .margin-view-overlays .current-line) {
-    background-color: rgba(84, 135, 108, 0.1) !important;
+    background-color: rgba(118, 184, 151, 0.12) !important;
     border: none !important;
   }
 
@@ -798,15 +851,38 @@
     border-bottom: 2px solid rgba(113, 162, 181, 0.24) !important;
   }
 
+  .script-editor :global(.suggest-widget .monaco-list-row.focused) {
+    background: #50675b !important;
+    color: #f2fbf5 !important;
+  }
+
+  .script-editor :global(.suggest-widget .monaco-list-row.focused .label-name),
+  .script-editor :global(.suggest-widget .monaco-list-row.focused .details-label),
+  .script-editor :global(.suggest-widget .monaco-list-row.focused .monaco-icon-label),
+  .script-editor :global(.suggest-widget .monaco-list-row.focused .suggest-icon) {
+    color: inherit !important;
+  }
+
+  .script-editor :global(.suggest-widget .monaco-list-row:hover) {
+    background: rgba(80, 103, 91, 0.24) !important;
+    color: #eef7f1 !important;
+  }
+
+  .script-editor :global(.suggest-widget .monaco-list-row:hover .label-name),
+  .script-editor :global(.suggest-widget .monaco-list-row:hover .details-label),
+  .script-editor :global(.suggest-widget .monaco-list-row:hover .monaco-icon-label),
+  .script-editor :global(.suggest-widget .monaco-list-row:hover .suggest-icon) {
+    color: inherit !important;
+  }
+
   .suggest-inline-hint {
     position: absolute;
-    top: 12px;
     right: 14px;
     max-width: min(52vw, 880px);
     padding: 0.35rem 0.65rem;
     border-radius: 8px;
-    background: rgba(20, 28, 26, 0.58);
-    color: rgba(205, 220, 210, 0.46);
+    background: rgba(26, 34, 32, 0.82);
+    color: rgba(221, 235, 226, 0.72);
     font-size: 0.8rem;
     line-height: 1.42;
     font-style: italic;
@@ -822,8 +898,16 @@
     z-index: 6;
   }
 
+  .suggest-inline-hint.top {
+    top: 12px;
+  }
+
+  .suggest-inline-hint.bottom {
+    bottom: 12px;
+  }
+
   :global([data-theme='light']) .script-editor {
-    background: #f4f8f3;
+    background: #f1f5ec;
   }
 
   :global([data-theme='light']) .script-editor :global(.monaco-editor),
@@ -835,16 +919,16 @@
         to bottom,
         rgba(0, 0, 0, 0) 0,
         rgba(0, 0, 0, 0) 21px,
-        rgba(104, 145, 112, 0.08) 21px,
-        rgba(104, 145, 112, 0.08) 22px
+        rgba(104, 145, 112, 0.1) 21px,
+        rgba(104, 145, 112, 0.1) 22px
       ),
-      #f4f8f3 !important;
+      #f1f5ec !important;
   }
 
   :global([data-theme='light']) .script-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(97, 141, 106, 0.18) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(97, 141, 106, 0.12) !important;
-    --vscode-editor-lineHighlightBackground: rgba(97, 141, 106, 0.08) !important;
+    --vscode-editor-selectionBackground: rgba(97, 141, 106, 0.22) !important;
+    --vscode-editor-inactiveSelectionBackground: rgba(97, 141, 106, 0.14) !important;
+    --vscode-editor-lineHighlightBackground: rgba(74, 133, 91, 0.1) !important;
     --vscode-editorError-background: rgba(198, 128, 117, 0.08) !important;
     --vscode-editorError-border: rgba(198, 128, 117, 0.2) !important;
     --vscode-editorWarning-background: rgba(189, 155, 86, 0.08) !important;
@@ -854,8 +938,18 @@
   }
 
   :global([data-theme='light']) .suggest-inline-hint {
-    background: rgba(244, 248, 243, 0.78);
-    color: rgba(72, 98, 84, 0.5);
+    background: rgba(255, 255, 255, 0.9);
+    color: rgba(52, 76, 62, 0.72);
+  }
+
+  :global([data-theme='light']) .script-editor :global(.suggest-widget .monaco-list-row.focused) {
+    background: #dbe8dc !important;
+    color: #16311e !important;
+  }
+
+  :global([data-theme='light']) .script-editor :global(.suggest-widget .monaco-list-row:hover) {
+    background: rgba(219, 232, 220, 0.42) !important;
+    color: #16311e !important;
   }
 
   .script-side-panel {

@@ -1,5 +1,6 @@
 use rand::RngCore;
-use rusqlite::{Connection, Statement};
+use regex::Regex;
+use rusqlite::{functions::FunctionFlags, Connection, Statement};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::{
@@ -214,6 +215,19 @@ fn ensure_parent_dir(path: &Path) -> Result<(), String> {
 
 fn open_connection(path: &Path) -> Result<Connection, String> {
     let conn = Connection::open(path).map_err(|err| err.to_string())?;
+    conn.create_scalar_function(
+        "regexp",
+        2,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            let pattern = ctx.get::<String>(0)?;
+            let input = ctx.get::<String>(1)?;
+            let regex = Regex::new(&pattern)
+                .map_err(|err| rusqlite::Error::UserFunctionError(Box::new(err)))?;
+            Ok(regex.is_match(&input))
+        },
+    )
+    .map_err(|err| err.to_string())?;
     conn.execute_batch(
         "PRAGMA journal_mode=DELETE; \
          PRAGMA synchronous=NORMAL; \

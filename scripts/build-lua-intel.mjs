@@ -157,6 +157,145 @@ function parseFunctions(text) {
   return items;
 }
 
+/**
+ * @param {string} text
+ */
+function parseTypedDefinitions(text) {
+  const lines = text.split('\n').map(normalizeLine);
+  /** @type {import('../src/lib/types').LuaFunctionItem[]} */
+  const items = [];
+  /** @type {string[]} */
+  let descriptionLines = [];
+  /** @type {Map<string, { type: string; optional: boolean }>} */
+  let parameterTypes = new Map();
+  /** @type {string[]} */
+  let returnTypes = [];
+
+  function resetPendingAnnotations() {
+    descriptionLines = [];
+    parameterTypes = new Map();
+    returnTypes = [];
+  }
+
+  /**
+   * @param {string} typeText
+   */
+  function normalizeAnnotatedType(typeText) {
+    return typeText.replace(/\s+default:\s+.+$/, '').trim();
+  }
+
+  /**
+   * @param {string} parameterName
+   */
+  function getDisplayParameterName(parameterName) {
+    if (parameterName === '...') {
+      return parameterName;
+    }
+
+    const annotation = parameterTypes.get(parameterName);
+    return annotation?.optional ? `${parameterName}?` : parameterName;
+  }
+
+  /**
+   * @param {string} name
+   * @param {string[]} parameterNames
+   */
+  function flushTypedFunction(name, parameterNames) {
+    const namespace = name.includes('.') ? name.split('.')[0] : 'global';
+    const shortName = name.includes('.') ? name.split('.').at(-1) ?? name : name;
+    const parameters = parameterNames.map((parameterName) => {
+      const annotation = parameterTypes.get(parameterName);
+      const type = annotation?.type ?? 'any';
+      return `${type} ${getDisplayParameterName(parameterName)}`;
+    });
+    const signatureParameters = parameterNames.map((parameterName) => getDisplayParameterName(parameterName));
+
+    items.push({
+      name,
+      namespace,
+      shortName,
+      signature: `${name}(${signatureParameters.join(', ')})`,
+      returnType: returnTypes.length > 0 ? returnTypes.join(', ') : 'void',
+      parameters,
+      description: descriptionLines.join('\n').trim(),
+      raw: `function ${name}(${parameterNames.join(', ')}) end`,
+      category: 'Typed Definitions',
+    });
+  }
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      resetPendingAnnotations();
+      continue;
+    }
+
+    if (trimmed.startsWith('---@param ')) {
+      const match = trimmed.match(/^---@param\s+(\.\.\.|[A-Za-z_][\w]*)(\?)?\s+(.+?)(?:\s+#.*)?$/);
+      if (match) {
+        parameterTypes.set(match[1], {
+          type: normalizeAnnotatedType(match[3]),
+          optional: Boolean(match[2]),
+        });
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith('---@return ')) {
+      const match = trimmed.match(/^---@return\s+(.+?)(?:\s+#.*)?$/);
+      if (match) {
+        returnTypes.push(match[1].trim());
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith('---') && !trimmed.startsWith('---@')) {
+      descriptionLines.push(trimmed.replace(/^---\s?/, '').trim());
+      continue;
+    }
+
+    const functionMatch = trimmed.match(/^function\s+([A-Za-z_][\w.]*)\s*\((.*?)\)\s*end$/);
+    if (functionMatch) {
+      const parameterNames = functionMatch[2]
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      flushTypedFunction(functionMatch[1], parameterNames);
+      resetPendingAnnotations();
+      continue;
+    }
+
+    resetPendingAnnotations();
+  }
+
+  return items;
+}
+
+/**
+ * @param {Array<any>} primary
+ * @param {Array<any>} secondary
+ */
+function mergeFunctions(primary, secondary) {
+  const merged = new Map();
+
+  for (const item of secondary) {
+    merged.set(item.name, { ...item });
+  }
+
+  for (const item of primary) {
+    const fallback = merged.get(item.name);
+    merged.set(item.name, {
+      ...(fallback ?? {}),
+      ...item,
+      description: item.description || fallback?.description || '',
+      category: item.category || fallback?.category,
+      raw: item.raw || fallback?.raw || '',
+    });
+  }
+
+  return Array.from(merged.values());
+}
+
 function buildSnippets() {
   return [
     {
@@ -273,7 +412,10 @@ function parseCustomSnippets(text) {
 }
 
 const constants = parseConstants(readFileSync(resolve(resourcesDir, 'constant.lua'), 'utf8'));
-const functions = parseFunctions(readFileSync(resolve(resourcesDir, '_functions.txt'), 'utf8'));
+const functions = mergeFunctions(
+  parseTypedDefinitions(readFileSync(resolve(resourcesDir, 'def.lua'), 'utf8')),
+  parseFunctions(readFileSync(resolve(resourcesDir, '_functions.txt'), 'utf8')),
+);
 const snippets = [
   ...parseCustomSnippets(readFileSync(resolve(resourcesDir, 'snippets.json'), 'utf8')),
   ...buildSnippets(),
