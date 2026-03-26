@@ -42,9 +42,9 @@ src-tauri/gen/schemas/
 # Only ignore files in the root or generic data folders, but allow src/lib/data
 *.cdb
 # *.conf  <-- Removed this to avoid ignoring necessary project strings
-pics/
-script/
-expansions/
+/pics/
+/script/
+/expansions/
 
 # Explicitly allow necessary data files
 !src/lib/data/*.conf
