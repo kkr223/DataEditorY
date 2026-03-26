@@ -76,7 +76,7 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   effectBlockEnabled: false,
   effectBlockX: 76,
   effectBlockY: 1503,
-  effectBlockWidth: 1238,
+  effectBlockWidth: 1239,
   effectBlockHeight: 428,
   effectBlockColor: "#f6f2e8",
   effectBlockOpacity: 0.78,
