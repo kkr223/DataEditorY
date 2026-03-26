@@ -11,7 +11,7 @@
     modifyCard,
     saveCdbFile,
   } from "$lib/stores/db";
-  import { clearSelection, editorState, getAllCardsMap, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
+  import { clearSelection, editorState, getAllCardsMap, handleSearch, setSingleSelectedCard, updateVisibleCards } from "$lib/stores/editor.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
   import { tauriBridge } from "$lib/infrastructure/tauri";
   import type { CardDataEntry } from "$lib/types";
@@ -179,6 +179,9 @@
     }
 
     draftCard = cloneEditableCard(dbCard);
+    lastSyncedSelectedId = targetCode;
+    lastLoadedCardSnapshot = createCardSnapshot(dbCard);
+    updateVisibleCards([dbCard]);
     originalCardCode = targetCode;
     setSingleSelectedCard(targetCode);
     await handleSearch(true);
@@ -421,6 +424,8 @@
     const code = getCurrentCardCode();
     if (!code) return;
 
+    const cardForScript = toPersistableCard(cloneEditableCard(draftCard));
+
     try {
       const shouldOverwrite = await ensureScriptOverwriteConfirmed($activeTab.path, code);
       if (!shouldOverwrite) return;
@@ -432,7 +437,7 @@
       await generateCardScriptFile({
         cdbPath: $activeTab.path,
         sourceTabId: $activeTabId,
-        card: draftCard,
+        card: cardForScript,
         signal: abortController.signal,
         onStageChange: (stage) => {
           scriptGenerationStage = stage;
@@ -448,7 +453,7 @@
       void writeErrorLog({
         source: "editor.script.generate",
         error,
-        extra: { cdbPath: $activeTab?.path ?? "", cardCode: code, cardName: draftCard.name ?? "" },
+        extra: { cdbPath: $activeTab?.path ?? "", cardCode: code, cardName: cardForScript.name ?? "" },
       });
       showToast($_("editor.script_generate_failed"), "error");
     } finally {
