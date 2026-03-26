@@ -1,8 +1,8 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { open } from '@tauri-apps/plugin-dialog';
-  import { invoke } from '@tauri-apps/api/core';
   import { HAS_AI_FEATURE } from '$lib/config/build';
+  import { tauriBridge } from '$lib/infrastructure/tauri';
+  import { openInSystemEditor } from '$lib/infrastructure/tauri/commands';
   import {
     appSettingsState,
     clearCustomCoverImage,
@@ -33,7 +33,7 @@
   }
 
   async function handlePickCover() {
-    const selected = await open({
+    const selected = await tauriBridge.open({
       multiple: false,
       filters: [{ name: 'JPEG', extensions: ['jpg', 'jpeg'] }],
     });
@@ -151,7 +151,7 @@
     if (!path) return;
 
     try {
-      await invoke('open_in_system_editor', { path });
+      await openInSystemEditor(path);
     } catch (error) {
       console.error('Failed to open error log', error);
       void writeErrorLog({

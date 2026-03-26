@@ -1,19 +1,21 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { ask, message } from '@tauri-apps/plugin-dialog';
-  import { invoke } from '@tauri-apps/api/core';
+  import { tauriBridge } from '$lib/infrastructure/tauri';
   import { activeScriptTab, getActiveScriptTab, reloadActiveScriptTab, saveActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, getCardByIdInTab, modifyCardsInTab, tabs } from '$lib/stores/db';
   import { HAS_AI_FEATURE } from '$lib/config/build';
-  import { appSettingsState, hasConfiguredSecretKey, loadAppSettings } from '$lib/stores/appSettings.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
-  import { syncScriptTabFromSavedContent } from '$lib/stores/scriptEditor.svelte';
   import { updateVisibleCards } from '$lib/stores/editor.svelte';
   import { writeErrorLog } from '$lib/utils/errorLog';
   import type { CardDataEntry } from '$lib/types';
   import type { AgentStage } from '$lib/utils/ai';
   import type { editor as MonacoEditor } from 'monaco-editor';
+  import { normalizeCardStrings, toPersistableCard } from '$lib/domain/card/draft';
+  import { buildScriptFileName } from '$lib/domain/script/workspace';
+  import { createAiAppContext } from '$lib/services/aiAppContext';
+  import { generateCardScriptFile, getScriptGenerationStageLabel, ensureAiReady, ensureScriptOverwriteConfirmed, isAbortError } from '$lib/services/scriptGeneration';
+  import { openScriptExternally } from '$lib/services/cardScriptService';
 
   type MonacoModule = typeof import('$lib/utils/luaScriptMonaco');
   type MonacoApi = typeof import('monaco-editor');
@@ -45,65 +47,15 @@
     return values;
   });
 
-  function normalizeCardStrings(strings: string[] | undefined) {
-    return Array.from({ length: 16 }, (_, index) => strings?.[index] ?? '');
-  }
-
   function normalizeCardContext(card: CardDataEntry | null | undefined) {
     if (!card) return null;
-    return {
-      ...card,
-      setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
-      strings: normalizeCardStrings(card.strings),
-    };
+    return toPersistableCard(card);
   }
 
   function getScriptTabTitle() {
     const tab = $activeScriptTab;
     if (!tab) return '';
-    return `c${tab.cardCode}.lua`;
-  }
-
-  function normalizeGeneratedScript(script: string) {
-    const trimmed = script.trim();
-    const fenced = trimmed.match(/```(?:lua)?\s*([\s\S]*?)```/i);
-    return `${(fenced?.[1] ?? trimmed).trim()}\n`;
-  }
-
-  function isAbortError(error: unknown) {
-    return error instanceof DOMException && error.name === 'AbortError';
-  }
-
-  function getScriptGenerationStageLabel(stage: AgentStage | '') {
-    switch (stage) {
-      case 'collecting_references':
-        return $_('editor.script_stage_collecting_references');
-      case 'requesting_model':
-        return $_('editor.script_stage_requesting_model');
-      case 'running_tools':
-        return $_('editor.script_stage_running_tools');
-      case 'finalizing_response':
-        return $_('editor.script_stage_finalizing_response');
-      default:
-        return $_('editor.script_generating');
-    }
-  }
-
-  async function ensureAiReady() {
-    if (!HAS_AI_FEATURE) {
-      return false;
-    }
-
-    await loadAppSettings();
-    if (hasConfiguredSecretKey()) {
-      return true;
-    }
-
-    await message($_('editor.ai_requires_secret_key'), {
-      title: $_('editor.ai_requires_secret_key_title'),
-      kind: 'warning',
-    });
-    return false;
+    return buildScriptFileName(tab.cardCode);
   }
 
   async function loadCardContext() {
@@ -362,20 +314,8 @@
     if (!(await ensureAiReady())) return;
 
     try {
-      const existingInfo = await invoke<{ path: string; exists: boolean }>('get_card_script_info', {
-        cdbPath: tab.cdbPath,
-        cardId: tab.cardCode,
-      });
-
-      if (existingInfo.exists) {
-        const shouldOverwrite = await ask($_('editor.script_overwrite_confirm', {
-          values: { code: String(tab.cardCode) },
-        }), {
-          title: $_('editor.script_overwrite_title'),
-          kind: 'warning',
-        });
-        if (!shouldOverwrite) return;
-      }
+      const shouldOverwrite = await ensureScriptOverwriteConfirmed(tab.cdbPath, tab.cardCode);
+      if (!shouldOverwrite) return;
 
       const sourceTabId = tab.sourceTabId || $tabs.find((item) => item.path === tab.cdbPath)?.id || null;
       const latestCard = sourceTabId
@@ -393,28 +333,17 @@
       const abortController = new AbortController();
       scriptGenerationAbortController = abortController;
 
-      const { generateCardScript } = await import('$lib/utils/ai');
-      const generatedScript = normalizeGeneratedScript(await generateCardScript(targetCard, {
+      await generateCardScriptFile({
+        cdbPath: tab.cdbPath,
+        sourceTabId,
+        card: {
+          ...targetCard,
+          name: targetCard.name ?? tab.cardName,
+        },
         signal: abortController.signal,
         onStageChange: (stage) => {
           scriptGenerationStage = stage;
         },
-      }));
-
-      const written = await invoke<{ path: string; exists: boolean }>('write_card_script', {
-        cdbPath: tab.cdbPath,
-        cardId: tab.cardCode,
-        content: generatedScript,
-        overwrite: true,
-      });
-
-      syncScriptTabFromSavedContent({
-        cdbPath: tab.cdbPath,
-        sourceTabId: sourceTabId,
-        cardCode: tab.cardCode,
-        cardName: targetCard.name ?? tab.cardName,
-        scriptPath: written.path,
-        content: generatedScript,
       });
       showToast($_('editor.script_generated', { values: { code: String(tab.cardCode) } }), 'success');
     } catch (error) {
@@ -450,7 +379,7 @@
     if (!tab || isReloading) return;
 
     if (tab.isDirty) {
-      const confirmed = await ask($_('editor.script_reload_confirm'), {
+      const confirmed = await tauriBridge.ask($_('editor.script_reload_confirm'), {
         title: $_('editor.script_reload_title'),
         kind: 'warning',
       });
@@ -486,7 +415,7 @@
     if (!tab) return;
 
     try {
-      await invoke('open_in_system_editor', { path: tab.scriptPath });
+      await openScriptExternally(tab.scriptPath);
     } catch (error) {
       console.error('Failed to open script externally', error);
       void writeErrorLog({

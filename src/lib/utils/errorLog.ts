@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invokeCommand } from '$lib/infrastructure/tauri';
 
 type ErrorLogInput = {
   source: string;
@@ -48,7 +48,7 @@ function normalizeExtra(extra?: Record<string, unknown> | string) {
 export async function writeErrorLog(input: ErrorLogInput) {
   const normalized = normalizeError(input.error);
   try {
-    return await invoke<string>('append_error_log', {
+    return await invokeCommand<string>('append_error_log', {
       request: {
         source: input.source,
         message: normalized.message,

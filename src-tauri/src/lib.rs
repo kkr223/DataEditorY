@@ -499,8 +499,11 @@ fn resolve_script_dependency_path(
         script_dir.join(relative)
     };
 
+    let workspace_root = cdb_dir
+        .canonicalize()
+        .unwrap_or_else(|_| cdb_dir.to_path_buf());
     let normalized = joined.canonicalize().unwrap_or(joined);
-    if normalized.starts_with(cdb_dir) && normalized.is_file() {
+    if normalized.starts_with(&workspace_root) && normalized.is_file() {
         Some(normalized)
     } else {
         None
@@ -1127,4 +1130,121 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn make_temp_dir(label: &str) -> PathBuf {
+        let unique = format!(
+            "dataeditory-{label}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        );
+        let path = std::env::temp_dir().join(unique);
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn normalizes_settings_fields() {
+        assert_eq!(
+            normalize_base_url(" https://api.openai.com/v1/ ".to_string()),
+            "https://api.openai.com/v1"
+        );
+        assert_eq!(normalize_model(Some("".to_string())), DEFAULT_AI_MODEL);
+        assert_eq!(normalize_temperature(Some(5.0)), 2.0);
+        assert_eq!(normalize_temperature(Some(-1.0)), 0.0);
+        assert_eq!(normalize_temperature(Some(f64::NAN)), DEFAULT_AI_TEMPERATURE);
+        assert_eq!(
+            normalize_script_template("line1\r\nline2".to_string()),
+            "line1\nline2"
+        );
+        assert_eq!(
+            normalize_script_template("   ".to_string()),
+            DEFAULT_SCRIPT_TEMPLATE
+        );
+        assert_eq!(
+            normalize_script_content("alpha\r\nbeta\r\n".to_string()),
+            "alpha\nbeta\n"
+        );
+    }
+
+    #[test]
+    fn builds_zip_entries_with_forward_slashes() {
+        let base_dir = Path::new("workspace");
+        let nested_path = Path::new("workspace").join("script").join("c100.lua");
+
+        let entry = path_to_zip_entry(&nested_path, base_dir).unwrap();
+
+        assert_eq!(entry, "script/c100.lua");
+    }
+
+    #[test]
+    fn resolves_script_dependencies_inside_workspace_only() {
+        let cdb_dir = make_temp_dir("script-deps");
+        let script_dir = cdb_dir.join("script");
+        fs::create_dir_all(script_dir.join("shared")).unwrap();
+
+        let local_script = script_dir.join("utility.lua");
+        let nested_script = script_dir.join("shared").join("common.lua");
+        fs::write(&local_script, "-- local").unwrap();
+        fs::write(&nested_script, "-- nested").unwrap();
+
+        let escaped_path = cdb_dir
+            .parent()
+            .unwrap()
+            .join("dataeditory-outside.lua");
+        fs::write(&escaped_path, "-- outside").unwrap();
+
+        let resolved_local =
+            resolve_script_dependency_path(&cdb_dir, &script_dir, "utility.lua").unwrap();
+        let resolved_prefixed = resolve_script_dependency_path(
+            &cdb_dir,
+            &script_dir,
+            "script/shared/common.lua",
+        )
+        .unwrap();
+        let escaped = resolve_script_dependency_path(
+            &cdb_dir,
+            &script_dir,
+            "../../dataeditory-outside.lua",
+        );
+
+        assert_eq!(resolved_local.file_name().unwrap(), "utility.lua");
+        assert_eq!(resolved_prefixed.file_name().unwrap(), "common.lua");
+        assert!(escaped.is_none());
+
+        let _ = fs::remove_file(&escaped_path);
+        let _ = fs::remove_dir_all(&cdb_dir);
+    }
+
+    #[test]
+    fn collects_existing_cdb_paths_from_args() {
+        let root = make_temp_dir("collect-cdb");
+        let first = root.join("cards-a.cdb");
+        let second = root.join("cards-b.CDB");
+        let ignored = root.join("notes.txt");
+        fs::write(&first, []).unwrap();
+        fs::write(&second, []).unwrap();
+        fs::write(&ignored, []).unwrap();
+
+        let collected = collect_cdb_paths_from_args(vec![
+            first.as_os_str().to_os_string(),
+            second.as_os_str().to_os_string(),
+            ignored.as_os_str().to_os_string(),
+            first.as_os_str().to_os_string(),
+        ]);
+
+        assert_eq!(collected.len(), 2);
+        assert!(collected.iter().any(|path| path.ends_with("cards-a.cdb")));
+        assert!(collected.iter().any(|path| path.to_ascii_lowercase().ends_with("cards-b.cdb")));
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }

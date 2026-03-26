@@ -17,6 +17,11 @@ export interface SearchFilters {
   setcode4?: string;
 }
 
+export interface CardSearchQuery {
+  whereClause: string;
+  params: Record<string, string | number>;
+}
+
 export interface CardDataEntry {
   code: number;
   alias: number;
@@ -38,7 +43,27 @@ export interface CardDataEntry {
   ruleCode: number;
 }
 
-export interface ScriptTabState {
+export interface DbWorkspaceState {
+  id: string;
+  path: string;
+  name: string;
+  cachedCards: CardDataEntry[];
+  cachedTotal: number;
+  cachedPage: number;
+  cachedFilters: string;
+  cachedSelectedIds: number[];
+  cachedSelectedId: number | null;
+  cachedSelectionAnchorId: number | null;
+  isDirty: boolean;
+}
+
+export interface CardDraftState {
+  originalCode: number | null;
+  snapshot: string;
+  card: CardDataEntry;
+}
+
+export interface ScriptWorkspaceState {
   id: string;
   cdbPath: string;
   sourceTabId: string | null;
@@ -51,6 +76,8 @@ export interface ScriptTabState {
   viewState: unknown | null;
   createdFromTemplate: boolean;
 }
+
+export type ScriptTabState = ScriptWorkspaceState;
 
 export interface LuaConstantItem {
   name: string;

@@ -1,9 +1,12 @@
 import { get } from 'svelte/store';
-import { invoke } from '@tauri-apps/api/core';
 import type { CardDataEntry } from '$lib/types';
-import { activeTab, getCardByIdInTab, queryCardsRaw, tabs, SUBTYPE_MAP } from '$lib/stores/db';
-import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
-import { createEmptyCard } from '$lib/utils/card';
+import { createEmptyCard } from '$lib/domain/card/draft';
+import {
+  ATTRIBUTE_MAP,
+  LINK_MARKER_NAME_TO_BIT,
+  RACE_MAP,
+  SUBTYPE_MAP,
+} from '$lib/domain/card/taxonomy';
 
 type AiRole = 'system' | 'user' | 'assistant' | 'tool';
 
@@ -52,9 +55,17 @@ type OpenDbMeta = {
   isActive: boolean;
 };
 
-type CardScriptInfo = {
-  path: string;
-  exists: boolean;
+export type AiAppContext = {
+  getAiConfig: () => Promise<AiConfig>;
+  listOpenDatabases: () => OpenDbMeta[];
+  getActiveDatabaseId: () => string | null;
+  getCardByIdInTab: (tabId: string, cardId: number) => Promise<CardDataEntry | undefined>;
+  queryCardsRaw: (tabId: string, queryClause: string, params?: Record<string, string | number>) => Promise<CardDataEntry[]>;
+  readCardScript: (code: number, dbPath?: string) => Promise<{
+    exists: boolean;
+    path: string | null;
+    content: string | null;
+  }>;
 };
 
 type ParsedCardDraft = {
@@ -82,44 +93,9 @@ type ParsedCardDraft = {
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 const MAX_AGENT_STEPS = 12;
 
-const ATTRIBUTE_NAME_TO_VALUE: Record<string, number> = {
-  earth: 0x01,
-  water: 0x02,
-  fire: 0x04,
-  wind: 0x08,
-  light: 0x10,
-  dark: 0x20,
-  divine: 0x40,
-};
+const ATTRIBUTE_NAME_TO_VALUE: Record<string, number> = { ...ATTRIBUTE_MAP };
 
-const RACE_NAME_TO_VALUE: Record<string, number> = {
-  warrior: 0x1,
-  spellcaster: 0x2,
-  fairy: 0x4,
-  fiend: 0x8,
-  zombie: 0x10,
-  machine: 0x20,
-  aqua: 0x40,
-  pyro: 0x80,
-  rock: 0x100,
-  wingedbeast: 0x200,
-  plant: 0x400,
-  insect: 0x800,
-  thunder: 0x1000,
-  dragon: 0x2000,
-  beast: 0x4000,
-  beastwarrior: 0x8000,
-  dinosaur: 0x10000,
-  fish: 0x20000,
-  seaserpent: 0x40000,
-  reptile: 0x80000,
-  psychic: 0x100000,
-  divinebeast: 0x200000,
-  creatorgod: 0x400000,
-  wyrm: 0x800000,
-  cyberse: 0x1000000,
-  illusion: 0x2000000,
-};
+const RACE_NAME_TO_VALUE: Record<string, number> = { ...RACE_MAP };
 
 const SUBTYPE_NAME_TO_BIT: Record<string, number> = {
   normal: SUBTYPE_MAP.normal,
@@ -146,17 +122,6 @@ const SUBTYPE_NAME_TO_BIT: Record<string, number> = {
   spssummon: SUBTYPE_MAP.spssummon,
   link: SUBTYPE_MAP.link,
   ritual_spell: SUBTYPE_MAP.ritual_spell,
-};
-
-const LINK_MARKER_NAME_TO_BIT: Record<string, number> = {
-  downleft: 0x01,
-  down: 0x02,
-  downright: 0x04,
-  left: 0x08,
-  right: 0x20,
-  upleft: 0x40,
-  up: 0x80,
-  upright: 0x100,
 };
 
 const TOOL_DEFINITIONS: AiToolDefinition[] = [
@@ -437,21 +402,6 @@ function getChatCompletionsEndpoint(apiBaseUrl: string) {
 
 
 
-async function getAiConfig(): Promise<AiConfig> {
-  await loadAppSettings();
-  const secretKey = await invoke<string | null>('load_secret_key');
-  if (!secretKey) {
-    throw new Error('Secret key is not configured');
-  }
-
-  return {
-    apiBaseUrl: appSettingsState.values.apiBaseUrl || DEFAULT_API_BASE_URL,
-    model: appSettingsState.values.model || 'gpt-4o-mini',
-    temperature: Number.isFinite(appSettingsState.values.temperature) ? appSettingsState.values.temperature : 1,
-    secretKey,
-  };
-}
-
 async function requestChatCompletion(
   config: AiConfig,
   body: Record<string, unknown>,
@@ -518,35 +468,29 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
-function getOpenDbMetas(): OpenDbMeta[] {
-  const currentActiveTab = get(activeTab);
-  return get(tabs).map((tab) => ({
-    id: tab.id,
-    name: tab.name,
-    path: tab.path,
-    isActive: currentActiveTab?.id === tab.id,
-  }));
+function getOpenDbMetas(context: AiAppContext): OpenDbMeta[] {
+  return context.listOpenDatabases();
 }
 
-function getScopedTabs(dbScope: string | undefined, dbPath: string | undefined) {
-  const allTabs = get(tabs);
-  const currentActiveTab = get(activeTab);
+function getScopedTabs(context: AiAppContext, dbScope: string | undefined, dbPath: string | undefined) {
+  const allTabs = context.listOpenDatabases();
+  const currentActiveTabId = context.getActiveDatabaseId();
 
   if (dbPath) {
     return allTabs.filter((tab) => tab.path === dbPath);
   }
 
   if (dbScope === 'current') {
-    return currentActiveTab ? [currentActiveTab] : [];
+    return currentActiveTabId ? allTabs.filter((tab) => tab.id === currentActiveTabId) : [];
   }
 
   return allTabs;
 }
 
-async function pickCardFromDb(code: number, dbPath?: string) {
-  const matchedTabs = getScopedTabs(undefined, dbPath);
+async function pickCardFromDb(context: AiAppContext, code: number, dbPath?: string) {
+  const matchedTabs = getScopedTabs(context, undefined, dbPath);
   for (const tab of matchedTabs) {
-    const card = await getCardByIdInTab(tab.id, code);
+    const card = await context.getCardByIdInTab(tab.id, code);
     if (card) {
       return {
         db: { name: tab.name, path: tab.path },
@@ -556,8 +500,8 @@ async function pickCardFromDb(code: number, dbPath?: string) {
   }
 
   if (!dbPath) {
-    for (const tab of get(tabs)) {
-      const card = await getCardByIdInTab(tab.id, code);
+    for (const tab of context.listOpenDatabases()) {
+      const card = await context.getCardByIdInTab(tab.id, code);
       if (card) {
         return {
           db: { name: tab.name, path: tab.path },
@@ -574,14 +518,14 @@ function escapeLikeWildcards(value: string) {
   return value.replace(/[%_\\]/g, '\\$&');
 }
 
-async function searchCards(query: string, dbScope?: string, dbPath?: string, limit = 6) {
+async function searchCards(context: AiAppContext, query: string, dbScope?: string, dbPath?: string, limit = 6) {
   const normalizedQuery = query.trim();
   const result = [];
   const safeLimit = Math.max(1, Math.min(12, Math.round(limit)));
 
-  for (const tab of getScopedTabs(dbScope, dbPath)) {
+  for (const tab of getScopedTabs(context, dbScope, dbPath)) {
     const safeLike = normalizedQuery ? `%${escapeLikeWildcards(normalizedQuery)}%` : '';
-    const cards = await queryCardsRaw(
+    const cards = await context.queryCardsRaw(
       tab.id,
       normalizedQuery
         ? `(texts.name LIKE :name OR texts.desc LIKE :name) ORDER BY datas.id LIMIT ${safeLimit}`
@@ -600,35 +544,13 @@ async function searchCards(query: string, dbScope?: string, dbPath?: string, lim
   return result.slice(0, safeLimit);
 }
 
-async function readCardScript(code: number, dbPath?: string) {
-  const targetTab = dbPath
-    ? get(tabs).find((tab) => tab.path === dbPath)
-    : get(activeTab);
-
-  if (!targetTab) {
-    return { exists: false, path: null, content: null };
-  }
-
-  const info = await invoke<CardScriptInfo>('get_card_script_info', {
-    cdbPath: targetTab.path,
-    cardId: code,
-  });
-
-  if (!info.exists) {
-    return { exists: false, path: info.path, content: null };
-  }
-
-  const content = await invoke<string>('read_text_file', { path: info.path });
-  return { exists: true, path: info.path, content };
-}
-
-function createToolExecutors(currentCard: CardDataEntry): Record<string, ToolExecutor> {
+function createToolExecutors(context: AiAppContext, currentCard: CardDataEntry): Record<string, ToolExecutor> {
   return {
     async list_open_databases() {
-      return getOpenDbMetas();
+      return getOpenDbMetas(context);
     },
     async get_current_card() {
-      const currentActiveTab = get(activeTab);
+      const currentActiveTab = context.listOpenDatabases().find((tab) => tab.id === context.getActiveDatabaseId()) ?? null;
       return {
         db: currentActiveTab
           ? {
@@ -645,10 +567,11 @@ function createToolExecutors(currentCard: CardDataEntry): Record<string, ToolExe
         throw new Error('A positive card id is required');
       }
 
-      return pickCardFromDb(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+      return pickCardFromDb(context, code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
     },
     async search_cards(args) {
       return searchCards(
+        context,
         typeof args.query === 'string' ? args.query : '',
         typeof args.dbScope === 'string' ? args.dbScope : undefined,
         typeof args.dbPath === 'string' ? args.dbPath : undefined,
@@ -662,12 +585,13 @@ function createToolExecutors(currentCard: CardDataEntry): Record<string, ToolExe
         throw new Error('A positive card id is required');
       }
 
-      return readCardScript(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+      return context.readCardScript(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
     },
   };
 }
 
 async function runAgent(options: {
+  context: AiAppContext;
   currentCard: CardDataEntry;
   systemPrompt: string;
   userPrompt: string;
@@ -678,7 +602,7 @@ async function runAgent(options: {
   signal?: AbortSignal;
   onStageChange?: (stage: AgentStage) => void;
 }) {
-  const config = await getAiConfig();
+  const config = await options.context.getAiConfig();
   const messages: AiMessage[] = [
     { role: 'system', content: options.systemPrompt },
     { role: 'user', content: options.userPrompt },
@@ -690,7 +614,7 @@ async function runAgent(options: {
     : [];
   const canUseTools = allowedTools.length > 0;
 
-  const executors = createToolExecutors(options.currentCard);
+  const executors = createToolExecutors(options.context, options.currentCard);
   let lastToolSignature = '';
   let repeatedToolRoundCount = 0;
 
@@ -792,8 +716,9 @@ async function runAgent(options: {
   throw new Error('AI exceeded the maximum tool-call steps');
 }
 
-export async function parseCardManuscript(manuscript: string, currentCard: CardDataEntry) {
+export async function parseCardManuscript(manuscript: string, currentCard: CardDataEntry, context: AiAppContext) {
   const text = await runAgent({
+    context,
     currentCard,
     useTools: true,
     systemPrompt: [
@@ -888,6 +813,7 @@ export async function parseCardManuscript(manuscript: string, currentCard: CardD
  * tool-call round-trips entirely.
  */
 async function prefetchReferenceScripts(
+  context: AiAppContext,
   currentCard: CardDataEntry,
   maxScripts = 2,
   signal?: AbortSignal,
@@ -904,7 +830,7 @@ async function prefetchReferenceScripts(
     const keywords = cardName.split(/[\s・・/／]+/).filter((w) => w.length >= 2);
     const searchTerm = keywords[0] ?? cardName.slice(0, 4);
     throwIfAborted(signal);
-    const found = await searchCards(searchTerm, 'all', undefined, 4);
+    const found = await searchCards(context, searchTerm, 'all', undefined, 4);
     for (const item of found) {
       throwIfAborted(signal);
       if (results.length >= maxScripts) break;
@@ -914,7 +840,7 @@ async function prefetchReferenceScripts(
       if (!item.card?.desc) continue;
       seenCodes.add(code);
       throwIfAborted(signal);
-      const scriptResult = await readCardScript(code, item.db?.path);
+      const scriptResult = await context.readCardScript(code, item.db?.path);
       if (scriptResult.exists && scriptResult.content) {
         results.push({ code, name: String(item.card?.name ?? ''), script: scriptResult.content });
       }
@@ -929,7 +855,7 @@ async function prefetchReferenceScripts(
     const fallbackSearch = effectKeywords?.[0] ?? '';
     if (fallbackSearch) {
       throwIfAborted(signal);
-      const found = await searchCards(fallbackSearch, 'all', undefined, 4);
+      const found = await searchCards(context, fallbackSearch, 'all', undefined, 4);
       for (const item of found) {
         throwIfAborted(signal);
         if (results.length >= maxScripts) break;
@@ -938,7 +864,7 @@ async function prefetchReferenceScripts(
         if (!item.card?.desc) continue;
         seenCodes.add(code);
         throwIfAborted(signal);
-        const scriptResult = await readCardScript(code, item.db?.path);
+        const scriptResult = await context.readCardScript(code, item.db?.path);
         if (scriptResult.exists && scriptResult.content) {
           results.push({ code, name: String(item.card?.name ?? ''), script: scriptResult.content });
         }
@@ -949,14 +875,15 @@ async function prefetchReferenceScripts(
   return results;
 }
 
-export async function generateCardScript(currentCard: CardDataEntry, options?: {
+export async function generateCardScript(currentCard: CardDataEntry, options: {
+  context: AiAppContext;
   signal?: AbortSignal;
   onStageChange?: (stage: AgentStage) => void;
 }) {
   // Pre-fetch reference scripts locally — this is fast and avoids slow
   // AI tool-call round-trips (each round-trip is ~3-10s).
-  options?.onStageChange?.('collecting_references');
-  const referenceScripts = await prefetchReferenceScripts(currentCard, 2, options?.signal);
+  options.onStageChange?.('collecting_references');
+  const referenceScripts = await prefetchReferenceScripts(options.context, currentCard, 2, options.signal);
 
   const referenceSection = referenceScripts.length > 0
     ? [
@@ -973,12 +900,13 @@ export async function generateCardScript(currentCard: CardDataEntry, options?: {
     : '';
 
   return runAgent({
+    context: options.context,
     currentCard,
     useTools: true,
     maxSteps: 3,
     toolNames: ['search_cards', 'read_card_script'],
-    signal: options?.signal,
-    onStageChange: options?.onStageChange,
+    signal: options.signal,
+    onStageChange: options.onStageChange,
     systemPrompt: [
       'You are an expert EDOPro/YGOPro Lua card scripter.',
       'Generate a complete, runnable Lua script for the current Yu-Gi-Oh! card.',
@@ -1020,6 +948,7 @@ export async function generateCardScript(currentCard: CardDataEntry, options?: {
 }
 
 export async function translateCardImageFields(input: {
+  context: AiAppContext;
   currentCard: CardDataEntry;
   targetLanguage: string;
   name: string;
@@ -1028,6 +957,7 @@ export async function translateCardImageFields(input: {
   pendulumDescription: string;
 }) {
   const text = await runAgent({
+    context: input.context,
     currentCard: input.currentCard,
     useTools: false,
     systemPrompt: [

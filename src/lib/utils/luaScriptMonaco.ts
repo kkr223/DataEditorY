@@ -1152,17 +1152,6 @@ export function validateLuaModel(model: monaco.editor.ITextModel) {
     }
   }
 
-  if (!/local\s+s\s*,\s*id(?:\s*,\s*o)?\s*=\s*GetID\s*\(\s*\)/.test(source)) {
-    markers.push({
-      severity: monaco.MarkerSeverity.Warning,
-      message: '缺少标准脚本头：local s,id=GetID()',
-      startLineNumber: 1,
-      startColumn: 1,
-      endLineNumber: 1,
-      endColumn: Math.max(2, model.getLineMaxColumn(1)),
-    });
-  }
-
   if (!/function\s+s\.initial_effect\s*\(\s*c\s*\)/.test(source)) {
     markers.push({
       severity: monaco.MarkerSeverity.Warning,
@@ -1172,25 +1161,6 @@ export function validateLuaModel(model: monaco.editor.ITextModel) {
       endLineNumber: 1,
       endColumn: Math.max(2, model.getLineMaxColumn(1)),
     });
-  }
-
-  for (const match of source.matchAll(/aux\.Stringid\s*\(\s*id\s*,\s*(\d+)\s*\)/g)) {
-    const stringIndex = Number(match[1]);
-    const startIndex = match.index ?? 0;
-    const startPosition = model.getPositionAt(startIndex);
-    const endPosition = model.getPositionAt(startIndex + match[0].length);
-    const text = getStringHint(context, stringIndex);
-
-    if (!context || stringIndex < 0 || stringIndex >= context.strings.length || !text) {
-      markers.push({
-        severity: monaco.MarkerSeverity.Warning,
-        message: `aux.Stringid(id, ${stringIndex}) 在当前卡片上下文中没有对应文本。`,
-        startLineNumber: startPosition.lineNumber,
-        startColumn: startPosition.column,
-        endLineNumber: endPosition.lineNumber,
-        endColumn: endPosition.column,
-      });
-    }
   }
 
   if (ast) {

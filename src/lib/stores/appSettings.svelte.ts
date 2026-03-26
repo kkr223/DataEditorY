@@ -1,4 +1,4 @@
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 
 export interface AppSettingsPayload {
@@ -35,7 +35,7 @@ function normalizeTemperature(value: number | null | undefined) {
 }
 
 function resolveCoverSrc(path: string | null, revision: number): string {
-  if (!path || !isTauri()) {
+  if (!path || !tauriBridge.isTauri()) {
     return DEFAULT_COVER_SRC;
   }
 
@@ -91,7 +91,7 @@ async function resolveSecretKey(providedSecretKey?: string) {
     return direct;
   }
 
-  const stored = await invoke<string | null>('load_secret_key');
+  const stored = await invokeCommand<string | null>('load_secret_key');
   return stored?.trim() || '';
 }
 
@@ -101,7 +101,7 @@ export async function loadAppSettings(force = false) {
 
   appSettingsState.loading = true;
   try {
-    const payload = await invoke<AppSettingsPayload>('load_app_settings');
+    const payload = await invokeCommand<AppSettingsPayload>('load_app_settings');
     applySettings(payload);
     return appSettingsState.values;
   } finally {
@@ -119,7 +119,7 @@ export async function saveAppSettings(input: {
 }) {
   appSettingsState.saving = true;
   try {
-    const payload = await invoke<AppSettingsPayload>('save_app_settings', {
+    const payload = await invokeCommand<AppSettingsPayload>('save_app_settings', {
       request: {
         apiBaseUrl: input.apiBaseUrl,
         model: input.model,
@@ -137,7 +137,7 @@ export async function saveAppSettings(input: {
 }
 
 export async function setCustomCoverImage(sourcePath: string) {
-  const coverImagePath = await invoke<string>('set_cover_image', { sourcePath });
+  const coverImagePath = await invokeCommand<string>('set_cover_image', { sourcePath });
   applySettings({
     ...appSettingsState.values,
     coverImagePath,
@@ -145,7 +145,7 @@ export async function setCustomCoverImage(sourcePath: string) {
 }
 
 export async function clearCustomCoverImage() {
-  await invoke('clear_cover_image');
+  await invokeCommand('clear_cover_image');
   applySettings({
     ...appSettingsState.values,
     coverImagePath: null,

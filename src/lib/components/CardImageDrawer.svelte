@@ -1,13 +1,13 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { _ } from "svelte-i18n";
-  import { invoke, isTauri } from "@tauri-apps/api/core";
-  import { ask, message, save } from "@tauri-apps/plugin-dialog";
-  import { dirname, join, resolveResource } from "@tauri-apps/api/path";
   import type { CardDataEntry } from "$lib/types";
   import { HAS_AI_FEATURE } from "$lib/config/build";
   import { showToast } from "$lib/stores/toast.svelte";
-  import { hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
+  import { tauriBridge } from "$lib/infrastructure/tauri";
+  import { pathExists, writeBinaryFile } from "$lib/infrastructure/tauri/commands";
+  import { createAiAppContext } from "$lib/services/aiAppContext";
+  import { getPicsDir } from "$lib/services/cardImageService";
   import { toMediaProtocolSrc } from "$lib/utils/mediaProtocol";
   import {
     CARD_IMAGE_ATTRIBUTE_OPTIONS,
@@ -49,8 +49,10 @@
   const MAX_EXPORT_SCALE_PERCENT = 100;
   const DEFAULT_EXPORT_SCALE_PERCENT = 43;
   const MIN_PREVIEW_ZOOM_PERCENT = 60;
-  const MAX_PREVIEW_ZOOM_PERCENT = 135;
-  const DEFAULT_PREVIEW_ZOOM_PERCENT = 88;
+  const MAX_PREVIEW_ZOOM_PERCENT = 170;
+  const DEFAULT_PREVIEW_ZOOM_PERCENT = 108;
+  const PREVIEW_ZOOM_REFERENCE_WIDTH = 560;
+  const PREVIEW_ZOOM_REFERENCE_HEIGHT = 800;
 
   let {
     open = false,
@@ -86,6 +88,7 @@
   let previewWidth = $state(360);
   let previewHeight = $state(640);
   let previewZoomPercent = $state(DEFAULT_PREVIEW_ZOOM_PERCENT);
+  let hasManualPreviewZoom = $state(false);
   let exportScalePercent = $state(DEFAULT_EXPORT_SCALE_PERCENT);
   let isDownloading = $state(false);
   let isSavingJpg = $state(false);
@@ -102,12 +105,12 @@
   let previewResizeObserver: ResizeObserver | null = null;
 
   async function getResourcePath() {
-    if (!isTauri()) {
+    if (!tauriBridge.isTauri()) {
       return `${window.location.origin}/resources/yugioh-card`;
     }
 
     if (!resourcePathPromise) {
-      resourcePathPromise = resolveResource("resources/yugioh-card")
+      resourcePathPromise = tauriBridge.resolveResource("resources/yugioh-card")
         .then((path) => toMediaProtocolSrc(path))
         .catch((error) => {
           console.error("Failed to resolve yugioh-card resource path", error);
@@ -157,6 +160,7 @@
     cropBox = { x: 0, y: 0, size: 0 };
     dragMode = null;
     dragPointerId = null;
+    hasManualPreviewZoom = false;
     previewZoomPercent = DEFAULT_PREVIEW_ZOOM_PERCENT;
     exportScalePercent = DEFAULT_EXPORT_SCALE_PERCENT;
     revokeSourceImageUrl();
@@ -176,16 +180,16 @@
       return false;
     }
 
-    await loadAppSettings();
-    if (hasConfiguredSecretKey()) {
+    try {
+      await createAiAppContext().getAiConfig();
       return true;
+    } catch {
+      await tauriBridge.message($_("editor.ai_requires_secret_key"), {
+        title: $_("editor.ai_requires_secret_key_title"),
+        kind: "warning",
+      });
+      return false;
     }
-
-    await message($_("editor.ai_requires_secret_key"), {
-      title: $_("editor.ai_requires_secret_key_title"),
-      kind: "warning",
-    });
-    return false;
   }
 
   async function handleAiTranslate() {
@@ -206,6 +210,7 @@
         },
       );
       const translated = await translateCardImageFields({
+        context: createAiAppContext(),
         currentCard: card,
         targetLanguage: targetLanguageLabel,
         name: form.name,
@@ -398,11 +403,27 @@
     });
   }
 
+  function getAutoPreviewZoomPercent() {
+    if (!previewWidth || !previewHeight) {
+      return DEFAULT_PREVIEW_ZOOM_PERCENT;
+    }
+
+    const widthRatio = previewWidth / PREVIEW_ZOOM_REFERENCE_WIDTH;
+    const heightRatio = previewHeight / PREVIEW_ZOOM_REFERENCE_HEIGHT;
+    const scaledPercent = Math.min(widthRatio, heightRatio) * 100;
+
+    return Math.round(
+      Math.max(DEFAULT_PREVIEW_ZOOM_PERCENT, Math.min(MAX_PREVIEW_ZOOM_PERCENT, scaledPercent)),
+    );
+  }
+
   function getPreviewScale() {
-    const availableWidth = Math.max(previewWidth - 48, 280);
-    const availableHeight = Math.max(previewHeight - 56, 360);
+    // Strictly fit the preview to the current container instead of clamping to
+    // fixed fallback dimensions, so 720p and 4K screens scale proportionally.
+    const availableWidth = Math.max(previewWidth - 16, 1);
+    const availableHeight = Math.max(previewHeight - 40, 1);
     const baseScale = Math.min(availableWidth / CARD_WIDTH, availableHeight / CARD_HEIGHT);
-    return Math.max(baseScale * (previewZoomPercent / 100), 0.08);
+    return Math.max(baseScale * (previewZoomPercent / 100), 0.02);
   }
 
   function applyAutoRarityStyle(data: CardImageFormData): CardImageFormData {
@@ -480,6 +501,7 @@
 
   function handlePreviewWheel(event: WheelEvent) {
     event.preventDefault();
+    hasManualPreviewZoom = true;
     const stepSize = event.ctrlKey || event.metaKey ? 8 : 5;
     const step = event.deltaY < 0 ? stepSize : -stepSize;
     previewZoomPercent = Math.max(
@@ -641,14 +663,14 @@
     try {
       const pngBlob = await renderCardBlob(buildPngData(), "png");
 
-      const targetPath = await save({
+      const targetPath = await tauriBridge.save({
         defaultPath: `${form.password || card.code || "card"}.png`,
         filters: [{ name: "PNG", extensions: ["png"] }],
       });
       if (!targetPath) return;
 
       const bytes = await blobToUint8Array(pngBlob);
-      await invoke("write_file", { path: targetPath, data: Array.from(bytes) });
+      await writeBinaryFile(targetPath, Array.from(bytes));
       showToast($_("editor.card_image_download_success"), "success");
     } catch (error) {
       console.error("Failed to download generated card image", error);
@@ -672,12 +694,12 @@
     isSavingJpg = true;
 
     try {
-      const picsDir = await join(await dirname(cdbPath), "pics");
-      const picPath = await join(picsDir, `${card.code}.jpg`);
+      const picsDir = await getPicsDir(cdbPath);
+      const picPath = await tauriBridge.join(picsDir, `${card.code}.jpg`);
 
       let shouldOverwrite = true;
-      if (await invoke<boolean>("path_exists", { path: picPath })) {
-        shouldOverwrite = await ask($_("editor.card_image_save_jpg_overwrite_confirm", {
+      if (await pathExists(picPath)) {
+        shouldOverwrite = await tauriBridge.ask($_("editor.card_image_save_jpg_overwrite_confirm", {
           values: { code: String(card.code) },
         }), {
           title: $_("editor.card_image_save_jpg_overwrite_title"),
@@ -689,7 +711,7 @@
 
       const jpgBlob = await renderCardBlob(buildJpgData(), "jpg", 0.92);
       const bytes = await blobToUint8Array(jpgBlob);
-      await invoke("write_file", { path: picPath, data: Array.from(bytes) });
+      await writeBinaryFile(picPath, Array.from(bytes));
       await onSavedJpg();
       showToast($_("editor.card_image_save_jpg_success", {
         values: { code: String(card.code) },
@@ -781,6 +803,15 @@
       previewResizeObserver?.disconnect();
       previewResizeObserver = null;
     };
+  });
+
+  $effect(() => {
+    if (!open || hasManualPreviewZoom) return;
+    if (!previewWidth || !previewHeight) return;
+
+    const nextZoomPercent = getAutoPreviewZoomPercent();
+    if (previewZoomPercent === nextZoomPercent) return;
+    previewZoomPercent = nextZoomPercent;
   });
 
   $effect(() => {
