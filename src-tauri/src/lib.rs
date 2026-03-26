@@ -41,6 +41,8 @@ const SECRET_VERSION_PREFIX: &str = "v1";
 const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
 const OPEN_CDB_PATHS_EVENT: &str = "open-cdb-paths";
 const MEDIA_PROTOCOL_NAME: &str = "app-media";
+const TYPE_SPELL_BIT: i64 = 0x2;
+const SUBTYPE_FIELD_BIT: i64 = 0x80000;
 
 fn media_protocol_error(status: StatusCode, message: &str) -> Response<Vec<u8>> {
     Response::builder()
@@ -223,6 +225,12 @@ struct AppendErrorLogRequest {
 }
 
 struct PendingOpenCdbPaths(Mutex<Vec<String>>);
+
+#[derive(Debug, Clone, Default)]
+struct CardPackageManifest {
+    card_ids: Vec<u32>,
+    field_spell_ids: Vec<u32>,
+}
 
 fn ensure_app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
@@ -460,24 +468,35 @@ fn build_card_script_path(cdb_path: &str, card_id: u32) -> Result<PathBuf, Strin
     Ok(cdb_dir.join("script").join(format!("c{card_id}.lua")))
 }
 
-fn collect_card_ids_from_cdb(cdb_path: &Path) -> Result<Vec<u32>, String> {
+fn collect_card_package_manifest_from_cdb(cdb_path: &Path) -> Result<CardPackageManifest, String> {
     let conn = rusqlite::Connection::open(cdb_path).map_err(|err| err.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id FROM datas")
+        .prepare("SELECT id, type FROM datas")
         .map_err(|err| err.to_string())?;
     let rows = stmt
-        .query_map([], |row| row.get::<_, i64>(0))
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+        })
         .map_err(|err| err.to_string())?;
 
-    let mut ids = Vec::new();
+    let mut manifest = CardPackageManifest::default();
     for row in rows {
-        let id = row.map_err(|err| err.to_string())?;
+        let (id, card_type) = row.map_err(|err| err.to_string())?;
         if id > 0 {
-            ids.push(id as u32);
+            let card_id = id as u32;
+            manifest.card_ids.push(card_id);
+            if (card_type & TYPE_SPELL_BIT) != 0 && (card_type & SUBTYPE_FIELD_BIT) != 0 {
+                manifest.field_spell_ids.push(card_id);
+            }
         }
     }
 
-    Ok(ids)
+    manifest.card_ids.sort_unstable();
+    manifest.card_ids.dedup();
+    manifest.field_spell_ids.sort_unstable();
+    manifest.field_spell_ids.dedup();
+
+    Ok(manifest)
 }
 
 fn resolve_script_dependency_path(
@@ -510,7 +529,10 @@ fn resolve_script_dependency_path(
     }
 }
 
-fn collect_script_paths_for_package(cdb_file_path: &Path, cdb_dir: &Path) -> Result<Vec<PathBuf>, String> {
+fn collect_script_paths_for_package(
+    cdb_dir: &Path,
+    card_ids: &[u32],
+) -> Result<Vec<PathBuf>, String> {
     let script_dir = cdb_dir.join("script");
     if !script_dir.exists() || !script_dir.is_dir() {
         return Ok(Vec::new());
@@ -522,7 +544,7 @@ fn collect_script_paths_for_package(cdb_file_path: &Path, cdb_dir: &Path) -> Res
     let mut visited = HashSet::new();
     let mut collected = Vec::new();
 
-    for card_id in collect_card_ids_from_cdb(cdb_file_path)? {
+    for &card_id in card_ids {
         let script_path = script_dir.join(format!("c{card_id}.lua"));
         if script_path.is_file() {
             queued.push_back(script_path);
@@ -559,10 +581,48 @@ fn collect_script_paths_for_package(cdb_file_path: &Path, cdb_dir: &Path) -> Res
     Ok(collected)
 }
 
+fn collect_picture_paths_for_package(
+    cdb_dir: &Path,
+    card_ids: &[u32],
+    field_spell_ids: &[u32],
+) -> Vec<PathBuf> {
+    let pics_dir = cdb_dir.join("pics");
+    let field_pics_dir = pics_dir.join("field");
+    let mut paths = Vec::new();
+
+    for &card_id in card_ids {
+        let pic_path = pics_dir.join(format!("{card_id}.jpg"));
+        if pic_path.is_file() {
+            paths.push(pic_path);
+        }
+    }
+
+    for &card_id in field_spell_ids {
+        let field_pic_path = field_pics_dir.join(format!("{card_id}.jpg"));
+        if field_pic_path.is_file() {
+            paths.push(field_pic_path);
+        }
+    }
+
+    paths.sort();
+    paths.dedup();
+    paths
+}
+
 fn path_to_zip_entry(path: &Path, base_dir: &Path) -> Result<String, String> {
-    let relative = path
-        .strip_prefix(base_dir)
-        .map_err(|err| err.to_string())?;
+    let relative = match path.strip_prefix(base_dir) {
+        Ok(relative) => relative.to_path_buf(),
+        Err(_) => {
+            let normalized_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+            let normalized_base_dir = base_dir
+                .canonicalize()
+                .unwrap_or_else(|_| base_dir.to_path_buf());
+            normalized_path
+                .strip_prefix(&normalized_base_dir)
+                .map_err(|err| err.to_string())?
+                .to_path_buf()
+        }
+    };
     let entry = relative
         .components()
         .map(|component| component.as_os_str().to_string_lossy().into_owned())
@@ -1006,8 +1066,8 @@ fn package_cdb_assets_as_zip(cdb_path: String, output_path: String) -> Result<Zi
     let cdb_dir = cdb_file_path
         .parent()
         .ok_or_else(|| "Unable to resolve the database directory".to_string())?;
-    let pics_dir = cdb_dir.join("pics");
     let output_file_path = PathBuf::from(&output_path);
+    let manifest = collect_card_package_manifest_from_cdb(&cdb_file_path)?;
 
     if let Some(parent) = output_file_path.parent() {
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
@@ -1018,10 +1078,14 @@ fn package_cdb_assets_as_zip(cdb_path: String, output_path: String) -> Result<Zi
     let mut zip = ZipWriter::new(writer);
 
     add_path_to_zip(&mut zip, &cdb_file_path, cdb_dir)?;
-    if pics_dir.exists() && pics_dir.is_dir() {
-        add_path_to_zip(&mut zip, &pics_dir, cdb_dir)?;
+    for pic_path in collect_picture_paths_for_package(
+        cdb_dir,
+        &manifest.card_ids,
+        &manifest.field_spell_ids,
+    ) {
+        add_path_to_zip(&mut zip, &pic_path, cdb_dir)?;
     }
-    for script_path in collect_script_paths_for_package(&cdb_file_path, cdb_dir)? {
+    for script_path in collect_script_paths_for_package(cdb_dir, &manifest.card_ids)? {
         add_path_to_zip(&mut zip, &script_path, cdb_dir)?;
     }
 
@@ -1105,6 +1169,10 @@ pub fn run() {
             cdb::get_card_by_id,
             cdb::modify_cards,
             cdb::delete_cards,
+            cdb::create_cdb_from_cards,
+            cdb::copy_card_assets,
+            cdb::analyze_cdb_merge,
+            cdb::execute_cdb_merge,
             read_cdb,
             read_text_file,
             write_cdb,
@@ -1136,6 +1204,7 @@ pub fn run() {
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
+    use zip::ZipArchive;
 
     fn make_temp_dir(label: &str) -> PathBuf {
         let unique = format!(
@@ -1149,6 +1218,19 @@ mod tests {
         let path = std::env::temp_dir().join(unique);
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    fn create_test_cdb(path: &Path, rows: &[(u32, i64)]) {
+        let conn = rusqlite::Connection::open(path).unwrap();
+        conn.execute("CREATE TABLE datas (id INTEGER PRIMARY KEY, type INTEGER NOT NULL)", [])
+            .unwrap();
+
+        let mut stmt = conn
+            .prepare("INSERT INTO datas (id, type) VALUES (?1, ?2)")
+            .unwrap();
+        for (id, card_type) in rows {
+            stmt.execute(rusqlite::params![i64::from(*id), *card_type]).unwrap();
+        }
     }
 
     #[test]
@@ -1244,6 +1326,64 @@ mod tests {
         assert_eq!(collected.len(), 2);
         assert!(collected.iter().any(|path| path.ends_with("cards-a.cdb")));
         assert!(collected.iter().any(|path| path.to_ascii_lowercase().ends_with("cards-b.cdb")));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn packages_only_current_cdb_card_assets() {
+        let root = make_temp_dir("package-assets");
+        let cdb_path = root.join("cards.cdb");
+        let pics_dir = root.join("pics");
+        let field_pics_dir = pics_dir.join("field");
+        let script_dir = root.join("script");
+        let output_zip_path = root.join("cards.zip");
+
+        fs::create_dir_all(&field_pics_dir).unwrap();
+        fs::create_dir_all(&script_dir).unwrap();
+
+        create_test_cdb(
+            &cdb_path,
+            &[
+                (111, TYPE_SPELL_BIT | SUBTYPE_FIELD_BIT),
+                (222, 0x1),
+            ],
+        );
+
+        fs::write(pics_dir.join("111.jpg"), [1u8]).unwrap();
+        fs::write(pics_dir.join("222.jpg"), [2u8]).unwrap();
+        fs::write(pics_dir.join("333.jpg"), [3u8]).unwrap();
+        fs::write(field_pics_dir.join("111.jpg"), [4u8]).unwrap();
+        fs::write(field_pics_dir.join("222.jpg"), [5u8]).unwrap();
+        fs::write(script_dir.join("c111.lua"), "Duel.LoadScript(\"utility.lua\")").unwrap();
+        fs::write(script_dir.join("c222.lua"), "-- direct").unwrap();
+        fs::write(script_dir.join("c333.lua"), "-- unrelated").unwrap();
+        fs::write(script_dir.join("utility.lua"), "-- shared").unwrap();
+
+        package_cdb_assets_as_zip(
+            cdb_path.to_string_lossy().to_string(),
+            output_zip_path.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        let zip_file = fs::File::open(&output_zip_path).unwrap();
+        let mut archive = ZipArchive::new(zip_file).unwrap();
+        let mut entries = Vec::new();
+        for index in 0..archive.len() {
+            entries.push(archive.by_index(index).unwrap().name().to_string());
+        }
+        entries.sort();
+
+        assert!(entries.contains(&"cards.cdb".to_string()));
+        assert!(entries.contains(&"pics/111.jpg".to_string()));
+        assert!(entries.contains(&"pics/222.jpg".to_string()));
+        assert!(entries.contains(&"pics/field/111.jpg".to_string()));
+        assert!(entries.contains(&"script/c111.lua".to_string()));
+        assert!(entries.contains(&"script/c222.lua".to_string()));
+        assert!(entries.contains(&"script/utility.lua".to_string()));
+        assert!(!entries.contains(&"pics/333.jpg".to_string()));
+        assert!(!entries.contains(&"pics/field/222.jpg".to_string()));
+        assert!(!entries.contains(&"script/c333.lua".to_string()));
 
         let _ = fs::remove_dir_all(&root);
     }

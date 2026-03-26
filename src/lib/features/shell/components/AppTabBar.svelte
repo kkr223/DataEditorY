@@ -105,14 +105,14 @@
 
 <style>
   .tab-bar {
-    --tab-radius: 16px;
+    --tab-radius: 12px;
     --tab-surface: color-mix(in srgb, var(--bg-surface-hover) 72%, var(--bg-surface));
     --tab-surface-hover: color-mix(in srgb, var(--bg-surface-hover) 92%, var(--bg-surface));
     --tab-surface-active: color-mix(in srgb, var(--bg-base) 82%, var(--bg-surface));
     display: flex;
     align-items: stretch;
     gap: 0;
-    padding: 10px 12px 0;
+    padding: 4px 10px 0;
     background: color-mix(in srgb, var(--bg-surface) 90%, var(--bg-base));
     overflow-x: auto;
     flex-shrink: 0;
@@ -139,10 +139,10 @@
     position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     min-width: 0;
-    margin-right: 4px;
-    padding: 10px 14px 11px;
+    margin-right: 3px;
+    padding: 5px 12px 6px;
     border: 1px solid transparent;
     border-bottom: none;
     border-radius: var(--tab-radius) var(--tab-radius) 0 0;
@@ -156,7 +156,7 @@
       transform 0.18s ease,
       box-shadow 0.18s ease;
     font: inherit;
-    transform: translateY(4px);
+    transform: translateY(2px);
     box-shadow: none;
   }
 
@@ -174,7 +174,7 @@
   .tab-add:hover {
     color: var(--text-primary);
     background: var(--tab-surface-hover);
-    transform: translateY(2px);
+    transform: translateY(0);
   }
 
   .tab-item.active {
@@ -211,13 +211,14 @@
   }
 
   .tab-name {
-    max-width: 200px;
+    max-width: 188px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     position: relative;
     z-index: 1;
     font-weight: 600;
+    line-height: 1.1;
   }
 
   .tab-dirty {
@@ -232,8 +233,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 17px;
+    height: 17px;
     border-radius: 999px;
     color: inherit;
     opacity: 0.68;
@@ -250,32 +251,32 @@
 
   .tab-add {
     align-self: flex-start;
-    min-width: 34px;
-    min-height: 34px;
-    margin-left: 4px;
+    min-width: 28px;
+    min-height: 28px;
+    margin-left: 3px;
     margin-right: 0;
     padding: 0;
     justify-content: center;
-    font-size: 1.35rem;
+    font-size: 1.08rem;
     font-weight: 600;
     line-height: 1;
     border-radius: 999px;
     border: 1px solid transparent;
     background: transparent;
     color: color-mix(in srgb, var(--text-secondary) 92%, white 8%);
-    transform: translateY(4px);
+    transform: translateY(2px);
     box-shadow: none;
   }
 
   .tab-add:hover {
-    transform: translateY(2px);
+    transform: translateY(0);
     background: color-mix(in srgb, var(--bg-surface-hover) 88%, transparent);
     border-color: color-mix(in srgb, var(--border-color) 72%, transparent);
     color: var(--text-primary);
   }
 
   .tab-add:active {
-    transform: translateY(2px) scale(0.98);
+    transform: translateY(0) scale(0.98);
   }
 
   .tab-item:focus-visible,

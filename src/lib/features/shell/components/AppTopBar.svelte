@@ -5,11 +5,14 @@
 
   let {
     theme = 'dark',
+    hasActiveCdb = false,
     hasPackageTarget = false,
     isOpenHistoryVisible = false,
     recentEntries = [],
     onOpen = async () => {},
     onCreate = async () => {},
+    onCreateFilteredCdb = async () => {},
+    onMergeCdb = async () => {},
     onOpenSettings = () => {},
     onPackageZip = async () => {},
     onToggleTheme = () => {},
@@ -21,11 +24,14 @@
     onRemoveRecent = (_path: string) => {},
   }: {
     theme?: 'dark' | 'light';
+    hasActiveCdb?: boolean;
     hasPackageTarget?: boolean;
     isOpenHistoryVisible?: boolean;
     recentEntries?: RecentCdbEntry[];
     onOpen?: () => void | Promise<void>;
     onCreate?: () => void | Promise<void>;
+    onCreateFilteredCdb?: () => void | Promise<void>;
+    onMergeCdb?: () => void | Promise<void>;
     onOpenSettings?: () => void;
     onPackageZip?: () => void | Promise<void>;
     onToggleTheme?: () => void;
@@ -68,6 +74,14 @@
       <button class="nav-item" onclick={onCreate}>
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         {$_('nav.create')}
+      </button>
+      <button class="nav-item" onclick={onCreateFilteredCdb} disabled={!hasActiveCdb}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M7 12h10"></path><path d="M10 18h4"></path></svg>
+        {$_('nav.create_filtered_cdb')}
+      </button>
+      <button class="nav-item" onclick={onMergeCdb}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 4-4 4"></path><path d="m16 21-4-4 4-4"></path><path d="M12 7v10"></path></svg>
+        {$_('nav.merge_cdb')}
       </button>
       <button class="nav-item" onclick={onOpenSettings}>
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a2 2 0 0 1 2 2v.35a1 1 0 0 0 .57.9l.31.15a1 1 0 0 0 1.04-.1l.25-.18a2 2 0 0 1 2.8.24l.99 1.15a2 2 0 0 1-.15 2.82l-.26.22a1 1 0 0 0-.3.98l.1.35a1 1 0 0 0 .77.7l.32.07a2 2 0 0 1 1.56 1.95v1.5a2 2 0 0 1-1.56 1.95l-.32.07a1 1 0 0 0-.77.7l-.1.35a1 1 0 0 0 .3.98l.26.22a2 2 0 0 1 .15 2.82l-.99 1.15a2 2 0 0 1-2.8.24l-.25-.18a1 1 0 0 0-1.04-.1l-.31.15a1 1 0 0 0-.57.9V19a2 2 0 0 1-2 2h-1.5a2 2 0 0 1-2-2v-.35a1 1 0 0 0-.57-.9l-.31-.15a1 1 0 0 0-1.04.1l-.25.18a2 2 0 0 1-2.8-.24l-.99-1.15a2 2 0 0 1 .15-2.82l.26-.22a1 1 0 0 0 .3-.98l-.1-.35a1 1 0 0 0-.77-.7l-.32-.07A2 2 0 0 1 2 15.75v-1.5A2 2 0 0 1 3.56 12.3l.32-.07a1 1 0 0 0 .77-.7l.1-.35a1 1 0 0 0-.3-.98l-.26-.22a2 2 0 0 1-.15-2.82l.99-1.15a2 2 0 0 1 2.8-.24l.25.18a1 1 0 0 0 1.04.1l.31-.15a1 1 0 0 0 .57-.9V5a2 2 0 0 1 2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>

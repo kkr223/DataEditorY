@@ -13,6 +13,25 @@ export type ZipPackageInfo = {
   path: string;
 };
 
+export type MergeConflictItem = {
+  code: number;
+  aCard: import('$lib/types').CardDataEntry;
+  bCard: import('$lib/types').CardDataEntry;
+  hasCardConflict: boolean;
+  hasImageConflict: boolean;
+  hasFieldImageConflict: boolean;
+  hasScriptConflict: boolean;
+};
+
+export type AnalyzeCdbMergeResponse = {
+  aName: string;
+  bName: string;
+  aTotal: number;
+  bTotal: number;
+  mergedTotal: number;
+  conflicts: MergeConflictItem[];
+};
+
 export async function getCardScriptInfo(cdbPath: string, cardId: number) {
   return invokeCommand<CardScriptInfo>('get_card_script_info', { cdbPath, cardId });
 }
@@ -58,6 +77,40 @@ export async function pathExists(path: string) {
 
 export async function packageCdbAssetsAsZip(cdbPath: string, outputPath: string) {
   return invokeCommand<ZipPackageInfo>('package_cdb_assets_as_zip', { cdbPath, outputPath });
+}
+
+export async function createCdbFromCards(outputPath: string, cards: import('$lib/types').CardDataEntry[]) {
+  return invokeCommand('create_cdb_from_cards', {
+    request: { outputPath, cards },
+  });
+}
+
+export async function copyCardAssets(input: {
+  sourceCdbPath: string;
+  targetCdbPath: string;
+  cardIds: number[];
+  includeImages: boolean;
+  includeScripts: boolean;
+}) {
+  return invokeCommand('copy_card_assets', { request: input });
+}
+
+export async function analyzeCdbMerge(aPath: string, bPath: string) {
+  return invokeCommand<AnalyzeCdbMergeResponse>('analyze_cdb_merge', {
+    request: { aPath, bPath },
+  });
+}
+
+export async function executeCdbMerge(input: {
+  aPath: string;
+  bPath: string;
+  outputPath: string;
+  conflictMode: 'preferA' | 'preferB' | 'manual';
+  manualChoices: Record<number, 'a' | 'b'>;
+  includeImages: boolean;
+  includeScripts: boolean;
+}) {
+  return invokeCommand('execute_cdb_merge', { request: input });
 }
 
 export async function consumePendingOpenCdbPaths() {

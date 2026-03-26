@@ -1,8 +1,27 @@
-import { cdbToYugiohCard, type YugiohCardData } from "cdb2yugiohcard";
+import { cdbToYugiohCard, type YugiohCardData as BaseYugiohCardData } from "cdb2yugiohcard";
 import type { CardDataEntry } from "$lib/types";
 
-export type CardImageFormData = YugiohCardData;
-export type CardImageLanguage = YugiohCardData["language"];
+export type CardImageFormData = BaseYugiohCardData & {
+  foregroundImage: string;
+  foregroundWidth: number;
+  foregroundHeight: number;
+  foregroundX: number;
+  foregroundY: number;
+  foregroundScale: number;
+  foregroundRotation: number;
+  effectBlockEnabled: boolean;
+  effectBlockX: number;
+  effectBlockY: number;
+  effectBlockWidth: number;
+  effectBlockHeight: number;
+  effectBlockColor: string;
+  effectBlockOpacity: number;
+  nameShadowColor: string;
+  nameShadowGradient: boolean;
+  nameShadowGradientColor1: string;
+  nameShadowGradientColor2: string;
+};
+export type CardImageLanguage = BaseYugiohCardData["language"];
 
 type StringOption = {
   value: string;
@@ -47,6 +66,24 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   twentieth: false,
   radius: true,
   scale: 1,
+  foregroundImage: "",
+  foregroundWidth: 0,
+  foregroundHeight: 0,
+  foregroundX: 697,
+  foregroundY: 1015.5,
+  foregroundScale: 1,
+  foregroundRotation: 0,
+  effectBlockEnabled: false,
+  effectBlockX: 76,
+  effectBlockY: 1503,
+  effectBlockWidth: 1239,
+  effectBlockHeight: 428,
+  effectBlockColor: "#f6f2e8",
+  effectBlockOpacity: 0.78,
+  nameShadowColor: "",
+  nameShadowGradient: false,
+  nameShadowGradientColor1: "#1f2937",
+  nameShadowGradientColor2: "#0f172a",
 };
 
 export const CARD_IMAGE_LANGUAGE_OPTIONS: StringOption[] = [
@@ -143,7 +180,7 @@ function coerceNumber(value: unknown, fallback: number): number {
   return Number.isFinite(next) ? next : fallback;
 }
 
-export function normalizeCardImageFormData(data: Partial<YugiohCardData>): CardImageFormData {
+export function normalizeCardImageFormData(data: Partial<CardImageFormData>): CardImageFormData {
   return {
     ...DEFAULT_CARD_IMAGE_FORM_DATA,
     ...data,
@@ -183,6 +220,24 @@ export function normalizeCardImageFormData(data: Partial<YugiohCardData>): CardI
     twentieth: Boolean(data.twentieth ?? DEFAULT_CARD_IMAGE_FORM_DATA.twentieth),
     radius: Boolean(data.radius ?? DEFAULT_CARD_IMAGE_FORM_DATA.radius),
     scale: coerceNumber(data.scale, DEFAULT_CARD_IMAGE_FORM_DATA.scale),
+    foregroundImage: String(data.foregroundImage ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundImage),
+    foregroundWidth: coerceNumber(data.foregroundWidth, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundWidth),
+    foregroundHeight: coerceNumber(data.foregroundHeight, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundHeight),
+    foregroundX: coerceNumber(data.foregroundX, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundX),
+    foregroundY: coerceNumber(data.foregroundY, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundY),
+    foregroundScale: coerceNumber(data.foregroundScale, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundScale),
+    foregroundRotation: coerceNumber(data.foregroundRotation, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundRotation),
+    effectBlockEnabled: Boolean(data.effectBlockEnabled ?? DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockEnabled),
+    effectBlockX: coerceNumber(data.effectBlockX, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockX),
+    effectBlockY: coerceNumber(data.effectBlockY, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockY),
+    effectBlockWidth: coerceNumber(data.effectBlockWidth, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockWidth),
+    effectBlockHeight: coerceNumber(data.effectBlockHeight, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockHeight),
+    effectBlockColor: String(data.effectBlockColor ?? DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockColor),
+    effectBlockOpacity: coerceNumber(data.effectBlockOpacity, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockOpacity),
+    nameShadowColor: String(data.nameShadowColor ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowColor),
+    nameShadowGradient: Boolean(data.nameShadowGradient ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradient),
+    nameShadowGradientColor1: String(data.nameShadowGradientColor1 ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradientColor1),
+    nameShadowGradientColor2: String(data.nameShadowGradientColor2 ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradientColor2),
   };
 }
 
