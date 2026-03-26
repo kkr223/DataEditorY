@@ -11,3 +11,4 @@ export const APP_FEATURES = __APP_FEATURES__ satisfies AppFeatureFlags;
 
 export const HAS_CARD_IMAGE_FEATURE = APP_FEATURES.cardImage;
 export const HAS_AI_FEATURE = APP_FEATURES.ai;
+export const HAS_EXTRA_BUILD = APP_BUILD_VARIANT === "extra";

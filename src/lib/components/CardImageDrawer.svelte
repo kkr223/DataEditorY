@@ -2,7 +2,7 @@
   import { tick } from "svelte";
   import { _ } from "svelte-i18n";
   import type { CardDataEntry } from "$lib/types";
-  import { HAS_AI_FEATURE } from "$lib/config/build";
+  import { HAS_AI_FEATURE, HAS_EXTRA_BUILD } from "$lib/config/build";
   import { showToast } from "$lib/stores/toast.svelte";
   import { tauriBridge } from "$lib/infrastructure/tauri";
   import { pathExists, writeBinaryFile } from "$lib/infrastructure/tauri/commands";
@@ -273,6 +273,7 @@
   }
 
   function openForegroundFilePicker() {
+    if (!HAS_EXTRA_BUILD) return;
     foregroundFileInput?.click();
   }
 
@@ -603,6 +604,7 @@
   }
 
   async function handleForegroundImageUpload(event: Event) {
+    if (!HAS_EXTRA_BUILD) return;
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
@@ -821,27 +823,27 @@
   }
 
   function buildPreviewData(): CardImageFormData {
-    return applyAutoRarityStyle(normalizeCardImageFormData({
+    return applyAutoRarityStyle(applyExtraBuildIsolation(normalizeCardImageFormData({
       ...form,
       image: croppedImageDataUrl,
       scale: Math.max(getPreviewScale(), 0.1),
-    }));
+    })));
   }
 
   function buildJpgData(): CardImageFormData {
-    return applyAutoRarityStyle(normalizeCardImageFormData({
+    return applyAutoRarityStyle(applyExtraBuildIsolation(normalizeCardImageFormData({
       ...form,
       image: croppedImageDataUrl,
       scale: exportScalePercent / 100,
-    }));
+    })));
   }
 
   function buildPngData(): CardImageFormData {
-    return applyAutoRarityStyle(normalizeCardImageFormData({
+    return applyAutoRarityStyle(applyExtraBuildIsolation(normalizeCardImageFormData({
       ...form,
       image: croppedImageDataUrl,
       scale: 1,
-    }));
+    })));
   }
 
   function buildForegroundPreviewData(): CardImageFormData {
@@ -854,6 +856,26 @@
 
   function isFieldSpellCard(data: CardImageFormData) {
     return data.type === "spell" && data.icon === "field";
+  }
+
+  function applyExtraBuildIsolation(data: CardImageFormData): CardImageFormData {
+    if (HAS_EXTRA_BUILD) {
+      return data;
+    }
+
+    return normalizeCardImageFormData({
+      ...data,
+      foregroundImage: "",
+      foregroundWidth: 0,
+      foregroundHeight: 0,
+      foregroundScale: 1,
+      foregroundRotation: 0,
+      foregroundX: FOREGROUND_EDITOR_CARD_WIDTH / 2,
+      foregroundY: FOREGROUND_EDITOR_CARD_HEIGHT / 2,
+      effectBlockEnabled: false,
+      effectBlockColor: "#f6f2e8",
+      effectBlockOpacity: 0.78,
+    });
   }
 
   async function renderSquareJpgBlob(dataUrl: string, size: number, quality = 0.92) {
@@ -1626,13 +1648,17 @@
         <div class="form-pane">
           <div class="form-toolbar">
             <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" bind:this={fileInput} onchange={handleImageUpload} />
-            <input class="sr-only" type="file" accept="image/png,image/webp" bind:this={foregroundFileInput} onchange={handleForegroundImageUpload} />
+            {#if HAS_EXTRA_BUILD}
+              <input class="sr-only" type="file" accept="image/png,image/webp" bind:this={foregroundFileInput} onchange={handleForegroundImageUpload} />
+            {/if}
             <button class="btn-primary btn-sm upload-btn" type="button" onclick={openFilePicker}>
               {croppedImageDataUrl ? $_("editor.card_image_recrop") : $_("editor.card_image_upload")}
             </button>
-            <button class="btn-secondary btn-sm" type="button" onclick={() => foregroundEditorOpen = true}>
-              {$_("editor.card_image_foreground_button")}
-            </button>
+            {#if HAS_EXTRA_BUILD}
+              <button class="btn-secondary btn-sm" type="button" onclick={() => foregroundEditorOpen = true}>
+                {$_("editor.card_image_foreground_button")}
+              </button>
+            {/if}
             {#if HAS_AI_FEATURE}
               <button class="btn-secondary btn-sm" type="button" onclick={handleAiTranslate} disabled={isTranslating}>
                 {isTranslating ? $_("editor.ai_translating") : $_("editor.card_image_ai_translate")}
@@ -1872,7 +1898,7 @@
   </div>
 {/if}
 
-{#if foregroundEditorOpen}
+{#if HAS_EXTRA_BUILD && foregroundEditorOpen}
   <div class="foreground-backdrop" role="presentation" onclick={handleForegroundBackdropClick}>
     <div class="foreground-dialog" role="dialog" aria-modal="true" aria-label={$_("editor.card_image_foreground_title")}>
       <div class="foreground-header">
