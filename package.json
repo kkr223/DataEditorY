@@ -17,6 +17,7 @@
     "preview": "vite preview",
     "check": "bun run build:lua-intel && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "bun run build:lua-intel && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "test": "bun test",
     "tauri": "node scripts/run-variant-build.mjs tauri",
     "tauri:dev": "node scripts/run-variant-build.mjs tauri dev extra",
     "tauri:dev:base": "node scripts/run-variant-build.mjs tauri dev base",

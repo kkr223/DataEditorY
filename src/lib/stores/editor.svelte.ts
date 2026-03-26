@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import { locale } from 'svelte-i18n';
-import { cacheActiveTabSelection, getRuleExpressionErrorMessage, RuleExpressionError, searchCardsPage } from '$lib/stores/db';
+import { cacheActiveTabSelection, searchCardsPage } from '$lib/stores/db';
+import { getRuleExpressionErrorMessage, RuleExpressionError } from '$lib/domain/search/ruleExpression';
 import { showToast } from '$lib/stores/toast.svelte';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import type { CardDataEntry, SearchFilterState } from '$lib/types';

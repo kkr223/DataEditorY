@@ -11,15 +11,14 @@
     modifyCard,
     saveCdbFile,
   } from "$lib/stores/db";
-  import { clearSelection, editorState, getAllCardsMap, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
+  import { clearSelection, editorState, getAllCardsMap, handleSearch, setSingleSelectedCard, updateVisibleCards } from "$lib/stores/editor.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { dirname, join } from "@tauri-apps/api/path";
-  import { ask, message, open } from "@tauri-apps/plugin-dialog";
+  import { tauriBridge } from "$lib/infrastructure/tauri";
   import type { CardDataEntry } from "$lib/types";
   import {
     getSetcode,
     loadPopularSetcodes,
+    normalizeSetcodeHex,
     updateSetcode,
   } from "$lib/utils/setcode";
   import {
@@ -35,19 +34,18 @@
     setPackedLevel,
     TYPE_BITS,
   } from "$lib/utils/card";
+  import { createCardSnapshot, toPersistableCard } from "$lib/domain/card/draft";
   import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
   import { HAS_AI_FEATURE, HAS_CARD_IMAGE_FEATURE } from "$lib/config/build";
-  import { appSettingsState, hasConfiguredSecretKey, loadAppSettings } from "$lib/stores/appSettings.svelte";
-  import { openOrCreateScriptTab, syncScriptTabFromSavedContent } from "$lib/stores/scriptEditor.svelte";
+  import { appSettingsState } from "$lib/stores/appSettings.svelte";
   import { writeErrorLog } from "$lib/utils/errorLog";
-  import { toMediaProtocolSrc } from "$lib/utils/mediaProtocol";
   import type { AgentStage } from "$lib/utils/ai";
+  import { parseCardManuscript } from "$lib/utils/ai";
+  import { createAiAppContext } from "$lib/services/aiAppContext";
+  import { generateCardScriptFile, getScriptGenerationStageLabel, ensureAiReady, ensureScriptOverwriteConfirmed, isAbortError } from "$lib/services/scriptGeneration";
+  import { openCardScriptWorkspace } from "$lib/services/cardScriptService";
+  import { importCardImage, resolveCardImageSrc } from "$lib/services/cardImageService";
   import SetcodeField from "$lib/components/SetcodeField.svelte";
-
-  type CardScriptInfo = {
-    path: string;
-    exists: boolean;
-  };
 
   type CardImageDrawerModule = typeof import("$lib/components/CardImageDrawer.svelte");
 
@@ -105,10 +103,7 @@
   }
 
   function handleSetcodeHexChange(index: number, value: string) {
-    const normalized = value
-      .replace(/[^0-9a-f]/gi, "")
-      .slice(0, 4)
-      .toUpperCase();
+    const normalized = normalizeSetcodeHex(value);
     setcodeHexes[index] = normalized;
     draftCard.setcode = updateSetcode(
       draftCard.setcode,
@@ -137,49 +132,16 @@
 
   function loadCardIntoDraft(card: CardDataEntry) {
     lastSyncedSelectedId = card.code;
-    lastLoadedCardSnapshot = buildCardSnapshot(card);
+    lastLoadedCardSnapshot = createCardSnapshot(card);
     originalCardCode = card.code;
     draftCard = cloneEditableCard(card);
     syncSetcodesFromCard(draftCard);
-  }
-
-  function buildCardSnapshot(card: CardDataEntry) {
-    return JSON.stringify({
-      code: card.code,
-      alias: card.alias,
-      name: card.name,
-      desc: card.desc,
-      strings: card.strings,
-      setcode: card.setcode,
-      type: card.type,
-      attack: card.attack,
-      defense: card.defense,
-      level: card.level,
-      race: card.race,
-      attribute: card.attribute,
-      lscale: card.lscale,
-      rscale: card.rscale,
-      linkMarker: card.linkMarker,
-      category: card.category,
-      ot: card.ot,
-      ruleCode: card.ruleCode,
-    });
   }
 
   function handleImageError(failedSrc: string) {
     if (imageSrc === failedSrc) {
       imageSrc = getDefaultCoverSrc();
     }
-  }
-
-  async function getPicsDir(cdbPath: string): Promise<string> {
-    const cdbDir = await dirname(cdbPath);
-    return join(cdbDir, "pics");
-  }
-
-  async function resolveImageSrc(picsDir: string, code: number, bustCache = false): Promise<string> {
-    const picPath = await join(picsDir, `${code}.jpg`);
-    return toMediaProtocolSrc(picPath, bustCache ? Date.now() : undefined);
   }
 
   async function refreshDraftImage(code: number, bustCache = false) {
@@ -191,25 +153,16 @@
     }
 
     const requestToken = ++imageRequestToken;
-    const picsDir = await getPicsDir($activeTab.path);
-    const src = await resolveImageSrc(picsDir, code, bustCache);
+    const src = await resolveCardImageSrc($activeTab.path, code, bustCache);
     if (requestToken === imageRequestToken) {
       imageSrc = src;
     }
   }
 
-  function toDbCard(card: CardDataEntry): CardDataEntry {
-    return {
-      ...card,
-      setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
-      strings: [...(card.strings ?? [])],
-    };
-  }
-
   async function saveDraftCard(targetCode: number, removeOriginal = false) {
     const nextCard = cloneEditableCard(draftCard);
     nextCard.code = targetCode;
-    const dbCard = toDbCard(nextCard);
+    const dbCard = toPersistableCard(nextCard);
 
     const ok = await modifyCard(dbCard);
     if (!ok) {
@@ -226,6 +179,9 @@
     }
 
     draftCard = cloneEditableCard(dbCard);
+    lastSyncedSelectedId = targetCode;
+    lastLoadedCardSnapshot = createCardSnapshot(dbCard);
+    updateVisibleCards([dbCard]);
     originalCardCode = targetCode;
     setSingleSelectedCard(targetCode);
     await handleSearch(true);
@@ -250,7 +206,7 @@
     }
 
     if (isEditingExisting && originalCardCode !== targetCode) {
-      const removeOriginal = await ask($_("editor.replace_original_confirm", {
+      const removeOriginal = await tauriBridge.ask($_("editor.replace_original_confirm", {
         values: { oldCode: String(originalCardCode), newCode: String(targetCode) },
       }), {
         title: $_("editor.replace_original_title"),
@@ -258,7 +214,7 @@
       });
 
       if (existing && existing.code !== originalCardCode) {
-        const overwriteExisting = await ask($_("editor.overwrite_target_confirm", {
+        const overwriteExisting = await tauriBridge.ask($_("editor.overwrite_target_confirm", {
           values: { code: String(targetCode) },
         }), {
           title: $_("editor.overwrite_target_title"),
@@ -272,7 +228,7 @@
     }
 
     if (existing) {
-      const overwriteExisting = await ask($_("editor.overwrite_target_confirm", {
+      const overwriteExisting = await tauriBridge.ask($_("editor.overwrite_target_confirm", {
         values: { code: String(targetCode) },
       }), {
         title: $_("editor.overwrite_target_title"),
@@ -295,7 +251,7 @@
 
     const existing = await getCardById(targetCode);
     if (existing && existing.code !== originalCardCode) {
-      const overwriteExisting = await ask($_("editor.overwrite_target_confirm", {
+      const overwriteExisting = await tauriBridge.ask($_("editor.overwrite_target_confirm", {
         values: { code: String(targetCode) },
       }), {
         title: $_("editor.overwrite_target_title"),
@@ -309,7 +265,7 @@
 
   async function handleDelete() {
     if (!$isDbLoaded || originalCardCode === null) return;
-    const confirmed = await ask(
+    const confirmed = await tauriBridge.ask(
       $_("editor.delete_confirm", { values: { code: String(originalCardCode) } }),
       { title: $_("editor.delete_confirm_title"), kind: "warning" },
     );
@@ -355,23 +311,18 @@
       return;
     }
 
-    const selected = await open({
+    const selected = await tauriBridge.open({
       multiple: false,
       filters: [{ name: "Images", extensions: ["jpg", "png", "jpeg"] }],
     });
     if (selected && typeof selected === "string") {
       try {
-        const picsDir = await getPicsDir($activeTab.path);
-        const picPath = await join(picsDir, `${targetCode}.jpg`);
-        await invoke("import_card_image", {
-          src: selected,
-          dest: picPath,
-          maxWidth: 400,
-          maxHeight: 580,
-          quality: 92,
+        await importCardImage({
+          cdbPath: $activeTab.path,
+          cardCode: targetCode,
+          sourcePath: selected,
         });
-
-        imageSrc = await resolveImageSrc(picsDir, targetCode, true);
+        imageSrc = await resolveCardImageSrc($activeTab.path, targetCode, true);
       } catch (error) {
         console.error("Failed to copy image", error);
       }
@@ -413,53 +364,6 @@
     await refreshDraftImage(targetCode, true);
   }
 
-  function getScriptTemplateContent(cardName: string, cardCode: number) {
-    const safeName = cardName?.trim() || `Card ${cardCode}`;
-    return (appSettingsState.values.scriptTemplate || "").replaceAll("{卡名}", safeName);
-  }
-
-  function normalizeGeneratedScript(script: string) {
-    const trimmed = script.trim();
-    const fenced = trimmed.match(/```(?:lua)?\s*([\s\S]*?)```/i);
-    return `${(fenced?.[1] ?? trimmed).trim()}\n`;
-  }
-
-  function isAbortError(error: unknown) {
-    return error instanceof DOMException && error.name === "AbortError";
-  }
-
-  function getScriptGenerationStageLabel(stage: AgentStage | "") {
-    switch (stage) {
-      case "collecting_references":
-        return $_("editor.script_stage_collecting_references");
-      case "requesting_model":
-        return $_("editor.script_stage_requesting_model");
-      case "running_tools":
-        return $_("editor.script_stage_running_tools");
-      case "finalizing_response":
-        return $_("editor.script_stage_finalizing_response");
-      default:
-        return $_("editor.script_generating");
-    }
-  }
-
-  async function ensureAiReady() {
-    if (!HAS_AI_FEATURE) {
-      return false;
-    }
-
-    await loadAppSettings();
-    if (hasConfiguredSecretKey()) {
-      return true;
-    }
-
-    await message($_("editor.ai_requires_secret_key"), {
-      title: $_("editor.ai_requires_secret_key_title"),
-      kind: "warning",
-    });
-    return false;
-  }
-
   function getCurrentCardCode() {
     const code = Number(draftCard.code ?? 0);
     if (!Number.isInteger(code) || code <= 0) {
@@ -477,13 +381,11 @@
     if (!code) return;
 
     try {
-      const existingInfo = await invoke<CardScriptInfo>("get_card_script_info", {
-        cdbPath: $activeTab.path,
-        cardId: code,
-      });
+      const context = createAiAppContext();
+      const existingInfo = await context.readCardScript(code, $activeTab.path);
 
       if (!existingInfo.exists) {
-        const shouldCreate = await ask($_("editor.script_create_confirm", {
+        const shouldCreate = await tauriBridge.ask($_("editor.script_create_confirm", {
           values: { code: String(code) },
         }), {
           title: $_("editor.script_create_title"),
@@ -494,12 +396,11 @@
 
       }
 
-      const opened = await openOrCreateScriptTab({
+      const opened = await openCardScriptWorkspace({
         cdbPath: $activeTab.path,
         sourceTabId: $activeTabId,
         cardCode: code,
         cardName: draftCard.name ?? "",
-        templateContent: getScriptTemplateContent(draftCard.name ?? "", code),
       });
 
       if (opened.createdFromTemplate) {
@@ -523,46 +424,24 @@
     const code = getCurrentCardCode();
     if (!code) return;
 
-    try {
-      const existingInfo = await invoke<CardScriptInfo>("get_card_script_info", {
-        cdbPath: $activeTab.path,
-        cardId: code,
-      });
+    const cardForScript = toPersistableCard(cloneEditableCard(draftCard));
 
-      if (existingInfo.exists) {
-        const shouldOverwrite = await ask($_("editor.script_overwrite_confirm", {
-          values: { code: String(code) },
-        }), {
-          title: $_("editor.script_overwrite_title"),
-          kind: "warning",
-        });
-        if (!shouldOverwrite) return;
-      }
+    try {
+      const shouldOverwrite = await ensureScriptOverwriteConfirmed($activeTab.path, code);
+      if (!shouldOverwrite) return;
 
       isGeneratingScript = true;
       scriptGenerationStage = "collecting_references";
       const abortController = new AbortController();
       scriptGenerationAbortController = abortController;
-      const { generateCardScript } = await import("$lib/utils/ai");
-      const generatedScript = normalizeGeneratedScript(await generateCardScript(draftCard, {
+      await generateCardScriptFile({
+        cdbPath: $activeTab.path,
+        sourceTabId: $activeTabId,
+        card: cardForScript,
         signal: abortController.signal,
         onStageChange: (stage) => {
           scriptGenerationStage = stage;
         },
-      }));
-      const written = await invoke<CardScriptInfo>("write_card_script", {
-        cdbPath: $activeTab.path,
-        cardId: code,
-        content: generatedScript,
-        overwrite: true,
-      });
-      syncScriptTabFromSavedContent({
-        cdbPath: $activeTab.path,
-        sourceTabId: $activeTabId,
-        cardCode: code,
-        cardName: draftCard.name ?? "",
-        scriptPath: written.path,
-        content: generatedScript,
       });
       showToast($_("editor.script_generated", { values: { code: String(code) } }), "success");
     } catch (error) {
@@ -574,7 +453,7 @@
       void writeErrorLog({
         source: "editor.script.generate",
         error,
-        extra: { cdbPath: $activeTab?.path ?? "", cardCode: code, cardName: draftCard.name ?? "" },
+        extra: { cdbPath: $activeTab?.path ?? "", cardCode: code, cardName: cardForScript.name ?? "" },
       });
       showToast($_("editor.script_generate_failed"), "error");
     } finally {
@@ -598,7 +477,7 @@
     const existingCards = await Promise.all(validCards.map((card) => getCardById(Number(card.code))));
     const conflicts = existingCards.filter((card) => card !== undefined);
     if (conflicts.length > 0) {
-      const shouldOverwrite = await ask($_("editor.ai_parse_multi_overwrite_confirm", {
+      const shouldOverwrite = await tauriBridge.ask($_("editor.ai_parse_multi_overwrite_confirm", {
         values: { count: String(conflicts.length) },
       }), {
         title: $_("editor.ai_parse_multi_overwrite_title"),
@@ -610,7 +489,7 @@
     let savedCount = 0;
     let lastSavedCard: CardDataEntry | null = null;
     for (const card of validCards) {
-      const ok = await modifyCard(toDbCard(card));
+      const ok = await modifyCard(toPersistableCard(card));
       if (!ok) {
         showToast($_("editor.save_failed"), "error");
         return false;
@@ -663,8 +542,7 @@
 
     try {
       isParsingManuscript = true;
-      const { parseCardManuscript } = await import("$lib/utils/ai");
-      const result = await parseCardManuscript(manuscriptInput, draftCard);
+      const result = await parseCardManuscript(manuscriptInput, draftCard, createAiAppContext());
       if (result.cards.length === 0) {
         showToast($_("editor.ai_parse_failed"), "error");
         return;
@@ -727,7 +605,7 @@
     const selectedId = editorState.selectedId;
     const card = getAllCardsMap().get(selectedId ?? -1);
     if (card) {
-      const nextSnapshot = buildCardSnapshot(card);
+      const nextSnapshot = createCardSnapshot(card);
       if (lastSyncedSelectedId !== card.code || lastLoadedCardSnapshot !== nextSnapshot) {
         untrack(() => {
           loadCardIntoDraft(card);

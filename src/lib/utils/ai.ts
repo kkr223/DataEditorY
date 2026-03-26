@@ -1,9 +1,18 @@
 import { get } from 'svelte/store';
-import { invoke } from '@tauri-apps/api/core';
 import type { CardDataEntry } from '$lib/types';
-import { activeTab, getCardByIdInTab, queryCardsRaw, tabs, SUBTYPE_MAP } from '$lib/stores/db';
-import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
-import { createEmptyCard } from '$lib/utils/card';
+import { createEmptyCard } from '$lib/domain/card/draft';
+import { normalizeGeneratedScript } from '$lib/domain/script/workspace';
+import {
+  ATTRIBUTE_MAP,
+  LINK_MARKER_NAME_TO_BIT,
+  RACE_MAP,
+  SUBTYPE_MAP,
+} from '$lib/domain/card/taxonomy';
+import {
+  analyzeLuaScript,
+  ensureLuaDiagnosticsCatalogLoaded,
+  type LuaScriptDiagnostic,
+} from '$lib/utils/luaScriptDiagnostics';
 
 type AiRole = 'system' | 'user' | 'assistant' | 'tool';
 
@@ -52,9 +61,17 @@ type OpenDbMeta = {
   isActive: boolean;
 };
 
-type CardScriptInfo = {
-  path: string;
-  exists: boolean;
+export type AiAppContext = {
+  getAiConfig: () => Promise<AiConfig>;
+  listOpenDatabases: () => OpenDbMeta[];
+  getActiveDatabaseId: () => string | null;
+  getCardByIdInTab: (tabId: string, cardId: number) => Promise<CardDataEntry | undefined>;
+  queryCardsRaw: (tabId: string, queryClause: string, params?: Record<string, string | number>) => Promise<CardDataEntry[]>;
+  readCardScript: (code: number, dbPath?: string) => Promise<{
+    exists: boolean;
+    path: string | null;
+    content: string | null;
+  }>;
 };
 
 type ParsedCardDraft = {
@@ -81,45 +98,11 @@ type ParsedCardDraft = {
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 const MAX_AGENT_STEPS = 12;
+const MAX_SCRIPT_DIAGNOSTICS = 8;
 
-const ATTRIBUTE_NAME_TO_VALUE: Record<string, number> = {
-  earth: 0x01,
-  water: 0x02,
-  fire: 0x04,
-  wind: 0x08,
-  light: 0x10,
-  dark: 0x20,
-  divine: 0x40,
-};
+const ATTRIBUTE_NAME_TO_VALUE: Record<string, number> = { ...ATTRIBUTE_MAP };
 
-const RACE_NAME_TO_VALUE: Record<string, number> = {
-  warrior: 0x1,
-  spellcaster: 0x2,
-  fairy: 0x4,
-  fiend: 0x8,
-  zombie: 0x10,
-  machine: 0x20,
-  aqua: 0x40,
-  pyro: 0x80,
-  rock: 0x100,
-  wingedbeast: 0x200,
-  plant: 0x400,
-  insect: 0x800,
-  thunder: 0x1000,
-  dragon: 0x2000,
-  beast: 0x4000,
-  beastwarrior: 0x8000,
-  dinosaur: 0x10000,
-  fish: 0x20000,
-  seaserpent: 0x40000,
-  reptile: 0x80000,
-  psychic: 0x100000,
-  divinebeast: 0x200000,
-  creatorgod: 0x400000,
-  wyrm: 0x800000,
-  cyberse: 0x1000000,
-  illusion: 0x2000000,
-};
+const RACE_NAME_TO_VALUE: Record<string, number> = { ...RACE_MAP };
 
 const SUBTYPE_NAME_TO_BIT: Record<string, number> = {
   normal: SUBTYPE_MAP.normal,
@@ -146,17 +129,6 @@ const SUBTYPE_NAME_TO_BIT: Record<string, number> = {
   spssummon: SUBTYPE_MAP.spssummon,
   link: SUBTYPE_MAP.link,
   ritual_spell: SUBTYPE_MAP.ritual_spell,
-};
-
-const LINK_MARKER_NAME_TO_BIT: Record<string, number> = {
-  downleft: 0x01,
-  down: 0x02,
-  downright: 0x04,
-  left: 0x08,
-  right: 0x20,
-  upleft: 0x40,
-  up: 0x80,
-  upright: 0x100,
 };
 
 const TOOL_DEFINITIONS: AiToolDefinition[] = [
@@ -437,21 +409,6 @@ function getChatCompletionsEndpoint(apiBaseUrl: string) {
 
 
 
-async function getAiConfig(): Promise<AiConfig> {
-  await loadAppSettings();
-  const secretKey = await invoke<string | null>('load_secret_key');
-  if (!secretKey) {
-    throw new Error('Secret key is not configured');
-  }
-
-  return {
-    apiBaseUrl: appSettingsState.values.apiBaseUrl || DEFAULT_API_BASE_URL,
-    model: appSettingsState.values.model || 'gpt-4o-mini',
-    temperature: Number.isFinite(appSettingsState.values.temperature) ? appSettingsState.values.temperature : 1,
-    secretKey,
-  };
-}
-
 async function requestChatCompletion(
   config: AiConfig,
   body: Record<string, unknown>,
@@ -518,35 +475,29 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
-function getOpenDbMetas(): OpenDbMeta[] {
-  const currentActiveTab = get(activeTab);
-  return get(tabs).map((tab) => ({
-    id: tab.id,
-    name: tab.name,
-    path: tab.path,
-    isActive: currentActiveTab?.id === tab.id,
-  }));
+function getOpenDbMetas(context: AiAppContext): OpenDbMeta[] {
+  return context.listOpenDatabases();
 }
 
-function getScopedTabs(dbScope: string | undefined, dbPath: string | undefined) {
-  const allTabs = get(tabs);
-  const currentActiveTab = get(activeTab);
+function getScopedTabs(context: AiAppContext, dbScope: string | undefined, dbPath: string | undefined) {
+  const allTabs = context.listOpenDatabases();
+  const currentActiveTabId = context.getActiveDatabaseId();
 
   if (dbPath) {
     return allTabs.filter((tab) => tab.path === dbPath);
   }
 
   if (dbScope === 'current') {
-    return currentActiveTab ? [currentActiveTab] : [];
+    return currentActiveTabId ? allTabs.filter((tab) => tab.id === currentActiveTabId) : [];
   }
 
   return allTabs;
 }
 
-async function pickCardFromDb(code: number, dbPath?: string) {
-  const matchedTabs = getScopedTabs(undefined, dbPath);
+async function pickCardFromDb(context: AiAppContext, code: number, dbPath?: string) {
+  const matchedTabs = getScopedTabs(context, undefined, dbPath);
   for (const tab of matchedTabs) {
-    const card = await getCardByIdInTab(tab.id, code);
+    const card = await context.getCardByIdInTab(tab.id, code);
     if (card) {
       return {
         db: { name: tab.name, path: tab.path },
@@ -556,8 +507,8 @@ async function pickCardFromDb(code: number, dbPath?: string) {
   }
 
   if (!dbPath) {
-    for (const tab of get(tabs)) {
-      const card = await getCardByIdInTab(tab.id, code);
+    for (const tab of context.listOpenDatabases()) {
+      const card = await context.getCardByIdInTab(tab.id, code);
       if (card) {
         return {
           db: { name: tab.name, path: tab.path },
@@ -574,14 +525,14 @@ function escapeLikeWildcards(value: string) {
   return value.replace(/[%_\\]/g, '\\$&');
 }
 
-async function searchCards(query: string, dbScope?: string, dbPath?: string, limit = 6) {
+async function searchCards(context: AiAppContext, query: string, dbScope?: string, dbPath?: string, limit = 6) {
   const normalizedQuery = query.trim();
   const result = [];
   const safeLimit = Math.max(1, Math.min(12, Math.round(limit)));
 
-  for (const tab of getScopedTabs(dbScope, dbPath)) {
+  for (const tab of getScopedTabs(context, dbScope, dbPath)) {
     const safeLike = normalizedQuery ? `%${escapeLikeWildcards(normalizedQuery)}%` : '';
-    const cards = await queryCardsRaw(
+    const cards = await context.queryCardsRaw(
       tab.id,
       normalizedQuery
         ? `(texts.name LIKE :name OR texts.desc LIKE :name) ORDER BY datas.id LIMIT ${safeLimit}`
@@ -600,35 +551,13 @@ async function searchCards(query: string, dbScope?: string, dbPath?: string, lim
   return result.slice(0, safeLimit);
 }
 
-async function readCardScript(code: number, dbPath?: string) {
-  const targetTab = dbPath
-    ? get(tabs).find((tab) => tab.path === dbPath)
-    : get(activeTab);
-
-  if (!targetTab) {
-    return { exists: false, path: null, content: null };
-  }
-
-  const info = await invoke<CardScriptInfo>('get_card_script_info', {
-    cdbPath: targetTab.path,
-    cardId: code,
-  });
-
-  if (!info.exists) {
-    return { exists: false, path: info.path, content: null };
-  }
-
-  const content = await invoke<string>('read_text_file', { path: info.path });
-  return { exists: true, path: info.path, content };
-}
-
-function createToolExecutors(currentCard: CardDataEntry): Record<string, ToolExecutor> {
+function createToolExecutors(context: AiAppContext, currentCard: CardDataEntry): Record<string, ToolExecutor> {
   return {
     async list_open_databases() {
-      return getOpenDbMetas();
+      return getOpenDbMetas(context);
     },
     async get_current_card() {
-      const currentActiveTab = get(activeTab);
+      const currentActiveTab = context.listOpenDatabases().find((tab) => tab.id === context.getActiveDatabaseId()) ?? null;
       return {
         db: currentActiveTab
           ? {
@@ -645,10 +574,11 @@ function createToolExecutors(currentCard: CardDataEntry): Record<string, ToolExe
         throw new Error('A positive card id is required');
       }
 
-      return pickCardFromDb(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+      return pickCardFromDb(context, code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
     },
     async search_cards(args) {
       return searchCards(
+        context,
         typeof args.query === 'string' ? args.query : '',
         typeof args.dbScope === 'string' ? args.dbScope : undefined,
         typeof args.dbPath === 'string' ? args.dbPath : undefined,
@@ -662,12 +592,13 @@ function createToolExecutors(currentCard: CardDataEntry): Record<string, ToolExe
         throw new Error('A positive card id is required');
       }
 
-      return readCardScript(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+      return context.readCardScript(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
     },
   };
 }
 
 async function runAgent(options: {
+  context: AiAppContext;
   currentCard: CardDataEntry;
   systemPrompt: string;
   userPrompt: string;
@@ -678,7 +609,7 @@ async function runAgent(options: {
   signal?: AbortSignal;
   onStageChange?: (stage: AgentStage) => void;
 }) {
-  const config = await getAiConfig();
+  const config = await options.context.getAiConfig();
   const messages: AiMessage[] = [
     { role: 'system', content: options.systemPrompt },
     { role: 'user', content: options.userPrompt },
@@ -690,7 +621,7 @@ async function runAgent(options: {
     : [];
   const canUseTools = allowedTools.length > 0;
 
-  const executors = createToolExecutors(options.currentCard);
+  const executors = createToolExecutors(options.context, options.currentCard);
   let lastToolSignature = '';
   let repeatedToolRoundCount = 0;
 
@@ -792,8 +723,9 @@ async function runAgent(options: {
   throw new Error('AI exceeded the maximum tool-call steps');
 }
 
-export async function parseCardManuscript(manuscript: string, currentCard: CardDataEntry) {
+export async function parseCardManuscript(manuscript: string, currentCard: CardDataEntry, context: AiAppContext) {
   const text = await runAgent({
+    context,
     currentCard,
     useTools: true,
     systemPrompt: [
@@ -888,6 +820,7 @@ export async function parseCardManuscript(manuscript: string, currentCard: CardD
  * tool-call round-trips entirely.
  */
 async function prefetchReferenceScripts(
+  context: AiAppContext,
   currentCard: CardDataEntry,
   maxScripts = 2,
   signal?: AbortSignal,
@@ -904,7 +837,7 @@ async function prefetchReferenceScripts(
     const keywords = cardName.split(/[\s・・/／]+/).filter((w) => w.length >= 2);
     const searchTerm = keywords[0] ?? cardName.slice(0, 4);
     throwIfAborted(signal);
-    const found = await searchCards(searchTerm, 'all', undefined, 4);
+    const found = await searchCards(context, searchTerm, 'all', undefined, 4);
     for (const item of found) {
       throwIfAborted(signal);
       if (results.length >= maxScripts) break;
@@ -914,7 +847,7 @@ async function prefetchReferenceScripts(
       if (!item.card?.desc) continue;
       seenCodes.add(code);
       throwIfAborted(signal);
-      const scriptResult = await readCardScript(code, item.db?.path);
+      const scriptResult = await context.readCardScript(code, item.db?.path);
       if (scriptResult.exists && scriptResult.content) {
         results.push({ code, name: String(item.card?.name ?? ''), script: scriptResult.content });
       }
@@ -929,7 +862,7 @@ async function prefetchReferenceScripts(
     const fallbackSearch = effectKeywords?.[0] ?? '';
     if (fallbackSearch) {
       throwIfAborted(signal);
-      const found = await searchCards(fallbackSearch, 'all', undefined, 4);
+      const found = await searchCards(context, fallbackSearch, 'all', undefined, 4);
       for (const item of found) {
         throwIfAborted(signal);
         if (results.length >= maxScripts) break;
@@ -938,7 +871,7 @@ async function prefetchReferenceScripts(
         if (!item.card?.desc) continue;
         seenCodes.add(code);
         throwIfAborted(signal);
-        const scriptResult = await readCardScript(code, item.db?.path);
+        const scriptResult = await context.readCardScript(code, item.db?.path);
         if (scriptResult.exists && scriptResult.content) {
           results.push({ code, name: String(item.card?.name ?? ''), script: scriptResult.content });
         }
@@ -949,14 +882,15 @@ async function prefetchReferenceScripts(
   return results;
 }
 
-export async function generateCardScript(currentCard: CardDataEntry, options?: {
+export async function generateCardScript(currentCard: CardDataEntry, options: {
+  context: AiAppContext;
   signal?: AbortSignal;
   onStageChange?: (stage: AgentStage) => void;
 }) {
   // Pre-fetch reference scripts locally — this is fast and avoids slow
   // AI tool-call round-trips (each round-trip is ~3-10s).
-  options?.onStageChange?.('collecting_references');
-  const referenceScripts = await prefetchReferenceScripts(currentCard, 2, options?.signal);
+  options.onStageChange?.('collecting_references');
+  const referenceScripts = await prefetchReferenceScripts(options.context, currentCard, 2, options.signal);
 
   const referenceSection = referenceScripts.length > 0
     ? [
@@ -972,54 +906,51 @@ export async function generateCardScript(currentCard: CardDataEntry, options?: {
       ].join('\n')
     : '';
 
-  return runAgent({
+  const initialScript = normalizeGeneratedScript(await runAgent({
+    context: options.context,
     currentCard,
     useTools: true,
     maxSteps: 3,
     toolNames: ['search_cards', 'read_card_script'],
-    signal: options?.signal,
-    onStageChange: options?.onStageChange,
-    systemPrompt: [
-      'You are an expert EDOPro/YGOPro Lua card scripter.',
-      'Generate a complete, runnable Lua script for the current Yu-Gi-Oh! card.',
-      '',
-      '## Tool usage',
-      'Reference scripts have already been pre-fetched and included in the prompt.',
-      'Only call tools if the pre-fetched references are insufficient and you need',
-      'a very specific card script not already provided. In most cases, do NOT call any tools.',
-      '',
-      '## Output format',
-      'Return only the final Lua script.',
-      'Do not use markdown fences or any explanation.',
-      'If the card text is ambiguous, keep the script runnable and add brief Lua TODO comments only where needed.',
-      '',
-      '## Important conventions',
-      '- Always start with `local s,id=GetID()` or equivalent valid EDOPro style.',
-      '- Use the `s.` prefix for helper functions.',
-      '- Register complete effects with proper condition/cost/target/operation functions.',
-      '- Use `e:SetCountLimit(1,id)` for hard once-per-turn when appropriate.',
-      '- Use correct summon procedures and helpers for Fusion/Synchro/Xyz/Link/Pendulum cards.',
-      '- Keep the script runnable; avoid placeholder pseudocode.',
-      '',
-      '## Type-specific guidelines',
-      '- Normal Monster: minimal script is acceptable.',
-      '- Spell/Trap: use activation effects and proper event codes.',
-      '- Pendulum: include scale-side effects when the text requires them.',
-      '- Link Monster: do not invent DEF-related logic.',
-    ].join('\n'),
+    signal: options.signal,
+    onStageChange: options.onStageChange,
+    systemPrompt: buildScriptGenerationSystemPrompt(),
     userPrompt: [
-      'Generate the complete Lua script for the current card.',
+      '请为当前卡片生成完整 Lua 脚本。',
+      '先基于结构化卡片数据识别卡种、效果数量、发动位置、是否取对象、是否有次数限制，再给出最终脚本。',
+      '如果参考脚本与当前卡片不完全一致，应借鉴写法而不是机械照抄。',
       '',
       'Current card data:',
       JSON.stringify(serializeCardForAi(currentCard)),
       referenceSection,
       '',
-      'Return only the finished Lua code.',
+      '直接返回最终 Lua 代码。',
     ].join('\n'),
-  });
+  }));
+
+  await ensureLuaDiagnosticsCatalogLoaded();
+  const initialDiagnostics = analyzeLuaScript(initialScript);
+  if (initialDiagnostics.length === 0) {
+    return initialScript;
+  }
+
+  const repairedScript = normalizeGeneratedScript(await repairGeneratedCardScript({
+    context: options.context,
+    currentCard,
+    initialScript,
+    diagnostics: initialDiagnostics,
+    signal: options.signal,
+    onStageChange: options.onStageChange,
+  }));
+  const repairedDiagnostics = analyzeLuaScript(repairedScript);
+
+  return getDiagnosticScore(repairedDiagnostics) <= getDiagnosticScore(initialDiagnostics)
+    ? repairedScript
+    : initialScript;
 }
 
 export async function translateCardImageFields(input: {
+  context: AiAppContext;
   currentCard: CardDataEntry;
   targetLanguage: string;
   name: string;
@@ -1028,6 +959,7 @@ export async function translateCardImageFields(input: {
   pendulumDescription: string;
 }) {
   const text = await runAgent({
+    context: input.context,
     currentCard: input.currentCard,
     useTools: false,
     systemPrompt: [
@@ -1088,5 +1020,163 @@ export async function translateCardImageFields(input: {
     description: string;
     pendulumDescription: string;
   }>(text);
+}
+
+function formatLuaDiagnosticsForPrompt(diagnostics: LuaScriptDiagnostic[]) {
+  return diagnostics
+    .slice(0, MAX_SCRIPT_DIAGNOSTICS)
+    .map((diagnostic, index) => (
+      `${index + 1}. [${diagnostic.severity}] ` +
+      `L${diagnostic.startLineNumber}:C${diagnostic.startColumn} ` +
+      `${diagnostic.message}`
+    ))
+    .join('\n');
+}
+
+function getDiagnosticScore(diagnostics: LuaScriptDiagnostic[]) {
+  return diagnostics.reduce((score, diagnostic) => (
+    score + (diagnostic.severity === 'error' ? 100 : 1)
+  ), 0);
+}
+
+function buildScriptGenerationSystemPrompt() {
+  return [
+    '你是一个专业的 YGOPro / EDOPro Lua 脚本编写专家。',
+    '你的任务是根据当前卡片的结构化数据、效果文本、已打开数据库中的参考卡片与参考脚本，生成一份完整、可运行、尽量贴近官方写法的 Lua 脚本。',
+    '',
+    '## 输出要求',
+    '- 只输出纯 Lua 代码。',
+    '- 不要输出 Markdown 包裹、解释、标题或额外说明。',
+    '- 如果文本存在歧义，优先保证脚本可运行，并仅在必要位置加入简短的 Lua TODO 注释。',
+    '',
+    '## 基本结构',
+    '- 默认使用如下结构：卡名注释、`local s,id=GetID()`、`function s.initial_effect(c)`、其余辅助函数统一用 `s.xxx`。',
+    '- 所有效果都应在 `s.initial_effect(c)` 中创建并注册。',
+    '- 除非卡片文本明确需要，否则不要写无意义的空函数、假代码或占位逻辑。',
+    '',
+    '## Tool usage',
+    '- 参考脚本通常已经预取并附在提示词里，应优先使用这些上下文。',
+    '- 只有当预取的参考不足以判断具体实现时，才调用工具继续查询。',
+    '- 如果要查询，优先搜索相似效果卡，再读取其脚本。',
+    '',
+    '## 效果类型与注册方式',
+    '- 起动效果通常使用 `EFFECT_TYPE_IGNITION`，并设置正确的 `SetRange`。',
+    '- 单体诱发效果通常使用 `EFFECT_TYPE_SINGLE+EFFECT_TYPE_TRIGGER_O` 或 `TRIGGER_F`。',
+    '- 场上诱发效果通常使用 `EFFECT_TYPE_FIELD+EFFECT_TYPE_TRIGGER_O/F`，并补充正确的 `SetRange` 与影响区域。',
+    '- 速攻效果通常使用 `EFFECT_TYPE_QUICK_O` / `EFFECT_TYPE_QUICK_F`，必要时加入 `SetHintTiming`。',
+    '- 永续类效果通常使用 `SetValue`，而不是错误地写成 `SetOperation`。',
+    '- 魔法陷阱发动效果通常使用 `EFFECT_TYPE_ACTIVATE` + `SetCode(EVENT_FREE_CHAIN)` 或对应触发事件。',
+    '',
+    '## 常见事件代码',
+    '- `EVENT_SUMMON_SUCCESS` / `EVENT_SPSUMMON_SUCCESS` / `EVENT_FLIP_SUMMON_SUCCESS`：召唤成功。',
+    '- `EVENT_TO_GRAVE` / `EVENT_REMOVE` / `EVENT_DESTROY` / `EVENT_LEAVE_FIELD`：离场或移动。',
+    '- `EVENT_TO_HAND` / `EVENT_BE_MATERIAL` / `EVENT_BATTLE_DESTROYING`：特殊移动或战斗事件。',
+    '- `EVENT_PHASE+PHASE_STANDBY` / `EVENT_PHASE+PHASE_END`：阶段效果。',
+    '- `EVENT_FREE_CHAIN`：自由时点；`EVENT_CHAINING`：连锁相关触发。',
+    '',
+    '## cost / target / operation 约定',
+    '- `cost`、`target`、`operation` 的参数必须符合 YGOPro 约定签名。',
+    '- `chk==0` 分支只能做可行性检查，不能选择卡、移动卡、支付代价或修改状态。',
+    '- 取对象效果需要 `EFFECT_FLAG_CARD_TARGET`，并在 `target` 中正确处理 `chkc`。',
+    '- 不取对象效果不要伪造 `chkc` 或 `SelectTarget`。',
+    '- `operation` 中如果依赖已取对象，必须检查 `tc and tc:IsRelateToEffect(e)`。',
+    '- 从卡组加入手卡后，通常需要 `Duel.ConfirmCards(1-tp,g)`。',
+    '',
+    '## SetProperty 与次数限制',
+    '- 需要取对象时使用 `EFFECT_FLAG_CARD_TARGET`。',
+    '- 从非公开区域诱发时，经常需要 `EFFECT_FLAG_DELAY`。',
+    '- 伤害步骤可发动时补充 `EFFECT_FLAG_DAMAGE_STEP` 或相关时点限制。',
+    '- “每回合1次” 与 “此卡名的效果每回合只能使用1次” 要区分好 `SetCountLimit(1)`、`SetCountLimit(1,id)`、`SetCountLimit(1,id+1)`、`SetCountLimit(1,id+EFFECT_COUNT_CODE_OATH)` 等形式。',
+    '',
+    '## 常用 API 习惯',
+    '- 取对象检查用 `Duel.IsExistingTarget`，取对象选择用 `Duel.SelectTarget`。',
+    '- 不取对象检查用 `Duel.IsExistingMatchingCard`，不取对象选择用 `Duel.SelectMatchingCard`。',
+    '- 常见移动 API 包括 `Duel.Destroy`、`Duel.SendtoGrave`、`Duel.Remove`、`Duel.SendtoHand`、`Duel.SendtoDeck`、`Duel.SpecialSummon`。',
+    '- 常见提示 API 包括 `Duel.Hint(HINT_SELECTMSG,...)` 与正确的 `HINTMSG_*` 常量。',
+    '- 效果描述通常用 `aux.Stringid(id,n)`，`n` 与 `str1/str2/...` 顺序对应。',
+    '',
+    '## 类型专项规则',
+    '- 通常怪兽没有效果时，最小可运行脚本即可，不要硬加无关效果。',
+    '- 效果怪兽要完整拆出 condition/cost/target/operation，不要把复杂逻辑全部塞进一个函数里。',
+    '- 魔法/陷阱卡优先关注发动时点、分类、是否取对象，以及发动后是否还需要永续效果。',
+    '- 永续魔法/陷阱常常需要“发动效果 + 持续效果”两部分。',
+    '- 装备魔法通常需要 `EFFECT_TYPE_EQUIP` 与 `EFFECT_EQUIP_LIMIT` 等相关处理。',
+    '- 反击陷阱通常围绕 `EVENT_CHAINING` 和对 `re`、`rp`、连锁状态的判断。',
+    '- 灵摆卡需要同时考虑怪兽效果与灵摆区域效果。',
+    '- Link 怪兽不要编造 DEF 相关逻辑。',
+    '',
+    '## 易错点',
+    '- 不要在 `chk==0` 里做副作用。',
+    '- 不要把 COST 和 EFFECT 的 reason 混用。',
+    '- 不要遗漏 `SetRange`，特别是手卡/墓地发动的效果。',
+    '- 不要把“取对象效果”写成“非取对象效果”，反之亦然。',
+    '- 不要遗漏 `SetCategory`、`SetCode`、`SetProperty`、`SetHintTiming` 中真正影响行为的部分。',
+    '- 不要调用不存在的 API，也不要臆造辅助函数名。',
+    '- 若引用对象卡，注意控制者、位置、数量限制与时点合法性。',
+    '',
+    '## 生成策略',
+    '1. 先读懂当前卡的效果文本，拆分出每个独立效果。',
+    '2. 优先参考已提供的相似脚本风格与实现模式，但不要逐字照抄。',
+    '3. 缺信息时再调用工具补查相似脚本或相关卡。',
+    '4. 输出前自行检查脚本结构、API 调用、参数数量、对象合法性和回合限制写法。',
+    '',
+    '## 最终目标',
+    '- 生成的代码必须优先保证“可运行、结构清晰、贴近 YGOPro 习惯写法、尽量忠于文本”。',
+  ].join('\n');
+}
+
+function buildScriptRepairSystemPrompt() {
+  return [
+    '你是一个专业的 YGOPro / EDOPro Lua 脚本修复专家。',
+    '你会收到一份已生成的脚本，以及本地静态检查器给出的诊断结果。',
+    '你的任务是在尽量保留原有正确逻辑的前提下，修复脚本中的结构、语法、API 调用和参数问题。',
+    '',
+    '## 输出要求',
+    '- 只输出修复后的纯 Lua 代码。',
+    '- 不要输出解释或 Markdown。',
+    '',
+    '## 修复原则',
+    '- 优先修复所有 error，其次尽量消除 warning。',
+    '- 尽量最小改动，不要为了修一个小问题把整份脚本改写成另一种风格。',
+    '- 保持卡片效果语义不变，不要因为图省事而删除真实需要的效果。',
+    '- 不要引入新的不存在 API 或新的参数错误。',
+    '- 保持 `s.initial_effect(c)`、辅助函数命名、目标/对象处理、次数限制、时点和 reason 的正确性。',
+    '- 如果脚本确实结构性错误严重，可以重写局部或整体，但仍要忠于当前卡片数据。',
+  ].join('\n');
+}
+
+async function repairGeneratedCardScript(input: {
+  context: AiAppContext;
+  currentCard: CardDataEntry;
+  initialScript: string;
+  diagnostics: LuaScriptDiagnostic[];
+  signal?: AbortSignal;
+  onStageChange?: (stage: AgentStage) => void;
+}) {
+  return runAgent({
+    context: input.context,
+    currentCard: input.currentCard,
+    useTools: false,
+    signal: input.signal,
+    onStageChange: input.onStageChange,
+    systemPrompt: buildScriptRepairSystemPrompt(),
+    userPrompt: [
+      '请根据下面的本地静态检查诊断结果修复这份已生成脚本。',
+      '优先修复真正影响可运行性的结构、语法、API 和参数问题，并尽量保留原来的正确逻辑与函数划分。',
+      '',
+      'Current card data:',
+      JSON.stringify(serializeCardForAi(input.currentCard)),
+      '',
+      'Diagnostics:',
+      formatLuaDiagnosticsForPrompt(input.diagnostics),
+      '',
+      'Current script:',
+      '```lua',
+      input.initialScript,
+      '```',
+      '',
+      '直接返回修复后的 Lua 代码。',
+    ].join('\n'),
+  });
 }
 

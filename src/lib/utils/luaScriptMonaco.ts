@@ -5,7 +5,9 @@ import 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
 import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { luaCatalog as defaultLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
+import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded } from '$lib/utils/luaScriptDiagnostics';
 import { loadExternalLuaCatalog } from '$lib/utils/luaIntelCatalog';
+import { collectLuaScriptFunctionSymbols, type LuaScriptFunctionSymbol } from '$lib/utils/luaScriptSymbols';
 import type { CardDataEntry, LuaFunctionItem } from '$lib/types';
 
 type LuaModelContext = {
@@ -131,7 +133,7 @@ function defineThemes() {
     inherit: true,
     rules: [
       { token: 'comment', foreground: '7f8ea3' },
-      { token: 'keyword', foreground: '60a5fa', fontStyle: 'bold' },
+      { token: 'keyword', foreground: 'd7a95b', fontStyle: 'bold' },
       { token: 'string', foreground: '86efac' },
       { token: 'number', foreground: 'fbbf24' },
       { token: 'delimiter', foreground: 'cbd5e1' },
@@ -177,7 +179,7 @@ function defineThemes() {
     inherit: true,
     rules: [
       { token: 'comment', foreground: '64748b' },
-      { token: 'keyword', foreground: '2563eb', fontStyle: 'bold' },
+      { token: 'keyword', foreground: '8a4b00', fontStyle: 'bold' },
       { token: 'string', foreground: '15803d' },
       { token: 'number', foreground: 'b45309' },
       { token: 'delimiter', foreground: '1f2937' },
@@ -764,6 +766,14 @@ function buildFunctionDocumentation(item: LuaFunctionItem) {
   ]);
 }
 
+function buildScriptFunctionDocumentation(item: LuaScriptFunctionSymbol) {
+  return toMarkdownParagraphs([
+    `**${item.name}**`,
+    `\`${item.signature}\``,
+    '当前脚本中定义的函数。',
+  ]);
+}
+
 function getInlineDescription(text: string, fallback = '') {
   const firstLine = text
     .split(/\r?\n/)
@@ -791,6 +801,17 @@ function buildConstantDocumentation(name: string, value: string, description: st
     `\`${name} = ${value}\``,
     description,
   ]);
+}
+
+function getScriptFunctionSymbols(model: monaco.editor.ITextModel) {
+  return collectLuaScriptFunctionSymbols(model.getValue());
+}
+
+function getScriptFunctionByName(model: monaco.editor.ITextModel, name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+
+  return getScriptFunctionSymbols(model).find((item) => item.name === trimmed || item.shortName === trimmed) ?? null;
 }
 
 function getFunctionForCall(name: string) {
@@ -872,6 +893,21 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
     : currentWord
       ? luaCatalog.functions
       : [];
+  const scriptFunctions = getScriptFunctionSymbols(model).filter((item) => {
+    if (namespaceContext) {
+      if (namespaceContext.kind === 'namespace') {
+        return item.namespace === namespaceContext.namespace;
+      }
+
+      return namespaceContext.namespace
+        ? item.namespace === namespaceContext.namespace
+        : Boolean(item.namespace);
+    }
+
+    return currentWord
+      ? item.name.toLowerCase().includes(currentWord) || item.shortName.toLowerCase().includes(currentWord)
+      : false;
+  });
 
   for (const item of functions) {
     const displayName = namespaceContext ? item.shortName : item.name;
@@ -897,6 +933,22 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
       detail: toSignatureLabel(item),
       documentation: buildFunctionDocumentation(item),
       sortText: `2000-${displayName}`,
+      range,
+    });
+  }
+
+  for (const item of scriptFunctions) {
+    const displayName = namespaceContext ? item.shortName : item.name;
+    suggestions.push({
+      label: {
+        label: displayName,
+        description: 'current script',
+      },
+      kind: monaco.languages.CompletionItemKind.Function,
+      insertText: `${displayName}(${item.parameters.join(', ')})`,
+      detail: item.signature,
+      documentation: buildScriptFunctionDocumentation(item),
+      sortText: `2100-${displayName}`,
       range,
     });
   }
@@ -959,6 +1011,14 @@ function provideHover(model: monaco.editor.ITextModel, position: monaco.Position
     };
   }
 
+  const scriptFunction = getScriptFunctionByName(model, token.text);
+  if (scriptFunction) {
+    return {
+      range: new monaco.Range(position.lineNumber, token.startColumn, position.lineNumber, token.endColumn),
+      contents: [{ value: buildScriptFunctionDocumentation(scriptFunction) }],
+    };
+  }
+
   const line = model.getLineContent(position.lineNumber);
   for (const match of line.matchAll(/aux\.Stringid\s*\(\s*id\s*,\s*(\d+)\s*\)/g)) {
     const startIndex = match.index ?? -1;
@@ -1002,7 +1062,28 @@ function provideSignatureHelp(model: monaco.editor.ITextModel, position: monaco.
         return getFunctionForCall(methodMatch[2]);
       })()
     : getFunctionForCall(match[1]);
-  if (!item) return null;
+  if (!item) {
+    const scriptFunction = getScriptFunctionByName(model, match[1]);
+    if (!scriptFunction) return null;
+
+    const activeParameter = Math.max(0, match[2].split(',').length - 1);
+    return {
+      value: {
+        signatures: [
+          {
+            label: scriptFunction.signature,
+            documentation: '当前脚本中定义的函数。',
+            parameters: scriptFunction.parameters.map((parameter) => ({
+              label: parameter,
+            })),
+          },
+        ],
+        activeSignature: 0,
+        activeParameter: Math.min(activeParameter, Math.max(0, scriptFunction.parameters.length - 1)),
+      },
+      dispose() {},
+    };
+  }
 
   const activeParameter = Math.max(0, match[2].split(',').length - 1);
   const parameters = methodMatch ? getInvocationParameters(item, true) : getParameterHints(item);
@@ -1048,6 +1129,7 @@ function registerProviders() {
 
 export async function loadMonaco() {
   await ensureLuaCatalogLoaded();
+  await ensureLuaDiagnosticsCatalogLoaded();
   ensureMonacoEnvironment();
   registerProviders();
   syncMonacoTheme();
@@ -1117,85 +1199,16 @@ export function insertSnippet(
 }
 
 export function validateLuaModel(model: monaco.editor.ITextModel) {
-  const source = model.getValue();
-  const context = modelContexts.get(model.uri.toString());
-  const markers: monaco.editor.IMarkerData[] = [];
-  let ast: LuaNode | null = null;
-
-  try {
-    ast = luaparse.parse(source, {
-      comments: false,
-      luaVersion: '5.3',
-      locations: true,
-      ranges: true,
-    }) as unknown as LuaNode;
-  } catch (error) {
-    const err = error as { line?: number; column?: number; message?: string };
-    markers.push({
-      severity: monaco.MarkerSeverity.Error,
-      message: err.message ?? 'Lua syntax error',
-      startLineNumber: err.line ?? 1,
-      startColumn: (err.column ?? 0) + 1,
-      endLineNumber: err.line ?? 1,
-      endColumn: (err.column ?? 0) + 2,
-    });
-
-    if ((err.message ?? '').includes("'end' expected")) {
-      markers.push({
-        severity: monaco.MarkerSeverity.Warning,
-        message: '看起来存在未闭合的 function/end 结构。',
-        startLineNumber: model.getLineCount(),
-        startColumn: 1,
-        endLineNumber: model.getLineCount(),
-        endColumn: Math.max(2, model.getLineMaxColumn(model.getLineCount())),
-      });
-    }
-  }
-
-  if (!/local\s+s\s*,\s*id(?:\s*,\s*o)?\s*=\s*GetID\s*\(\s*\)/.test(source)) {
-    markers.push({
-      severity: monaco.MarkerSeverity.Warning,
-      message: '缺少标准脚本头：local s,id=GetID()',
-      startLineNumber: 1,
-      startColumn: 1,
-      endLineNumber: 1,
-      endColumn: Math.max(2, model.getLineMaxColumn(1)),
-    });
-  }
-
-  if (!/function\s+s\.initial_effect\s*\(\s*c\s*\)/.test(source)) {
-    markers.push({
-      severity: monaco.MarkerSeverity.Warning,
-      message: '缺少 function s.initial_effect(c)。',
-      startLineNumber: 1,
-      startColumn: 1,
-      endLineNumber: 1,
-      endColumn: Math.max(2, model.getLineMaxColumn(1)),
-    });
-  }
-
-  for (const match of source.matchAll(/aux\.Stringid\s*\(\s*id\s*,\s*(\d+)\s*\)/g)) {
-    const stringIndex = Number(match[1]);
-    const startIndex = match.index ?? 0;
-    const startPosition = model.getPositionAt(startIndex);
-    const endPosition = model.getPositionAt(startIndex + match[0].length);
-    const text = getStringHint(context, stringIndex);
-
-    if (!context || stringIndex < 0 || stringIndex >= context.strings.length || !text) {
-      markers.push({
-        severity: monaco.MarkerSeverity.Warning,
-        message: `aux.Stringid(id, ${stringIndex}) 在当前卡片上下文中没有对应文本。`,
-        startLineNumber: startPosition.lineNumber,
-        startColumn: startPosition.column,
-        endLineNumber: endPosition.lineNumber,
-        endColumn: endPosition.column,
-      });
-    }
-  }
-
-  if (ast) {
-    validateStaticTypes(ast, model, markers);
-  }
+  const markers = analyzeLuaScript(model.getValue()).map((diagnostic) => ({
+    severity: diagnostic.severity === 'error'
+      ? monaco.MarkerSeverity.Error
+      : monaco.MarkerSeverity.Warning,
+    message: diagnostic.message,
+    startLineNumber: diagnostic.startLineNumber,
+    startColumn: diagnostic.startColumn,
+    endLineNumber: diagnostic.endLineNumber,
+    endColumn: diagnostic.endColumn,
+  }));
 
   monaco.editor.setModelMarkers(model, LUA_MARKER_OWNER, markers);
 }

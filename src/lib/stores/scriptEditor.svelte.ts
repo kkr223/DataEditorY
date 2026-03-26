@@ -1,21 +1,17 @@
 import { get, derived, writable } from 'svelte/store';
-import { invoke } from '@tauri-apps/api/core';
-import type { ScriptTabState } from '$lib/types';
+import type { ScriptWorkspaceState } from '$lib/types';
 import { activeTabId, tabs } from '$lib/stores/db';
 import { activateEditorView, activateScriptView } from '$lib/stores/appShell.svelte';
+import {
+  readCardScriptDocument,
+  saveCardScriptDocument,
+} from '$lib/infrastructure/tauri/commands';
+import {
+  buildScriptFileName,
+  normalizeScriptContent,
+} from '$lib/domain/script/workspace';
 
-type CardScriptDocument = {
-  path: string;
-  exists: boolean;
-  content: string;
-};
-
-type CardScriptInfo = {
-  path: string;
-  exists: boolean;
-};
-
-export const scriptTabs = writable<ScriptTabState[]>([]);
+export const scriptTabs = writable<ScriptWorkspaceState[]>([]);
 export const activeScriptTabId = writable<string | null>(null);
 
 export const activeScriptTab = derived(
@@ -28,14 +24,6 @@ export type OpenScriptTabResult = {
   createdFromTemplate: boolean;
 };
 
-function normalizeScriptContent(content: string) {
-  return content.replace(/\r\n/g, '\n');
-}
-
-function buildScriptTabName(cardCode: number) {
-  return `c${cardCode}.lua`;
-}
-
 function getScriptKey(cdbPath: string, cardCode: number) {
   return `${cdbPath}::${cardCode}`;
 }
@@ -46,10 +34,7 @@ function getScriptTabByKey(cdbPath: string, cardCode: number) {
 }
 
 async function readScriptDocument(cdbPath: string, cardCode: number) {
-  return invoke<CardScriptDocument>('read_card_script', {
-    cdbPath,
-    cardId: cardCode,
-  });
+  return readCardScriptDocument(cdbPath, cardCode);
 }
 
 export function getActiveScriptTab() {
@@ -109,7 +94,7 @@ export function syncScriptTabFromSavedContent(input: {
     return existing.id;
   }
 
-  const nextTab: ScriptTabState = {
+  const nextTab: ScriptWorkspaceState = {
     id: crypto.randomUUID(),
     cdbPath: input.cdbPath,
     sourceTabId: input.sourceTabId,
@@ -152,15 +137,11 @@ export async function openOrCreateScriptTab(input: {
 
   if (!loaded.exists) {
     content = normalizeScriptContent(input.templateContent);
-    const saved = await invoke<CardScriptInfo>('save_card_script', {
-      cdbPath: input.cdbPath,
-      cardId: input.cardCode,
-      content,
-    });
+    const saved = await saveCardScriptDocument(input.cdbPath, input.cardCode, content);
     savedContent = content;
     createdFromTemplate = true;
 
-    const nextTab: ScriptTabState = {
+    const nextTab: ScriptWorkspaceState = {
       id: crypto.randomUUID(),
       cdbPath: input.cdbPath,
       sourceTabId: input.sourceTabId,
@@ -183,7 +164,7 @@ export async function openOrCreateScriptTab(input: {
     };
   }
 
-  const nextTab: ScriptTabState = {
+  const nextTab: ScriptWorkspaceState = {
     id: crypto.randomUUID(),
     cdbPath: input.cdbPath,
     sourceTabId: input.sourceTabId,
@@ -232,11 +213,7 @@ export async function saveScriptTab(tabId: string) {
   if (!tab) return false;
 
   const normalized = normalizeScriptContent(tab.content);
-  const saved = await invoke<CardScriptInfo>('save_card_script', {
-    cdbPath: tab.cdbPath,
-    cardId: tab.cardCode,
-    content: normalized,
-  });
+  const saved = await saveCardScriptDocument(tab.cdbPath, tab.cardCode, normalized);
 
   scriptTabs.update((currentTabs) =>
     currentTabs.map((item) =>
@@ -313,6 +290,6 @@ export function closeScriptTab(tabId: string) {
   }
 }
 
-export function getScriptTabDisplayName(tab: ScriptTabState) {
-  return buildScriptTabName(tab.cardCode);
+export function getScriptTabDisplayName(tab: ScriptWorkspaceState) {
+  return buildScriptFileName(tab.cardCode);
 }
