@@ -38,4 +38,18 @@ describe('lua script diagnostics', () => {
     expect(diagnostics.some((item) => item.message.includes('not a known API member'))).toBe(true);
     expect(diagnostics.some((item) => item.message.includes('expects'))).toBe(true);
   });
+
+  test('reports undefined globals but allows legacy card namespace style', () => {
+    const diagnostics = analyzeLuaScript([
+      'function c12345678.initial_effect(c)',
+      '\tlocal e1=Effect.CreateEffect(c)',
+      '\te1:SetDescription(aux.Stringid(12345678,0))',
+      '\tMissingHelper(e1)',
+      'end',
+      '',
+    ].join('\n'));
+
+    expect(diagnostics.some((item) => item.message.includes('Undefined global variable: MissingHelper'))).toBe(true);
+    expect(diagnostics.some((item) => item.message.includes('Undefined global variable: c12345678'))).toBe(false);
+  });
 });

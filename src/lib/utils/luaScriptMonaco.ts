@@ -7,6 +7,7 @@ import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { luaCatalog as defaultLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
 import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded } from '$lib/utils/luaScriptDiagnostics';
 import { loadExternalLuaCatalog } from '$lib/utils/luaIntelCatalog';
+import { collectLuaScriptFunctionSymbols, type LuaScriptFunctionSymbol } from '$lib/utils/luaScriptSymbols';
 import type { CardDataEntry, LuaFunctionItem } from '$lib/types';
 
 type LuaModelContext = {
@@ -132,7 +133,7 @@ function defineThemes() {
     inherit: true,
     rules: [
       { token: 'comment', foreground: '7f8ea3' },
-      { token: 'keyword', foreground: '60a5fa', fontStyle: 'bold' },
+      { token: 'keyword', foreground: 'd7a95b', fontStyle: 'bold' },
       { token: 'string', foreground: '86efac' },
       { token: 'number', foreground: 'fbbf24' },
       { token: 'delimiter', foreground: 'cbd5e1' },
@@ -178,7 +179,7 @@ function defineThemes() {
     inherit: true,
     rules: [
       { token: 'comment', foreground: '64748b' },
-      { token: 'keyword', foreground: '2563eb', fontStyle: 'bold' },
+      { token: 'keyword', foreground: '8a4b00', fontStyle: 'bold' },
       { token: 'string', foreground: '15803d' },
       { token: 'number', foreground: 'b45309' },
       { token: 'delimiter', foreground: '1f2937' },
@@ -765,6 +766,14 @@ function buildFunctionDocumentation(item: LuaFunctionItem) {
   ]);
 }
 
+function buildScriptFunctionDocumentation(item: LuaScriptFunctionSymbol) {
+  return toMarkdownParagraphs([
+    `**${item.name}**`,
+    `\`${item.signature}\``,
+    '当前脚本中定义的函数。',
+  ]);
+}
+
 function getInlineDescription(text: string, fallback = '') {
   const firstLine = text
     .split(/\r?\n/)
@@ -792,6 +801,17 @@ function buildConstantDocumentation(name: string, value: string, description: st
     `\`${name} = ${value}\``,
     description,
   ]);
+}
+
+function getScriptFunctionSymbols(model: monaco.editor.ITextModel) {
+  return collectLuaScriptFunctionSymbols(model.getValue());
+}
+
+function getScriptFunctionByName(model: monaco.editor.ITextModel, name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+
+  return getScriptFunctionSymbols(model).find((item) => item.name === trimmed || item.shortName === trimmed) ?? null;
 }
 
 function getFunctionForCall(name: string) {
@@ -873,6 +893,21 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
     : currentWord
       ? luaCatalog.functions
       : [];
+  const scriptFunctions = getScriptFunctionSymbols(model).filter((item) => {
+    if (namespaceContext) {
+      if (namespaceContext.kind === 'namespace') {
+        return item.namespace === namespaceContext.namespace;
+      }
+
+      return namespaceContext.namespace
+        ? item.namespace === namespaceContext.namespace
+        : Boolean(item.namespace);
+    }
+
+    return currentWord
+      ? item.name.toLowerCase().includes(currentWord) || item.shortName.toLowerCase().includes(currentWord)
+      : false;
+  });
 
   for (const item of functions) {
     const displayName = namespaceContext ? item.shortName : item.name;
@@ -898,6 +933,22 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
       detail: toSignatureLabel(item),
       documentation: buildFunctionDocumentation(item),
       sortText: `2000-${displayName}`,
+      range,
+    });
+  }
+
+  for (const item of scriptFunctions) {
+    const displayName = namespaceContext ? item.shortName : item.name;
+    suggestions.push({
+      label: {
+        label: displayName,
+        description: 'current script',
+      },
+      kind: monaco.languages.CompletionItemKind.Function,
+      insertText: `${displayName}(${item.parameters.join(', ')})`,
+      detail: item.signature,
+      documentation: buildScriptFunctionDocumentation(item),
+      sortText: `2100-${displayName}`,
       range,
     });
   }
@@ -960,6 +1011,14 @@ function provideHover(model: monaco.editor.ITextModel, position: monaco.Position
     };
   }
 
+  const scriptFunction = getScriptFunctionByName(model, token.text);
+  if (scriptFunction) {
+    return {
+      range: new monaco.Range(position.lineNumber, token.startColumn, position.lineNumber, token.endColumn),
+      contents: [{ value: buildScriptFunctionDocumentation(scriptFunction) }],
+    };
+  }
+
   const line = model.getLineContent(position.lineNumber);
   for (const match of line.matchAll(/aux\.Stringid\s*\(\s*id\s*,\s*(\d+)\s*\)/g)) {
     const startIndex = match.index ?? -1;
@@ -1003,7 +1062,28 @@ function provideSignatureHelp(model: monaco.editor.ITextModel, position: monaco.
         return getFunctionForCall(methodMatch[2]);
       })()
     : getFunctionForCall(match[1]);
-  if (!item) return null;
+  if (!item) {
+    const scriptFunction = getScriptFunctionByName(model, match[1]);
+    if (!scriptFunction) return null;
+
+    const activeParameter = Math.max(0, match[2].split(',').length - 1);
+    return {
+      value: {
+        signatures: [
+          {
+            label: scriptFunction.signature,
+            documentation: '当前脚本中定义的函数。',
+            parameters: scriptFunction.parameters.map((parameter) => ({
+              label: parameter,
+            })),
+          },
+        ],
+        activeSignature: 0,
+        activeParameter: Math.min(activeParameter, Math.max(0, scriptFunction.parameters.length - 1)),
+      },
+      dispose() {},
+    };
+  }
 
   const activeParameter = Math.max(0, match[2].split(',').length - 1);
   const parameters = methodMatch ? getInvocationParameters(item, true) : getParameterHints(item);

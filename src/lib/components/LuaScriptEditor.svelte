@@ -8,6 +8,7 @@
   import { showToast } from '$lib/stores/toast.svelte';
   import { updateVisibleCards } from '$lib/stores/editor.svelte';
   import { writeErrorLog } from '$lib/utils/errorLog';
+  import { collectLuaCallHighlights } from '$lib/utils/luaScriptCalls';
   import type { CardDataEntry } from '$lib/types';
   import type { AgentStage } from '$lib/utils/ai';
   import type { editor as MonacoEditor } from 'monaco-editor';
@@ -24,6 +25,7 @@
   let monacoModule = $state<MonacoModule | null>(null);
   let monacoApi = $state<MonacoApi | null>(null);
   let editorInstance = $state<MonacoEditor.IStandaloneCodeEditor | null>(null);
+  let callHighlightDecorations = $state<MonacoEditor.IEditorDecorationsCollection | null>(null);
   let currentBoundTabId = $state<string | null>(null);
   let isApplyingModel = false;
   let cardContext = $state<CardDataEntry | null>(null);
@@ -161,6 +163,7 @@
       card: cardContext,
     });
     monacoModule.validateLuaModel(model);
+    syncCallHighlights();
 
     if (isSwitchingTab) {
       editorInstance.setModel(model);
@@ -185,6 +188,31 @@
       clearInterval(suggestHintTimer);
       suggestHintTimer = null;
     }
+  }
+
+  function syncCallHighlights() {
+    if (!editorInstance) return;
+
+    const model = editorInstance.getModel();
+    if (!model) {
+      callHighlightDecorations?.clear();
+      return;
+    }
+
+    const highlights = collectLuaCallHighlights(model.getValue()).map((item) => ({
+      range: {
+        startLineNumber: item.startLineNumber,
+        startColumn: item.startColumn,
+        endLineNumber: item.endLineNumber,
+        endColumn: item.endColumn,
+      },
+      options: {
+        inlineClassName: 'lua-call-highlight',
+      },
+    }));
+
+    callHighlightDecorations ??= editorInstance.createDecorationsCollection();
+    callHighlightDecorations.set(highlights);
   }
 
   function syncSuggestHintPlacement() {
@@ -464,6 +492,7 @@
         bottom: 0,
       },
     });
+    callHighlightDecorations = editorInstance.createDecorationsCollection();
 
     editorInstance.onDidChangeModelContent(() => {
       if (isApplyingModel || !currentBoundTabId) return;
@@ -472,6 +501,7 @@
 
       updateScriptTabContent(currentBoundTabId, model.getValue());
       monacoModule.validateLuaModel(model);
+      syncCallHighlights();
       refreshSuggestHint();
     });
 
@@ -510,6 +540,8 @@
     if (editorInstance && currentBoundTabId) {
       setScriptTabViewState(currentBoundTabId, editorInstance.saveViewState());
     }
+    callHighlightDecorations?.clear();
+    callHighlightDecorations = null;
     themeObserver?.disconnect();
     themeObserver = null;
     editorInstance?.dispose();
@@ -750,6 +782,11 @@
     background-color: rgba(87, 166, 121, 0.28) !important;
   }
 
+  .script-editor :global(.monaco-editor .view-line .lua-call-highlight) {
+    color: #8ec5ff !important;
+    font-weight: 600;
+  }
+
   .script-editor :global(.monaco-editor .view-overlays .current-line),
   .script-editor :global(.monaco-editor .margin-view-overlays .current-line) {
     background-color: rgba(118, 184, 151, 0.12) !important;
@@ -869,6 +906,11 @@
   :global([data-theme='light']) .suggest-inline-hint {
     background: rgba(255, 255, 255, 0.9);
     color: rgba(52, 76, 62, 0.72);
+  }
+
+  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-call-highlight) {
+    color: #1d5fd1 !important;
+    font-weight: 600;
   }
 
   :global([data-theme='light']) .script-editor :global(.suggest-widget .monaco-list-row.focused) {

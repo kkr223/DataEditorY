@@ -14,6 +14,9 @@ type LuaNode = {
   [key: string]: unknown;
 };
 
+const DECLARED_NAME_SENTINEL = '__declared__';
+const SCRIPT_NAMESPACE_PATTERN = /^c\d+$/;
+
 export type LuaDiagnosticSeverity = 'error' | 'warning';
 
 export type LuaScriptDiagnostic = {
@@ -27,6 +30,52 @@ export type LuaScriptDiagnostic = {
 
 const METHOD_NAMESPACES = new Set(['Card', 'Effect', 'Group']);
 const GLOBAL_NAMESPACES = new Set(['Card', 'Effect', 'Group', 'Duel', 'Debug']);
+const LUA_BUILTIN_GLOBALS = new Set([
+  '_G',
+  '_VERSION',
+  'assert',
+  'collectgarbage',
+  'dofile',
+  'error',
+  'getmetatable',
+  'ipairs',
+  'load',
+  'loadfile',
+  'next',
+  'pairs',
+  'pcall',
+  'print',
+  'rawequal',
+  'rawget',
+  'rawlen',
+  'rawset',
+  'require',
+  'select',
+  'setmetatable',
+  'tonumber',
+  'tostring',
+  'type',
+  'warn',
+  'xpcall',
+  'math',
+  'string',
+  'table',
+  'coroutine',
+  'package',
+  'utf8',
+  'os',
+  'io',
+  'debug',
+  'bit',
+  'bit32',
+  'aux',
+  'Fusion',
+  'Synchro',
+  'Xyz',
+  'Link',
+  'Pendulum',
+  'Ritual',
+]);
 const COMMON_PARAM_TYPE_MAP: Record<string, LuaStaticType> = {
   c: 'Card',
   chkc: 'Card',
@@ -78,6 +127,49 @@ function rebuildCatalogIndexes() {
     shortNameItems.push(item);
     functionsByShortName.set(item.shortName, shortNameItems);
   }
+}
+
+function isKnownNamespaceName(name: string) {
+  return GLOBAL_NAMESPACES.has(name) || functionsByNamespace.has(name);
+}
+
+function isKnownGlobalName(name: string) {
+  if (!name) return false;
+  if (LUA_BUILTIN_GLOBALS.has(name)) return true;
+  if (isKnownNamespaceName(name)) return true;
+  if (SCRIPT_NAMESPACE_PATTERN.test(name)) return true;
+  if (luaCatalog.constants.some((item) => item.name === name)) return true;
+  const globalFunction = functionsByName.get(name);
+  return Boolean(globalFunction && globalFunction.namespace === 'global');
+}
+
+function lookupScopedValue(scopes: LuaScope[], name: string) {
+  for (let index = scopes.length - 1; index >= 0; index -= 1) {
+    const scoped = scopes[index].get(name);
+    if (scoped) {
+      return scoped;
+    }
+  }
+
+  return null;
+}
+
+function isNameDeclared(scopes: LuaScope[], name: string) {
+  return lookupScopedValue(scopes, name) !== null || isKnownGlobalName(name);
+}
+
+function declareScopedName(scope: LuaScope, name: string, typeName?: LuaStaticType | null) {
+  scope.set(name, typeName || DECLARED_NAME_SENTINEL);
+}
+
+function findDeclaredScope(scopes: LuaScope[], name: string) {
+  for (let index = scopes.length - 1; index >= 0; index -= 1) {
+    if (scopes[index].has(name)) {
+      return scopes[index];
+    }
+  }
+
+  return null;
 }
 
 rebuildCatalogIndexes();
@@ -232,11 +324,11 @@ function inferExpressionType(
 
   if (node.type === 'Identifier') {
     const name = String(node.name ?? '');
-    for (let index = scopes.length - 1; index >= 0; index -= 1) {
-      const scoped = scopes[index].get(name);
-      if (scoped) return scoped;
+    const scoped = lookupScopedValue(scopes, name);
+    if (scoped) {
+      return scoped === DECLARED_NAME_SENTINEL ? null : scoped;
     }
-    if (GLOBAL_NAMESPACES.has(name)) {
+    if (isKnownNamespaceName(name)) {
       return name;
     }
     return null;
@@ -402,6 +494,20 @@ function walkExpression(
 ) {
   if (!node) return;
 
+  if (node.type === 'Identifier') {
+    const name = String(node.name ?? '');
+    if (!isNameDeclared(scopes, name)) {
+      pushDiagnostic(
+        diagnostics,
+        'warning',
+        sourceLines,
+        node,
+        `Undefined global variable: ${name}.`,
+      );
+    }
+    return;
+  }
+
   if (node.type === 'CallExpression') {
     validateCallExpression(node, scopes, sourceLines, diagnostics);
     walkExpression(node.base as LuaNode | undefined, scopes, sourceLines, diagnostics);
@@ -444,6 +550,7 @@ function walkStatements(
     if (statement.type === 'LocalStatement' || statement.type === 'AssignmentStatement') {
       const variables = (statement.variables as LuaNode[] | undefined) ?? [];
       const init = (statement.init as LuaNode[] | undefined) ?? [];
+      const isLocalStatement = statement.type === 'LocalStatement';
 
       for (const expression of init) {
         walkExpression(expression, scopes, sourceLines, diagnostics);
@@ -453,9 +560,10 @@ function walkStatements(
         const variable = variables[index];
         if (variable?.type !== 'Identifier') continue;
         const inferred = inferExpressionType(init[index], scopes, sourceLines);
-        if (inferred) {
-          scopes[scopes.length - 1].set(String(variable.name), inferred);
-        }
+        const targetScope = isLocalStatement
+          ? scopes[scopes.length - 1]
+          : (findDeclaredScope(scopes, String(variable.name)) ?? scopes[0]);
+        declareScopedName(targetScope, String(variable.name), inferred);
       }
       continue;
     }
@@ -474,13 +582,22 @@ function walkStatements(
 
     if (statement.type === 'FunctionDeclaration') {
       const localScope: LuaScope = new Map();
+      const functionIdentifier = statement.identifier as LuaNode | undefined;
+      const isLocalFunction = Boolean(statement.isLocal);
+      if (functionIdentifier?.type === 'Identifier') {
+        const targetScope = isLocalFunction ? scopes[scopes.length - 1] : scopes[0];
+        declareScopedName(targetScope, String(functionIdentifier.name));
+      } else if (functionIdentifier?.type === 'MemberExpression') {
+        const baseIdentifier = functionIdentifier.base as LuaNode | undefined;
+        if (baseIdentifier?.type === 'Identifier' && !isNameDeclared(scopes, String(baseIdentifier.name))) {
+          declareScopedName(scopes[0], String(baseIdentifier.name));
+        }
+      }
       const parameters = (statement.parameters as LuaNode[] | undefined) ?? [];
       parameters.forEach((parameter, index) => {
         if (parameter?.type !== 'Identifier') return;
         const inferredType = inferFunctionParameterType(statement, String(parameter.name), index);
-        if (inferredType) {
-          localScope.set(String(parameter.name), inferredType);
-        }
+        declareScopedName(localScope, String(parameter.name), inferredType);
       });
       walkStatements((statement.body as LuaNode[] | undefined) ?? [], [...scopes, localScope], sourceLines, diagnostics);
       continue;
@@ -589,17 +706,6 @@ export function analyzeLuaScript(source: string): LuaScriptDiagnostic[] {
         endColumn: Math.max(2, (sourceLines[lastLineNumber - 1]?.length ?? 0) + 1),
       });
     }
-  }
-
-  if (!/function\s+s\.initial_effect\s*\(\s*c\s*\)/.test(source)) {
-    diagnostics.push({
-      severity: 'warning',
-      message: '缺少 function s.initial_effect(c)。',
-      startLineNumber: 1,
-      startColumn: 1,
-      endLineNumber: 1,
-      endColumn: Math.max(2, (sourceLines[0]?.length ?? 0) + 1),
-    });
   }
 
   if (ast) {
