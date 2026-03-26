@@ -99,6 +99,7 @@
   const EFFECT_BLOCK_FILL_INSET_RIGHT = 16;
   const EFFECT_BLOCK_FILL_INSET_BOTTOM = 20;
   const CROPPED_IMAGE_SIZE = 1024;
+  const FIELD_SPELL_ART_SIZE = 512;
   const MIN_CROP_SIZE = 80;
   const MIN_EXPORT_SCALE_PERCENT = 10;
   const MAX_EXPORT_SCALE_PERCENT = 100;
@@ -851,6 +852,39 @@
     }));
   }
 
+  function isFieldSpellCard(data: CardImageFormData) {
+    return data.type === "spell" && data.icon === "field";
+  }
+
+  async function renderSquareJpgBlob(dataUrl: string, size: number, quality = 0.92) {
+    const image = new Image();
+    image.src = dataUrl;
+    await image.decode();
+
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Canvas context unavailable");
+    }
+
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.clearRect(0, 0, size, size);
+    context.drawImage(image, 0, 0, size, size);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", quality);
+    });
+    if (blob) {
+      return blob;
+    }
+
+    const fallbackResponse = await fetch(canvas.toDataURL("image/jpeg", quality));
+    return await fallbackResponse.blob();
+  }
+
   function hasCustomNameShadowStyle(data: CardImageFormData) {
     return Boolean(
       data.nameShadowGradient
@@ -1355,6 +1389,8 @@
     try {
       const picsDir = await getPicsDir(cdbPath);
       const picPath = await tauriBridge.join(picsDir, `${card.code}.jpg`);
+      const fieldPicPath = await tauriBridge.join(picsDir, "field", `${card.code}.jpg`);
+      const jpgData = buildJpgData();
 
       let shouldOverwrite = true;
       if (await pathExists(picPath)) {
@@ -1368,9 +1404,19 @@
 
       if (!shouldOverwrite) return;
 
-      const jpgBlob = await renderCardBlob(buildJpgData(), "jpg", 0.92);
+      const jpgBlob = await renderCardBlob(jpgData, "jpg", 0.92);
       const bytes = await blobToUint8Array(jpgBlob);
+
+      let fieldArtBytes: Uint8Array | null = null;
+      if (isFieldSpellCard(jpgData) && croppedImageDataUrl) {
+        const fieldArtBlob = await renderSquareJpgBlob(croppedImageDataUrl, FIELD_SPELL_ART_SIZE, 0.92);
+        fieldArtBytes = await blobToUint8Array(fieldArtBlob);
+      }
+
       await writeBinaryFile(picPath, Array.from(bytes));
+      if (fieldArtBytes) {
+        await writeBinaryFile(fieldPicPath, Array.from(fieldArtBytes));
+      }
       await onSavedJpg();
       showToast($_("editor.card_image_save_jpg_success", {
         values: { code: String(card.code) },
