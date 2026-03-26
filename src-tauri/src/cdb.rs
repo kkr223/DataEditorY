@@ -70,6 +70,8 @@ const INSERT_TEXTS_STMT: &str = concat!(
 
 const TYPE_LINK: u32 = 0x4000000;
 const TYPE_TOKEN: u32 = 0x4000;
+const TYPE_SPELL: u32 = 0x2;
+const SUBTYPE_FIELD: u32 = 0x80000;
 const CARD_ARTWORK_VERSIONS_OFFSET: u32 = 20;
 const PAGE_SIZE_DEFAULT: u32 = 50;
 const PAGE_SIZE_MAX: u32 = 200;
@@ -82,7 +84,7 @@ pub(crate) struct CdbSessionMeta {
 
 pub struct OpenCdbSessions(pub Mutex<HashMap<String, CdbSessionMeta>>);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CardDto {
     pub code: u32,
@@ -155,6 +157,70 @@ pub struct DeleteCardsRequest {
     pub card_ids: Vec<u32>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateCdbFromCardsRequest {
+    pub output_path: String,
+    pub cards: Vec<CardDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeConflictDto {
+    pub code: u32,
+    pub a_card: CardDto,
+    pub b_card: CardDto,
+    pub has_card_conflict: bool,
+    pub has_image_conflict: bool,
+    pub has_field_image_conflict: bool,
+    pub has_script_conflict: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalyzeCdbMergeResponse {
+    pub a_name: String,
+    pub b_name: String,
+    pub a_total: u32,
+    pub b_total: u32,
+    pub merged_total: u32,
+    pub conflicts: Vec<MergeConflictDto>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalyzeCdbMergeRequest {
+    pub a_path: String,
+    pub b_path: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecuteCdbMergeRequest {
+    pub a_path: String,
+    pub b_path: String,
+    pub output_path: String,
+    pub conflict_mode: String,
+    #[serde(default)]
+    pub manual_choices: HashMap<u32, String>,
+    #[serde(default)]
+    pub include_images: bool,
+    #[serde(default)]
+    pub include_scripts: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopyCardAssetsRequest {
+    pub source_cdb_path: String,
+    pub target_cdb_path: String,
+    pub card_ids: Vec<u32>,
+    #[serde(default)]
+    pub include_images: bool,
+    #[serde(default)]
+    pub include_scripts: bool,
+}
+
 fn sanitize_clause(clause: &str) -> String {
     let trimmed = clause.trim();
     if trimmed.is_empty() {
@@ -213,6 +279,10 @@ fn ensure_parent_dir(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn ensure_dir(path: &Path) -> Result<(), String> {
+    fs::create_dir_all(path).map_err(|err| err.to_string())
+}
+
 fn open_connection(path: &Path) -> Result<Connection, String> {
     let conn = Connection::open(path).map_err(|err| err.to_string())?;
     conn.create_scalar_function(
@@ -242,6 +312,75 @@ fn open_connection(path: &Path) -> Result<Connection, String> {
     conn.execute_batch(INSERT_EMPTY_TEXTS_FROM_DATAS_STMT)
         .map_err(|err| err.to_string())?;
     Ok(conn)
+}
+
+fn cdb_dir_from_path(path: &str) -> Result<PathBuf, String> {
+    Path::new(path)
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| "Unable to resolve the database directory".to_string())
+}
+
+fn main_image_path(cdb_dir: &Path, card_id: u32) -> PathBuf {
+    cdb_dir.join("pics").join(format!("{card_id}.jpg"))
+}
+
+fn field_image_path(cdb_dir: &Path, card_id: u32) -> PathBuf {
+    cdb_dir.join("pics").join("field").join(format!("{card_id}.jpg"))
+}
+
+fn script_path(cdb_dir: &Path, card_id: u32) -> PathBuf {
+    cdb_dir.join("script").join(format!("c{card_id}.lua"))
+}
+
+fn load_all_cards_from_path(path: &Path) -> Result<Vec<CardDto>, String> {
+    let conn = open_connection(path)?;
+    query_cards(&conn, "1=1 ORDER BY datas.id", &HashMap::new())
+}
+
+fn recreate_cdb_with_cards(path: &Path, cards: &[CardDto]) -> Result<(), String> {
+    ensure_parent_dir(path)?;
+    if path.exists() {
+        fs::remove_file(path).map_err(|err| err.to_string())?;
+    }
+
+    let mut conn = open_connection(path)?;
+    let tx = conn.transaction().map_err(|err| err.to_string())?;
+    {
+        tx.execute("DELETE FROM datas", [])
+            .map_err(|err| err.to_string())?;
+        tx.execute("DELETE FROM texts", [])
+            .map_err(|err| err.to_string())?;
+
+        let mut stmt_datas = tx.prepare(INSERT_DATAS_STMT).map_err(|err| err.to_string())?;
+        let mut stmt_texts = tx.prepare(INSERT_TEXTS_STMT).map_err(|err| err.to_string())?;
+        for card in cards {
+            write_card(&mut stmt_datas, &mut stmt_texts, card)?;
+        }
+    }
+    tx.commit().map_err(|err| err.to_string())
+}
+
+fn copy_if_exists(src: &Path, dest: &Path) -> Result<bool, String> {
+    if !src.is_file() {
+        return Ok(false);
+    }
+
+    ensure_parent_dir(dest)?;
+    fs::copy(src, dest).map_err(|err| err.to_string())?;
+    Ok(true)
+}
+
+fn build_stage_dir(output_path: &Path, label: &str) -> Result<PathBuf, String> {
+    let mut nonce = [0_u8; 8];
+    rand::thread_rng().fill_bytes(&mut nonce);
+    let parent = output_path
+        .parent()
+        .ok_or_else(|| "Unable to resolve the output directory".to_string())?;
+    Ok(parent.join(format!(
+        ".__dataeditory-{label}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+        nonce[0], nonce[1], nonce[2], nonce[3], nonce[4], nonce[5], nonce[6], nonce[7]
+    )))
 }
 
 fn with_session_meta<T>(
@@ -515,6 +654,104 @@ fn write_card(
     Ok(())
 }
 
+fn analyze_cdb_merge_paths(a_path: &str, b_path: &str) -> Result<AnalyzeCdbMergeResponse, String> {
+    let a_cards = load_all_cards_from_path(Path::new(a_path))?;
+    let b_cards = load_all_cards_from_path(Path::new(b_path))?;
+    let a_dir = cdb_dir_from_path(a_path)?;
+    let b_dir = cdb_dir_from_path(b_path)?;
+
+    let a_by_code: HashMap<u32, CardDto> = a_cards.iter().cloned().map(|card| (card.code, card)).collect();
+    let b_by_code: HashMap<u32, CardDto> = b_cards.iter().cloned().map(|card| (card.code, card)).collect();
+
+    let mut all_codes = a_by_code.keys().copied().collect::<Vec<_>>();
+    for code in b_by_code.keys().copied() {
+        if !all_codes.contains(&code) {
+            all_codes.push(code);
+        }
+    }
+    all_codes.sort_unstable();
+
+    let mut conflicts = Vec::new();
+    for code in all_codes {
+        let Some(a_card) = a_by_code.get(&code).cloned() else {
+            continue;
+        };
+        let Some(b_card) = b_by_code.get(&code).cloned() else {
+            continue;
+        };
+
+        let a_image = main_image_path(&a_dir, code).is_file();
+        let b_image = main_image_path(&b_dir, code).is_file();
+        let a_field_image = field_image_path(&a_dir, code).is_file();
+        let b_field_image = field_image_path(&b_dir, code).is_file();
+        let a_script = script_path(&a_dir, code).is_file();
+        let b_script = script_path(&b_dir, code).is_file();
+
+        let has_card_conflict = a_card != b_card;
+        let has_image_conflict = a_image && b_image;
+        let has_field_image_conflict = a_field_image && b_field_image;
+        let has_script_conflict = a_script && b_script;
+
+        if has_card_conflict || has_image_conflict || has_field_image_conflict || has_script_conflict {
+            conflicts.push(MergeConflictDto {
+                code,
+                a_card,
+                b_card,
+                has_card_conflict,
+                has_image_conflict,
+                has_field_image_conflict,
+                has_script_conflict,
+            });
+        }
+    }
+
+    let merged_total = {
+        let mut unique_codes = a_by_code.keys().copied().collect::<Vec<_>>();
+        for code in b_by_code.keys().copied() {
+            if !unique_codes.contains(&code) {
+                unique_codes.push(code);
+            }
+        }
+        unique_codes.len() as u32
+    };
+
+    Ok(AnalyzeCdbMergeResponse {
+        a_name: basename(a_path),
+        b_name: basename(b_path),
+        a_total: a_cards.len() as u32,
+        b_total: b_cards.len() as u32,
+        merged_total,
+        conflicts,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MergeSide {
+    A,
+    B,
+}
+
+fn choose_merge_side(
+    conflict_mode: &str,
+    code: u32,
+    manual_choices: &HashMap<u32, String>,
+) -> Result<MergeSide, String> {
+    match conflict_mode {
+        "preferA" => Ok(MergeSide::A),
+        "preferB" => Ok(MergeSide::B),
+        "manual" => match manual_choices.get(&code).map(|value| value.trim()) {
+            Some("a") | Some("A") => Ok(MergeSide::A),
+            Some("b") | Some("B") => Ok(MergeSide::B),
+            _ => Err(format!("Missing manual merge choice for card {code}")),
+        },
+        other => Err(format!("Unsupported merge conflict mode: {other}")),
+    }
+}
+
+fn card_has_field_subtype(card: &CardDto) -> bool {
+    (card.type_ & TYPE_SPELL) != 0 && (card.type_ & SUBTYPE_FIELD) != 0
+}
+
 #[tauri::command]
 pub fn open_cdb_tab(
     app: AppHandle,
@@ -709,4 +946,231 @@ pub fn delete_cards(
         }
         tx.commit().map_err(|err| err.to_string())
     })
+}
+
+#[tauri::command]
+pub fn create_cdb_from_cards(request: CreateCdbFromCardsRequest) -> Result<(), String> {
+    recreate_cdb_with_cards(Path::new(&request.output_path), &request.cards)
+}
+
+#[tauri::command]
+pub fn copy_card_assets(request: CopyCardAssetsRequest) -> Result<(), String> {
+    let source_dir = cdb_dir_from_path(&request.source_cdb_path)?;
+    let target_dir = cdb_dir_from_path(&request.target_cdb_path)?;
+
+    for &card_id in &request.card_ids {
+        if request.include_images {
+            let _ = copy_if_exists(
+                &main_image_path(&source_dir, card_id),
+                &main_image_path(&target_dir, card_id),
+            )?;
+            let _ = copy_if_exists(
+                &field_image_path(&source_dir, card_id),
+                &field_image_path(&target_dir, card_id),
+            )?;
+        }
+
+        if request.include_scripts {
+            let _ = copy_if_exists(
+                &script_path(&source_dir, card_id),
+                &script_path(&target_dir, card_id),
+            )?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn analyze_cdb_merge(request: AnalyzeCdbMergeRequest) -> Result<AnalyzeCdbMergeResponse, String> {
+    analyze_cdb_merge_paths(&request.a_path, &request.b_path)
+}
+
+#[tauri::command]
+pub fn execute_cdb_merge(request: ExecuteCdbMergeRequest) -> Result<(), String> {
+    let analysis = analyze_cdb_merge_paths(&request.a_path, &request.b_path)?;
+    if request.conflict_mode == "manual" {
+        for conflict in &analysis.conflicts {
+            choose_merge_side(&request.conflict_mode, conflict.code, &request.manual_choices)?;
+        }
+    }
+
+    let a_cards = load_all_cards_from_path(Path::new(&request.a_path))?;
+    let b_cards = load_all_cards_from_path(Path::new(&request.b_path))?;
+    let a_dir = cdb_dir_from_path(&request.a_path)?;
+    let b_dir = cdb_dir_from_path(&request.b_path)?;
+
+    let mut merged_cards = HashMap::<u32, CardDto>::new();
+    let mut preferred_side_by_code = HashMap::<u32, MergeSide>::new();
+
+    for card in &a_cards {
+        merged_cards.insert(card.code, card.clone());
+        preferred_side_by_code.insert(card.code, MergeSide::A);
+    }
+
+    for card in &b_cards {
+        match merged_cards.get(&card.code) {
+            None => {
+                merged_cards.insert(card.code, card.clone());
+                preferred_side_by_code.insert(card.code, MergeSide::B);
+            }
+            Some(existing) => {
+                let preferred_side = if existing == card {
+                    preferred_side_by_code.get(&card.code).copied().unwrap_or(MergeSide::A)
+                } else {
+                    choose_merge_side(&request.conflict_mode, card.code, &request.manual_choices)?
+                };
+
+                if preferred_side == MergeSide::B {
+                    merged_cards.insert(card.code, card.clone());
+                }
+                preferred_side_by_code.insert(card.code, preferred_side);
+            }
+        }
+    }
+
+    let mut merged_cards_list = merged_cards.into_values().collect::<Vec<_>>();
+    merged_cards_list.sort_by_key(|card| card.code);
+
+    let output_path = PathBuf::from(&request.output_path);
+    ensure_parent_dir(&output_path)?;
+
+    let stage_dir = build_stage_dir(&output_path, "merge")?;
+    ensure_dir(&stage_dir)?;
+    let output_file_name = output_path
+        .file_name()
+        .ok_or_else(|| "Unable to resolve output file name".to_string())?;
+    let staged_cdb_path = stage_dir.join(output_file_name);
+
+    let staged_pics_dir = stage_dir.join("pics");
+    let staged_field_pics_dir = staged_pics_dir.join("field");
+    let staged_script_dir = stage_dir.join("script");
+
+    recreate_cdb_with_cards(&staged_cdb_path, &merged_cards_list)?;
+
+    if request.include_images {
+        for card in &merged_cards_list {
+            let code = card.code;
+            let preferred_side = preferred_side_by_code.get(&code).copied().unwrap_or(MergeSide::A);
+            let preferred_dir = if preferred_side == MergeSide::A { &a_dir } else { &b_dir };
+            let fallback_dir = if preferred_side == MergeSide::A { &b_dir } else { &a_dir };
+
+            let preferred_main = main_image_path(preferred_dir, code);
+            let fallback_main = main_image_path(fallback_dir, code);
+            let staged_main = staged_pics_dir.join(format!("{code}.jpg"));
+            if !copy_if_exists(&preferred_main, &staged_main)? {
+                let _ = copy_if_exists(&fallback_main, &staged_main)?;
+            }
+
+            let preferred_field = field_image_path(preferred_dir, code);
+            let fallback_field = field_image_path(fallback_dir, code);
+            let staged_field = staged_field_pics_dir.join(format!("{code}.jpg"));
+            if !copy_if_exists(&preferred_field, &staged_field)? && card_has_field_subtype(card) {
+                let _ = copy_if_exists(&fallback_field, &staged_field)?;
+            }
+        }
+    }
+
+    if request.include_scripts {
+        for card in &merged_cards_list {
+            let code = card.code;
+            let preferred_side = preferred_side_by_code.get(&code).copied().unwrap_or(MergeSide::A);
+            let preferred_dir = if preferred_side == MergeSide::A { &a_dir } else { &b_dir };
+            let fallback_dir = if preferred_side == MergeSide::A { &b_dir } else { &a_dir };
+
+            let preferred_script = script_path(preferred_dir, code);
+            let fallback_script = script_path(fallback_dir, code);
+            let staged_script = staged_script_dir.join(format!("c{code}.lua"));
+            if !copy_if_exists(&preferred_script, &staged_script)? {
+                let _ = copy_if_exists(&fallback_script, &staged_script)?;
+            }
+        }
+    }
+
+    let output_dir = output_path
+        .parent()
+        .ok_or_else(|| "Unable to resolve output directory".to_string())?;
+    let target_pics_dir = output_dir.join("pics");
+    let target_script_dir = output_dir.join("script");
+    let backup_cdb_path = output_dir.join(".__dataeditory-merge-backup.cdb");
+    let backup_pics_dir = output_dir.join(".__dataeditory-merge-backup-pics");
+    let backup_script_dir = output_dir.join(".__dataeditory-merge-backup-script");
+
+    let mut moved_cdb = false;
+    let mut moved_pics = false;
+    let mut moved_scripts = false;
+
+    let commit_result = (|| -> Result<(), String> {
+        if output_path.exists() {
+            if backup_cdb_path.exists() {
+                fs::remove_file(&backup_cdb_path).map_err(|err| err.to_string())?;
+            }
+            fs::rename(&output_path, &backup_cdb_path).map_err(|err| err.to_string())?;
+        }
+
+        if request.include_images && target_pics_dir.exists() {
+            if backup_pics_dir.exists() {
+                fs::remove_dir_all(&backup_pics_dir).map_err(|err| err.to_string())?;
+            }
+            fs::rename(&target_pics_dir, &backup_pics_dir).map_err(|err| err.to_string())?;
+        }
+
+        if request.include_scripts && target_script_dir.exists() {
+            if backup_script_dir.exists() {
+                fs::remove_dir_all(&backup_script_dir).map_err(|err| err.to_string())?;
+            }
+            fs::rename(&target_script_dir, &backup_script_dir).map_err(|err| err.to_string())?;
+        }
+
+        fs::rename(&staged_cdb_path, &output_path).map_err(|err| err.to_string())?;
+        moved_cdb = true;
+
+        if request.include_images && staged_pics_dir.exists() {
+            fs::rename(&staged_pics_dir, &target_pics_dir).map_err(|err| err.to_string())?;
+            moved_pics = true;
+        }
+
+        if request.include_scripts && staged_script_dir.exists() {
+            fs::rename(&staged_script_dir, &target_script_dir).map_err(|err| err.to_string())?;
+            moved_scripts = true;
+        }
+
+        Ok(())
+    })();
+
+    if let Err(error) = commit_result {
+        if moved_scripts {
+            let _ = fs::remove_dir_all(&target_script_dir);
+        }
+        if moved_pics {
+            let _ = fs::remove_dir_all(&target_pics_dir);
+        }
+        if moved_cdb {
+            let _ = fs::remove_file(&output_path);
+        }
+        if backup_cdb_path.exists() {
+            let _ = fs::rename(&backup_cdb_path, &output_path);
+        }
+        if backup_pics_dir.exists() {
+            let _ = fs::rename(&backup_pics_dir, &target_pics_dir);
+        }
+        if backup_script_dir.exists() {
+            let _ = fs::rename(&backup_script_dir, &target_script_dir);
+        }
+        let _ = fs::remove_dir_all(&stage_dir);
+        return Err(error);
+    }
+
+    if backup_cdb_path.exists() {
+        let _ = fs::remove_file(&backup_cdb_path);
+    }
+    if backup_pics_dir.exists() {
+        let _ = fs::remove_dir_all(&backup_pics_dir);
+    }
+    if backup_script_dir.exists() {
+        let _ = fs::remove_dir_all(&backup_script_dir);
+    }
+    let _ = fs::remove_dir_all(&stage_dir);
+
+    Ok(())
 }
