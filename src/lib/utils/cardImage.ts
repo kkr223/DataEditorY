@@ -9,6 +9,13 @@ export type CardImageFormData = BaseYugiohCardData & {
   foregroundY: number;
   foregroundScale: number;
   foregroundRotation: number;
+  effectBlockEnabled: boolean;
+  effectBlockX: number;
+  effectBlockY: number;
+  effectBlockWidth: number;
+  effectBlockHeight: number;
+  effectBlockColor: string;
+  effectBlockOpacity: number;
   nameShadowColor: string;
   nameShadowGradient: boolean;
   nameShadowGradientColor1: string;
@@ -66,6 +73,13 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   foregroundY: 1015.5,
   foregroundScale: 1,
   foregroundRotation: 0,
+  effectBlockEnabled: false,
+  effectBlockX: 76,
+  effectBlockY: 1503,
+  effectBlockWidth: 1238,
+  effectBlockHeight: 428,
+  effectBlockColor: "#f6f2e8",
+  effectBlockOpacity: 0.78,
   nameShadowColor: "",
   nameShadowGradient: false,
   nameShadowGradientColor1: "#1f2937",
@@ -213,6 +227,13 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     foregroundY: coerceNumber(data.foregroundY, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundY),
     foregroundScale: coerceNumber(data.foregroundScale, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundScale),
     foregroundRotation: coerceNumber(data.foregroundRotation, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundRotation),
+    effectBlockEnabled: Boolean(data.effectBlockEnabled ?? DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockEnabled),
+    effectBlockX: coerceNumber(data.effectBlockX, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockX),
+    effectBlockY: coerceNumber(data.effectBlockY, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockY),
+    effectBlockWidth: coerceNumber(data.effectBlockWidth, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockWidth),
+    effectBlockHeight: coerceNumber(data.effectBlockHeight, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockHeight),
+    effectBlockColor: String(data.effectBlockColor ?? DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockColor),
+    effectBlockOpacity: coerceNumber(data.effectBlockOpacity, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockOpacity),
     nameShadowColor: String(data.nameShadowColor ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowColor),
     nameShadowGradient: Boolean(data.nameShadowGradient ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradient),
     nameShadowGradientColor1: String(data.nameShadowGradientColor1 ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradientColor1),

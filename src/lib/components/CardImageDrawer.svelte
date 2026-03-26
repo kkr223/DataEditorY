@@ -33,6 +33,9 @@
     data: CardImageFormData;
     resourcePath: string;
   }) => {
+    maskLeaf?: {
+      constructor?: new () => { set?: (data: Record<string, unknown>) => void };
+    };
     leafer?: {
       destroy?: () => void;
       export: (type: string, options?: Record<string, unknown>) => Promise<unknown>;
@@ -65,6 +68,12 @@
     __customNameShadowLeaf?: {
       set?: (data: Record<string, unknown>) => void;
     } | null;
+    __customEffectBlockFillLeaf?: {
+      set?: (data: Record<string, unknown>) => void;
+    } | null;
+    __customEffectBlockBorderLeaf?: {
+      set?: (data: Record<string, unknown>) => void;
+    } | null;
   };
 
   type CropBox = { x: number; y: number; size: number };
@@ -81,6 +90,14 @@
   const FOREGROUND_EDITOR_CARD_WIDTH = 1394;
   const FOREGROUND_EDITOR_CARD_HEIGHT = 2031;
   const FOREGROUND_EDITOR_PADDING = 32;
+  const EFFECT_BLOCK_X = 76;
+  const EFFECT_BLOCK_Y = 1503;
+  const EFFECT_BLOCK_WIDTH = 1236;
+  const EFFECT_BLOCK_HEIGHT = 430;
+  const EFFECT_BLOCK_FILL_INSET_X = 22;
+  const EFFECT_BLOCK_FILL_INSET_Y = 20;
+  const EFFECT_BLOCK_FILL_INSET_RIGHT = 22;
+  const EFFECT_BLOCK_FILL_INSET_BOTTOM = 28;
   const CROPPED_IMAGE_SIZE = 1024;
   const MIN_CROP_SIZE = 80;
   const MIN_EXPORT_SCALE_PERCENT = 10;
@@ -244,6 +261,9 @@
     foregroundEditorOpen = false;
     foregroundDragMode = null;
     foregroundDragPointerId = null;
+  }
+
+  function clearForegroundInitialState() {
     initialForegroundState = null;
   }
 
@@ -322,7 +342,7 @@
   }
 
   function clearForegroundImage() {
-    initialForegroundState = null;
+    clearForegroundInitialState();
     form = normalizeCardImageFormData({
       ...form,
       foregroundImage: "",
@@ -839,16 +859,35 @@
     );
   }
 
+  function hasEffectBlock(data: CardImageFormData) {
+    return Boolean(
+      data.effectBlockEnabled
+      && data.effectBlockWidth > 0
+      && data.effectBlockHeight > 0
+      && data.effectBlockOpacity > 0,
+    );
+  }
+
+  function createSolidRectSvgDataUrl(width: number, height: number, color: string, opacity: number) {
+    const safeWidth = Math.max(1, Math.round(width));
+    const safeHeight = Math.max(1, Math.round(height));
+    const safeOpacity = Math.max(0, Math.min(opacity, 1));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${safeWidth}" height="${safeHeight}" viewBox="0 0 ${safeWidth} ${safeHeight}"><rect width="${safeWidth}" height="${safeHeight}" fill="${color}" fill-opacity="${safeOpacity}"/></svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
   function applyNameLeafEnhancements(cardInstance: InstanceType<YugiohCardConstructor> | null, data: CardImageFormData) {
     if (!cardInstance?.nameLeaf) return;
 
     const mainNameLeaf = cardInstance.nameLeaf;
-    mainNameLeaf.set?.({
-      color: data.color,
-      gradient: data.gradient,
-      gradientColor1: data.gradientColor1,
-      gradientColor2: data.gradientColor2,
-    });
+    if (data.color.trim() || data.gradient) {
+      mainNameLeaf.set?.({
+        color: data.color,
+        gradient: data.gradient,
+        gradientColor1: data.gradientColor1,
+        gradientColor2: data.gradientColor2,
+      });
+    }
 
     if (!hasCustomNameShadowStyle(data)) {
       cardInstance.__customNameShadowLeaf?.set?.({ visible: false });
@@ -887,6 +926,58 @@
       gradient: data.nameShadowGradient,
       gradientColor1: data.nameShadowGradientColor1,
       gradientColor2: data.nameShadowGradientColor2,
+    });
+  }
+
+  function applyEffectBlockOverlay(
+    cardInstance: InstanceType<YugiohCardConstructor> | null,
+    data: CardImageFormData,
+    resourcePath: string,
+  ) {
+    const LeafConstructor = cardInstance?.maskLeaf?.constructor;
+    if (!cardInstance?.leafer?.add || !LeafConstructor) return;
+
+    if (!cardInstance.__customEffectBlockFillLeaf) {
+      cardInstance.__customEffectBlockFillLeaf = new LeafConstructor();
+      cardInstance.leafer.add(cardInstance.__customEffectBlockFillLeaf);
+    }
+
+    if (!cardInstance.__customEffectBlockBorderLeaf) {
+      cardInstance.__customEffectBlockBorderLeaf = new LeafConstructor();
+      cardInstance.leafer.add(cardInstance.__customEffectBlockBorderLeaf);
+    }
+
+    if (!hasEffectBlock(data)) {
+      cardInstance.__customEffectBlockFillLeaf?.set?.({ visible: false });
+      cardInstance.__customEffectBlockBorderLeaf?.set?.({ visible: false });
+      return;
+    }
+
+    const fillUrl = createSolidRectSvgDataUrl(
+      EFFECT_BLOCK_WIDTH - EFFECT_BLOCK_FILL_INSET_X - EFFECT_BLOCK_FILL_INSET_RIGHT,
+      EFFECT_BLOCK_HEIGHT - EFFECT_BLOCK_FILL_INSET_Y - EFFECT_BLOCK_FILL_INSET_BOTTOM,
+      data.effectBlockColor,
+      data.effectBlockOpacity,
+    );
+    const borderUrl = `${resourcePath}/yugioh/image/eblock-border.png`;
+
+    cardInstance.__customEffectBlockFillLeaf?.set?.({
+      url: fillUrl,
+      x: EFFECT_BLOCK_X + EFFECT_BLOCK_FILL_INSET_X,
+      y: EFFECT_BLOCK_Y + EFFECT_BLOCK_FILL_INSET_Y,
+      width: EFFECT_BLOCK_WIDTH - EFFECT_BLOCK_FILL_INSET_X - EFFECT_BLOCK_FILL_INSET_RIGHT,
+      height: EFFECT_BLOCK_HEIGHT - EFFECT_BLOCK_FILL_INSET_Y - EFFECT_BLOCK_FILL_INSET_BOTTOM,
+      visible: true,
+      zIndex: 28,
+    });
+    cardInstance.__customEffectBlockBorderLeaf?.set?.({
+      url: borderUrl,
+      x: EFFECT_BLOCK_X,
+      y: EFFECT_BLOCK_Y,
+      width: EFFECT_BLOCK_WIDTH,
+      height: EFFECT_BLOCK_HEIGHT,
+      visible: true,
+      zIndex: 29,
     });
   }
 
@@ -943,6 +1034,13 @@
     void form.foregroundY;
     void form.foregroundScale;
     void form.foregroundRotation;
+    void form.effectBlockEnabled;
+    void form.effectBlockX;
+    void form.effectBlockY;
+    void form.effectBlockWidth;
+    void form.effectBlockHeight;
+    void form.effectBlockColor;
+    void form.effectBlockOpacity;
     void form.nameShadowColor;
     void form.nameShadowGradient;
     void form.nameShadowGradientColor1;
@@ -973,13 +1071,15 @@
     let exportCard: InstanceType<YugiohCardConstructor> | null = null;
 
     try {
+      const resourcePath = await getResourcePath();
       exportCard = new YugiohCard({
         view: host,
         data,
-        resourcePath: await getResourcePath(),
+        resourcePath,
       });
 
       await tick();
+      applyEffectBlockOverlay(exportCard, data, resourcePath);
       applyNameLeafEnhancements(exportCard, data);
       if (!exportCard.leafer) {
         throw new Error("Export renderer unavailable");
@@ -1054,8 +1154,10 @@
     try {
       errorMessage = "";
       const cardInstance = await ensurePreviewCard();
-      cardInstance?.setData?.(buildPreviewData());
-      applyNameLeafEnhancements(cardInstance, buildPreviewData());
+      const previewData = buildPreviewData();
+      cardInstance?.setData?.(previewData);
+      applyEffectBlockOverlay(cardInstance, previewData, await getResourcePath());
+      applyNameLeafEnhancements(cardInstance, previewData);
     } catch (error) {
       console.error("Failed to refresh card image preview", error);
       errorMessage = $_("editor.card_image_generate_failed");
@@ -1067,8 +1169,10 @@
 
     try {
       const cardInstance = await ensureForegroundPreviewCard();
-      cardInstance?.setData?.(buildForegroundPreviewData());
-      applyNameLeafEnhancements(cardInstance, buildForegroundPreviewData());
+      const previewData = buildForegroundPreviewData();
+      cardInstance?.setData?.(previewData);
+      applyEffectBlockOverlay(cardInstance, previewData, await getResourcePath());
+      applyNameLeafEnhancements(cardInstance, previewData);
       await tick();
       requestAnimationFrame(() => {
         measureForegroundRenderBounds();
@@ -1321,6 +1425,7 @@
       destroyForegroundPreview();
       resetImageState();
       resetForegroundState();
+      clearForegroundInitialState();
       return;
     }
 
@@ -1330,6 +1435,7 @@
       lastFormLanguage = form.language;
       resetImageState();
       resetForegroundState();
+      clearForegroundInitialState();
       destroyPreview();
       destroyForegroundPreview();
       void warmupPreviewAfterFontsReady();
@@ -1764,6 +1870,36 @@
               <label class="field"><span>{$_("editor.card_image_foreground_height")}</span><input type="number" min="1" step="1" bind:value={form.foregroundHeight} /></label>
             </div>
           </div>
+
+          <div class="drawer-section foreground-section">
+            <div class="effect-block-header">
+              <div class="section-title">{$_("editor.card_image_effect_block")}</div>
+              <label class="toggle effect-block-toggle"><input type="checkbox" bind:checked={form.effectBlockEnabled} /><span>{$_("editor.card_image_effect_block_enable")}</span></label>
+            </div>
+            <fieldset class="effect-block-fieldset" disabled={!form.effectBlockEnabled}>
+              <div class="field-grid">
+                <label class="field"><span>{$_("editor.card_image_effect_block_opacity")}</span><input type="number" min="0" max="1" step="0.05" bind:value={form.effectBlockOpacity} /></label>
+                <label class="field">
+                  <span>{$_("editor.card_image_effect_block_color")}</span>
+                  <div class="color-input-row color-input-row-compact">
+                    <input
+                      class="color-swatch"
+                      type="color"
+                      value={form.effectBlockColor || "#f6f2e8"}
+                      onchange={(event) => {
+                        form = normalizeCardImageFormData({
+                          ...form,
+                          effectBlockColor: (event.currentTarget as HTMLInputElement).value,
+                        });
+                      }}
+                    />
+                    <input type="text" bind:value={form.effectBlockColor} />
+                  </div>
+                </label>
+              </div>
+            </fieldset>
+            <small class="field-hint">{$_("editor.card_image_effect_block_hint")}</small>
+          </div>
         </section>
 
         <section class="foreground-preview-pane">
@@ -1877,6 +2013,10 @@
   .color-swatch { min-height: 38px; padding: 4px; cursor: pointer; }
   .subfield-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-top: 6px; }
   .gradient-toggle { margin-top: 6px; align-self: flex-start; }
+  .effect-block-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .effect-block-toggle { margin-top: 0; }
+  .effect-block-fieldset { margin: 0; padding: 0; border: none; min-width: 0; }
+  .effect-block-fieldset:disabled { opacity: 0.58; }
   .field textarea { resize: vertical; min-height: 110px; }
   .toggle-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
   .toggle { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); color: var(--text-primary); font-size: 0.88rem; }
