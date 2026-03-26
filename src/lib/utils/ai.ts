@@ -1,12 +1,18 @@
 import { get } from 'svelte/store';
 import type { CardDataEntry } from '$lib/types';
 import { createEmptyCard } from '$lib/domain/card/draft';
+import { normalizeGeneratedScript } from '$lib/domain/script/workspace';
 import {
   ATTRIBUTE_MAP,
   LINK_MARKER_NAME_TO_BIT,
   RACE_MAP,
   SUBTYPE_MAP,
 } from '$lib/domain/card/taxonomy';
+import {
+  analyzeLuaScript,
+  ensureLuaDiagnosticsCatalogLoaded,
+  type LuaScriptDiagnostic,
+} from '$lib/utils/luaScriptDiagnostics';
 
 type AiRole = 'system' | 'user' | 'assistant' | 'tool';
 
@@ -92,6 +98,7 @@ type ParsedCardDraft = {
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 const MAX_AGENT_STEPS = 12;
+const MAX_SCRIPT_DIAGNOSTICS = 8;
 
 const ATTRIBUTE_NAME_TO_VALUE: Record<string, number> = { ...ATTRIBUTE_MAP };
 
@@ -899,7 +906,7 @@ export async function generateCardScript(currentCard: CardDataEntry, options: {
       ].join('\n')
     : '';
 
-  return runAgent({
+  const initialScript = normalizeGeneratedScript(await runAgent({
     context: options.context,
     currentCard,
     useTools: true,
@@ -944,7 +951,27 @@ export async function generateCardScript(currentCard: CardDataEntry, options: {
       '',
       'Return only the finished Lua code.',
     ].join('\n'),
-  });
+  }));
+
+  await ensureLuaDiagnosticsCatalogLoaded();
+  const initialDiagnostics = analyzeLuaScript(initialScript);
+  if (initialDiagnostics.length === 0) {
+    return initialScript;
+  }
+
+  const repairedScript = normalizeGeneratedScript(await repairGeneratedCardScript({
+    context: options.context,
+    currentCard,
+    initialScript,
+    diagnostics: initialDiagnostics,
+    signal: options.signal,
+    onStageChange: options.onStageChange,
+  }));
+  const repairedDiagnostics = analyzeLuaScript(repairedScript);
+
+  return getDiagnosticScore(repairedDiagnostics) <= getDiagnosticScore(initialDiagnostics)
+    ? repairedScript
+    : initialScript;
 }
 
 export async function translateCardImageFields(input: {
@@ -1018,5 +1045,71 @@ export async function translateCardImageFields(input: {
     description: string;
     pendulumDescription: string;
   }>(text);
+}
+
+function formatLuaDiagnosticsForPrompt(diagnostics: LuaScriptDiagnostic[]) {
+  return diagnostics
+    .slice(0, MAX_SCRIPT_DIAGNOSTICS)
+    .map((diagnostic, index) => (
+      `${index + 1}. [${diagnostic.severity}] ` +
+      `L${diagnostic.startLineNumber}:C${diagnostic.startColumn} ` +
+      `${diagnostic.message}`
+    ))
+    .join('\n');
+}
+
+function getDiagnosticScore(diagnostics: LuaScriptDiagnostic[]) {
+  return diagnostics.reduce((score, diagnostic) => (
+    score + (diagnostic.severity === 'error' ? 100 : 1)
+  ), 0);
+}
+
+async function repairGeneratedCardScript(input: {
+  context: AiAppContext;
+  currentCard: CardDataEntry;
+  initialScript: string;
+  diagnostics: LuaScriptDiagnostic[];
+  signal?: AbortSignal;
+  onStageChange?: (stage: AgentStage) => void;
+}) {
+  return runAgent({
+    context: input.context,
+    currentCard: input.currentCard,
+    useTools: false,
+    signal: input.signal,
+    onStageChange: input.onStageChange,
+    systemPrompt: [
+      'You are an expert EDOPro/YGOPro Lua card scripter.',
+      'You will receive a generated Lua script plus local static-analysis diagnostics.',
+      'Revise the script so it remains faithful to the card text while fixing the reported issues.',
+      '',
+      '## Output format',
+      'Return only the final Lua script.',
+      'Do not use markdown fences or any explanation.',
+      '',
+      '## Requirements',
+      '- Fix every diagnostic when possible.',
+      '- Preserve the card intent and existing valid logic.',
+      '- Keep the script runnable in EDOPro/YGOPro.',
+      '- Do not invent unsupported APIs.',
+      '- Prefer minimal targeted fixes over full rewrites unless the script is structurally broken.',
+    ].join('\n'),
+    userPrompt: [
+      'Fix the generated Lua script using the local static-analysis diagnostics below.',
+      '',
+      'Current card data:',
+      JSON.stringify(serializeCardForAi(input.currentCard)),
+      '',
+      'Diagnostics:',
+      formatLuaDiagnosticsForPrompt(input.diagnostics),
+      '',
+      'Current script:',
+      '```lua',
+      input.initialScript,
+      '```',
+      '',
+      'Return only the repaired Lua code.',
+    ].join('\n'),
+  });
 }
 

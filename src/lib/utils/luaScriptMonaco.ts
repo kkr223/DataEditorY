@@ -5,6 +5,7 @@ import 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
 import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { luaCatalog as defaultLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
+import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded } from '$lib/utils/luaScriptDiagnostics';
 import { loadExternalLuaCatalog } from '$lib/utils/luaIntelCatalog';
 import type { CardDataEntry, LuaFunctionItem } from '$lib/types';
 
@@ -1048,6 +1049,7 @@ function registerProviders() {
 
 export async function loadMonaco() {
   await ensureLuaCatalogLoaded();
+  await ensureLuaDiagnosticsCatalogLoaded();
   ensureMonacoEnvironment();
   registerProviders();
   syncMonacoTheme();
@@ -1117,55 +1119,16 @@ export function insertSnippet(
 }
 
 export function validateLuaModel(model: monaco.editor.ITextModel) {
-  const source = model.getValue();
-  const context = modelContexts.get(model.uri.toString());
-  const markers: monaco.editor.IMarkerData[] = [];
-  let ast: LuaNode | null = null;
-
-  try {
-    ast = luaparse.parse(source, {
-      comments: false,
-      luaVersion: '5.3',
-      locations: true,
-      ranges: true,
-    }) as unknown as LuaNode;
-  } catch (error) {
-    const err = error as { line?: number; column?: number; message?: string };
-    markers.push({
-      severity: monaco.MarkerSeverity.Error,
-      message: err.message ?? 'Lua syntax error',
-      startLineNumber: err.line ?? 1,
-      startColumn: (err.column ?? 0) + 1,
-      endLineNumber: err.line ?? 1,
-      endColumn: (err.column ?? 0) + 2,
-    });
-
-    if ((err.message ?? '').includes("'end' expected")) {
-      markers.push({
-        severity: monaco.MarkerSeverity.Warning,
-        message: '看起来存在未闭合的 function/end 结构。',
-        startLineNumber: model.getLineCount(),
-        startColumn: 1,
-        endLineNumber: model.getLineCount(),
-        endColumn: Math.max(2, model.getLineMaxColumn(model.getLineCount())),
-      });
-    }
-  }
-
-  if (!/function\s+s\.initial_effect\s*\(\s*c\s*\)/.test(source)) {
-    markers.push({
-      severity: monaco.MarkerSeverity.Warning,
-      message: '缺少 function s.initial_effect(c)。',
-      startLineNumber: 1,
-      startColumn: 1,
-      endLineNumber: 1,
-      endColumn: Math.max(2, model.getLineMaxColumn(1)),
-    });
-  }
-
-  if (ast) {
-    validateStaticTypes(ast, model, markers);
-  }
+  const markers = analyzeLuaScript(model.getValue()).map((diagnostic) => ({
+    severity: diagnostic.severity === 'error'
+      ? monaco.MarkerSeverity.Error
+      : monaco.MarkerSeverity.Warning,
+    message: diagnostic.message,
+    startLineNumber: diagnostic.startLineNumber,
+    startColumn: diagnostic.startColumn,
+    endLineNumber: diagnostic.endLineNumber,
+    endColumn: diagnostic.endColumn,
+  }));
 
   monaco.editor.setModelMarkers(model, LUA_MARKER_OWNER, markers);
 }
