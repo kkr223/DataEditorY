@@ -26,8 +26,6 @@
     cloneEditableCard,
     createEmptyCard,
     getPackedLevel,
-    getPackedLScale,
-    getPackedRScale,
     LINK_MARKERS,
     PERMISSION_OPTIONS,
     RACE_OPTIONS,
@@ -109,6 +107,26 @@
       draftCard.setcode,
       index,
       normalized ? `0x${normalized}` : "",
+    );
+  }
+
+  function updateDraftLevel(nextLevel: number) {
+    const safeLevel = Math.max(0, Math.min(13, Number.isFinite(nextLevel) ? nextLevel : 0));
+    draftCard.level = setPackedLevel(safeLevel, draftCard.lscale, draftCard.rscale);
+  }
+
+  function updateDraftScale(side: "left" | "right", nextScale: number) {
+    const safeScale = Math.max(0, Math.min(13, Number.isFinite(nextScale) ? nextScale : 0));
+    if (side === "left") {
+      draftCard.lscale = safeScale;
+    } else {
+      draftCard.rscale = safeScale;
+    }
+
+    draftCard.level = setPackedLevel(
+      getPackedLevel(draftCard.level),
+      draftCard.lscale,
+      draftCard.rscale,
     );
   }
 
@@ -713,17 +731,14 @@
               <label for="edit-level">{$_("editor.level")}</label>
               <select
                 id="edit-level"
+                value={getPackedLevel(draftCard.level)}
                 onchange={(e) => {
                   const t = e.target as HTMLSelectElement;
-                  draftCard.level = setPackedLevel(
-                    parseInt(t.value),
-                    getPackedLScale(draftCard.level),
-                    getPackedRScale(draftCard.level),
-                  );
+                  updateDraftLevel(parseInt(t.value, 10));
                 }}
               >
                 {#each Array.from({ length: 13 }, (_, i) => i + 1) as lvl}
-                  <option value={lvl} selected={getPackedLevel(draftCard.level) === lvl}>{lvl}</option>
+                  <option value={lvl}>{lvl}</option>
                 {/each}
               </select>
             </div>
@@ -804,11 +819,27 @@
             <div class="row-2">
               <div class="fg">
                 <label for="edit-lscale">{$_("editor.scale_left")}</label>
-                <input type="number" id="edit-lscale" min="0" max="13" disabled={!isPend} bind:value={draftCard.lscale} />
+                <input
+                  type="number"
+                  id="edit-lscale"
+                  min="0"
+                  max="13"
+                  disabled={!isPend}
+                  value={draftCard.lscale}
+                  oninput={(event) => updateDraftScale("left", Number((event.currentTarget as HTMLInputElement).value))}
+                />
               </div>
               <div class="fg">
                 <label for="edit-rscale">{$_("editor.scale_right")}</label>
-                <input type="number" id="edit-rscale" min="0" max="13" disabled={!isPend} bind:value={draftCard.rscale} />
+                <input
+                  type="number"
+                  id="edit-rscale"
+                  min="0"
+                  max="13"
+                  disabled={!isPend}
+                  value={draftCard.rscale}
+                  oninput={(event) => updateDraftScale("right", Number((event.currentTarget as HTMLInputElement).value))}
+                />
               </div>
             </div>
           </div>
