@@ -748,7 +748,7 @@
             </div>
             <div class="inline-field">
               <label for="edit-def">{$_("editor.def")}</label>
-              <input type="number" id="edit-def" bind:value={draftCard.defense} />
+              <input type="number" id="edit-def" bind:value={draftCard.defense} disabled={isLink} />
             </div>
           </div>
         </div>
