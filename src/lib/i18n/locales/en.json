@@ -178,6 +178,8 @@
     "script_template_title": "New Script Template",
     "script_template_description": "When you click Script and the file does not exist, this template is used to create it. The {卡名} placeholder is supported.",
     "script_template": "Script Template",
+    "use_external_script_editor": "Use an external editor for scripts",
+    "use_external_script_editor_hint": "When enabled, clicking Script opens the file with the system default .lua app instead of the built-in editor.",
     "error_log_title": "Error Log",
     "error_log_description": "When the app hits an error, detailed information is written to a local log file for troubleshooting.",
     "error_log_open": "Open Log",

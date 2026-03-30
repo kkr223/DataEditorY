@@ -57,6 +57,10 @@ export async function openInSystemEditor(path: string) {
   return invokeCommand('open_in_system_editor', { path });
 }
 
+export async function openInDefaultApp(path: string) {
+  return invokeCommand('open_in_default_app', { path });
+}
+
 export async function importCardImageFile(input: {
   src: string;
   dest: string;
