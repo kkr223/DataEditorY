@@ -40,6 +40,8 @@
   let scriptGenerationAbortController = $state<AbortController | null>(null);
   let suggestHintText = $state('');
   let suggestHintPlacement = $state<'top' | 'bottom'>('top');
+  let currentFunctionHintTitle = $state('');
+  let currentFunctionHintDescription = $state('');
   let hoverAbove = true;
   let suggestHintTimer: ReturnType<typeof setInterval> | null = null;
   let themeObserver: MutationObserver | null = null;
@@ -190,6 +192,11 @@
     }
   }
 
+  function clearCurrentFunctionHint() {
+    currentFunctionHintTitle = '';
+    currentFunctionHintDescription = '';
+  }
+
   function syncCallHighlights() {
     if (!editorInstance) return;
 
@@ -310,6 +317,24 @@
     } else if (suggestHintTimer) {
       clearSuggestHint();
     }
+  }
+
+  function refreshCurrentFunctionHint() {
+    if (!monacoModule || !editorInstance) {
+      clearCurrentFunctionHint();
+      return;
+    }
+
+    const model = editorInstance.getModel();
+    const position = editorInstance.getPosition();
+    if (!model || !position) {
+      clearCurrentFunctionHint();
+      return;
+    }
+
+    const hint = monacoModule.getCurrentFunctionHint(model, position);
+    currentFunctionHintTitle = hint?.title ?? '';
+    currentFunctionHintDescription = hint?.description ?? '';
   }
 
   async function handleSave() {
@@ -503,14 +528,17 @@
       monacoModule.validateLuaModel(model);
       syncCallHighlights();
       refreshSuggestHint();
+      refreshCurrentFunctionHint();
     });
 
     editorInstance.onDidChangeCursorPosition(() => {
       refreshSuggestHint();
+      refreshCurrentFunctionHint();
     });
 
     editorInstance.onKeyUp(() => {
       refreshSuggestHint();
+      refreshCurrentFunctionHint();
     });
 
     editorInstance.onMouseMove((event) => {
@@ -537,6 +565,7 @@
   onDestroy(() => {
     scriptGenerationAbortController?.abort();
     clearSuggestHint();
+    clearCurrentFunctionHint();
     if (editorInstance && currentBoundTabId) {
       setScriptTabViewState(currentBoundTabId, editorInstance.saveViewState());
     }
@@ -579,6 +608,7 @@
     });
     monacoModule.validateLuaModel(model);
     refreshSuggestHint();
+    refreshCurrentFunctionHint();
   });
 </script>
 
@@ -621,6 +651,14 @@
 
     <div class="script-layout">
       <div class="script-editor-shell">
+        {#if currentFunctionHintTitle}
+          <div class="current-function-hint">
+            <div class="current-function-hint-title">{currentFunctionHintTitle}</div>
+            {#if currentFunctionHintDescription}
+              <div class="current-function-hint-description">{currentFunctionHintDescription}</div>
+            {/if}
+          </div>
+        {/if}
         {#if suggestHintText}
           <div class="suggest-inline-hint" class:top={suggestHintPlacement === 'top'} class:bottom={suggestHintPlacement === 'bottom'}>{suggestHintText}</div>
         {/if}
@@ -864,6 +902,47 @@
     z-index: 6;
   }
 
+  .current-function-hint {
+    position: absolute;
+    left: 14px;
+    top: 12px;
+    max-width: min(44vw, 680px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid rgba(146, 185, 159, 0.24);
+    border-radius: 10px;
+    background: rgba(34, 43, 39, 0.92);
+    color: rgba(230, 242, 235, 0.9);
+    backdrop-filter: blur(3px);
+    pointer-events: none;
+    z-index: 6;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+  }
+
+  .current-function-hint-title {
+    font-family: 'Consolas', 'SFMono-Regular', 'Courier New', monospace;
+    font-size: 0.77rem;
+    line-height: 1.4;
+    color: #e1f3e5;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .current-function-hint-description {
+    font-size: 0.74rem;
+    line-height: 1.45;
+    color: rgba(218, 233, 223, 0.76);
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    overflow: hidden;
+  }
+
   .suggest-inline-hint.top {
     top: 12px;
   }
@@ -906,6 +985,21 @@
   :global([data-theme='light']) .suggest-inline-hint {
     background: rgba(255, 255, 255, 0.9);
     color: rgba(52, 76, 62, 0.72);
+  }
+
+  :global([data-theme='light']) .current-function-hint {
+    border-color: rgba(109, 150, 119, 0.22);
+    background: rgba(255, 255, 255, 0.92);
+    color: rgba(36, 60, 46, 0.88);
+    box-shadow: 0 10px 22px rgba(67, 96, 77, 0.08);
+  }
+
+  :global([data-theme='light']) .current-function-hint-title {
+    color: #234432;
+  }
+
+  :global([data-theme='light']) .current-function-hint-description {
+    color: rgba(48, 77, 60, 0.72);
   }
 
   :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-call-highlight) {
