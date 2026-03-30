@@ -873,7 +873,7 @@
         {#if HAS_AI_FEATURE}
           <button class="btn-secondary btn-sm" onclick={handleOpenParseModal}>{$_("editor.ai_parse_button")}</button>
         {/if}
-        <button class="btn-secondary btn-sm" onclick={handleOpenScript}>{$_("editor.script_button")}</button>
+        <button class="btn-secondary btn-sm btn-secondary-script" onclick={handleOpenScript}>{$_("editor.script_button")}</button>
         {#if HAS_AI_FEATURE}
           <div class="script-generate-group">
             <button class="btn-secondary btn-sm" onclick={handleGenerateScript} disabled={isGeneratingScript}>
@@ -888,7 +888,7 @@
           </div>
         {/if}
         {#if HAS_CARD_IMAGE_FEATURE}
-          <button class="btn-secondary btn-sm" onclick={openCardImageDrawer}>{$_("editor.card_image_button")}</button>
+          <button class="btn-secondary btn-sm btn-secondary-card-image" onclick={openCardImageDrawer}>{$_("editor.card_image_button")}</button>
         {/if}
       </div>
       <div class="btn-group">
@@ -1351,6 +1351,20 @@
   }
   .btn-secondary:hover {
     background: var(--bg-surface-hover);
+  }
+  .btn-secondary-script {
+    background: color-mix(in srgb, #0ea5e9 18%, var(--bg-surface-active));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #0ea5e9 24%, transparent);
+  }
+  .btn-secondary-script:hover {
+    background: color-mix(in srgb, #0ea5e9 26%, var(--bg-surface-hover));
+  }
+  .btn-secondary-card-image {
+    background: color-mix(in srgb, #f59e0b 16%, var(--bg-surface-active));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #f59e0b 24%, transparent);
+  }
+  .btn-secondary-card-image:hover {
+    background: color-mix(in srgb, #f59e0b 24%, var(--bg-surface-hover));
   }
   .btn-danger {
     background: #dc2626;
