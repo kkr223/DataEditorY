@@ -2,6 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import { RuleExpressionError, parseRuleExpression } from './ruleExpression';
 
 describe('rule expression parser', () => {
+  test('supports ampersand as a short alias for contains', () => {
+    const sql = parseRuleExpression('type & link');
+
+    expect(sql).toContain('(datas.type & 67108864) = 67108864');
+  });
+
   test('supports id and alias numeric fields', () => {
     const sql = parseRuleExpression('id >= 473 and alias = 0');
 

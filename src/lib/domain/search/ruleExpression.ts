@@ -62,6 +62,7 @@ const RULE_OPERATOR_ALIASES: Record<string, string> = {
   not: 'not',
   非: 'not',
   contains: 'contains',
+  '&': 'contains',
   has: 'contains',
   包含: 'contains',
 };
