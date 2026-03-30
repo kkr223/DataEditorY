@@ -5,7 +5,7 @@
   import { HAS_AI_FEATURE, HAS_EXTRA_BUILD } from "$lib/config/build";
   import { showToast } from "$lib/stores/toast.svelte";
   import { tauriBridge } from "$lib/infrastructure/tauri";
-  import { pathExists, writeBinaryFile } from "$lib/infrastructure/tauri/commands";
+  import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from "$lib/infrastructure/tauri/commands";
   import { createAiAppContext } from "$lib/services/aiAppContext";
   import { getPicsDir } from "$lib/services/cardImageService";
   import { toMediaProtocolSrc } from "$lib/utils/mediaProtocol";
@@ -23,6 +23,8 @@
     createCardImageFormData,
     getCardImageLocaleDefaults,
     normalizeCardImageFormData,
+    parseCardImageConfigDocument,
+    serializeCardImageConfigDocument,
     type CardImageLanguage,
     type CardImageFormData,
   } from "$lib/utils/cardImage";
@@ -131,6 +133,7 @@
   let previewShell = $state<HTMLDivElement | null>(null);
   let previewCard = $state<InstanceType<YugiohCardConstructor> | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
+  let configFileInput = $state<HTMLInputElement | null>(null);
   let foregroundFileInput = $state<HTMLInputElement | null>(null);
   let foregroundEditorOpen = $state(false);
   let foregroundPreviewHost = $state<HTMLDivElement | null>(null);
@@ -272,6 +275,10 @@
     fileInput?.click();
   }
 
+  function openConfigFilePicker() {
+    configFileInput?.click();
+  }
+
   function openForegroundFilePicker() {
     if (!HAS_EXTRA_BUILD) return;
     foregroundFileInput?.click();
@@ -380,6 +387,151 @@
   function getOptionLabel(option: LabelOption) {
     if (option.labelKey) return $_(option.labelKey);
     return option.label ?? option.value;
+  }
+
+  function clampExportScalePercent(value: number) {
+    return Math.max(MIN_EXPORT_SCALE_PERCENT, Math.min(MAX_EXPORT_SCALE_PERCENT, Math.round(value)));
+  }
+
+  function getConfigFileName() {
+    const code = String(form.password || card.code || "card-image").trim() || "card-image";
+    return `${code}-card-image.json`;
+  }
+
+  function createForegroundInitialStateFromForm(data: CardImageFormData): ForegroundInitialState | null {
+    if (!data.foregroundImage || data.foregroundWidth <= 0 || data.foregroundHeight <= 0) {
+      return null;
+    }
+
+    return {
+      foregroundWidth: data.foregroundWidth,
+      foregroundHeight: data.foregroundHeight,
+      foregroundX: data.foregroundX,
+      foregroundY: data.foregroundY,
+      foregroundScale: data.foregroundScale,
+      foregroundRotation: data.foregroundRotation,
+    };
+  }
+
+  async function applyImportedConfigContent(content: string, source: string) {
+    try {
+      const parsed = parseCardImageConfigDocument(content);
+      const importedForm = parsed.form;
+
+      revokeSourceImageUrl();
+      sourceImageWidth = 0;
+      sourceImageHeight = 0;
+      cropModalOpen = false;
+      cropBox = { x: 0, y: 0, size: 0 };
+      dragMode = null;
+      dragPointerId = null;
+      croppedImageDataUrl = importedForm.image || "";
+      hasManualPreviewZoom = false;
+      previewZoomPercent = DEFAULT_PREVIEW_ZOOM_PERCENT;
+      if (parsed.exportScalePercent !== null) {
+        exportScalePercent = clampExportScalePercent(parsed.exportScalePercent);
+      }
+
+      form = importedForm;
+      lastFormLanguage = importedForm.language as CardImageLanguage;
+      initialForegroundState = createForegroundInitialStateFromForm(importedForm);
+      destroyPreview();
+      destroyForegroundPreview();
+      await warmupPreviewAfterFontsReady();
+      showToast($_("editor.card_image_config_import_success"), "success");
+    } catch (error) {
+      console.error("Failed to import card image config", error);
+      void writeErrorLog({
+        source: "card-image.config.import",
+        error,
+        extra: {
+          cardCode: card.code ?? 0,
+          source,
+        },
+      });
+      showToast($_("editor.card_image_config_import_failed"), "error");
+    }
+  }
+
+  async function handleConfigImport() {
+    if (!tauriBridge.isTauri()) {
+      openConfigFilePicker();
+      return;
+    }
+
+    const selected = await tauriBridge.open({
+      multiple: false,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!selected || typeof selected !== "string") return;
+    try {
+      const content = await readTextFile(selected);
+      await applyImportedConfigContent(content, selected);
+    } catch (error) {
+      console.error("Failed to read card image config", error);
+      void writeErrorLog({
+        source: "card-image.config.read",
+        error,
+        extra: {
+          cardCode: card.code ?? 0,
+          source: selected,
+        },
+      });
+      showToast($_("editor.card_image_config_import_failed"), "error");
+    }
+  }
+
+  async function handleConfigFileUpload(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    try {
+      const content = await file.text();
+      await applyImportedConfigContent(content, file.name);
+    } finally {
+      input.value = "";
+    }
+  }
+
+  async function handleConfigExport() {
+    try {
+      const content = serializeCardImageConfigDocument({
+        form,
+        exportScalePercent,
+        cardCode: Number(card.code ?? 0),
+        cardName: card.name ?? "",
+      });
+
+      if (tauriBridge.isTauri()) {
+        const targetPath = await tauriBridge.save({
+          defaultPath: getConfigFileName(),
+          filters: [{ name: "JSON", extensions: ["json"] }],
+        });
+        if (!targetPath) return;
+        await writeTextFile(targetPath, content);
+      } else {
+        const blob = new Blob([content], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = getConfigFileName();
+        anchor.click();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
+
+      showToast($_("editor.card_image_config_export_success"), "success");
+    } catch (error) {
+      console.error("Failed to export card image config", error);
+      void writeErrorLog({
+        source: "card-image.config.export",
+        error,
+        extra: {
+          cardCode: card.code ?? 0,
+        },
+      });
+      showToast($_("editor.card_image_config_export_failed"), "error");
+    }
   }
 
   async function ensureAiReady() {
@@ -1648,11 +1800,18 @@
         <div class="form-pane">
           <div class="form-toolbar">
             <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" bind:this={fileInput} onchange={handleImageUpload} />
+            <input class="sr-only" type="file" accept="application/json,.json" bind:this={configFileInput} onchange={handleConfigFileUpload} />
             {#if HAS_EXTRA_BUILD}
               <input class="sr-only" type="file" accept="image/png,image/webp" bind:this={foregroundFileInput} onchange={handleForegroundImageUpload} />
             {/if}
             <button class="btn-primary btn-sm upload-btn" type="button" onclick={openFilePicker}>
               {croppedImageDataUrl ? $_("editor.card_image_recrop") : $_("editor.card_image_upload")}
+            </button>
+            <button class="btn-secondary btn-sm" type="button" onclick={handleConfigImport}>
+              {$_("editor.card_image_config_import")}
+            </button>
+            <button class="btn-secondary btn-sm" type="button" onclick={handleConfigExport}>
+              {$_("editor.card_image_config_export")}
             </button>
             {#if HAS_EXTRA_BUILD}
               <button class="btn-secondary btn-sm" type="button" onclick={() => foregroundEditorOpen = true}>

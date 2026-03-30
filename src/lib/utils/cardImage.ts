@@ -23,6 +23,18 @@ export type CardImageFormData = BaseYugiohCardData & {
 };
 export type CardImageLanguage = BaseYugiohCardData["language"];
 
+export type CardImageConfigDocument = {
+  kind: "dataeditory-card-image-config";
+  version: 1;
+  form: Partial<CardImageFormData>;
+  exportScalePercent?: number;
+  meta?: {
+    cardCode?: number;
+    cardName?: string;
+    exportedAt?: string;
+  };
+};
+
 type StringOption = {
   value: string;
   label?: string;
@@ -180,6 +192,10 @@ function coerceNumber(value: unknown, fallback: number): number {
   return Number.isFinite(next) ? next : fallback;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 export function normalizeCardImageFormData(data: Partial<CardImageFormData>): CardImageFormData {
   return {
     ...DEFAULT_CARD_IMAGE_FORM_DATA,
@@ -268,4 +284,45 @@ export function createCardImageFormData(
   language: CardImageLanguage = "sc",
 ): CardImageFormData {
   return getCardImageLocaleDefaults(card, language);
+}
+
+export function serializeCardImageConfigDocument(input: {
+  form: CardImageFormData;
+  exportScalePercent?: number;
+  cardCode?: number;
+  cardName?: string;
+}) {
+  const document: CardImageConfigDocument = {
+    kind: "dataeditory-card-image-config",
+    version: 1,
+    form: normalizeCardImageFormData(input.form),
+    exportScalePercent: Number.isFinite(Number(input.exportScalePercent))
+      ? Number(input.exportScalePercent)
+      : undefined,
+    meta: {
+      cardCode: Number.isFinite(Number(input.cardCode)) ? Number(input.cardCode) : undefined,
+      cardName: input.cardName?.trim() || undefined,
+      exportedAt: new Date().toISOString(),
+    },
+  };
+
+  return JSON.stringify(document, null, 2);
+}
+
+export function parseCardImageConfigDocument(raw: string) {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!isRecord(parsed)) {
+    throw new Error("Card image config must be a JSON object");
+  }
+
+  const formSource = isRecord(parsed.form)
+    ? parsed.form
+    : parsed;
+
+  return {
+    form: normalizeCardImageFormData(formSource as Partial<CardImageFormData>),
+    exportScalePercent: Number.isFinite(Number(parsed.exportScalePercent))
+      ? Number(parsed.exportScalePercent)
+      : null,
+  };
 }

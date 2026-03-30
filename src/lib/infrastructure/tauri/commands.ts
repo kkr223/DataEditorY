@@ -71,6 +71,15 @@ export async function writeBinaryFile(path: string, data: number[]) {
   return invokeCommand('write_file', { path, data });
 }
 
+export async function writeTextFile(path: string, content: string) {
+  const encoder = new TextEncoder();
+  return invokeCommand('write_file', { path, data: Array.from(encoder.encode(content)) });
+}
+
+export async function readTextFile(path: string) {
+  return invokeCommand<string>('read_text_file', { path });
+}
+
 export async function pathExists(path: string) {
   return invokeCommand<boolean>('path_exists', { path });
 }
