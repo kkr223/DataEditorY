@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { luaCatalog } from '$lib/data/lua-intel/catalog.generated';
 import {
   getCallInfoAt,
+  getCurrentFunctionAt,
   getFunctionSymbols,
   getHoverInfoAt,
   getLuaSemanticDocument,
@@ -88,5 +89,23 @@ describe('lua semantic document', () => {
     expect(callInfo?.target?.kind === 'catalog' ? callInfo.target.item.name : '').toBe('Effect.SetDescription');
     expect(hoverInfo?.kind).toBe('catalog-function');
     expect(hoverInfo?.kind === 'catalog-function' ? hoverInfo.item.name : '').toBe('Effect.SetDescription');
+  });
+
+  test('finds the function currently being edited from cursor position', () => {
+    const source = [
+      '-- target helper',
+      'function s.target(e,tp,eg,ep,ev,re,r,rp,chk)',
+      '  local c=e:GetHandler()',
+      '  return c and tp',
+      'end',
+      '',
+    ].join('\n');
+
+    const document = getLuaSemanticDocument(createModel(source, 4), luaCatalog);
+    const currentFunction = getCurrentFunctionAt(document, { lineNumber: 4, column: 10 });
+
+    expect(currentFunction?.name).toBe('s.target');
+    expect(currentFunction?.signature).toBe('s.target(e, tp, eg, ep, ev, re, r, rp, chk)');
+    expect(currentFunction?.documentation).toBe('target helper');
   });
 });

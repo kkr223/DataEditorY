@@ -76,6 +76,7 @@ export type LuaScriptFunctionSymbol = {
   namespace: string | null;
   parameters: string[];
   signature: string;
+  documentation: string;
   declarationRange: LuaSourceRange;
 };
 
@@ -85,6 +86,7 @@ export type LuaSemanticScopeNode = {
   range: LuaSourceRange;
   symbols: LuaVisibleSymbol[];
   children: LuaSemanticScopeNode[];
+  ownerFunction: LuaScriptFunctionSymbol | null;
 };
 
 export type LuaSemanticReferences = {
@@ -276,13 +278,35 @@ function getParameterNames(parameters: LuaNode[] | undefined) {
     .filter(Boolean);
 }
 
+function getLeadingLineCommentBlock(sourceLines: string[], declarationLine: number) {
+  const lines: string[] = [];
+
+  for (let index = declarationLine - 2; index >= 0; index -= 1) {
+    const rawLine = sourceLines[index] ?? '';
+    const trimmed = rawLine.trim();
+
+    if (!trimmed) {
+      if (lines.length > 0) break;
+      continue;
+    }
+
+    if (!trimmed.startsWith('--') || trimmed.startsWith('--[[')) {
+      break;
+    }
+
+    lines.unshift(trimmed.replace(/^---?\s?/, '').trim());
+  }
+
+  return lines.filter(Boolean).join('\n');
+}
+
 function createScopeNode(
   id: string,
   kind: LuaSemanticScopeNode['kind'],
   node: LuaNode | undefined,
   sourceLines: string[],
 ): LuaSemanticScopeNode {
-  return { id, kind, range: rangeOf(node, sourceLines), symbols: [], children: [] };
+  return { id, kind, range: rangeOf(node, sourceLines), symbols: [], children: [], ownerFunction: null };
 }
 
 function addReferenceSymbol(references: LuaSemanticReferences, symbol: LuaVisibleSymbol) {
@@ -340,29 +364,32 @@ function buildMetadata(statements: LuaNode[], scope: LuaSemanticScopeNode, state
       }
       if (nameInfo) {
         const parameters = getParameterNames(statement.parameters as LuaNode[] | undefined);
-        addFunctionSymbol(state.functionSymbols, state.references, {
+        const functionSymbol = {
           name: nameInfo.name,
           shortName: nameInfo.shortName,
           namespace: nameInfo.namespace,
           parameters,
           signature: `${nameInfo.name}(${parameters.join(', ')})`,
+          documentation: getLeadingLineCommentBlock(state.sourceLines, rangeOf(statement, state.sourceLines).startLineNumber),
           declarationRange: rangeOf(statement.identifier as LuaNode | undefined, state.sourceLines),
-        });
-      }
+        };
+        addFunctionSymbol(state.functionSymbols, state.references, functionSymbol);
 
-      const functionScope = createScopeNode(`scope-${state.nextScopeId += 1}`, 'function', statement, state.sourceLines);
-      scope.children.push(functionScope);
-      for (const parameter of (statement.parameters as LuaNode[] | undefined) ?? []) {
-        if (parameter?.type !== 'Identifier') continue;
-        addScopeSymbol(functionScope, state.references, {
-          name: String(parameter.name ?? ''),
-          kind: 'parameter',
-          typeName: null,
-          declarationRange: rangeOf(parameter, state.sourceLines),
-        });
+        const functionScope = createScopeNode(`scope-${state.nextScopeId += 1}`, 'function', statement, state.sourceLines);
+        functionScope.ownerFunction = functionSymbol;
+        scope.children.push(functionScope);
+        for (const parameter of (statement.parameters as LuaNode[] | undefined) ?? []) {
+          if (parameter?.type !== 'Identifier') continue;
+          addScopeSymbol(functionScope, state.references, {
+            name: String(parameter.name ?? ''),
+            kind: 'parameter',
+            typeName: null,
+            declarationRange: rangeOf(parameter, state.sourceLines),
+          });
+        }
+        buildMetadata((statement.body as LuaNode[] | undefined) ?? [], functionScope, state);
+        continue;
       }
-      buildMetadata((statement.body as LuaNode[] | undefined) ?? [], functionScope, state);
-      continue;
     }
 
     if (statement.type === 'IfStatement') {
@@ -804,6 +831,35 @@ export function getFunctionSymbols(document: LuaSemanticDocument) {
   return document.functionSymbols.slice();
 }
 
+export function getCurrentFunctionAt(
+  document: LuaSemanticDocument,
+  position: LuaSemanticPosition,
+  options: LuaQueryOptions = {},
+): LuaScriptFunctionSymbol | null {
+  const analysis = analysisFor(document, position, options);
+  if (!analysis) return null;
+
+  let current: LuaScriptFunctionSymbol | null = null;
+
+  const visit = (scope: LuaSemanticScopeNode) => {
+    const range = scope.range;
+    const inside = comparePositions(position, { lineNumber: range.startLineNumber, column: range.startColumn }) >= 0
+      && comparePositions(position, { lineNumber: range.endLineNumber, column: range.endColumn }) <= 0;
+    if (!inside) return;
+
+    if (scope.ownerFunction) {
+      current = scope.ownerFunction;
+    }
+
+    for (const child of scope.children) {
+      visit(child);
+    }
+  };
+
+  visit(analysis.globalScope);
+  return current;
+}
+
 export function getCallInfoAt(document: LuaSemanticDocument, position: LuaSemanticPosition, options: LuaQueryOptions = {}): LuaSemanticCallInfo | null {
   const analysis = analysisFor(document, position, options);
   if (!analysis) return null;
@@ -855,7 +911,7 @@ export function getCallInfoAt(document: LuaSemanticDocument, position: LuaSemant
           item: scriptFunction,
           parameters: scriptFunction.parameters,
           signature: scriptFunction.signature,
-          documentation: '当前脚本中定义的函数。',
+          documentation: scriptFunction.documentation || '当前脚本中定义的函数。',
         };
       }
     }

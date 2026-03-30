@@ -5,6 +5,7 @@ import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { luaCatalog as defaultLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
 import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded } from '$lib/utils/luaScriptDiagnostics';
+import { shouldInsertFunctionReferenceOnly } from '$lib/utils/luaFunctionCompletion';
 import { loadExternalLuaCatalog } from '$lib/utils/luaIntelCatalog';
 import {
   getCallInfoAt,
@@ -778,7 +779,7 @@ function buildScriptFunctionDocumentation(item: LuaScriptFunctionSymbol) {
   return toMarkdownParagraphs([
     `**${item.name}**`,
     `\`${item.signature}\``,
-    '当前脚本中定义的函数。',
+    item.documentation || '当前脚本中定义的函数。',
   ]);
 }
 
@@ -861,6 +862,14 @@ function getSnippetCompletionContext(model: monaco.editor.ITextModel, position: 
 
 function provideCompletionItems(model: monaco.editor.ITextModel, position: monaco.Position) {
   const semanticDocument = getSemanticDocument(model);
+  const activeCall = getCallInfoAt(semanticDocument, {
+    lineNumber: position.lineNumber,
+    column: position.column,
+  });
+  const insertFunctionReferenceOnly = shouldInsertFunctionReferenceOnly(
+    activeCall?.target?.parameters ?? null,
+    activeCall?.activeParameter ?? -1,
+  );
   const visibleSymbols = getVisibleSymbolsAt(semanticDocument, {
     lineNumber: position.lineNumber,
     column: position.column,
@@ -994,10 +1003,14 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
         description: getInlineDescription(item.description, item.signature),
       },
       kind: monaco.languages.CompletionItemKind.Function,
-      insertText: buildFunctionInsertText(displayName, item, {
-        omitFirstParameter: namespaceContext?.kind === 'method',
-      }),
-      insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+      insertText: insertFunctionReferenceOnly
+        ? displayName
+        : buildFunctionInsertText(displayName, item, {
+            omitFirstParameter: namespaceContext?.kind === 'method',
+          }),
+      insertTextRules: insertFunctionReferenceOnly
+        ? monaco.languages.CompletionItemInsertTextRule.None
+        : monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
       detail: toSignatureLabel(item),
       documentation: buildFunctionDocumentation(item),
       sortText: `2000-${displayName}`,
@@ -1013,7 +1026,9 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
         description: 'current script',
       },
       kind: monaco.languages.CompletionItemKind.Function,
-      insertText: `${displayName}(${item.parameters.join(', ')})`,
+      insertText: insertFunctionReferenceOnly
+        ? displayName
+        : `${displayName}(${item.parameters.join(', ')})`,
       detail: item.signature,
       documentation: buildScriptFunctionDocumentation(item),
       sortText: `2100-${displayName}`,
@@ -1196,6 +1211,28 @@ export function lookupCompletionDescription(label: string) {
     return normalizeCompletionHint(constantDescriptionsByName.get(trimmed) ?? '');
   }
 
+  return null;
+}
+
+export function getCurrentFunctionHint(
+  model: monaco.editor.ITextModel,
+  position: monaco.Position,
+) {
+  const semanticDocument = getSemanticDocument(model);
+  const activeCall = getCallInfoAt(semanticDocument, {
+    lineNumber: position.lineNumber,
+    column: position.column,
+  });
+  if (activeCall?.target) {
+    if (activeCall.target.kind !== 'catalog' || activeCall.target.item.category !== 'Typed Definitions') {
+      return null;
+    }
+
+    return {
+      title: activeCall.target.signature,
+      description: activeCall.target.documentation || '当前正在编辑的调用。',
+    };
+  }
   return null;
 }
 
