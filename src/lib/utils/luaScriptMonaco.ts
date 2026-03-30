@@ -1,4 +1,3 @@
-import * as luaparse from 'luaparse';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution';
 import 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
@@ -7,7 +6,16 @@ import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { luaCatalog as defaultLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
 import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded } from '$lib/utils/luaScriptDiagnostics';
 import { loadExternalLuaCatalog } from '$lib/utils/luaIntelCatalog';
-import { collectLuaScriptFunctionSymbols, type LuaScriptFunctionSymbol } from '$lib/utils/luaScriptSymbols';
+import {
+  getCallInfoAt,
+  getFunctionSymbols,
+  getHoverInfoAt,
+  getLuaSemanticDocument,
+  getVisibleSymbolsAt,
+  type LuaScriptFunctionSymbol,
+  type LuaSemanticTextModel,
+  type LuaVisibleSymbol,
+} from '$lib/utils/luaSemantic';
 import type { CardDataEntry, LuaFunctionItem } from '$lib/types';
 
 type LuaModelContext = {
@@ -803,8 +811,12 @@ function buildConstantDocumentation(name: string, value: string, description: st
   ]);
 }
 
+function getSemanticDocument(model: monaco.editor.ITextModel) {
+  return getLuaSemanticDocument(model as unknown as LuaSemanticTextModel, luaCatalog);
+}
+
 function getScriptFunctionSymbols(model: monaco.editor.ITextModel) {
-  return collectLuaScriptFunctionSymbols(model.getValue());
+  return getFunctionSymbols(getSemanticDocument(model));
 }
 
 function getScriptFunctionByName(model: monaco.editor.ITextModel, name: string) {
@@ -812,6 +824,12 @@ function getScriptFunctionByName(model: monaco.editor.ITextModel, name: string) 
   if (!trimmed) return null;
 
   return getScriptFunctionSymbols(model).find((item) => item.name === trimmed || item.shortName === trimmed) ?? null;
+}
+
+function getMethodNamespace(receiver: string, visibleSymbols: LuaVisibleSymbol[]) {
+  const symbol = visibleSymbols.find((item) => item.name === receiver);
+  if (symbol?.typeName) return symbol.typeName;
+  return GLOBAL_NAMESPACES.has(receiver) ? receiver : null;
 }
 
 function getFunctionForCall(name: string) {
@@ -842,12 +860,32 @@ function getSnippetCompletionContext(model: monaco.editor.ITextModel, position: 
 }
 
 function provideCompletionItems(model: monaco.editor.ITextModel, position: monaco.Position) {
+  const semanticDocument = getSemanticDocument(model);
+  const visibleSymbols = getVisibleSymbolsAt(semanticDocument, {
+    lineNumber: position.lineNumber,
+    column: position.column,
+  });
   const word = model.getWordUntilPosition(position);
   const snippetContext = getSnippetCompletionContext(model, position);
   const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
-  const namespaceContext = getNamespaceCompletionContext(model, position);
+  const namespaceContext = (() => {
+    const rawContext = getNamespaceCompletionContext(model, position);
+    if (!rawContext || rawContext.kind !== 'method') return rawContext;
+    return {
+      ...rawContext,
+      namespace: getMethodNamespace(rawContext.receiver, visibleSymbols),
+    };
+  })();
   const currentWord = word.word.toLowerCase();
   const suggestions: monaco.languages.CompletionItem[] = [];
+  const seenSuggestionLabels = new Set<string>();
+
+  const pushSuggestion = (suggestion: monaco.languages.CompletionItem) => {
+    const labelText = typeof suggestion.label === 'string' ? suggestion.label : suggestion.label.label;
+    if (seenSuggestionLabels.has(labelText)) return;
+    seenSuggestionLabels.add(labelText);
+    suggestions.push(suggestion);
+  };
 
   for (const snippet of luaCatalog.snippets) {
     if (namespaceContext) break;
@@ -860,7 +898,7 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
       continue;
     }
 
-    suggestions.push({
+    pushSuggestion({
       label: snippet.prefix,
       kind: monaco.languages.CompletionItemKind.Snippet,
       insertText: snippet.body.join('\n'),
@@ -872,9 +910,39 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
   }
 
   if (!namespaceContext) {
+    const scopedIdentifiers = currentWord
+      ? visibleSymbols.filter((item) => item.name.toLowerCase().includes(currentWord))
+      : [];
+
+    for (const item of scopedIdentifiers) {
+      pushSuggestion({
+        label: {
+          label: item.name,
+          description: item.kind === 'parameter'
+            ? 'parameter'
+            : item.kind === 'loop'
+              ? 'loop local'
+              : item.kind === 'function'
+                ? 'local function'
+                : 'local',
+        },
+        kind: item.kind === 'function'
+          ? monaco.languages.CompletionItemKind.Function
+          : monaco.languages.CompletionItemKind.Variable,
+        insertText: item.name,
+        detail: item.kind === 'parameter'
+          ? 'Function parameter'
+          : item.kind === 'function'
+            ? 'Local function'
+            : 'Local variable',
+        sortText: `0500-${item.name}`,
+        range,
+      });
+    }
+
     for (const keyword of luaCatalog.keywords) {
       if (currentWord && !keyword.startsWith(currentWord)) continue;
-      suggestions.push({
+      pushSuggestion({
         label: keyword,
         kind: monaco.languages.CompletionItemKind.Keyword,
         insertText: keyword,
@@ -893,7 +961,7 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
     : currentWord
       ? luaCatalog.functions
       : [];
-  const scriptFunctions = getScriptFunctionSymbols(model).filter((item) => {
+  const scriptFunctions = getFunctionSymbols(semanticDocument).filter((item) => {
     if (namespaceContext) {
       if (namespaceContext.kind === 'namespace') {
         return item.namespace === namespaceContext.namespace;
@@ -920,7 +988,7 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
       continue;
     }
 
-    suggestions.push({
+    pushSuggestion({
       label: {
         label: displayName,
         description: getInlineDescription(item.description, item.signature),
@@ -939,7 +1007,7 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
 
   for (const item of scriptFunctions) {
     const displayName = namespaceContext ? item.shortName : item.name;
-    suggestions.push({
+    pushSuggestion({
       label: {
         label: displayName,
         description: 'current script',
@@ -956,7 +1024,7 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
   if (!namespaceContext && currentWord) {
     for (const item of luaCatalog.constants) {
       if (!item.name.toLowerCase().includes(currentWord)) continue;
-      suggestions.push({
+      pushSuggestion({
         label: {
           label: item.name,
           description: getInlineDescription(item.description, item.value),
@@ -976,7 +1044,7 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
   if (stringIdMatch) {
     const context = modelContexts.get(model.uri.toString());
     for (let index = 0; index < Math.max(context?.strings.length ?? 0, 16); index += 1) {
-      suggestions.push({
+      pushSuggestion({
         label: String(index),
         kind: monaco.languages.CompletionItemKind.Value,
         insertText: String(index),
@@ -992,30 +1060,25 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
 }
 
 function provideHover(model: monaco.editor.ITextModel, position: monaco.Position) {
-  const token = getFullTokenAtPosition(model, position);
-  if (!token.text) return null;
+  const hoverInfo = getHoverInfoAt(getSemanticDocument(model), {
+    lineNumber: position.lineNumber,
+    column: position.column,
+  });
+  if (hoverInfo) {
+    const documentation = hoverInfo.kind === 'constant'
+      ? buildConstantDocumentation(hoverInfo.item.name, hoverInfo.item.value, hoverInfo.item.description)
+      : hoverInfo.kind === 'catalog-function'
+        ? buildFunctionDocumentation(hoverInfo.item)
+        : buildScriptFunctionDocumentation(hoverInfo.item);
 
-  const constant = luaCatalog.constants.find((item) => item.name === token.text);
-  if (constant) {
     return {
-      range: new monaco.Range(position.lineNumber, token.startColumn, position.lineNumber, token.endColumn),
-      contents: [{ value: buildConstantDocumentation(constant.name, constant.value, constant.description) }],
-    };
-  }
-
-  const item = getFunctionForCall(token.text);
-  if (item) {
-    return {
-      range: new monaco.Range(position.lineNumber, token.startColumn, position.lineNumber, token.endColumn),
-      contents: [{ value: buildFunctionDocumentation(item) }],
-    };
-  }
-
-  const scriptFunction = getScriptFunctionByName(model, token.text);
-  if (scriptFunction) {
-    return {
-      range: new monaco.Range(position.lineNumber, token.startColumn, position.lineNumber, token.endColumn),
-      contents: [{ value: buildScriptFunctionDocumentation(scriptFunction) }],
+      range: new monaco.Range(
+        hoverInfo.range.startLineNumber,
+        hoverInfo.range.startColumn,
+        hoverInfo.range.endLineNumber,
+        hoverInfo.range.endColumn,
+      ),
+      contents: [{ value: documentation }],
     };
   }
 
@@ -1048,59 +1111,27 @@ function provideHover(model: monaco.editor.ITextModel, position: monaco.Position
 }
 
 function provideSignatureHelp(model: monaco.editor.ITextModel, position: monaco.Position) {
-  const linePrefix = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
-  const match = linePrefix.match(/([A-Za-z_][\w.:]*)\s*\(([^()]*)$/);
-  if (!match) return null;
+  const callInfo = getCallInfoAt(getSemanticDocument(model), {
+    lineNumber: position.lineNumber,
+    column: position.column,
+  });
+  if (!callInfo?.target) return null;
 
-  const methodMatch = match[1].match(/^([A-Za-z_][\w]*)\:(\w+)$/);
-  const item = methodMatch
-    ? (() => {
-        const inferredNamespace = inferReceiverNamespace(model, methodMatch[1], position.lineNumber);
-        if (inferredNamespace) {
-          return (functionsByNamespace.get(inferredNamespace) ?? []).find((candidate) => candidate.shortName === methodMatch[2]) ?? null;
-        }
-        return getFunctionForCall(methodMatch[2]);
-      })()
-    : getFunctionForCall(match[1]);
-  if (!item) {
-    const scriptFunction = getScriptFunctionByName(model, match[1]);
-    if (!scriptFunction) return null;
-
-    const activeParameter = Math.max(0, match[2].split(',').length - 1);
-    return {
-      value: {
-        signatures: [
-          {
-            label: scriptFunction.signature,
-            documentation: '当前脚本中定义的函数。',
-            parameters: scriptFunction.parameters.map((parameter) => ({
-              label: parameter,
-            })),
-          },
-        ],
-        activeSignature: 0,
-        activeParameter: Math.min(activeParameter, Math.max(0, scriptFunction.parameters.length - 1)),
-      },
-      dispose() {},
-    };
-  }
-
-  const activeParameter = Math.max(0, match[2].split(',').length - 1);
-  const parameters = methodMatch ? getInvocationParameters(item, true) : getParameterHints(item);
+  const parameters = callInfo.target.parameters;
 
   return {
     value: {
       signatures: [
         {
-          label: toSignatureLabel(item),
-          documentation: item.description,
+          label: callInfo.target.signature,
+          documentation: callInfo.target.documentation,
           parameters: parameters.map((parameter) => ({
             label: parameter,
           })),
         },
       ],
       activeSignature: 0,
-      activeParameter: Math.min(activeParameter, Math.max(0, parameters.length - 1)),
+      activeParameter: Math.min(callInfo.activeParameter, Math.max(0, parameters.length - 1)),
     },
     dispose() {},
   };
