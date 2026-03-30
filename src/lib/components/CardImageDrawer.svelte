@@ -86,6 +86,7 @@
     "foregroundWidth" | "foregroundHeight" | "foregroundX" | "foregroundY" | "foregroundScale" | "foregroundRotation"
   >;
   type LabelOption = { value: string; label?: string; labelKey?: string };
+  type ColorPreset = { value: string; labelKey: string };
 
   const CARD_WIDTH = 1488;
   const CARD_HEIGHT = 2079;
@@ -113,6 +114,16 @@
   const PREVIEW_ZOOM_REFERENCE_HEIGHT = 800;
   const MIN_FOREGROUND_SCALE = 0.05;
   const MAX_FOREGROUND_SCALE = 12;
+  const NAME_COLOR_PRESETS: ColorPreset[] = [
+    { value: "#ffffff", labelKey: "editor.card_image_color_preset_white" },
+    { value: "#d8dee9", labelKey: "editor.card_image_color_preset_silver" },
+    { value: "#f3c969", labelKey: "editor.card_image_color_preset_gold" },
+    { value: "#1f2937", labelKey: "editor.card_image_color_preset_black" },
+    { value: "#ef4444", labelKey: "editor.card_image_color_preset_red" },
+    { value: "#60a5fa", labelKey: "editor.card_image_color_preset_blue" },
+    { value: "#34d399", labelKey: "editor.card_image_color_preset_green" },
+    { value: "#c084fc", labelKey: "editor.card_image_color_preset_purple" },
+  ];
 
   let {
     open = false,
@@ -382,6 +393,36 @@
       nameShadowGradientColor1: "#1f2937",
       nameShadowGradientColor2: "#0f172a",
     });
+  }
+
+  function normalizeColorValue(value: string) {
+    return value.trim().toLowerCase();
+  }
+
+  function applyNameColorPreset(color: string) {
+    form = normalizeCardImageFormData({
+      ...form,
+      color,
+      gradientColor1: color,
+      gradientColor2: color,
+    });
+  }
+
+  function isNameColorPresetActive(color: string) {
+    return normalizeColorValue(form.color) === normalizeColorValue(color);
+  }
+
+  function applyNameShadowColorPreset(color: string) {
+    form = normalizeCardImageFormData({
+      ...form,
+      nameShadowColor: color,
+      nameShadowGradientColor1: color,
+      nameShadowGradientColor2: color,
+    });
+  }
+
+  function isNameShadowColorPresetActive(color: string) {
+    return normalizeColorValue(form.nameShadowColor) === normalizeColorValue(color);
   }
 
   function getOptionLabel(option: LabelOption) {
@@ -1901,6 +1942,23 @@
                   <input type="text" placeholder={$_("editor.card_image_name_color_placeholder")} bind:value={form.color} />
                   <button class="btn-secondary btn-sm" type="button" onclick={clearCustomNameColor}>{$_("editor.card_image_name_color_reset")}</button>
                 </div>
+                <div class="color-preset-group">
+                  <span class="color-preset-label">{$_("editor.card_image_name_color_presets")}</span>
+                  <div class="color-preset-list">
+                    {#each NAME_COLOR_PRESETS as preset}
+                      <button
+                        class={`color-preset-chip ${isNameColorPresetActive(preset.value) ? "is-active" : ""}`}
+                        type="button"
+                        style={`--preset-color:${preset.value};`}
+                        title={$_(preset.labelKey)}
+                        aria-label={`${$_(preset.labelKey)} ${preset.value}`}
+                        onclick={() => applyNameColorPreset(preset.value)}
+                      >
+                        <span class="color-preset-swatch" aria-hidden="true"></span>
+                      </button>
+                    {/each}
+                  </div>
+                </div>
                 <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.gradient} /><span>{$_("editor.card_image_gradient_enable")}</span></label>
                 {#if form.gradient}
                   <div class="subfield-grid">
@@ -1958,6 +2016,23 @@
                   />
                   <input type="text" placeholder={$_("editor.card_image_name_color_placeholder")} bind:value={form.nameShadowColor} />
                   <button class="btn-secondary btn-sm" type="button" onclick={clearCustomNameShadowColor}>{$_("editor.card_image_name_color_reset")}</button>
+                </div>
+                <div class="color-preset-group">
+                  <span class="color-preset-label">{$_("editor.card_image_name_color_presets")}</span>
+                  <div class="color-preset-list">
+                    {#each NAME_COLOR_PRESETS as preset}
+                      <button
+                        class={`color-preset-chip ${isNameShadowColorPresetActive(preset.value) ? "is-active" : ""}`}
+                        type="button"
+                        style={`--preset-color:${preset.value};`}
+                        title={$_(preset.labelKey)}
+                        aria-label={`${$_(preset.labelKey)} ${preset.value}`}
+                        onclick={() => applyNameShadowColorPreset(preset.value)}
+                      >
+                        <span class="color-preset-swatch" aria-hidden="true"></span>
+                      </button>
+                    {/each}
+                  </div>
                 </div>
                 <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.nameShadowGradient} /><span>{$_("editor.card_image_gradient_enable")}</span></label>
                 {#if form.nameShadowGradient}
@@ -2242,6 +2317,37 @@
   .color-input-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
   .color-input-row-compact { grid-template-columns: 52px minmax(0, 1fr); }
   .color-swatch { min-height: 38px; padding: 4px; cursor: pointer; }
+  .color-preset-group { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .color-preset-label { font-size: 0.78rem; color: var(--text-secondary); font-weight: 600; }
+  .color-preset-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .color-preset-chip {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  }
+  .color-preset-chip:hover {
+    border-color: color-mix(in srgb, var(--accent-primary) 35%, var(--border-color));
+    transform: translateY(-1px);
+  }
+  .color-preset-chip.is-active {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  }
+  .color-preset-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+    background: var(--preset-color);
+    border: 1px solid color-mix(in srgb, #0f172a 18%, rgba(255, 255, 255, 0.28));
+  }
   .subfield-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-top: 6px; }
   .gradient-toggle { margin-top: 6px; align-self: flex-start; }
   .effect-block-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
