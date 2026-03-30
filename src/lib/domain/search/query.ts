@@ -23,6 +23,33 @@ function splitSearchTerms(input: string) {
     .filter(Boolean);
 }
 
+const MAX_NUMERIC_ID_DIGITS = 10;
+const MAX_NUMERIC_ID_VALUE = 4_294_967_295;
+
+function buildNumericPrefixRanges(input: string) {
+  const normalized = input.trim();
+  if (!/^\d+$/.test(normalized)) return [];
+  if (normalized.length > 1 && normalized.startsWith('0')) return [];
+  if (normalized.length > MAX_NUMERIC_ID_DIGITS) return [];
+
+  const prefixValue = Number(normalized);
+  if (!Number.isSafeInteger(prefixValue) || prefixValue > MAX_NUMERIC_ID_VALUE) {
+    return [];
+  }
+
+  const ranges: Array<{ start: number; end: number }> = [];
+  for (let totalDigits = normalized.length; totalDigits <= MAX_NUMERIC_ID_DIGITS; totalDigits += 1) {
+    const multiplier = 10 ** (totalDigits - normalized.length);
+    const start = prefixValue * multiplier;
+    if (start > MAX_NUMERIC_ID_VALUE) break;
+
+    const end = Math.min((prefixValue + 1) * multiplier - 1, MAX_NUMERIC_ID_VALUE);
+    ranges.push({ start, end });
+  }
+
+  return ranges;
+}
+
 export function parseSetcodeFilter(input: string): number | null {
   const normalized = input.trim();
   if (!normalized) return null;
@@ -31,26 +58,6 @@ export function parseSetcodeFilter(input: string): number | null {
   if (!/^[\da-f]{1,4}$/i.test(hex)) return null;
 
   return parseInt(hex, 16) & 0xffff;
-}
-
-export function normalizeRegexSource(input: string): string | null {
-  const normalized = input.trim();
-  if (!normalized) return null;
-
-  const slashPattern = normalized.match(/^\/([\s\S]+)\/([a-z]*)$/i);
-  if (!slashPattern) {
-    return normalized;
-  }
-
-  const [, body, flags] = slashPattern;
-  if (!body) return null;
-
-  try {
-    void new RegExp(body, flags);
-    return body;
-  } catch {
-    return normalized;
-  }
 }
 
 export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
@@ -71,18 +78,18 @@ export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
 
   if (filters.id) {
     const normalizedId = filters.id.trim();
-    if (/^\d+$/.test(normalizedId)) {
-      params.id = parseInt(normalizedId, 10);
-      conditions.push('(datas.id = :id OR datas.alias = :id)');
+    const prefixRanges = buildNumericPrefixRanges(normalizedId);
+    if (prefixRanges.length > 0) {
+      const rangeConditions = prefixRanges.map((range, index) => {
+        const startKey = `idPrefixStart${index}`;
+        const endKey = `idPrefixEnd${index}`;
+        params[startKey] = range.start;
+        params[endKey] = range.end;
+        return `(datas.id BETWEEN :${startKey} AND :${endKey} OR datas.alias BETWEEN :${startKey} AND :${endKey})`;
+      });
+      conditions.push(`(${rangeConditions.join(' OR ')})`);
     } else {
-      const regexSource = normalizeRegexSource(normalizedId);
-      if (regexSource) {
-        conditions.push(`(
-          REGEXP(:idRegex, CAST(datas.id AS TEXT))
-          OR REGEXP(:idRegex, CAST(datas.alias AS TEXT))
-        )`);
-        params.idRegex = regexSource;
-      }
+      conditions.push('1=0');
     }
   }
 
