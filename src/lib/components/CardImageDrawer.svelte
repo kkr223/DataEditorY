@@ -5,7 +5,7 @@
   import { HAS_AI_FEATURE, HAS_EXTRA_BUILD } from "$lib/config/build";
   import { showToast } from "$lib/stores/toast.svelte";
   import { tauriBridge } from "$lib/infrastructure/tauri";
-  import { pathExists, writeBinaryFile } from "$lib/infrastructure/tauri/commands";
+  import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from "$lib/infrastructure/tauri/commands";
   import { createAiAppContext } from "$lib/services/aiAppContext";
   import { getPicsDir } from "$lib/services/cardImageService";
   import { toMediaProtocolSrc } from "$lib/utils/mediaProtocol";
@@ -23,6 +23,8 @@
     createCardImageFormData,
     getCardImageLocaleDefaults,
     normalizeCardImageFormData,
+    parseCardImageConfigDocument,
+    serializeCardImageConfigDocument,
     type CardImageLanguage,
     type CardImageFormData,
   } from "$lib/utils/cardImage";
@@ -84,6 +86,7 @@
     "foregroundWidth" | "foregroundHeight" | "foregroundX" | "foregroundY" | "foregroundScale" | "foregroundRotation"
   >;
   type LabelOption = { value: string; label?: string; labelKey?: string };
+  type ColorPreset = { value: string; labelKey: string };
 
   const CARD_WIDTH = 1488;
   const CARD_HEIGHT = 2079;
@@ -111,6 +114,16 @@
   const PREVIEW_ZOOM_REFERENCE_HEIGHT = 800;
   const MIN_FOREGROUND_SCALE = 0.05;
   const MAX_FOREGROUND_SCALE = 12;
+  const NAME_COLOR_PRESETS: ColorPreset[] = [
+    { value: "#ffffff", labelKey: "editor.card_image_color_preset_white" },
+    { value: "#d8dee9", labelKey: "editor.card_image_color_preset_silver" },
+    { value: "#f3c969", labelKey: "editor.card_image_color_preset_gold" },
+    { value: "#1f2937", labelKey: "editor.card_image_color_preset_black" },
+    { value: "#ef4444", labelKey: "editor.card_image_color_preset_red" },
+    { value: "#60a5fa", labelKey: "editor.card_image_color_preset_blue" },
+    { value: "#34d399", labelKey: "editor.card_image_color_preset_green" },
+    { value: "#c084fc", labelKey: "editor.card_image_color_preset_purple" },
+  ];
 
   let {
     open = false,
@@ -131,6 +144,7 @@
   let previewShell = $state<HTMLDivElement | null>(null);
   let previewCard = $state<InstanceType<YugiohCardConstructor> | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
+  let configFileInput = $state<HTMLInputElement | null>(null);
   let foregroundFileInput = $state<HTMLInputElement | null>(null);
   let foregroundEditorOpen = $state(false);
   let foregroundPreviewHost = $state<HTMLDivElement | null>(null);
@@ -272,6 +286,10 @@
     fileInput?.click();
   }
 
+  function openConfigFilePicker() {
+    configFileInput?.click();
+  }
+
   function openForegroundFilePicker() {
     if (!HAS_EXTRA_BUILD) return;
     foregroundFileInput?.click();
@@ -377,9 +395,184 @@
     });
   }
 
+  function normalizeColorValue(value: string) {
+    return value.trim().toLowerCase();
+  }
+
+  function applyNameColorPreset(color: string) {
+    form = normalizeCardImageFormData({
+      ...form,
+      color,
+      gradientColor1: color,
+      gradientColor2: color,
+    });
+  }
+
+  function isNameColorPresetActive(color: string) {
+    return normalizeColorValue(form.color) === normalizeColorValue(color);
+  }
+
+  function applyNameShadowColorPreset(color: string) {
+    form = normalizeCardImageFormData({
+      ...form,
+      nameShadowColor: color,
+      nameShadowGradientColor1: color,
+      nameShadowGradientColor2: color,
+    });
+  }
+
+  function isNameShadowColorPresetActive(color: string) {
+    return normalizeColorValue(form.nameShadowColor) === normalizeColorValue(color);
+  }
+
   function getOptionLabel(option: LabelOption) {
     if (option.labelKey) return $_(option.labelKey);
     return option.label ?? option.value;
+  }
+
+  function clampExportScalePercent(value: number) {
+    return Math.max(MIN_EXPORT_SCALE_PERCENT, Math.min(MAX_EXPORT_SCALE_PERCENT, Math.round(value)));
+  }
+
+  function getConfigFileName() {
+    const code = String(form.password || card.code || "card-image").trim() || "card-image";
+    return `${code}-card-image.json`;
+  }
+
+  function createForegroundInitialStateFromForm(data: CardImageFormData): ForegroundInitialState | null {
+    if (!data.foregroundImage || data.foregroundWidth <= 0 || data.foregroundHeight <= 0) {
+      return null;
+    }
+
+    return {
+      foregroundWidth: data.foregroundWidth,
+      foregroundHeight: data.foregroundHeight,
+      foregroundX: data.foregroundX,
+      foregroundY: data.foregroundY,
+      foregroundScale: data.foregroundScale,
+      foregroundRotation: data.foregroundRotation,
+    };
+  }
+
+  async function applyImportedConfigContent(content: string, source: string) {
+    try {
+      const parsed = parseCardImageConfigDocument(content);
+      const importedForm = parsed.form;
+
+      revokeSourceImageUrl();
+      sourceImageWidth = 0;
+      sourceImageHeight = 0;
+      cropModalOpen = false;
+      cropBox = { x: 0, y: 0, size: 0 };
+      dragMode = null;
+      dragPointerId = null;
+      croppedImageDataUrl = importedForm.image || "";
+      hasManualPreviewZoom = false;
+      previewZoomPercent = DEFAULT_PREVIEW_ZOOM_PERCENT;
+      if (parsed.exportScalePercent !== null) {
+        exportScalePercent = clampExportScalePercent(parsed.exportScalePercent);
+      }
+
+      form = importedForm;
+      lastFormLanguage = importedForm.language as CardImageLanguage;
+      initialForegroundState = createForegroundInitialStateFromForm(importedForm);
+      destroyPreview();
+      destroyForegroundPreview();
+      await warmupPreviewAfterFontsReady();
+      showToast($_("editor.card_image_config_import_success"), "success");
+    } catch (error) {
+      console.error("Failed to import card image config", error);
+      void writeErrorLog({
+        source: "card-image.config.import",
+        error,
+        extra: {
+          cardCode: card.code ?? 0,
+          source,
+        },
+      });
+      showToast($_("editor.card_image_config_import_failed"), "error");
+    }
+  }
+
+  async function handleConfigImport() {
+    if (!tauriBridge.isTauri()) {
+      openConfigFilePicker();
+      return;
+    }
+
+    const selected = await tauriBridge.open({
+      multiple: false,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!selected || typeof selected !== "string") return;
+    try {
+      const content = await readTextFile(selected);
+      await applyImportedConfigContent(content, selected);
+    } catch (error) {
+      console.error("Failed to read card image config", error);
+      void writeErrorLog({
+        source: "card-image.config.read",
+        error,
+        extra: {
+          cardCode: card.code ?? 0,
+          source: selected,
+        },
+      });
+      showToast($_("editor.card_image_config_import_failed"), "error");
+    }
+  }
+
+  async function handleConfigFileUpload(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    try {
+      const content = await file.text();
+      await applyImportedConfigContent(content, file.name);
+    } finally {
+      input.value = "";
+    }
+  }
+
+  async function handleConfigExport() {
+    try {
+      const content = serializeCardImageConfigDocument({
+        form,
+        exportScalePercent,
+        cardCode: Number(card.code ?? 0),
+        cardName: card.name ?? "",
+      });
+
+      if (tauriBridge.isTauri()) {
+        const targetPath = await tauriBridge.save({
+          defaultPath: getConfigFileName(),
+          filters: [{ name: "JSON", extensions: ["json"] }],
+        });
+        if (!targetPath) return;
+        await writeTextFile(targetPath, content);
+      } else {
+        const blob = new Blob([content], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = getConfigFileName();
+        anchor.click();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
+
+      showToast($_("editor.card_image_config_export_success"), "success");
+    } catch (error) {
+      console.error("Failed to export card image config", error);
+      void writeErrorLog({
+        source: "card-image.config.export",
+        error,
+        extra: {
+          cardCode: card.code ?? 0,
+        },
+      });
+      showToast($_("editor.card_image_config_export_failed"), "error");
+    }
   }
 
   async function ensureAiReady() {
@@ -1648,11 +1841,18 @@
         <div class="form-pane">
           <div class="form-toolbar">
             <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" bind:this={fileInput} onchange={handleImageUpload} />
+            <input class="sr-only" type="file" accept="application/json,.json" bind:this={configFileInput} onchange={handleConfigFileUpload} />
             {#if HAS_EXTRA_BUILD}
               <input class="sr-only" type="file" accept="image/png,image/webp" bind:this={foregroundFileInput} onchange={handleForegroundImageUpload} />
             {/if}
             <button class="btn-primary btn-sm upload-btn" type="button" onclick={openFilePicker}>
               {croppedImageDataUrl ? $_("editor.card_image_recrop") : $_("editor.card_image_upload")}
+            </button>
+            <button class="btn-secondary btn-sm" type="button" onclick={handleConfigImport}>
+              {$_("editor.card_image_config_import")}
+            </button>
+            <button class="btn-secondary btn-sm" type="button" onclick={handleConfigExport}>
+              {$_("editor.card_image_config_export")}
             </button>
             {#if HAS_EXTRA_BUILD}
               <button class="btn-secondary btn-sm" type="button" onclick={() => foregroundEditorOpen = true}>
@@ -1742,6 +1942,23 @@
                   <input type="text" placeholder={$_("editor.card_image_name_color_placeholder")} bind:value={form.color} />
                   <button class="btn-secondary btn-sm" type="button" onclick={clearCustomNameColor}>{$_("editor.card_image_name_color_reset")}</button>
                 </div>
+                <div class="color-preset-group">
+                  <span class="color-preset-label">{$_("editor.card_image_name_color_presets")}</span>
+                  <div class="color-preset-list">
+                    {#each NAME_COLOR_PRESETS as preset}
+                      <button
+                        class={`color-preset-chip ${isNameColorPresetActive(preset.value) ? "is-active" : ""}`}
+                        type="button"
+                        style={`--preset-color:${preset.value};`}
+                        title={$_(preset.labelKey)}
+                        aria-label={`${$_(preset.labelKey)} ${preset.value}`}
+                        onclick={() => applyNameColorPreset(preset.value)}
+                      >
+                        <span class="color-preset-swatch" aria-hidden="true"></span>
+                      </button>
+                    {/each}
+                  </div>
+                </div>
                 <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.gradient} /><span>{$_("editor.card_image_gradient_enable")}</span></label>
                 {#if form.gradient}
                   <div class="subfield-grid">
@@ -1799,6 +2016,23 @@
                   />
                   <input type="text" placeholder={$_("editor.card_image_name_color_placeholder")} bind:value={form.nameShadowColor} />
                   <button class="btn-secondary btn-sm" type="button" onclick={clearCustomNameShadowColor}>{$_("editor.card_image_name_color_reset")}</button>
+                </div>
+                <div class="color-preset-group">
+                  <span class="color-preset-label">{$_("editor.card_image_name_color_presets")}</span>
+                  <div class="color-preset-list">
+                    {#each NAME_COLOR_PRESETS as preset}
+                      <button
+                        class={`color-preset-chip ${isNameShadowColorPresetActive(preset.value) ? "is-active" : ""}`}
+                        type="button"
+                        style={`--preset-color:${preset.value};`}
+                        title={$_(preset.labelKey)}
+                        aria-label={`${$_(preset.labelKey)} ${preset.value}`}
+                        onclick={() => applyNameShadowColorPreset(preset.value)}
+                      >
+                        <span class="color-preset-swatch" aria-hidden="true"></span>
+                      </button>
+                    {/each}
+                  </div>
                 </div>
                 <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.nameShadowGradient} /><span>{$_("editor.card_image_gradient_enable")}</span></label>
                 {#if form.nameShadowGradient}
@@ -2083,6 +2317,37 @@
   .color-input-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
   .color-input-row-compact { grid-template-columns: 52px minmax(0, 1fr); }
   .color-swatch { min-height: 38px; padding: 4px; cursor: pointer; }
+  .color-preset-group { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .color-preset-label { font-size: 0.78rem; color: var(--text-secondary); font-weight: 600; }
+  .color-preset-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .color-preset-chip {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  }
+  .color-preset-chip:hover {
+    border-color: color-mix(in srgb, var(--accent-primary) 35%, var(--border-color));
+    transform: translateY(-1px);
+  }
+  .color-preset-chip.is-active {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  }
+  .color-preset-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+    background: var(--preset-color);
+    border: 1px solid color-mix(in srgb, #0f172a 18%, rgba(255, 255, 255, 0.28));
+  }
   .subfield-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-top: 6px; }
   .gradient-toggle { margin-top: 6px; align-self: flex-start; }
   .effect-block-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

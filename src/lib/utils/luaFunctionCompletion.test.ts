@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { isFunctionReferenceParameter, shouldInsertFunctionReferenceOnly } from './luaFunctionCompletion';
+import {
+  getCompletionInsertParameters,
+  isFunctionReferenceParameter,
+  shouldInsertFunctionReferenceOnly,
+} from './luaFunctionCompletion';
 
 describe('lua function completion helpers', () => {
   test('detects function-typed parameters', () => {
@@ -14,5 +18,15 @@ describe('lua function completion helpers', () => {
     expect(shouldInsertFunctionReferenceOnly(['function f', 'integer tp'], 0)).toBe(true);
     expect(shouldInsertFunctionReferenceOnly(['function f', 'integer tp'], 1)).toBe(false);
     expect(shouldInsertFunctionReferenceOnly(['function f'], 2)).toBe(false);
+  });
+
+  test('only keeps required parameters for function completion insertion', () => {
+    expect(getCompletionInsertParameters(['integer player', 'integer min?', '...'])).toEqual(['integer player']);
+    expect(getCompletionInsertParameters(['integer player[, integer min=1, integer max=12, ...]']))
+      .toEqual(['integer player']);
+    expect(getCompletionInsertParameters(['integer player[, integer min=1]']))
+      .toEqual(['integer player']);
+    expect(getCompletionInsertParameters(['Card c', 'function|nil f', 'Card|Group ex|nil', '...']))
+      .toEqual(['Card c', 'function|nil f', 'Card|Group ex|nil']);
   });
 });
