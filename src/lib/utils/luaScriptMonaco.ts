@@ -5,7 +5,7 @@ import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { luaCatalog as defaultLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
 import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded } from '$lib/utils/luaScriptDiagnostics';
-import { shouldInsertFunctionReferenceOnly } from '$lib/utils/luaFunctionCompletion';
+import { getCompletionInsertParameters, shouldInsertFunctionReferenceOnly } from '$lib/utils/luaFunctionCompletion';
 import { loadExternalLuaCatalog } from '$lib/utils/luaIntelCatalog';
 import {
   getCallInfoAt,
@@ -272,7 +272,9 @@ function buildFunctionInsertText(
     omitFirstParameter?: boolean;
   } = {},
 ) {
-  const parameters = getInvocationParameters(item, Boolean(options.omitFirstParameter));
+  const parameters = getCompletionInsertParameters(
+    getInvocationParameters(item, Boolean(options.omitFirstParameter)),
+  );
 
   if (parameters.length === 0 || (parameters.length === 1 && parameters[0] === '')) {
     return `${displayName}()`;
@@ -1020,6 +1022,7 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
 
   for (const item of scriptFunctions) {
     const displayName = namespaceContext ? item.shortName : item.name;
+    const completionParameters = getCompletionInsertParameters(item.parameters);
     pushSuggestion({
       label: {
         label: displayName,
@@ -1028,7 +1031,7 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
       kind: monaco.languages.CompletionItemKind.Function,
       insertText: insertFunctionReferenceOnly
         ? displayName
-        : `${displayName}(${item.parameters.join(', ')})`,
+        : `${displayName}(${completionParameters.join(', ')})`,
       detail: item.signature,
       documentation: buildScriptFunctionDocumentation(item),
       sortText: `2100-${displayName}`,
