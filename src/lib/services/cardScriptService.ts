@@ -1,6 +1,7 @@
 import { buildScriptFileName, normalizeScriptContent } from '$lib/domain/script/workspace';
 import {
   getCardScriptInfo,
+  openInDefaultApp,
   openInSystemEditor,
   readCardScriptDocument,
   saveCardScriptDocument,
@@ -27,8 +28,33 @@ export async function openCardScriptWorkspace(input: {
   });
 }
 
+export async function ensureCardScriptFile(input: {
+  cdbPath: string;
+  cardCode: number;
+  cardName: string;
+}) {
+  const loaded = await readCardScriptDocument(input.cdbPath, input.cardCode);
+  if (loaded.exists) {
+    return {
+      path: loaded.path,
+      createdFromTemplate: false,
+    };
+  }
+
+  const content = buildTemplateContent(input.cardName, input.cardCode);
+  const saved = await saveCardScriptDocument(input.cdbPath, input.cardCode, content);
+  return {
+    path: saved.path,
+    createdFromTemplate: true,
+  };
+}
+
 export async function openScriptExternally(path: string) {
   return openInSystemEditor(path);
+}
+
+export async function openScriptWithDefaultApp(path: string) {
+  return openInDefaultApp(path);
 }
 
 export async function readCardScript(cdbPath: string, cardCode: number) {

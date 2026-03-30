@@ -156,6 +156,7 @@ struct PersistedAppSettings {
     model: String,
     temperature: f64,
     script_template: String,
+    use_external_script_editor: bool,
     encrypted_secret_key: Option<String>,
 }
 
@@ -166,6 +167,7 @@ impl Default for PersistedAppSettings {
             model: DEFAULT_AI_MODEL.to_string(),
             temperature: DEFAULT_AI_TEMPERATURE,
             script_template: DEFAULT_SCRIPT_TEMPLATE.to_string(),
+            use_external_script_editor: false,
             encrypted_secret_key: None,
         }
     }
@@ -178,6 +180,7 @@ struct AppSettingsPayload {
     model: String,
     temperature: f64,
     script_template: String,
+    use_external_script_editor: bool,
     has_secret_key: bool,
     cover_image_path: Option<String>,
     error_log_path: String,
@@ -190,6 +193,7 @@ struct SaveAppSettingsRequest {
     model: Option<String>,
     temperature: Option<f64>,
     script_template: String,
+    use_external_script_editor: Option<bool>,
     secret_key: Option<String>,
     clear_secret_key: Option<bool>,
 }
@@ -443,6 +447,7 @@ fn to_settings_payload(
         } else {
             settings.script_template
         },
+        use_external_script_editor: settings.use_external_script_editor,
         has_secret_key: settings.encrypted_secret_key.is_some(),
         cover_image_path: if cover_path.exists() {
             Some(cover_path.to_string_lossy().to_string())
@@ -946,6 +951,9 @@ fn save_app_settings(
     settings.temperature =
         normalize_temperature(request.temperature.or(Some(settings.temperature)));
     settings.script_template = normalize_script_template(request.script_template);
+    settings.use_external_script_editor = request
+        .use_external_script_editor
+        .unwrap_or(settings.use_external_script_editor);
 
     if request.clear_secret_key.unwrap_or(false) {
         settings.encrypted_secret_key = None;
@@ -1102,6 +1110,37 @@ fn open_in_system_editor(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_in_default_app(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(["/C", "start", ""])
+            .arg(Path::new(&path).as_os_str())
+            .spawn()
+            .map_err(|err| err.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(Path::new(&path).as_os_str())
+            .spawn()
+            .map_err(|err| err.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        Command::new("xdg-open")
+            .arg(Path::new(&path).as_os_str())
+            .spawn()
+            .map_err(|err| err.to_string())?;
+        return Ok(());
+    }
+}
+
+#[tauri::command]
 fn append_error_log(app: AppHandle, request: AppendErrorLogRequest) -> Result<String, String> {
     let path = error_log_path(&app)?;
     let mut file = fs::OpenOptions::new()
@@ -1193,6 +1232,7 @@ pub fn run() {
             save_card_script,
             package_cdb_assets_as_zip,
             open_in_system_editor,
+            open_in_default_app,
             append_error_log,
             consume_pending_open_cdb_paths
         ])

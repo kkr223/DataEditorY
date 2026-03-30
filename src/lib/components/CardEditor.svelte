@@ -41,7 +41,7 @@
   import { parseCardManuscript } from "$lib/utils/ai";
   import { createAiAppContext } from "$lib/services/aiAppContext";
   import { generateCardScriptFile, getScriptGenerationStageLabel, ensureAiReady, ensureScriptOverwriteConfirmed, isAbortError } from "$lib/services/scriptGeneration";
-  import { openCardScriptWorkspace } from "$lib/services/cardScriptService";
+  import { ensureCardScriptFile, openCardScriptWorkspace, openScriptWithDefaultApp } from "$lib/services/cardScriptService";
   import { importCardImage, resolveCardImageSrc } from "$lib/services/cardImageService";
   import SetcodeField from "$lib/components/SetcodeField.svelte";
 
@@ -412,6 +412,21 @@
 
         if (!shouldCreate) return;
 
+      }
+
+      if (appSettingsState.values.useExternalScriptEditor) {
+        const ensured = await ensureCardScriptFile({
+          cdbPath: $activeTab.path,
+          cardCode: code,
+          cardName: draftCard.name ?? "",
+        });
+
+        await openScriptWithDefaultApp(ensured.path);
+
+        if (ensured.createdFromTemplate) {
+          showToast($_("editor.script_created", { values: { code: String(code) } }), "success");
+        }
+        return;
       }
 
       const opened = await openCardScriptWorkspace({

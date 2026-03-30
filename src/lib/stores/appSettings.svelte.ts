@@ -6,6 +6,7 @@ export interface AppSettingsPayload {
   model: string;
   temperature: number;
   scriptTemplate: string;
+  useExternalScriptEditor: boolean;
   hasSecretKey: boolean;
   coverImagePath: string | null;
   errorLogPath: string;
@@ -20,6 +21,7 @@ function createDefaultSettings(): AppSettingsPayload {
     model: 'gpt-4o-mini',
     temperature: 1,
     scriptTemplate: '-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n',
+    useExternalScriptEditor: false,
     hasSecretKey: false,
     coverImagePath: null,
     errorLogPath: '',
@@ -61,6 +63,7 @@ function applySettings(payload: AppSettingsPayload) {
     model: payload.model?.trim() || 'gpt-4o-mini',
     temperature: normalizeTemperature(payload.temperature),
     scriptTemplate: payload.scriptTemplate?.trim() ? payload.scriptTemplate : createDefaultSettings().scriptTemplate,
+    useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
     hasSecretKey: Boolean(payload.hasSecretKey),
     coverImagePath: payload.coverImagePath ?? null,
     errorLogPath: payload.errorLogPath ?? '',
@@ -114,6 +117,7 @@ export async function saveAppSettings(input: {
   model?: string;
   temperature?: number;
   scriptTemplate: string;
+  useExternalScriptEditor?: boolean;
   secretKey?: string;
   clearSecretKey?: boolean;
 }) {
@@ -125,6 +129,7 @@ export async function saveAppSettings(input: {
         model: input.model,
         temperature: normalizeTemperature(input.temperature ?? appSettingsState.values.temperature),
         scriptTemplate: input.scriptTemplate,
+        useExternalScriptEditor: input.useExternalScriptEditor,
         secretKey: input.secretKey,
         clearSecretKey: input.clearSecretKey,
       },
