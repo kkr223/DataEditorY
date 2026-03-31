@@ -212,7 +212,35 @@
     await handleSearch();
   }
 
-  async function handleArrowNavigation(event: KeyboardEvent) {
+  async function handleEditorKeydown(event: KeyboardEvent) {
+    if (event.defaultPrevented || event.repeat || event.isComposing || !$isDbLoaded) {
+      return;
+    }
+
+    const isPrimary = event.ctrlKey || event.metaKey;
+    if (
+      !event.defaultPrevented
+      && !event.repeat
+      && !event.isComposing
+      && isPrimary
+      && !event.altKey
+      && !event.shiftKey
+      && event.key === "Enter"
+      && !isKeyboardNavigating
+      && !isParseModalOpen
+      && !isCardImageDrawerOpen
+      && !isImagePreviewOpen
+    ) {
+      event.preventDefault();
+      isKeyboardNavigating = true;
+      try {
+        await handleModify();
+      } finally {
+        isKeyboardNavigating = false;
+      }
+      return;
+    }
+
     if (shouldIgnoreArrowNavigation(event) || !$isDbLoaded) return;
 
     if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
@@ -409,16 +437,16 @@
     };
 
     window.addEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
-    window.addEventListener("keydown", handleArrowNavigation);
+    window.addEventListener("keydown", handleEditorKeydown);
     return () => {
       scriptGenerationAbortController?.abort();
       window.removeEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
-      window.removeEventListener("keydown", handleArrowNavigation);
+      window.removeEventListener("keydown", handleEditorKeydown);
     };
   });
 
   onDestroy(() => {
-    window.removeEventListener("keydown", handleArrowNavigation);
+    window.removeEventListener("keydown", handleEditorKeydown);
   });
 
   async function handleImagePick() {
