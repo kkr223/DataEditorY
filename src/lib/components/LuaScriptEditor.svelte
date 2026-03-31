@@ -43,6 +43,7 @@
   let suggestHintAnchorTop = $state(12);
   let currentFunctionHintTitle = $state('');
   let currentFunctionHintDescription = $state('');
+  let isCurrentFunctionHintSuppressed = $state(false);
   let currentFunctionHintPlacement = $state<'top' | 'bottom'>('top');
   let currentFunctionHintAnchorTop = $state(12);
   let hoverAbove = true;
@@ -199,8 +200,27 @@
   function clearCurrentFunctionHint() {
     currentFunctionHintTitle = '';
     currentFunctionHintDescription = '';
+    isCurrentFunctionHintSuppressed = false;
     currentFunctionHintPlacement = 'top';
     currentFunctionHintAnchorTop = 12;
+  }
+
+  function shouldHandleHintSuppressShortcut(event: KeyboardEvent) {
+    return event.key === 'Alt' && Boolean(editorInstance?.hasTextFocus());
+  }
+
+  function handleHintSuppressKeydown(event: KeyboardEvent) {
+    if (!shouldHandleHintSuppressShortcut(event)) return;
+    isCurrentFunctionHintSuppressed = true;
+  }
+
+  function handleHintSuppressKeyup(event: KeyboardEvent) {
+    if (event.key !== 'Alt') return;
+    isCurrentFunctionHintSuppressed = false;
+  }
+
+  function handleHintSuppressBlur() {
+    isCurrentFunctionHintSuppressed = false;
   }
 
   function getHintAnchor(position: { lineNumber: number; column: number } | null | undefined) {
@@ -568,6 +588,7 @@
 
     editorInstance.onDidBlurEditorText(() => {
       clearSuggestHint();
+      handleHintSuppressBlur();
     });
 
     editorInstance.onDidScrollChange(() => {
@@ -582,6 +603,10 @@
       attributes: true,
       attributeFilter: ['data-theme'],
     });
+
+    window.addEventListener('keydown', handleHintSuppressKeydown);
+    window.addEventListener('keyup', handleHintSuppressKeyup);
+    window.addEventListener('blur', handleHintSuppressBlur);
 
     isMonacoReady = true;
     await loadCardContext();
@@ -599,6 +624,9 @@
     callHighlightDecorations = null;
     themeObserver?.disconnect();
     themeObserver = null;
+    window.removeEventListener('keydown', handleHintSuppressKeydown);
+    window.removeEventListener('keyup', handleHintSuppressKeyup);
+    window.removeEventListener('blur', handleHintSuppressBlur);
     editorInstance?.dispose();
   });
 
@@ -677,7 +705,7 @@
 
     <div class="script-layout">
       <div class="script-editor-shell">
-        {#if currentFunctionHintTitle}
+        {#if currentFunctionHintTitle && !isCurrentFunctionHintSuppressed}
           <div
             class="current-function-hint"
             class:top={currentFunctionHintPlacement === 'top'}
@@ -979,8 +1007,6 @@
     color: rgba(218, 233, 223, 0.76);
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: min(28vh, 260px);
-    overflow-y: auto;
   }
 
   :global([data-theme='light']) .script-editor {
