@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
   import { untrack } from "svelte";
   import { _ } from "svelte-i18n";
   import {
@@ -11,7 +11,7 @@
     modifyCard,
     saveCdbFile,
   } from "$lib/stores/db";
-  import { clearSelection, editorState, getAllCardsMap, handleSearch, setSingleSelectedCard, updateVisibleCards } from "$lib/stores/editor.svelte";
+  import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleSearch, setSingleSelectedCard, updateVisibleCards } from "$lib/stores/editor.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
   import { tauriBridge } from "$lib/infrastructure/tauri";
   import type { CardDataEntry } from "$lib/types";
@@ -34,6 +34,7 @@
   } from "$lib/utils/card";
   import { createCardSnapshot, toPersistableCard } from "$lib/domain/card/draft";
   import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
+  import { isEditableTarget } from "$lib/features/shell/controller";
   import { HAS_AI_FEATURE, HAS_CARD_IMAGE_FEATURE } from "$lib/config/build";
   import { appSettingsState } from "$lib/stores/appSettings.svelte";
   import { writeErrorLog } from "$lib/utils/errorLog";
@@ -48,6 +49,7 @@
   type CardImageDrawerModule = typeof import("$lib/components/CardImageDrawer.svelte");
 
   const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
+  const CARD_LIST_PAGE_SIZE = 50;
 
 
   let draftCard = $state<CardDataEntry>(createEmptyCard());
@@ -69,6 +71,7 @@
   let isGeneratingScript = $state(false);
   let scriptGenerationStage = $state<AgentStage | "">("");
   let scriptGenerationAbortController = $state<AbortController | null>(null);
+  let isKeyboardNavigating = $state(false);
 
   let isEditingExisting = $derived(originalCardCode !== null);
   let isLink = $derived((draftCard.type & 0x4000000) !== 0);
@@ -146,6 +149,97 @@
     imageRequestToken++;
     clearImageClickTimer();
     imageSrc = getDefaultCoverSrc();
+  }
+
+  function isDraftDirty() {
+    const currentSnapshot = createCardSnapshot(draftCard);
+    if (originalCardCode === null) {
+      return currentSnapshot !== createCardSnapshot(createEmptyCard());
+    }
+    return currentSnapshot !== lastLoadedCardSnapshot;
+  }
+
+  async function confirmDiscardDraftForKeyboardNavigation() {
+    if (!isDraftDirty()) return true;
+
+    return tauriBridge.ask($_("editor.navigate_unsaved_confirm"), {
+      title: $_("editor.navigate_unsaved_title"),
+      kind: "warning",
+    });
+  }
+
+  function shouldIgnoreArrowNavigation(event: KeyboardEvent) {
+    return (
+      event.defaultPrevented
+      || event.repeat
+      || event.isComposing
+      || event.ctrlKey
+      || event.metaKey
+      || event.altKey
+      || event.shiftKey
+      || isEditableTarget(event.target)
+      || isKeyboardNavigating
+      || isParseModalOpen
+      || isCardImageDrawerOpen
+      || isImagePreviewOpen
+    );
+  }
+
+  async function navigateSelectionBy(delta: number) {
+    const cards = getAllCards();
+    if (cards.length === 0) return;
+
+    const currentIndex = cards.findIndex((card) => card.code === editorState.selectedId);
+    const fallbackIndex = delta > 0 ? 0 : cards.length - 1;
+    const baseIndex = currentIndex === -1 ? fallbackIndex : currentIndex;
+    const nextIndex = Math.max(0, Math.min(cards.length - 1, baseIndex + delta));
+    if (nextIndex === currentIndex) return;
+
+    if (!(await confirmDiscardDraftForKeyboardNavigation())) return;
+    setSingleSelectedCard(cards[nextIndex].code);
+  }
+
+  async function navigatePageBy(delta: number) {
+    const totalCards = getTotalCards();
+    if (totalCards <= 0) return;
+
+    const totalPages = Math.max(1, Math.ceil(totalCards / CARD_LIST_PAGE_SIZE));
+    const nextPage = Math.max(1, Math.min(totalPages, editorState.currentPage + delta));
+    if (nextPage === editorState.currentPage) return;
+
+    if (!(await confirmDiscardDraftForKeyboardNavigation())) return;
+    editorState.currentPage = nextPage;
+    await handleSearch();
+  }
+
+  async function handleArrowNavigation(event: KeyboardEvent) {
+    if (shouldIgnoreArrowNavigation(event) || !$isDbLoaded) return;
+
+    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    isKeyboardNavigating = true;
+    try {
+      if (event.key === "ArrowUp") {
+        await navigateSelectionBy(-1);
+        return;
+      }
+      if (event.key === "ArrowDown") {
+        await navigateSelectionBy(1);
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        await navigatePageBy(-1);
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        await navigatePageBy(1);
+      }
+    } finally {
+      isKeyboardNavigating = false;
+    }
   }
 
   function loadCardIntoDraft(card: CardDataEntry) {
@@ -315,10 +409,16 @@
     };
 
     window.addEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
+    window.addEventListener("keydown", handleArrowNavigation);
     return () => {
       scriptGenerationAbortController?.abort();
       window.removeEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
+      window.removeEventListener("keydown", handleArrowNavigation);
     };
+  });
+
+  onDestroy(() => {
+    window.removeEventListener("keydown", handleArrowNavigation);
   });
 
   async function handleImagePick() {
