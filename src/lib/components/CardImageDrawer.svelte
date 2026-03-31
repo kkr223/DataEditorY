@@ -1925,7 +1925,7 @@
             <div class="section-title">{$_("editor.card_image_form_style")}</div>
             <div class="field-grid">
               <label class="field"><span>{$_("editor.card_image_font")}</span><select bind:value={form.font}>{#each CARD_IMAGE_FONT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-              <label class="field field-color">
+              <div class="field field-color">
                 <span>{$_("editor.card_image_name_color")}</span>
                 <div class="color-input-row">
                   <input
@@ -1999,8 +1999,8 @@
                   </div>
                 {/if}
                 <small class="field-hint">{$_("editor.card_image_name_color_hint")}</small>
-              </label>
-              <label class="field field-color">
+              </div>
+              <div class="field field-color">
                 <span>{$_("editor.card_image_name_shadow_color")}</span>
                 <div class="color-input-row">
                   <input
@@ -2074,7 +2074,7 @@
                   </div>
                 {/if}
                 <small class="field-hint">{$_("editor.card_image_name_shadow_color_hint")}</small>
-              </label>
+              </div>
               <label class="field"><span>{$_("editor.card_image_rarity")}</span><select bind:value={form.rare}>{#each CARD_IMAGE_RARE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
               <label class="field"><span>{$_("editor.card_image_laser")}</span><select bind:value={form.laser}>{#each CARD_IMAGE_LASER_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
               <label class="field"><span>{$_("editor.card_image_copyright")}</span><select bind:value={form.copyright}>{#each CARD_IMAGE_COPYRIGHT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
@@ -2185,7 +2185,7 @@
             <fieldset class="effect-block-fieldset" disabled={!form.effectBlockEnabled}>
               <div class="field-grid">
                 <label class="field"><span>{$_("editor.card_image_effect_block_opacity")}</span><input type="number" min="0" max="1" step="0.05" bind:value={form.effectBlockOpacity} /></label>
-                <label class="field">
+                <div class="field">
                   <span>{$_("editor.card_image_effect_block_color")}</span>
                   <div class="color-input-row color-input-row-compact">
                     <input
@@ -2201,7 +2201,7 @@
                     />
                     <input type="text" bind:value={form.effectBlockColor} />
                   </div>
-                </label>
+                </div>
               </div>
             </fieldset>
             <small class="field-hint">{$_("editor.card_image_effect_block_hint")}</small>
