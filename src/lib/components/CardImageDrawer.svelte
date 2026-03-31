@@ -37,9 +37,13 @@
   }) => {
     imageLeaf?: {
       constructor?: new () => { set?: (data: Record<string, unknown>) => void };
+      set?: (data: Record<string, unknown>) => void;
+      zIndex?: number;
     };
     maskLeaf?: {
       constructor?: new () => { set?: (data: Record<string, unknown>) => void };
+      set?: (data: Record<string, unknown>) => void;
+      zIndex?: number;
     };
     leafer?: {
       destroy?: () => void;
@@ -108,6 +112,8 @@
   const EFFECT_BLOCK_FILL_INSET_RIGHT = 16;
   const EFFECT_BLOCK_FILL_INSET_BOTTOM = 20;
   const CROPPED_IMAGE_SIZE = 1024;
+  const FOREGROUND_OVERLAY_Z_INDEX = 21;
+  const FOREGROUND_TOP_LAYER_Z_INDEX = 30;
   const FIELD_SPELL_ART_SIZE = 512;
   const MIN_CROP_SIZE = 80;
   const MIN_EXPORT_SCALE_PERCENT = 10;
@@ -1221,6 +1227,48 @@
     });
   }
 
+  function setLeafMinimumZIndex(
+    leaf: { set?: (data: Record<string, unknown>) => void; zIndex?: number } | null | undefined,
+    zIndex: number,
+  ) {
+    if (!leaf?.set) return;
+    if (typeof leaf.zIndex === "number" && leaf.zIndex >= zIndex) return;
+    leaf.set({ zIndex });
+  }
+
+  function applyForegroundLayerOrdering(cardInstance: InstanceType<YugiohCardConstructor> | null) {
+    if (!cardInstance) return;
+
+    const layeredLeafKeys = [
+      "nameLeaf",
+      "attributeLeaf",
+      "levelLeaf",
+      "rankLeaf",
+      "spellTrapLeaf",
+      "pendulumLeaf",
+      "pendulumDescriptionLeaf",
+      "packageLeaf",
+      "effectLeaf",
+      "descriptionLeaf",
+      "maximumAtkLeaf",
+      "atkDefLeaf",
+      "atkDefLinkLeaf",
+      "passwordLeaf",
+      "copyrightLeaf",
+      "attributeRareLeaf",
+      "legendLeaf",
+      "linkArrowLeaf",
+      "rareLeaf",
+      "laserLeaf",
+      "twentiethLeaf",
+    ] as const;
+
+    for (const key of layeredLeafKeys) {
+      const leaf = (cardInstance as unknown as Record<string, { set?: (data: Record<string, unknown>) => void; zIndex?: number } | null | undefined>)[key];
+      setLeafMinimumZIndex(leaf, FOREGROUND_TOP_LAYER_Z_INDEX);
+    }
+  }
+
   function applyForegroundOverlay(
     cardInstance: InstanceType<YugiohCardConstructor> | null,
     data: CardImageFormData,
@@ -1252,7 +1300,7 @@
       rotation: data.foregroundRotation,
       around: { type: "percent", x: 0.5, y: 0.5 },
       visible: true,
-      zIndex: 27,
+      zIndex: Math.max((cardInstance.maskLeaf?.zIndex ?? 20) + 1, FOREGROUND_OVERLAY_Z_INDEX),
     });
   }
 
@@ -1406,6 +1454,9 @@
       });
 
       await tick();
+      if (hasForegroundOverlay(data)) {
+        applyForegroundLayerOrdering(exportCard);
+      }
       applyForegroundOverlay(exportCard, data, foregroundRenderableUrl);
       applyEffectBlockOverlay(exportCard, data, resourcePath);
       applyNameLeafEnhancements(exportCard, data);
@@ -1484,6 +1535,9 @@
       const cardInstance = await ensurePreviewCard();
       const previewData = buildPreviewData();
       cardInstance?.setData?.(previewData);
+      if (hasForegroundOverlay(previewData)) {
+        applyForegroundLayerOrdering(cardInstance);
+      }
       applyForegroundOverlay(cardInstance, previewData, foregroundRenderableUrl);
       applyEffectBlockOverlay(cardInstance, previewData, await getResourcePath());
       applyNameLeafEnhancements(cardInstance, previewData);
@@ -1500,6 +1554,9 @@
       const cardInstance = await ensureForegroundPreviewCard();
       const previewData = buildForegroundPreviewData();
       cardInstance?.setData?.(previewData);
+      if (hasForegroundOverlay(previewData)) {
+        applyForegroundLayerOrdering(cardInstance);
+      }
       applyForegroundOverlay(cardInstance, previewData, foregroundRenderableUrl);
       applyEffectBlockOverlay(cardInstance, previewData, await getResourcePath());
       applyNameLeafEnhancements(cardInstance, previewData);
