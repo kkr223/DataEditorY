@@ -979,8 +979,6 @@
     color: rgba(218, 233, 223, 0.76);
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: min(28vh, 260px);
-    overflow-y: auto;
   }
 
   :global([data-theme='light']) .script-editor {
