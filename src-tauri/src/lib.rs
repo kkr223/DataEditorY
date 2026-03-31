@@ -3,6 +3,7 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
+use chrono::Local;
 use image::{codecs::jpeg::JpegEncoder, GenericImageView};
 use mime_guess::from_path;
 use percent_encoding::percent_decode_str;
@@ -459,10 +460,7 @@ fn to_settings_payload(
 }
 
 fn now_local_timestamp() -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    format!("{}.{}", now.as_secs(), now.subsec_millis())
+    Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string()
 }
 
 fn build_card_script_path(cdb_path: &str, card_id: u32) -> Result<PathBuf, String> {

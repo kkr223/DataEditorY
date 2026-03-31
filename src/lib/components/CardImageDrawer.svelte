@@ -35,6 +35,9 @@
     data: CardImageFormData;
     resourcePath: string;
   }) => {
+    imageLeaf?: {
+      constructor?: new () => { set?: (data: Record<string, unknown>) => void };
+    };
     maskLeaf?: {
       constructor?: new () => { set?: (data: Record<string, unknown>) => void };
     };
@@ -68,6 +71,9 @@
       strokeWidth?: number;
     };
     __customNameShadowLeaf?: {
+      set?: (data: Record<string, unknown>) => void;
+    } | null;
+    __customForegroundLeaf?: {
       set?: (data: Record<string, unknown>) => void;
     } | null;
     __customEffectBlockFillLeaf?: {
@@ -150,6 +156,7 @@
   let foregroundPreviewHost = $state<HTMLDivElement | null>(null);
   let foregroundPreviewShell = $state<HTMLDivElement | null>(null);
   let foregroundPreviewCard = $state<InstanceType<YugiohCardConstructor> | null>(null);
+  let foregroundRenderableUrl = $state("");
   let cropImageElement = $state<HTMLImageElement | null>(null);
   let croppedImageDataUrl = $state("");
   let sourceImageUrl = $state("");
@@ -248,6 +255,29 @@
       URL.revokeObjectURL(sourceImageUrl);
       sourceImageUrl = "";
     }
+  }
+
+  function revokeForegroundRenderableUrl() {
+    if (foregroundRenderableUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(foregroundRenderableUrl);
+    }
+    foregroundRenderableUrl = "";
+  }
+
+  async function syncForegroundRenderableUrl(url: string) {
+    revokeForegroundRenderableUrl();
+    const nextUrl = url.trim();
+    if (!nextUrl) {
+      return;
+    }
+
+    if (nextUrl.startsWith("data:")) {
+      const blob = await fetch(nextUrl).then((response) => response.blob());
+      foregroundRenderableUrl = URL.createObjectURL(blob);
+      return;
+    }
+
+    foregroundRenderableUrl = nextUrl;
   }
 
   function closeDrawer() {
@@ -363,6 +393,7 @@
 
   function clearForegroundImage() {
     clearForegroundInitialState();
+    revokeForegroundRenderableUrl();
     form = normalizeCardImageFormData({
       ...form,
       foregroundImage: "",
@@ -476,6 +507,7 @@
       form = importedForm;
       lastFormLanguage = importedForm.language as CardImageLanguage;
       initialForegroundState = createForegroundInitialStateFromForm(importedForm);
+      await syncForegroundRenderableUrl(importedForm.foregroundImage || "");
       destroyPreview();
       destroyForegroundPreview();
       await warmupPreviewAfterFontsReady();
@@ -814,6 +846,7 @@
         foregroundRotation: isReplacing ? form.foregroundRotation : 0,
       };
       initialForegroundState = nextInitialState;
+      await syncForegroundRenderableUrl(uploaded.dataUrl);
       form = normalizeCardImageFormData({
         ...form,
         foregroundImage: uploaded.dataUrl,
@@ -1117,6 +1150,16 @@
     );
   }
 
+  function hasForegroundOverlay(data: CardImageFormData) {
+    return Boolean(
+      HAS_EXTRA_BUILD
+      && data.foregroundImage.trim()
+      && data.foregroundWidth > 0
+      && data.foregroundHeight > 0
+      && data.foregroundScale > 0,
+    );
+  }
+
   function createSolidRectSvgDataUrl(width: number, height: number, color: string, opacity: number) {
     const safeWidth = Math.max(1, Math.round(width));
     const safeHeight = Math.max(1, Math.round(height));
@@ -1175,6 +1218,41 @@
       gradient: data.nameShadowGradient,
       gradientColor1: data.nameShadowGradientColor1,
       gradientColor2: data.nameShadowGradientColor2,
+    });
+  }
+
+  function applyForegroundOverlay(
+    cardInstance: InstanceType<YugiohCardConstructor> | null,
+    data: CardImageFormData,
+    renderableUrl = "",
+  ) {
+    const LeafConstructor = cardInstance?.maskLeaf?.constructor;
+    if (!cardInstance?.leafer?.add || !LeafConstructor) return;
+
+    if (!cardInstance.__customForegroundLeaf) {
+      cardInstance.__customForegroundLeaf = new LeafConstructor();
+      cardInstance.leafer.add(cardInstance.__customForegroundLeaf);
+    }
+
+    if (!hasForegroundOverlay(data)) {
+      cardInstance.__customForegroundLeaf?.set?.({ visible: false });
+      return;
+    }
+
+    const overlayUrl = renderableUrl.trim() || data.foregroundImage;
+
+    cardInstance.__customForegroundLeaf?.set?.({
+      url: overlayUrl,
+      width: data.foregroundWidth,
+      height: data.foregroundHeight,
+      x: data.foregroundX,
+      y: data.foregroundY,
+      scaleX: data.foregroundScale,
+      scaleY: data.foregroundScale,
+      rotation: data.foregroundRotation,
+      around: { type: "percent", x: 0.5, y: 0.5 },
+      visible: true,
+      zIndex: 27,
     });
   }
 
@@ -1328,6 +1406,7 @@
       });
 
       await tick();
+      applyForegroundOverlay(exportCard, data, foregroundRenderableUrl);
       applyEffectBlockOverlay(exportCard, data, resourcePath);
       applyNameLeafEnhancements(exportCard, data);
       if (!exportCard.leafer) {
@@ -1405,6 +1484,7 @@
       const cardInstance = await ensurePreviewCard();
       const previewData = buildPreviewData();
       cardInstance?.setData?.(previewData);
+      applyForegroundOverlay(cardInstance, previewData, foregroundRenderableUrl);
       applyEffectBlockOverlay(cardInstance, previewData, await getResourcePath());
       applyNameLeafEnhancements(cardInstance, previewData);
     } catch (error) {
@@ -1420,6 +1500,7 @@
       const cardInstance = await ensureForegroundPreviewCard();
       const previewData = buildForegroundPreviewData();
       cardInstance?.setData?.(previewData);
+      applyForegroundOverlay(cardInstance, previewData, foregroundRenderableUrl);
       applyEffectBlockOverlay(cardInstance, previewData, await getResourcePath());
       applyNameLeafEnhancements(cardInstance, previewData);
       await tick();
@@ -1687,6 +1768,7 @@
       resetImageState();
       resetForegroundState();
       clearForegroundInitialState();
+      revokeForegroundRenderableUrl();
       return;
     }
 
@@ -1697,6 +1779,7 @@
       resetImageState();
       resetForegroundState();
       clearForegroundInitialState();
+      revokeForegroundRenderableUrl();
       destroyPreview();
       destroyForegroundPreview();
       void warmupPreviewAfterFontsReady();
@@ -1821,6 +1904,7 @@
       previewResizeObserver?.disconnect();
       foregroundResizeObserver?.disconnect();
       revokeSourceImageUrl();
+      revokeForegroundRenderableUrl();
       stopForegroundInteraction();
     };
   });
@@ -1925,7 +2009,7 @@
             <div class="section-title">{$_("editor.card_image_form_style")}</div>
             <div class="field-grid">
               <label class="field"><span>{$_("editor.card_image_font")}</span><select bind:value={form.font}>{#each CARD_IMAGE_FONT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-              <label class="field field-color">
+              <div class="field field-color">
                 <span>{$_("editor.card_image_name_color")}</span>
                 <div class="color-input-row">
                   <input
@@ -1999,8 +2083,8 @@
                   </div>
                 {/if}
                 <small class="field-hint">{$_("editor.card_image_name_color_hint")}</small>
-              </label>
-              <label class="field field-color">
+              </div>
+              <div class="field field-color">
                 <span>{$_("editor.card_image_name_shadow_color")}</span>
                 <div class="color-input-row">
                   <input
@@ -2074,7 +2158,7 @@
                   </div>
                 {/if}
                 <small class="field-hint">{$_("editor.card_image_name_shadow_color_hint")}</small>
-              </label>
+              </div>
               <label class="field"><span>{$_("editor.card_image_rarity")}</span><select bind:value={form.rare}>{#each CARD_IMAGE_RARE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
               <label class="field"><span>{$_("editor.card_image_laser")}</span><select bind:value={form.laser}>{#each CARD_IMAGE_LASER_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
               <label class="field"><span>{$_("editor.card_image_copyright")}</span><select bind:value={form.copyright}>{#each CARD_IMAGE_COPYRIGHT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
@@ -2185,7 +2269,7 @@
             <fieldset class="effect-block-fieldset" disabled={!form.effectBlockEnabled}>
               <div class="field-grid">
                 <label class="field"><span>{$_("editor.card_image_effect_block_opacity")}</span><input type="number" min="0" max="1" step="0.05" bind:value={form.effectBlockOpacity} /></label>
-                <label class="field">
+                <div class="field">
                   <span>{$_("editor.card_image_effect_block_color")}</span>
                   <div class="color-input-row color-input-row-compact">
                     <input
@@ -2201,7 +2285,7 @@
                     />
                     <input type="text" bind:value={form.effectBlockColor} />
                   </div>
-                </label>
+                </div>
               </div>
             </fieldset>
             <small class="field-hint">{$_("editor.card_image_effect_block_hint")}</small>

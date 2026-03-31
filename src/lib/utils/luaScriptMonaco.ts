@@ -282,7 +282,7 @@ function buildFunctionInsertText(
 
   const placeholder = parameters
     .map((parameter, index) => `\${${index + 1}:${escapeSnippetPlaceholder(stripParameterName(parameter))}}`)
-    .join(', ');
+    .join(',');
   return `${displayName}(${placeholder})`;
 }
 
@@ -747,6 +747,127 @@ function inferReceiverNamespace(model: monaco.editor.ITextModel, receiverName: s
   return null;
 }
 
+function skipWhitespaceBackward(text: string, index: number) {
+  let current = index;
+  while (current >= 0 && /\s/.test(text[current] ?? '')) {
+    current -= 1;
+  }
+  return current;
+}
+
+function findMatchingOpenParen(text: string, closeIndex: number) {
+  let depth = 0;
+  for (let index = closeIndex; index >= 0; index -= 1) {
+    const char = text[index];
+    if (char === ')') {
+      depth += 1;
+      continue;
+    }
+    if (char === '(') {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+  return -1;
+}
+
+function splitTrailingMemberExpression(text: string) {
+  const trimmed = text.trimEnd();
+  let index = skipWhitespaceBackward(trimmed, trimmed.length - 1);
+  const memberEnd = index + 1;
+  while (index >= 0 && /\w/.test(trimmed[index] ?? '')) {
+    index -= 1;
+  }
+
+  const memberName = trimmed.slice(index + 1, memberEnd);
+  if (!memberName) {
+    return null;
+  }
+
+  index = skipWhitespaceBackward(trimmed, index);
+  const indexer = trimmed[index];
+  if (indexer !== ':' && indexer !== '.') {
+    return null;
+  }
+
+  const receiver = trimmed.slice(0, index).trimEnd();
+  if (!receiver) {
+    return null;
+  }
+
+  return {
+    receiver,
+    indexer,
+    memberName,
+  } as const;
+}
+
+function inferExpressionNamespaceFromText(
+  expressionText: string,
+  visibleSymbols: LuaVisibleSymbol[],
+  model: monaco.editor.ITextModel,
+  lineNumber: number,
+  depth = 0,
+): LuaStaticType | null {
+  const trimmed = expressionText.trim();
+  if (!trimmed || depth > 8) {
+    return null;
+  }
+
+  if (/^[A-Za-z_][\w]*$/.test(trimmed)) {
+    const symbol = visibleSymbols.find((item) => item.name === trimmed);
+    if (symbol?.typeName) {
+      return symbol.typeName;
+    }
+    return GLOBAL_NAMESPACES.has(trimmed)
+      ? trimmed
+      : inferReceiverNamespace(model, trimmed, lineNumber);
+  }
+
+  if (trimmed.endsWith(')')) {
+    const openParenIndex = findMatchingOpenParen(trimmed, trimmed.length - 1);
+    if (openParenIndex > 0) {
+      const calleeExpression = trimmed.slice(0, openParenIndex).trimEnd();
+      const memberAccess = splitTrailingMemberExpression(calleeExpression);
+      if (memberAccess) {
+        const receiverNamespace = inferExpressionNamespaceFromText(
+          memberAccess.receiver,
+          visibleSymbols,
+          model,
+          lineNumber,
+          depth + 1,
+        );
+        const functionItem = receiverNamespace
+          ? functionsByName.get(`${receiverNamespace}.${memberAccess.memberName}`) ?? null
+          : null;
+        return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+      }
+
+      const functionItem = getFunctionForCall(calleeExpression);
+      return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+    }
+  }
+
+  const memberAccess = splitTrailingMemberExpression(trimmed);
+  if (!memberAccess) {
+    return null;
+  }
+
+  const receiverNamespace = inferExpressionNamespaceFromText(
+    memberAccess.receiver,
+    visibleSymbols,
+    model,
+    lineNumber,
+    depth + 1,
+  );
+  const functionItem = receiverNamespace
+    ? functionsByName.get(`${receiverNamespace}.${memberAccess.memberName}`) ?? null
+    : null;
+  return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+}
+
 function getNamespaceCompletionContext(model: monaco.editor.ITextModel, position: monaco.Position) {
   const linePrefix = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
   const namespaceMatch = linePrefix.match(/([A-Za-z_][\w]*)\.\s*([A-Za-z_]*)$/);
@@ -758,14 +879,17 @@ function getNamespaceCompletionContext(model: monaco.editor.ITextModel, position
     };
   }
 
-  const methodMatch = linePrefix.match(/([A-Za-z_][\w]*)\:\s*([A-Za-z_]*)$/);
-  if (!methodMatch) return null;
+  const partialMatch = linePrefix.match(/([A-Za-z_]*)$/);
+  const partial = partialMatch?.[1] ?? '';
+  const prefixWithoutPartial = linePrefix.slice(0, linePrefix.length - partial.length);
+  const colonIndex = skipWhitespaceBackward(prefixWithoutPartial, prefixWithoutPartial.length - 1);
+  if (colonIndex < 0 || prefixWithoutPartial[colonIndex] !== ':') return null;
 
   return {
     kind: 'method' as const,
-    receiver: methodMatch[1],
-    namespace: inferReceiverNamespace(model, methodMatch[1], position.lineNumber),
-    partial: methodMatch[2] ?? '',
+    receiver: prefixWithoutPartial.slice(0, colonIndex).trimEnd(),
+    namespace: null,
+    partial,
   };
 }
 
@@ -798,12 +922,11 @@ function getInlineDescription(text: string, fallback = '') {
 function normalizeCompletionHint(text: string, fallback = '') {
   const normalized = text
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .join(' ');
-  const hint = normalized || fallback;
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim().length > 0);
+  const hint = (normalized.length > 0 ? normalized.join('\n') : fallback.trim()) || '';
   if (!hint) return null;
-  return hint.length > 520 ? `${hint.slice(0, 520)}...` : hint;
+  return hint.length > 900 ? `${hint.slice(0, 900).trimEnd()}...` : hint;
 }
 
 function buildConstantDocumentation(name: string, value: string, description: string) {
@@ -884,7 +1007,8 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
     if (!rawContext || rawContext.kind !== 'method') return rawContext;
     return {
       ...rawContext,
-      namespace: getMethodNamespace(rawContext.receiver, visibleSymbols),
+      namespace: inferExpressionNamespaceFromText(rawContext.receiver, visibleSymbols, model, position.lineNumber)
+        ?? getMethodNamespace(rawContext.receiver, visibleSymbols),
     };
   })();
   const currentWord = word.word.toLowerCase();
@@ -1031,7 +1155,7 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
       kind: monaco.languages.CompletionItemKind.Function,
       insertText: insertFunctionReferenceOnly
         ? displayName
-        : `${displayName}(${completionParameters.join(', ')})`,
+        : `${displayName}(${completionParameters.join(',')})`,
       detail: item.signature,
       documentation: buildScriptFunctionDocumentation(item),
       sortText: `2100-${displayName}`,

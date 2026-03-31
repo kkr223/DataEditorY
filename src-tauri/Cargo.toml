@@ -35,6 +35,7 @@ percent-encoding = "2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"] }
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 regex = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [profile.release]
 # Faster linking with thin LTO
