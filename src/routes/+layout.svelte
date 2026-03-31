@@ -67,6 +67,7 @@
   let mergeAnalysis = $state<AnalyzeCdbMergeResponse | null>(null);
   let mergeAnalysisKey = $state('');
   let manualMergeChoices = $state<Record<number, 'a' | 'b'>>({});
+  const PRELOAD_RETRY_KEY = 'dataeditory:preload-retry';
 
   const OPEN_HISTORY_HIDE_DELAY_MS = 180;
 
@@ -775,16 +776,42 @@
         error: event.reason,
       });
     };
+    const handlePreloadError = (event: Event) => {
+      const preloadEvent = event as Event & {
+        payload?: unknown;
+        preventDefault?: () => void;
+      };
+      preloadEvent.preventDefault?.();
+      void writeErrorLog({
+        source: 'window.vite-preload-error',
+        error: preloadEvent.payload ?? 'Unknown preload error',
+      });
+
+      if (sessionStorage.getItem(PRELOAD_RETRY_KEY) === '1') {
+        sessionStorage.removeItem(PRELOAD_RETRY_KEY);
+        showToast('资源加载失败，请重试打开当前页面。', 'error');
+        return;
+      }
+
+      sessionStorage.setItem(PRELOAD_RETRY_KEY, '1');
+      window.location.reload();
+    };
 
     const handleContextMenu = (event: MouseEvent) => {
       event.preventDefault();
     };
 
+    const preloadRetryResetTimer = window.setTimeout(() => {
+      sessionStorage.removeItem(PRELOAD_RETRY_KEY);
+    }, 8000);
+
     window.addEventListener('keydown', handleGlobalKeydown);
     window.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('error', handleWindowError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('vite:preloadError', handlePreloadError as EventListener);
     return () => {
+      window.clearTimeout(preloadRetryResetTimer);
       if (openHistoryHideTimer) {
         clearTimeout(openHistoryHideTimer);
         openHistoryHideTimer = null;
@@ -796,6 +823,7 @@
       window.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('error', handleWindowError);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('vite:preloadError', handlePreloadError as EventListener);
     };
   });
 </script>
