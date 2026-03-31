@@ -40,8 +40,11 @@
   let scriptGenerationAbortController = $state<AbortController | null>(null);
   let suggestHintText = $state('');
   let suggestHintPlacement = $state<'top' | 'bottom'>('top');
+  let suggestHintAnchorTop = $state(12);
   let currentFunctionHintTitle = $state('');
   let currentFunctionHintDescription = $state('');
+  let currentFunctionHintPlacement = $state<'top' | 'bottom'>('top');
+  let currentFunctionHintAnchorTop = $state(12);
   let hoverAbove = true;
   let suggestHintTimer: ReturnType<typeof setInterval> | null = null;
   let themeObserver: MutationObserver | null = null;
@@ -186,6 +189,7 @@
   function clearSuggestHint() {
     suggestHintText = '';
     suggestHintPlacement = 'top';
+    suggestHintAnchorTop = 12;
     if (suggestHintTimer) {
       clearInterval(suggestHintTimer);
       suggestHintTimer = null;
@@ -195,6 +199,30 @@
   function clearCurrentFunctionHint() {
     currentFunctionHintTitle = '';
     currentFunctionHintDescription = '';
+    currentFunctionHintPlacement = 'top';
+    currentFunctionHintAnchorTop = 12;
+  }
+
+  function getHintAnchor(position: { lineNumber: number; column: number } | null | undefined) {
+    if (!editorInstance || !editorHost || !position) {
+      return { top: 12, placement: 'top' as const };
+    }
+
+    const visiblePosition = editorInstance.getScrolledVisiblePosition(position);
+    if (!visiblePosition) {
+      return { top: 12, placement: 'top' as const };
+    }
+
+    const hostTop = editorHost.offsetTop + 1;
+    const anchorTop = hostTop + visiblePosition.top;
+    const placement = anchorTop <= Math.max(visiblePosition.height * 5, 132)
+      ? 'bottom'
+      : 'top';
+
+    return {
+      top: placement === 'bottom' ? anchorTop + visiblePosition.height : anchorTop,
+      placement,
+    } as const;
   }
 
   function syncCallHighlights() {
@@ -226,19 +254,9 @@
     if (!editorInstance) return;
 
     const position = editorInstance.getPosition();
-    if (!position) {
-      suggestHintPlacement = 'top';
-      return;
-    }
-
-    const visiblePosition = editorInstance.getScrolledVisiblePosition(position);
-    if (!visiblePosition) {
-      suggestHintPlacement = 'top';
-      return;
-    }
-
-    const threshold = Math.max(visiblePosition.height * 4, 96);
-    suggestHintPlacement = visiblePosition.top <= threshold ? 'bottom' : 'top';
+    const anchor = getHintAnchor(position);
+    suggestHintAnchorTop = anchor.top;
+    suggestHintPlacement = anchor.placement;
   }
 
   function syncHoverPlacement(
@@ -335,6 +353,9 @@
     const hint = monacoModule.getCurrentFunctionHint(model, position);
     currentFunctionHintTitle = hint?.title ?? '';
     currentFunctionHintDescription = hint?.description ?? '';
+    const anchor = getHintAnchor(position);
+    currentFunctionHintAnchorTop = anchor.top;
+    currentFunctionHintPlacement = anchor.placement;
   }
 
   async function handleSave() {
@@ -549,6 +570,11 @@
       clearSuggestHint();
     });
 
+    editorInstance.onDidScrollChange(() => {
+      refreshSuggestHint();
+      refreshCurrentFunctionHint();
+    });
+
     themeObserver = new MutationObserver(() => {
       monacoModule?.syncMonacoTheme();
     });
@@ -652,7 +678,12 @@
     <div class="script-layout">
       <div class="script-editor-shell">
         {#if currentFunctionHintTitle}
-          <div class="current-function-hint">
+          <div
+            class="current-function-hint"
+            class:top={currentFunctionHintPlacement === 'top'}
+            class:bottom={currentFunctionHintPlacement === 'bottom'}
+            style={`top:${currentFunctionHintAnchorTop}px;`}
+          >
             <div class="current-function-hint-title">{currentFunctionHintTitle}</div>
             {#if currentFunctionHintDescription}
               <div class="current-function-hint-description">{currentFunctionHintDescription}</div>
@@ -660,7 +691,12 @@
           </div>
         {/if}
         {#if suggestHintText}
-          <div class="suggest-inline-hint" class:top={suggestHintPlacement === 'top'} class:bottom={suggestHintPlacement === 'bottom'}>{suggestHintText}</div>
+          <div
+            class="suggest-inline-hint"
+            class:top={suggestHintPlacement === 'top'}
+            class:bottom={suggestHintPlacement === 'bottom'}
+            style={`top:${suggestHintAnchorTop}px;`}
+          >{suggestHintText}</div>
         {/if}
         <div class="script-editor" bind:this={editorHost}></div>
       </div>
@@ -881,23 +917,21 @@
 
   .suggest-inline-hint {
     position: absolute;
-    right: 14px;
-    max-width: min(52vw, 880px);
-    padding: 0.35rem 0.65rem;
+    left: 16px;
+    right: 16px;
+    max-width: min(56vw, 920px);
+    padding: 0.5rem 0.75rem;
     border-radius: 8px;
     background: rgba(26, 34, 32, 0.82);
     color: rgba(221, 235, 226, 0.72);
-    font-size: 0.8rem;
-    line-height: 1.42;
+    font-size: 0.86rem;
+    line-height: 1.5;
     font-style: italic;
     pointer-events: none;
-    white-space: normal;
-    overflow: hidden;
+    white-space: pre-wrap;
     word-break: break-word;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
+    max-height: min(24vh, 220px);
+    overflow-y: auto;
     backdrop-filter: blur(2px);
     z-index: 6;
   }
@@ -905,7 +939,6 @@
   .current-function-hint {
     position: absolute;
     left: 14px;
-    top: 12px;
     max-width: min(44vw, 680px);
     display: flex;
     flex-direction: column;
@@ -921,9 +954,19 @@
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
   }
 
+  .current-function-hint.top,
+  .suggest-inline-hint.top {
+    transform: translateY(calc(-100% - 10px));
+  }
+
+  .current-function-hint.bottom,
+  .suggest-inline-hint.bottom {
+    transform: translateY(10px);
+  }
+
   .current-function-hint-title {
     font-family: 'Consolas', 'SFMono-Regular', 'Courier New', monospace;
-    font-size: 0.77rem;
+    font-size: 0.9rem;
     line-height: 1.4;
     color: #e1f3e5;
     white-space: normal;
@@ -931,24 +974,13 @@
   }
 
   .current-function-hint-description {
-    font-size: 0.74rem;
+    font-size: 0.84rem;
     line-height: 1.45;
     color: rgba(218, 233, 223, 0.76);
     white-space: pre-wrap;
     word-break: break-word;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
-    overflow: hidden;
-  }
-
-  .suggest-inline-hint.top {
-    top: 12px;
-  }
-
-  .suggest-inline-hint.bottom {
-    bottom: 12px;
+    max-height: min(28vh, 260px);
+    overflow-y: auto;
   }
 
   :global([data-theme='light']) .script-editor {
