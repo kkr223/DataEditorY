@@ -47,8 +47,21 @@
   let currentFunctionHintPlacement = $state<'top' | 'bottom'>('top');
   let currentFunctionHintAnchorTop = $state(12);
   let hoverAbove = true;
-  let suggestHintTimer: ReturnType<typeof setInterval> | null = null;
+  let suggestHintTimer: ReturnType<typeof setTimeout> | null = null;
   let themeObserver: MutationObserver | null = null;
+  let validateTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastHighlightSource = '';
+  let lastHighlightDecorations = $state<{
+    range: {
+      startLineNumber: number;
+      startColumn: number;
+      endLineNumber: number;
+      endColumn: number;
+    };
+    options: {
+      inlineClassName: string;
+    };
+  }[]>([]);
 
   let scriptStrings = $derived.by(() => {
     const values = Array.from({ length: 16 }, (_, index) => cardContext?.strings[index] ?? '');
@@ -178,8 +191,7 @@
       strings: scriptStrings,
       card: cardContext,
     });
-    monacoModule.validateLuaModel(model);
-    syncCallHighlights();
+    scheduleModelValidation();
 
     if (isSwitchingTab) {
       editorInstance.setModel(model);
@@ -202,7 +214,7 @@
     suggestHintPlacement = 'top';
     suggestHintAnchorTop = 12;
     if (suggestHintTimer) {
-      clearInterval(suggestHintTimer);
+      clearTimeout(suggestHintTimer);
       suggestHintTimer = null;
     }
   }
@@ -261,23 +273,45 @@
     const model = editorInstance.getModel();
     if (!model) {
       callHighlightDecorations?.clear();
+      lastHighlightSource = '';
+      lastHighlightDecorations = [];
       return;
     }
 
-    const highlights = collectLuaCallHighlights(model.getValue()).map((item) => ({
-      range: {
-        startLineNumber: item.startLineNumber,
-        startColumn: item.startColumn,
-        endLineNumber: item.endLineNumber,
-        endColumn: item.endColumn,
-      },
-      options: {
-        inlineClassName: 'lua-call-highlight',
-      },
-    }));
+    const source = model.getValue();
+    const highlights = source === lastHighlightSource
+      ? lastHighlightDecorations
+      : collectLuaCallHighlights(source).map((item) => ({
+          range: {
+            startLineNumber: item.startLineNumber,
+            startColumn: item.startColumn,
+            endLineNumber: item.endLineNumber,
+            endColumn: item.endColumn,
+          },
+          options: {
+            inlineClassName: 'lua-call-highlight',
+          },
+        }));
+
+    if (source !== lastHighlightSource) {
+      lastHighlightSource = source;
+      lastHighlightDecorations = highlights;
+    }
 
     callHighlightDecorations ??= editorInstance.createDecorationsCollection();
     callHighlightDecorations.set(highlights);
+  }
+
+  function scheduleModelValidation() {
+    if (!editorInstance || !monacoModule) return;
+
+    clearTimeout(validateTimer ?? undefined);
+    validateTimer = setTimeout(() => {
+      const model = editorInstance?.getModel();
+      if (!model || !monacoModule) return;
+      monacoModule.validateLuaModel(model);
+      syncCallHighlights();
+    }, 80);
   }
 
   function syncSuggestHintPlacement() {
@@ -350,9 +384,12 @@
 
   function ensureSuggestHintPolling() {
     if (suggestHintTimer) return;
-    suggestHintTimer = setInterval(() => {
+    suggestHintTimer = setTimeout(function pollSuggestHint() {
+      suggestHintTimer = null;
       syncSuggestHint();
-      if (!suggestHintText) {
+      if (suggestHintText) {
+        ensureSuggestHintPolling();
+      } else {
         clearSuggestHint();
       }
     }, 120);
@@ -576,8 +613,7 @@
       if (!model || !monacoModule) return;
 
       updateScriptTabContent(currentBoundTabId, model.getValue());
-      monacoModule.validateLuaModel(model);
-      syncCallHighlights();
+      scheduleModelValidation();
       refreshSuggestHint();
       refreshCurrentFunctionHint();
     });
@@ -632,6 +668,8 @@
     }
     callHighlightDecorations?.clear();
     callHighlightDecorations = null;
+    clearTimeout(validateTimer ?? undefined);
+    validateTimer = null;
     themeObserver?.disconnect();
     themeObserver = null;
     window.removeEventListener('keydown', handleHintSuppressKeydown);
@@ -670,7 +708,7 @@
       strings: scriptStrings,
       card: cardContext,
     });
-    monacoModule.validateLuaModel(model);
+    scheduleModelValidation();
     refreshSuggestHint();
     refreshCurrentFunctionHint();
   });

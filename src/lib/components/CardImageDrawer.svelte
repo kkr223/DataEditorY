@@ -213,7 +213,20 @@
 
   let yugiohCardConstructorPromise: Promise<YugiohCardConstructor> | null = null;
   let resourcePathPromise: Promise<string> | null = null;
+  let resolvedResourcePath = $state("");
   let previewResizeObserver: ResizeObserver | null = null;
+
+  function dataUrlToBlob(dataUrl: string) {
+    const [header, body = ""] = dataUrl.split(",", 2);
+    const mimeMatch = /data:([^;]+)/.exec(header);
+    const mime = mimeMatch?.[1] ?? "application/octet-stream";
+    const binary = atob(body);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mime });
+  }
 
   async function getResourcePath() {
     if (!tauriBridge.isTauri()) {
@@ -231,6 +244,12 @@
     }
 
     return resourcePathPromise;
+  }
+
+  async function ensureResolvedResourcePath() {
+    if (resolvedResourcePath) return resolvedResourcePath;
+    resolvedResourcePath = await getResourcePath();
+    return resolvedResourcePath;
   }
 
   async function getYugiohCardConstructor(): Promise<YugiohCardConstructor> {
@@ -278,7 +297,7 @@
     }
 
     if (nextUrl.startsWith("data:")) {
-      const blob = await fetch(nextUrl).then((response) => response.blob());
+      const blob = dataUrlToBlob(nextUrl);
       foregroundRenderableUrl = URL.createObjectURL(blob);
       return;
     }
@@ -1135,8 +1154,7 @@
       return blob;
     }
 
-    const fallbackResponse = await fetch(canvas.toDataURL("image/jpeg", quality));
-    return await fallbackResponse.blob();
+    return dataUrlToBlob(canvas.toDataURL("image/jpeg", quality));
   }
 
   function hasCustomNameShadowStyle(data: CardImageFormData) {
@@ -1447,6 +1465,7 @@
 
     try {
       const resourcePath = await getResourcePath();
+      resolvedResourcePath = resourcePath;
       exportCard = new YugiohCard({
         view: host,
         data,
@@ -1504,7 +1523,7 @@
       previewCard = new YugiohCard({
         view: previewHost,
         data: buildPreviewData(),
-        resourcePath: await getResourcePath(),
+        resourcePath: await ensureResolvedResourcePath(),
       });
     }
 
@@ -1520,7 +1539,7 @@
       foregroundPreviewCard = new YugiohCard({
         view: foregroundPreviewHost,
         data: buildForegroundPreviewData(),
-        resourcePath: await getResourcePath(),
+        resourcePath: await ensureResolvedResourcePath(),
       });
     }
 
@@ -1532,6 +1551,7 @@
 
     try {
       errorMessage = "";
+      const resourcePath = await ensureResolvedResourcePath();
       const cardInstance = await ensurePreviewCard();
       const previewData = buildPreviewData();
       cardInstance?.setData?.(previewData);
@@ -1539,7 +1559,7 @@
         applyForegroundLayerOrdering(cardInstance);
       }
       applyForegroundOverlay(cardInstance, previewData, foregroundRenderableUrl);
-      applyEffectBlockOverlay(cardInstance, previewData, await getResourcePath());
+      applyEffectBlockOverlay(cardInstance, previewData, resourcePath);
       applyNameLeafEnhancements(cardInstance, previewData);
     } catch (error) {
       console.error("Failed to refresh card image preview", error);
@@ -1551,6 +1571,7 @@
     if (!open || !foregroundEditorOpen || !foregroundPreviewHost || !previewFontsReady) return;
 
     try {
+      const resourcePath = await ensureResolvedResourcePath();
       const cardInstance = await ensureForegroundPreviewCard();
       const previewData = buildForegroundPreviewData();
       cardInstance?.setData?.(previewData);
@@ -1558,7 +1579,7 @@
         applyForegroundLayerOrdering(cardInstance);
       }
       applyForegroundOverlay(cardInstance, previewData, foregroundRenderableUrl);
-      applyEffectBlockOverlay(cardInstance, previewData, await getResourcePath());
+      applyEffectBlockOverlay(cardInstance, previewData, resourcePath);
       applyNameLeafEnhancements(cardInstance, previewData);
       await tick();
       requestAnimationFrame(() => {
