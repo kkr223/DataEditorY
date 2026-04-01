@@ -675,9 +675,15 @@
     if (!HAS_AI_FEATURE) return;
     if (!(await ensureAiReady())) return;
 
-    manuscriptInput = draftCard.name || draftCard.desc
+    const initialManuscript = draftCard.name || draftCard.desc
       ? `${draftCard.name ?? ""}\n${draftCard.desc ?? ""}`.trim()
       : "";
+
+    if (isEditingExisting) {
+      handleNewCard();
+    }
+
+    manuscriptInput = initialManuscript;
     isParseModalOpen = true;
   }
 
@@ -703,7 +709,7 @@
 
     try {
       isParsingManuscript = true;
-      const result = await parseCardManuscript(manuscriptInput, draftCard, createAiAppContext());
+      const result = await parseCardManuscript(manuscriptInput, createEmptyCard(), createAiAppContext());
       if (result.cards.length === 0) {
         showToast($_("editor.ai_parse_failed"), "error");
         return;
@@ -880,6 +886,7 @@
                   updateDraftLevel(parseInt(t.value, 10));
                 }}
               >
+                <option value={0}>{$_("editor.level_none")}</option>
                 {#each Array.from({ length: 13 }, (_, i) => i + 1) as lvl}
                   <option value={lvl}>{lvl}</option>
                 {/each}

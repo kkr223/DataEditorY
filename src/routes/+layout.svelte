@@ -639,8 +639,15 @@
   function handleGlobalKeydown(event: KeyboardEvent) {
     if (event.defaultPrevented || event.repeat || event.isComposing) return;
 
-    if (event.key === 'F5') {
+    const key = event.key.toLowerCase();
+    if (key === 'f5' || key === 'f7') {
       event.preventDefault();
+      return;
+    }
+
+    if (key === 'f3') {
+      event.preventDefault();
+      dispatchAppShortcut('focus-search');
       return;
     }
 
@@ -648,10 +655,19 @@
     if (!isPrimary || event.altKey) return;
     const editable = isEditableTarget(event.target);
 
-    const key = event.key.toLowerCase();
-
-    if (key === 'r' && !event.shiftKey) {
+    if (key === 'r') {
       event.preventDefault();
+      return;
+    }
+
+    if (key === 'p' || key === 'j') {
+      event.preventDefault();
+      return;
+    }
+
+    if (key === 'f' || key === 'g') {
+      event.preventDefault();
+      dispatchAppShortcut('focus-search');
       return;
     }
 
@@ -705,11 +721,6 @@
       event.preventDefault();
       void handleUndoLastOperation();
       return;
-    }
-
-    if (key === 'f' && !event.shiftKey) {
-      event.preventDefault();
-      dispatchAppShortcut('focus-search');
     }
   }
 
