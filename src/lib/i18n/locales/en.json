@@ -366,6 +366,7 @@
     "atk": "ATK",
     "def": "DEF",
     "level": "Level/Rank",
+    "level_none": "None",
     "scale": "Pendulum Scale",
     "scale_left": "L",
     "scale_right": "R",

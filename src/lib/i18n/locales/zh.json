@@ -366,6 +366,7 @@
     "atk": "攻击力",
     "def": "守备力",
     "level": "星级/阶级",
+    "level_none": "无等级",
     "scale": "灵摆刻度",
     "scale_left": "左",
     "scale_right": "右",
