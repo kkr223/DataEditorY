@@ -134,6 +134,16 @@
     };
   }
 
+  function handleInsertStringId(index: number) {
+    if (!editorInstance || !monacoModule) return;
+    const inserted = monacoModule.insertSnippet(editorInstance, `aux.Stringid(id,${index})`);
+    if (inserted) {
+      editorInstance.focus();
+      refreshCurrentFunctionHint();
+      refreshSuggestHint();
+    }
+  }
+
   async function syncEditorWithActiveTab() {
     if (!editorInstance || !monacoModule || !monacoApi) return;
 
@@ -740,7 +750,9 @@
           <div class="string-list">
             {#each scriptStrings as value, index}
               <div class="string-row">
-                <span class="string-label">aux.Stringid(id, {index})</span>
+                <button class="string-label" type="button" onclick={() => handleInsertStringId(index)}>
+                  aux.Stringid(id, {index})
+                </button>
                 <input
                   class="string-input"
                   type="text"
@@ -1136,6 +1148,23 @@
     color: var(--accent-primary);
     font-size: 0.7rem;
     font-family: Consolas, 'Courier New', monospace;
+    align-self: flex-start;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .string-label:hover {
+    filter: brightness(1.1);
+  }
+
+  .string-label:focus-visible {
+    outline: 1px solid var(--accent-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
   .string-input {

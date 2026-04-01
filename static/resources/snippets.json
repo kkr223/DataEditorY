@@ -46,6 +46,115 @@
 		],
 		"description": "filter"
 	},
+	"initialeffect": {
+		"prefix": "#ie",
+		"body": [
+			"function s.initial_effect(c)",
+			"\t$1",
+			"end"
+		],
+		"description": "initial_effect"
+	},
+	"effect": {
+		"prefix": "#ef",
+		"body": [
+			"local e$1=Effect.CreateEffect(c)",
+			"e$1:SetDescription(aux.Stringid(id,$2))",
+			"e$1:SetCategory($3)",
+			"e$1:SetType($4)",
+			"e$1:SetCode($5)",
+			"e$1:SetProperty($6)",
+			"e$1:SetCountLimit($7)",
+			"e$1:SetCondition(s.$8con)",
+			"e$1:SetCost(s.$9cost)",
+			"e$1:SetTarget(s.${10}tg)",
+			"e$1:SetOperation(s.${11}op)",
+			"c:RegisterEffect(e$1)"
+		],
+		"description": "create effect"
+	},
+	"stringid": {
+		"prefix": "#sid",
+		"body": [
+			"aux.Stringid(id,$1)"
+		],
+		"description": "aux.Stringid"
+	},
+	"setcountlimit": {
+		"prefix": "#scl",
+		"body": [
+			"e$1:SetCountLimit($2{id, $3})"
+		],
+		"description": "SetCountLimit"
+	},
+	"sethinttiming": {
+		"prefix": "#sht",
+		"body": [
+			"e$1:SetHintTiming($2,$3)"
+		],
+		"description": "SetHintTiming"
+	},
+	"isexistingmatchingcard": {
+		"prefix": "#iema",
+		"body": [
+			"Duel.IsExistingMatchingCard(s.$1,tp,$2,$3,1,nil$4)"
+		],
+		"description": "IsExistingMatchingCard"
+	},
+	"specialsummonstep": {
+		"prefix": "#sssp",
+		"body": [
+			"if Duel.SpecialSummonStep($1,0,tp,tp,false,false,POS_FACEUP) then",
+			"\t$2",
+			"end",
+			"Duel.SpecialSummonComplete()"
+		],
+		"description": "SpecialSummonStep"
+	},
+	"registerflageffect": {
+		"prefix": "#rfe",
+		"body": [
+			"$1:RegisterFlagEffect(id,RESET_EVENT|RESETS_STANDARD,$2,1)"
+		],
+		"description": "RegisterFlagEffect"
+	},
+	"getmatchinggroup": {
+		"prefix": "#gmg",
+		"body": [
+			"local g=Duel.GetMatchingGroup(s.$1,tp,$2,$3,nil$4)"
+		],
+		"description": "GetMatchingGroup"
+	},
+	"releaseselect": {
+		"prefix": "#rels",
+		"body": [
+			"Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_RELEASE)",
+			"local g=Duel.SelectReleaseGroupCost(tp,s.$1,1,1,false,nil,nil$2)"
+		],
+		"description": "SelectReleaseGroupCost"
+	},
+	"destroy": {
+		"prefix": "#des",
+		"body": [
+			"Duel.Destroy($1,REASON_EFFECT)"
+		],
+		"description": "Destroy"
+	},
+	"sendtohand": {
+		"prefix": "#sth",
+		"body": [
+			"Duel.SendtoHand($1,nil,REASON_EFFECT)",
+			"Duel.ConfirmCards(1-tp,$1)"
+		],
+		"description": "SendtoHand"
+	},
+	"specialsummon": {
+		"prefix": "#ssp",
+		"body": [
+			"Duel.SpecialSummon($1,0,tp,tp,false,false,POS_FACEUP)"
+		],
+		"description": "SpecialSummon"
+	},
 	"selectmatchcard":{
 		"prefix": "#slma",
 		"body": [
