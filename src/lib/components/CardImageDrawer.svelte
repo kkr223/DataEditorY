@@ -194,7 +194,10 @@
   let lastFormLanguage = $state<CardImageLanguage>("sc");
   let previewTimer: ReturnType<typeof setTimeout> | null = null;
   let previewWarmupTimer: ReturnType<typeof setTimeout> | null = null;
+  let initialPostRenderRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let previewFontsReady = $state(false);
+  let shouldRunInitialPostRenderRefresh = $state(false);
+  let hasRunInitialPostRenderRefresh = false;
   let foregroundPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   let foregroundResizeObserver: ResizeObserver | null = null;
   let foregroundDragMode = $state<ForegroundEditorMode>(null);
@@ -1561,6 +1564,17 @@
       applyForegroundOverlay(cardInstance, previewData, foregroundRenderableUrl);
       applyEffectBlockOverlay(cardInstance, previewData, resourcePath);
       applyNameLeafEnhancements(cardInstance, previewData);
+
+      if (shouldRunInitialPostRenderRefresh && !hasRunInitialPostRenderRefresh) {
+        shouldRunInitialPostRenderRefresh = false;
+        hasRunInitialPostRenderRefresh = true;
+        clearTimeout(initialPostRenderRefreshTimer ?? undefined);
+        initialPostRenderRefreshTimer = setTimeout(() => {
+          if (!open) return;
+          destroyPreview();
+          void refreshPreview();
+        }, 180);
+      }
     } catch (error) {
       console.error("Failed to refresh card image preview", error);
       errorMessage = $_("editor.card_image_generate_failed");
@@ -1592,6 +1606,7 @@
 
   async function warmupPreviewAfterFontsReady() {
     previewFontsReady = false;
+    hasRunInitialPostRenderRefresh = false;
     try {
       const fontSet = typeof document !== "undefined"
         ? (document as Document & { fonts?: FontFaceSet }).fonts
@@ -1606,6 +1621,7 @@
     clearTimeout(previewWarmupTimer ?? undefined);
     previewWarmupTimer = setTimeout(() => {
       previewFontsReady = true;
+      shouldRunInitialPostRenderRefresh = true;
       destroyPreview();
       void refreshPreview();
     }, 100);
@@ -1841,6 +1857,8 @@
       lastHydrationKey = "";
       errorMessage = "";
       previewFontsReady = false;
+      shouldRunInitialPostRenderRefresh = false;
+      hasRunInitialPostRenderRefresh = false;
       destroyPreview();
       destroyForegroundPreview();
       resetImageState();
@@ -1854,6 +1872,8 @@
       lastHydrationKey = hydrationKey;
       form = createCardImageFormData(card);
       lastFormLanguage = form.language;
+      shouldRunInitialPostRenderRefresh = false;
+      hasRunInitialPostRenderRefresh = false;
       resetImageState();
       resetForegroundState();
       clearForegroundInitialState();
@@ -1976,6 +1996,7 @@
     return () => {
       clearTimeout(previewTimer ?? undefined);
       clearTimeout(previewWarmupTimer ?? undefined);
+      clearTimeout(initialPostRenderRefreshTimer ?? undefined);
       clearTimeout(foregroundPreviewTimer ?? undefined);
       destroyPreview();
       destroyForegroundPreview();
