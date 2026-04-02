@@ -13,23 +13,43 @@ let _allCards = $state.raw<CardDataEntry[]>([]);
 
 // O(1) lookup map, rebuilt whenever the search results change
 let _allCardsMap = $state.raw<Map<number, CardDataEntry>>(new Map());
+let _allCardsIndexMap = $state.raw<Map<number, number>>(new Map());
+let _visibleCardIdSet = $state.raw<Set<number>>(new Set());
 let _totalCards = $state(0);
+
+function rebuildCardIndexes(cards: CardDataEntry[]) {
+  const cardMap = new Map<number, CardDataEntry>();
+  const indexMap = new Map<number, number>();
+  const visibleIdSet = new Set<number>();
+
+  cards.forEach((card, index) => {
+    cardMap.set(card.code, card);
+    indexMap.set(card.code, index);
+    visibleIdSet.add(card.code);
+  });
+
+  _allCardsMap = cardMap;
+  _allCardsIndexMap = indexMap;
+  _visibleCardIdSet = visibleIdSet;
+}
 
 function getVisibleSelectedIds(selectedIds: number[]): number[] {
   if (selectedIds.length === 0) return [];
 
-  const selectedSet = new Set(selectedIds);
-  return _allCards.filter((card) => selectedSet.has(card.code)).map((card) => card.code);
+  return selectedIds
+    .filter((id) => _visibleCardIdSet.has(id))
+    .sort((_a, _b) => (_allCardsIndexMap.get(_a) ?? Number.MAX_SAFE_INTEGER) - (_allCardsIndexMap.get(_b) ?? Number.MAX_SAFE_INTEGER));
 }
 
 function applySelection(ids: number[], primaryId: number | null = null, anchorId: number | null = null) {
   const visibleIds = getVisibleSelectedIds(ids);
+  const visibleIdSet = new Set(visibleIds);
   const nextPrimaryId =
-    primaryId !== null && visibleIds.includes(primaryId)
+    primaryId !== null && visibleIdSet.has(primaryId)
       ? primaryId
       : visibleIds[0] ?? null;
   const nextAnchorId =
-    anchorId !== null && visibleIds.includes(anchorId)
+    anchorId !== null && visibleIdSet.has(anchorId)
       ? anchorId
       : nextPrimaryId;
 
@@ -67,11 +87,7 @@ export function getAllCards(): CardDataEntry[] {
 
 export function setAllCards(cards: CardDataEntry[]): void {
   _allCards = cards;
-  const map = new Map<number, CardDataEntry>();
-  for (const c of cards) {
-    map.set(c.code, c);
-  }
-  _allCardsMap = map;
+  rebuildCardIndexes(cards);
 }
 
 export function getAllCardsMap(): Map<number, CardDataEntry> {
@@ -83,12 +99,7 @@ export function updateVisibleCards(cards: CardDataEntry[]): void {
 
   const nextByCode = new Map(cards.map((card) => [card.code, card]));
   _allCards = _allCards.map((card) => nextByCode.get(card.code) ?? card);
-
-  const map = new Map<number, CardDataEntry>();
-  for (const c of _allCards) {
-    map.set(c.code, c);
-  }
-  _allCardsMap = map;
+  rebuildCardIndexes(_allCards);
 }
 
 export function getTotalCards(): number {
@@ -157,8 +168,8 @@ export function selectCardRange(cardId: number, preserveExisting = false) {
   if (!_allCardsMap.has(cardId)) return;
 
   const anchorId = editorState.selectionAnchorId ?? editorState.selectedId ?? cardId;
-  const anchorIndex = _allCards.findIndex((card) => card.code === anchorId);
-  const targetIndex = _allCards.findIndex((card) => card.code === cardId);
+  const anchorIndex = _allCardsIndexMap.get(anchorId) ?? -1;
+  const targetIndex = _allCardsIndexMap.get(cardId) ?? -1;
 
   if (anchorIndex === -1 || targetIndex === -1) {
     setSingleSelectedCard(cardId);

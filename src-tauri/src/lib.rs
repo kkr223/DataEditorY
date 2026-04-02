@@ -3,31 +3,22 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
-use chrono::Local;
-use image::{codecs::jpeg::JpegEncoder, GenericImageView};
-use mime_guess::from_path;
-use percent_encoding::percent_decode_str;
 use rand::RngCore;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{HashSet, VecDeque},
     fs,
-    io::{BufReader, BufWriter, Seek, Write},
     path::{Path, PathBuf},
-    process::Command,
     sync::Mutex,
 };
-use tauri::http::{
-    header::{ACCESS_CONTROL_ALLOW_ORIGIN, CACHE_CONTROL, CONTENT_TYPE},
-    Method, Request, Response, StatusCode,
-};
 use tauri::{AppHandle, Emitter, Manager};
-use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
-mod cdb;
-use cdb::OpenCdbSessions;
+mod commands;
+mod models;
+mod repository;
+mod services;
+mod session;
+use session::cdb::OpenCdbSessions;
 
 const SETTINGS_FILE_NAME: &str = "settings.json";
 const CIPHER_KEY_FILE_NAME: &str = "cipher.key";
@@ -41,124 +32,16 @@ const DEFAULT_AI_TEMPERATURE: f64 = 1.0;
 const SECRET_VERSION_PREFIX: &str = "v1";
 const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
 const OPEN_CDB_PATHS_EVENT: &str = "open-cdb-paths";
-const MEDIA_PROTOCOL_NAME: &str = "app-media";
-const TYPE_SPELL_BIT: i64 = 0x2;
-const SUBTYPE_FIELD_BIT: i64 = 0x80000;
-
-fn media_protocol_error(status: StatusCode, message: &str) -> Response<Vec<u8>> {
-    Response::builder()
-        .status(status)
-        .header(CONTENT_TYPE, "text/plain; charset=utf-8")
-        .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .header(CACHE_CONTROL, "no-cache")
-        .body(message.as_bytes().to_vec())
-        .unwrap()
-}
-
-fn media_protocol_extension_allowed(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(|ext| ext.to_str()),
-        Some(ext)
-            if matches!(
-                ext.to_ascii_lowercase().as_str(),
-                "png"
-                    | "jpg"
-                    | "jpeg"
-                    | "webp"
-                    | "gif"
-                    | "bmp"
-                    | "svg"
-                    | "json"
-                    | "ttf"
-                    | "otf"
-                    | "woff"
-                    | "woff2"
-            )
-    )
-}
-
-fn decode_media_protocol_path(request: &Request<Vec<u8>>) -> Result<PathBuf, String> {
-    let raw_path = request.uri().path();
-    let encoded_path = raw_path.strip_prefix('/').unwrap_or(raw_path);
-    let decoded_path = percent_decode_str(encoded_path)
-        .decode_utf8()
-        .map_err(|err| err.to_string())?;
-    let path = PathBuf::from(decoded_path.as_ref());
-
-    if !path.is_absolute() {
-        return Err("Only absolute media paths are supported".to_string());
-    }
-
-    Ok(path)
-}
-
-fn handle_media_protocol_request(request: Request<Vec<u8>>) -> Response<Vec<u8>> {
-    if request.method() != Method::GET && request.method() != Method::HEAD {
-        return media_protocol_error(StatusCode::METHOD_NOT_ALLOWED, "Unsupported method");
-    }
-
-    let path = match decode_media_protocol_path(&request) {
-        Ok(path) => path,
-        Err(message) => return media_protocol_error(StatusCode::BAD_REQUEST, &message),
-    };
-
-    if !media_protocol_extension_allowed(&path) {
-        return media_protocol_error(StatusCode::FORBIDDEN, "Unsupported media file type");
-    }
-
-    let metadata = match fs::metadata(&path) {
-        Ok(metadata) => metadata,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            return media_protocol_error(StatusCode::NOT_FOUND, "Media file not found");
-        }
-        Err(err) => {
-            return media_protocol_error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                &format!("Failed to read media metadata: {err}"),
-            );
-        }
-    };
-
-    if !metadata.is_file() {
-        return media_protocol_error(StatusCode::FORBIDDEN, "Media path is not a file");
-    }
-
-    let content_type = from_path(&path)
-        .first_or_octet_stream()
-        .essence_str()
-        .to_string();
-    let body = if request.method() == Method::HEAD {
-        Vec::new()
-    } else {
-        match fs::read(&path) {
-            Ok(bytes) => bytes,
-            Err(err) => {
-                return media_protocol_error(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    &format!("Failed to read media file: {err}"),
-                );
-            }
-        }
-    };
-
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(CONTENT_TYPE, content_type)
-        .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .header(CACHE_CONTROL, "no-cache")
-        .body(body)
-        .unwrap()
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
-struct PersistedAppSettings {
-    api_base_url: String,
-    model: String,
-    temperature: f64,
-    script_template: String,
-    use_external_script_editor: bool,
-    encrypted_secret_key: Option<String>,
+pub(crate) struct PersistedAppSettings {
+    pub(crate) api_base_url: String,
+    pub(crate) model: String,
+    pub(crate) temperature: f64,
+    pub(crate) script_template: String,
+    pub(crate) use_external_script_editor: bool,
+    pub(crate) encrypted_secret_key: Option<String>,
 }
 
 impl Default for PersistedAppSettings {
@@ -176,86 +59,80 @@ impl Default for PersistedAppSettings {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct AppSettingsPayload {
-    api_base_url: String,
-    model: String,
-    temperature: f64,
-    script_template: String,
-    use_external_script_editor: bool,
-    has_secret_key: bool,
-    cover_image_path: Option<String>,
-    error_log_path: String,
+pub(crate) struct AppSettingsPayload {
+    pub(crate) api_base_url: String,
+    pub(crate) model: String,
+    pub(crate) temperature: f64,
+    pub(crate) script_template: String,
+    pub(crate) use_external_script_editor: bool,
+    pub(crate) has_secret_key: bool,
+    pub(crate) cover_image_path: Option<String>,
+    pub(crate) error_log_path: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SaveAppSettingsRequest {
-    api_base_url: String,
-    model: Option<String>,
-    temperature: Option<f64>,
-    script_template: String,
-    use_external_script_editor: Option<bool>,
-    secret_key: Option<String>,
-    clear_secret_key: Option<bool>,
+pub(crate) struct SaveAppSettingsRequest {
+    pub(crate) api_base_url: String,
+    pub(crate) model: Option<String>,
+    pub(crate) temperature: Option<f64>,
+    pub(crate) script_template: String,
+    pub(crate) use_external_script_editor: Option<bool>,
+    pub(crate) secret_key: Option<String>,
+    pub(crate) clear_secret_key: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct CardScriptInfo {
-    path: String,
-    exists: bool,
+pub(crate) struct CardScriptInfo {
+    pub(crate) path: String,
+    pub(crate) exists: bool,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct CardScriptDocument {
-    path: String,
-    exists: bool,
-    content: String,
+pub(crate) struct CardScriptDocument {
+    pub(crate) path: String,
+    pub(crate) exists: bool,
+    pub(crate) content: String,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ZipPackageInfo {
-    path: String,
+pub(crate) struct ZipPackageInfo {
+    pub(crate) path: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct AppendErrorLogRequest {
-    source: String,
-    message: String,
-    stack: Option<String>,
-    extra: Option<String>,
+pub(crate) struct AppendErrorLogRequest {
+    pub(crate) source: String,
+    pub(crate) message: String,
+    pub(crate) stack: Option<String>,
+    pub(crate) extra: Option<String>,
 }
 
 struct PendingOpenCdbPaths(Mutex<Vec<String>>);
 
-#[derive(Debug, Clone, Default)]
-struct CardPackageManifest {
-    card_ids: Vec<u32>,
-    field_spell_ids: Vec<u32>,
-}
-
-fn ensure_app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn ensure_app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
     fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
     Ok(dir)
 }
 
-fn settings_file_path(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn settings_file_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(ensure_app_config_dir(app)?.join(SETTINGS_FILE_NAME))
 }
 
-fn custom_cover_path(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn custom_cover_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(ensure_app_config_dir(app)?.join(CUSTOM_COVER_FILE_NAME))
 }
 
-fn logs_dir_path(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn logs_dir_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(ensure_app_config_dir(app)?.join(LOGS_DIR_NAME))
 }
 
-fn error_log_path(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn error_log_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = logs_dir_path(app)?;
     fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
     let path = dir.join(ERROR_LOG_FILE_NAME);
@@ -269,7 +146,7 @@ fn error_log_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSettings, String> {
+pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSettings, String> {
     let path = settings_file_path(app)?;
     if !path.exists() {
         return Ok(PersistedAppSettings::default());
@@ -290,24 +167,27 @@ fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSettings, Stri
     Ok(settings)
 }
 
-fn save_persisted_settings(app: &AppHandle, settings: &PersistedAppSettings) -> Result<(), String> {
+pub(crate) fn save_persisted_settings(
+    app: &AppHandle,
+    settings: &PersistedAppSettings,
+) -> Result<(), String> {
     let path = settings_file_path(app)?;
     let content = serde_json::to_string_pretty(settings).map_err(|err| err.to_string())?;
     fs::write(path, content).map_err(|err| err.to_string())
 }
 
-fn normalize_base_url(value: String) -> String {
+pub(crate) fn normalize_base_url(value: String) -> String {
     value.trim().trim_end_matches('/').to_string()
 }
 
-fn normalize_model(value: Option<String>) -> String {
+pub(crate) fn normalize_model(value: Option<String>) -> String {
     value
         .map(|item| item.trim().to_string())
         .filter(|item| !item.is_empty())
         .unwrap_or_else(|| DEFAULT_AI_MODEL.to_string())
 }
 
-fn normalize_script_template(value: String) -> String {
+pub(crate) fn normalize_script_template(value: String) -> String {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         DEFAULT_SCRIPT_TEMPLATE.to_string()
@@ -316,11 +196,11 @@ fn normalize_script_template(value: String) -> String {
     }
 }
 
-fn normalize_script_content(value: String) -> String {
+pub(crate) fn normalize_script_content(value: String) -> String {
     value.replace("\r\n", "\n")
 }
 
-fn normalize_temperature(value: Option<f64>) -> f64 {
+pub(crate) fn normalize_temperature(value: Option<f64>) -> f64 {
     match value {
         Some(item) if item.is_finite() => item.clamp(0.0, 2.0),
         _ => DEFAULT_AI_TEMPERATURE,
@@ -330,7 +210,7 @@ fn normalize_temperature(value: Option<f64>) -> f64 {
 /// Returns a persistent random cipher key, creating one on first use.
 /// This replaces the old environment-variable-based derivation so that
 /// the key remains stable even if USERNAME, COMPUTERNAME, etc. change.
-fn get_or_create_cipher_key(app: &AppHandle) -> Result<[u8; 32], String> {
+pub(crate) fn get_or_create_cipher_key(app: &AppHandle) -> Result<[u8; 32], String> {
     let key_path = ensure_app_config_dir(app)?.join(CIPHER_KEY_FILE_NAME);
 
     if key_path.exists() {
@@ -413,14 +293,17 @@ fn decrypt_with_key(key: &[u8; 32], encrypted_secret_key: &str) -> Result<String
     String::from_utf8(plaintext).map_err(|err| err.to_string())
 }
 
-fn encrypt_secret_key(app: &AppHandle, secret_key: &str) -> Result<String, String> {
+pub(crate) fn encrypt_secret_key(app: &AppHandle, secret_key: &str) -> Result<String, String> {
     let key = get_or_create_cipher_key(app)?;
     encrypt_with_key(&key, secret_key)
 }
 
 /// Tries the stable cipher key first; falls back to the legacy
 /// environment-variable-based key for transparent migration.
-fn decrypt_secret_key(app: &AppHandle, encrypted_secret_key: &str) -> Result<String, String> {
+pub(crate) fn decrypt_secret_key(
+    app: &AppHandle,
+    encrypted_secret_key: &str,
+) -> Result<String, String> {
     let stable_key = get_or_create_cipher_key(app)?;
     if let Ok(plaintext) = decrypt_with_key(&stable_key, encrypted_secret_key) {
         return Ok(plaintext);
@@ -430,7 +313,7 @@ fn decrypt_secret_key(app: &AppHandle, encrypted_secret_key: &str) -> Result<Str
     decrypt_with_key(&legacy_cipher_key(app), encrypted_secret_key)
 }
 
-fn to_settings_payload(
+pub(crate) fn to_settings_payload(
     app: &AppHandle,
     settings: PersistedAppSettings,
 ) -> Result<AppSettingsPayload, String> {
@@ -459,11 +342,13 @@ fn to_settings_payload(
     })
 }
 
-fn now_local_timestamp() -> String {
-    Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string()
+pub(crate) fn now_local_timestamp() -> String {
+    chrono::Local::now()
+        .format("%Y-%m-%d %H:%M:%S%.3f")
+        .to_string()
 }
 
-fn build_card_script_path(cdb_path: &str, card_id: u32) -> Result<PathBuf, String> {
+pub(crate) fn build_card_script_path(cdb_path: &str, card_id: u32) -> Result<PathBuf, String> {
     let cdb_path = Path::new(cdb_path);
     let cdb_dir = cdb_path
         .parent()
@@ -471,314 +356,12 @@ fn build_card_script_path(cdb_path: &str, card_id: u32) -> Result<PathBuf, Strin
     Ok(cdb_dir.join("script").join(format!("c{card_id}.lua")))
 }
 
-fn collect_card_package_manifest_from_cdb(cdb_path: &Path) -> Result<CardPackageManifest, String> {
-    let conn = rusqlite::Connection::open(cdb_path).map_err(|err| err.to_string())?;
-    let mut stmt = conn
-        .prepare("SELECT id, type FROM datas")
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
-        })
-        .map_err(|err| err.to_string())?;
-
-    let mut manifest = CardPackageManifest::default();
-    for row in rows {
-        let (id, card_type) = row.map_err(|err| err.to_string())?;
-        if id > 0 {
-            let card_id = id as u32;
-            manifest.card_ids.push(card_id);
-            if (card_type & TYPE_SPELL_BIT) != 0 && (card_type & SUBTYPE_FIELD_BIT) != 0 {
-                manifest.field_spell_ids.push(card_id);
-            }
-        }
-    }
-
-    manifest.card_ids.sort_unstable();
-    manifest.card_ids.dedup();
-    manifest.field_spell_ids.sort_unstable();
-    manifest.field_spell_ids.dedup();
-
-    Ok(manifest)
-}
-
-fn resolve_script_dependency_path(
-    cdb_dir: &Path,
-    script_dir: &Path,
-    raw_path: &str,
-) -> Option<PathBuf> {
-    let trimmed = raw_path.trim().replace('\\', "/");
-    if trimmed.is_empty() {
-        return None;
-    }
-
-    let relative = Path::new(&trimmed);
-    let joined = if relative.is_absolute() {
-        relative.to_path_buf()
-    } else if trimmed.starts_with("script/") {
-        cdb_dir.join(relative)
-    } else {
-        script_dir.join(relative)
-    };
-
-    let workspace_root = cdb_dir
-        .canonicalize()
-        .unwrap_or_else(|_| cdb_dir.to_path_buf());
-    let normalized = joined.canonicalize().unwrap_or(joined);
-    if normalized.starts_with(&workspace_root) && normalized.is_file() {
-        Some(normalized)
-    } else {
-        None
-    }
-}
-
-fn collect_script_paths_for_package(
-    cdb_dir: &Path,
-    card_ids: &[u32],
-) -> Result<Vec<PathBuf>, String> {
-    let script_dir = cdb_dir.join("script");
-    if !script_dir.exists() || !script_dir.is_dir() {
-        return Ok(Vec::new());
-    }
-
-    let load_script_pattern = Regex::new(r#"Duel\.LoadScript\s*\(\s*["']([^"']+)["']\s*\)"#)
-        .map_err(|err| err.to_string())?;
-    let mut queued = VecDeque::new();
-    let mut visited = HashSet::new();
-    let mut collected = Vec::new();
-
-    for &card_id in card_ids {
-        let script_path = script_dir.join(format!("c{card_id}.lua"));
-        if script_path.is_file() {
-            queued.push_back(script_path);
-        }
-    }
-
-    while let Some(path) = queued.pop_front() {
-        let normalized = path.canonicalize().unwrap_or(path.clone());
-        if !visited.insert(normalized.clone()) {
-            continue;
-        }
-
-        collected.push(normalized.clone());
-
-        let content = match fs::read_to_string(&normalized) {
-            Ok(content) => content,
-            Err(_) => continue,
-        };
-
-        for capture in load_script_pattern.captures_iter(&content) {
-            let Some(raw_dependency) = capture.get(1).map(|item| item.as_str()) else {
-                continue;
-            };
-
-            if let Some(dependency_path) =
-                resolve_script_dependency_path(cdb_dir, &script_dir, raw_dependency)
-            {
-                queued.push_back(dependency_path);
-            }
-        }
-    }
-
-    collected.sort();
-    Ok(collected)
-}
-
-fn collect_picture_paths_for_package(
-    cdb_dir: &Path,
-    card_ids: &[u32],
-    field_spell_ids: &[u32],
-) -> Vec<PathBuf> {
-    let pics_dir = cdb_dir.join("pics");
-    let field_pics_dir = pics_dir.join("field");
-    let mut paths = Vec::new();
-
-    for &card_id in card_ids {
-        let pic_path = pics_dir.join(format!("{card_id}.jpg"));
-        if pic_path.is_file() {
-            paths.push(pic_path);
-        }
-    }
-
-    for &card_id in field_spell_ids {
-        let field_pic_path = field_pics_dir.join(format!("{card_id}.jpg"));
-        if field_pic_path.is_file() {
-            paths.push(field_pic_path);
-        }
-    }
-
-    paths.sort();
-    paths.dedup();
-    paths
-}
-
-fn path_to_zip_entry(path: &Path, base_dir: &Path) -> Result<String, String> {
-    let relative = match path.strip_prefix(base_dir) {
-        Ok(relative) => relative.to_path_buf(),
-        Err(_) => {
-            let normalized_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-            let normalized_base_dir = base_dir
-                .canonicalize()
-                .unwrap_or_else(|_| base_dir.to_path_buf());
-            normalized_path
-                .strip_prefix(&normalized_base_dir)
-                .map_err(|err| err.to_string())?
-                .to_path_buf()
-        }
-    };
-    let entry = relative
-        .components()
-        .map(|component| component.as_os_str().to_string_lossy().into_owned())
-        .collect::<Vec<_>>()
-        .join("/");
-
-    if entry.is_empty() {
-        return Err("Unable to build zip entry path".to_string());
-    }
-
-    Ok(entry)
-}
-
-fn add_path_to_zip<W: Write + Seek>(
-    zip: &mut ZipWriter<W>,
-    path: &Path,
-    base_dir: &Path,
-) -> Result<(), String> {
-    let metadata = fs::metadata(path).map_err(|err| err.to_string())?;
-    let entry_name = path_to_zip_entry(path, base_dir)?;
-
-    if metadata.is_dir() {
-        let dir_name = if entry_name.ends_with('/') {
-            entry_name
-        } else {
-            format!("{entry_name}/")
-        };
-        zip.add_directory(dir_name, SimpleFileOptions::default())
-            .map_err(|err| err.to_string())?;
-
-        for child in fs::read_dir(path).map_err(|err| err.to_string())? {
-            let child = child.map_err(|err| err.to_string())?;
-            add_path_to_zip(zip, &child.path(), base_dir)?;
-        }
-        return Ok(());
-    }
-
-    zip.start_file(
-        entry_name,
-        SimpleFileOptions::default().compression_method(CompressionMethod::Stored),
-    )
-    .map_err(|err| err.to_string())?;
-
-    let mut file = BufReader::new(fs::File::open(path).map_err(|err| err.to_string())?);
-    std::io::copy(&mut file, zip)
-        .map(|_| ())
-        .map_err(|err| err.to_string())
-}
-
-fn vscode_candidates() -> Vec<PathBuf> {
-    let mut candidates = vec![PathBuf::from("code")];
-
-    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-        candidates.push(
-            Path::new(&local_app_data)
-                .join("Programs")
-                .join("Microsoft VS Code")
-                .join("Code.exe"),
-        );
-    }
-
-    if let Ok(program_files) = std::env::var("ProgramFiles") {
-        candidates.push(
-            Path::new(&program_files)
-                .join("Microsoft VS Code")
-                .join("Code.exe"),
-        );
-    }
-
-    if let Ok(program_files_x86) = std::env::var("ProgramFiles(x86)") {
-        candidates.push(
-            Path::new(&program_files_x86)
-                .join("Microsoft VS Code")
-                .join("Code.exe"),
-        );
-    }
-
-    candidates
-}
-
-fn open_with_preferred_editor(path: &Path) -> Result<(), String> {
-    for candidate in vscode_candidates() {
-        let mut command = Command::new(&candidate);
-        if command.arg("-g").arg(path).spawn().is_ok() {
-            return Ok(());
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("cmd")
-            .args(["/C", "start", ""])
-            .arg(path.as_os_str())
-            .spawn()
-            .map_err(|err| err.to_string())?;
-        return Ok(());
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        Command::new("open")
-            .arg(path.as_os_str())
-            .spawn()
-            .map_err(|err| err.to_string())?;
-        return Ok(());
-    }
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        Command::new("xdg-open")
-            .arg(path.as_os_str())
-            .spawn()
-            .map_err(|err| err.to_string())?;
-        return Ok(());
-    }
-
-    #[allow(unreachable_code)]
-    Err("Unsupported platform".to_string())
-}
-
-fn normalize_cdb_path(path: &Path) -> Option<String> {
-    let extension = path.extension()?.to_str()?;
-    if !extension.eq_ignore_ascii_case("cdb") || !path.is_file() {
-        return None;
-    }
-
-    let resolved = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    Some(resolved.to_string_lossy().to_string())
-}
-
-fn dedupe_paths(paths: Vec<String>) -> Vec<String> {
-    let mut deduped = Vec::new();
-    for path in paths {
-        if !deduped.contains(&path) {
-            deduped.push(path);
-        }
-    }
-    deduped
-}
-
 fn collect_cdb_paths_from_args<I>(args: I) -> Vec<String>
 where
     I: IntoIterator,
     I::Item: Into<std::ffi::OsString>,
 {
-    dedupe_paths(
-        args.into_iter()
-            .filter_map(|arg| {
-                let value: std::ffi::OsString = arg.into();
-                normalize_cdb_path(Path::new(&value))
-            })
-            .collect(),
-    )
+    services::media::collect_cdb_paths_from_args(args)
 }
 
 fn queue_open_cdb_paths(app: &AppHandle, paths: Vec<String>) {
@@ -804,49 +387,39 @@ fn queue_open_cdb_paths(app: &AppHandle, paths: Vec<String>) {
 
 #[tauri::command]
 fn read_cdb(path: String) -> Result<Vec<u8>, String> {
-    fs::read(&path).map_err(|e| e.to_string())
+    services::media::read_cdb(path)
 }
 
 #[tauri::command]
 fn read_text_file(path: String) -> Result<String, String> {
-    fs::read_to_string(&path).map_err(|e| e.to_string())
+    services::media::read_text_file(path)
 }
 
 #[tauri::command]
 fn write_cdb(path: String, data: Vec<u8>) -> Result<(), String> {
-    if let Some(parent) = Path::new(&path).parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    fs::write(&path, data).map_err(|e| e.to_string())
+    services::media::write_cdb(path, data)
 }
 
 /// Generic file-write command — identical to write_cdb but with a clearer
 /// name for non-database file writes (images, scripts, exports, etc.).
 #[tauri::command]
 fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
-    if let Some(parent) = Path::new(&path).parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    fs::write(&path, data).map_err(|e| e.to_string())
+    services::media::write_file(path, data)
 }
 
 #[tauri::command]
 fn path_exists(path: String) -> Result<bool, String> {
-    Ok(Path::new(&path).exists())
+    services::media::path_exists(path)
 }
 
 #[tauri::command]
 fn copy_image(src: String, dest: String) -> Result<(), String> {
-    if let Some(parent) = Path::new(&dest).parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    fs::copy(&src, &dest).map_err(|e| e.to_string())?;
-    Ok(())
+    services::media::copy_image(src, dest)
 }
 
 #[tauri::command]
 fn read_image(path: String) -> Result<Vec<u8>, String> {
-    fs::read(&path).map_err(|e| e.to_string())
+    services::media::read_image(path)
 }
 
 #[tauri::command]
@@ -857,85 +430,17 @@ fn import_card_image(
     max_height: u32,
     quality: u8,
 ) -> Result<(), String> {
-    let image = image::open(&src).map_err(|err| err.to_string())?;
-    let (width, height) = image.dimensions();
-    if width == 0 || height == 0 {
-        return Err("Image has invalid dimensions".to_string());
-    }
-
-    let width_scale = max_width as f32 / width as f32;
-    let height_scale = max_height as f32 / height as f32;
-    let scale = width_scale.min(height_scale).min(1.0);
-    let target_width = ((width as f32 * scale).round() as u32).max(1);
-    let target_height = ((height as f32 * scale).round() as u32).max(1);
-
-    let resized = if target_width == width && target_height == height {
-        image
-    } else {
-        image.resize(
-            target_width,
-            target_height,
-            image::imageops::FilterType::Lanczos3,
-        )
-    };
-
-    if let Some(parent) = Path::new(&dest).parent() {
-        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-    }
-
-    let file = fs::File::create(&dest).map_err(|err| err.to_string())?;
-    let mut writer = BufWriter::new(file);
-    let mut encoder = JpegEncoder::new_with_quality(&mut writer, quality.clamp(1, 100));
-    encoder
-        .encode_image(&resized)
-        .map_err(|err| err.to_string())?;
-    writer.flush().map_err(|err| err.to_string())
+    services::media::import_card_image(src, dest, max_width, max_height, quality)
 }
 
 #[tauri::command]
 fn load_strings_conf(app: AppHandle) -> Result<String, String> {
-    let mut candidates: Vec<PathBuf> = Vec::new();
-
-    if let Ok(resource_dir) = app.path().resource_dir() {
-        candidates.push(resource_dir.join("resources").join("strings.conf"));
-        candidates.push(resource_dir.join("strings.conf"));
-    }
-
-    if let Ok(current_dir) = std::env::current_dir() {
-        candidates.push(current_dir.join("strings.conf"));
-        candidates.push(current_dir.join("static").join("strings.conf"));
-        candidates.push(
-            current_dir
-                .join("static")
-                .join("resources")
-                .join("strings.conf"),
-        );
-    }
-
-    if let Ok(current_exe) = std::env::current_exe() {
-        if let Some(exe_dir) = current_exe.parent() {
-            candidates.push(exe_dir.join("strings.conf"));
-            candidates.push(exe_dir.join("resources").join("strings.conf"));
-            if let Some(parent) = exe_dir.parent() {
-                candidates.push(parent.join("strings.conf"));
-                candidates.push(parent.join("resources").join("strings.conf"));
-            }
-        }
-    }
-
-    for path in candidates {
-        if path.exists() {
-            return fs::read_to_string(&path).map_err(|e| e.to_string());
-        }
-    }
-
-    Err("strings.conf not found in external locations".to_string())
+    services::media::load_strings_conf(&app)
 }
 
 #[tauri::command]
 fn load_app_settings(app: AppHandle) -> Result<AppSettingsPayload, String> {
-    let settings = load_persisted_settings(&app)?;
-    to_settings_payload(&app, settings)
+    services::settings::load_app_settings(&app)
 }
 
 #[tauri::command]
@@ -943,86 +448,32 @@ fn save_app_settings(
     app: AppHandle,
     request: SaveAppSettingsRequest,
 ) -> Result<AppSettingsPayload, String> {
-    let mut settings = load_persisted_settings(&app)?;
-    settings.api_base_url = normalize_base_url(request.api_base_url);
-    settings.model = normalize_model(request.model);
-    settings.temperature =
-        normalize_temperature(request.temperature.or(Some(settings.temperature)));
-    settings.script_template = normalize_script_template(request.script_template);
-    settings.use_external_script_editor = request
-        .use_external_script_editor
-        .unwrap_or(settings.use_external_script_editor);
-
-    if request.clear_secret_key.unwrap_or(false) {
-        settings.encrypted_secret_key = None;
-    }
-
-    if let Some(secret_key) = request.secret_key {
-        let secret_key = secret_key.trim();
-        if !secret_key.is_empty() {
-            settings.encrypted_secret_key = Some(encrypt_secret_key(&app, secret_key)?);
-        }
-    }
-
-    save_persisted_settings(&app, &settings)?;
-    to_settings_payload(&app, settings)
+    services::settings::save_app_settings(&app, request)
 }
 
 #[tauri::command]
 fn load_secret_key(app: AppHandle) -> Result<Option<String>, String> {
-    let settings = load_persisted_settings(&app)?;
-    match settings.encrypted_secret_key {
-        Some(secret_key) => decrypt_secret_key(&app, &secret_key).map(Some),
-        None => Ok(None),
-    }
+    services::settings::load_secret_key(&app)
 }
 
 #[tauri::command]
 fn set_cover_image(app: AppHandle, source_path: String) -> Result<String, String> {
-    let cover_path = custom_cover_path(&app)?;
-    if let Some(parent) = cover_path.parent() {
-        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-    }
-
-    fs::copy(&source_path, &cover_path).map_err(|err| err.to_string())?;
-    Ok(cover_path.to_string_lossy().to_string())
+    services::settings::set_cover_image(&app, source_path)
 }
 
 #[tauri::command]
 fn clear_cover_image(app: AppHandle) -> Result<(), String> {
-    let cover_path = custom_cover_path(&app)?;
-    if cover_path.exists() {
-        fs::remove_file(cover_path).map_err(|err| err.to_string())?;
-    }
-    Ok(())
+    services::settings::clear_cover_image(&app)
 }
 
 #[tauri::command]
 fn get_card_script_info(cdb_path: String, card_id: u32) -> Result<CardScriptInfo, String> {
-    let script_path = build_card_script_path(&cdb_path, card_id)?;
-    Ok(CardScriptInfo {
-        path: script_path.to_string_lossy().to_string(),
-        exists: script_path.exists(),
-    })
+    services::scripts::get_card_script_info(cdb_path, card_id)
 }
 
 #[tauri::command]
 fn read_card_script(cdb_path: String, card_id: u32) -> Result<CardScriptDocument, String> {
-    let script_path = build_card_script_path(&cdb_path, card_id)?;
-    if !script_path.exists() {
-        return Ok(CardScriptDocument {
-            path: script_path.to_string_lossy().to_string(),
-            exists: false,
-            content: String::new(),
-        });
-    }
-
-    let content = fs::read_to_string(&script_path).map_err(|err| err.to_string())?;
-    Ok(CardScriptDocument {
-        path: script_path.to_string_lossy().to_string(),
-        exists: true,
-        content: normalize_script_content(content),
-    })
+    services::scripts::read_card_script(cdb_path, card_id)
 }
 
 #[tauri::command]
@@ -1032,135 +483,39 @@ fn write_card_script(
     content: String,
     overwrite: bool,
 ) -> Result<CardScriptInfo, String> {
-    let script_path = build_card_script_path(&cdb_path, card_id)?;
-    if script_path.exists() && !overwrite {
-        return Err("Script already exists".to_string());
-    }
-
-    if let Some(parent) = script_path.parent() {
-        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-    }
-
-    fs::write(&script_path, normalize_script_content(content)).map_err(|err| err.to_string())?;
-    Ok(CardScriptInfo {
-        path: script_path.to_string_lossy().to_string(),
-        exists: true,
-    })
+    services::scripts::write_card_script(cdb_path, card_id, content, overwrite)
 }
 
 #[tauri::command]
-fn save_card_script(cdb_path: String, card_id: u32, content: String) -> Result<CardScriptInfo, String> {
-    let script_path = build_card_script_path(&cdb_path, card_id)?;
-    if let Some(parent) = script_path.parent() {
-        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-    }
-
-    fs::write(&script_path, normalize_script_content(content)).map_err(|err| err.to_string())?;
-    Ok(CardScriptInfo {
-        path: script_path.to_string_lossy().to_string(),
-        exists: true,
-    })
+fn save_card_script(
+    cdb_path: String,
+    card_id: u32,
+    content: String,
+) -> Result<CardScriptInfo, String> {
+    services::scripts::save_card_script(cdb_path, card_id, content)
 }
 
 #[tauri::command]
-fn package_cdb_assets_as_zip(cdb_path: String, output_path: String) -> Result<ZipPackageInfo, String> {
-    let cdb_file_path = PathBuf::from(&cdb_path);
-    if !cdb_file_path.exists() || !cdb_file_path.is_file() {
-        return Err("CDB file not found".to_string());
-    }
-
-    let cdb_dir = cdb_file_path
-        .parent()
-        .ok_or_else(|| "Unable to resolve the database directory".to_string())?;
-    let output_file_path = PathBuf::from(&output_path);
-    let manifest = collect_card_package_manifest_from_cdb(&cdb_file_path)?;
-
-    if let Some(parent) = output_file_path.parent() {
-        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-    }
-
-    let zip_file = fs::File::create(&output_file_path).map_err(|err| err.to_string())?;
-    let writer = BufWriter::new(zip_file);
-    let mut zip = ZipWriter::new(writer);
-
-    add_path_to_zip(&mut zip, &cdb_file_path, cdb_dir)?;
-    for pic_path in collect_picture_paths_for_package(
-        cdb_dir,
-        &manifest.card_ids,
-        &manifest.field_spell_ids,
-    ) {
-        add_path_to_zip(&mut zip, &pic_path, cdb_dir)?;
-    }
-    for script_path in collect_script_paths_for_package(cdb_dir, &manifest.card_ids)? {
-        add_path_to_zip(&mut zip, &script_path, cdb_dir)?;
-    }
-
-    zip.finish().map_err(|err| err.to_string())?;
-
-    Ok(ZipPackageInfo {
-        path: output_file_path.to_string_lossy().to_string(),
-    })
+fn package_cdb_assets_as_zip(
+    cdb_path: String,
+    output_path: String,
+) -> Result<ZipPackageInfo, String> {
+    services::package::package_cdb_assets_as_zip(cdb_path, output_path)
 }
 
 #[tauri::command]
 fn open_in_system_editor(path: String) -> Result<(), String> {
-    open_with_preferred_editor(Path::new(&path))
+    services::media::open_in_system_editor(path)
 }
 
 #[tauri::command]
 fn open_in_default_app(path: String) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("cmd")
-            .args(["/C", "start", ""])
-            .arg(Path::new(&path).as_os_str())
-            .spawn()
-            .map_err(|err| err.to_string())?;
-        return Ok(());
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        Command::new("open")
-            .arg(Path::new(&path).as_os_str())
-            .spawn()
-            .map_err(|err| err.to_string())?;
-        return Ok(());
-    }
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        Command::new("xdg-open")
-            .arg(Path::new(&path).as_os_str())
-            .spawn()
-            .map_err(|err| err.to_string())?;
-        return Ok(());
-    }
+    services::media::open_in_default_app(path)
 }
 
 #[tauri::command]
 fn append_error_log(app: AppHandle, request: AppendErrorLogRequest) -> Result<String, String> {
-    let path = error_log_path(&app)?;
-    let mut file = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .map_err(|err| err.to_string())?;
-
-    writeln!(file, "[{}] {}", now_local_timestamp(), request.source)
-        .map_err(|err| err.to_string())?;
-    writeln!(file, "message: {}", request.message).map_err(|err| err.to_string())?;
-
-    if let Some(stack) = request.stack.filter(|value| !value.trim().is_empty()) {
-        writeln!(file, "stack:\n{}", stack).map_err(|err| err.to_string())?;
-    }
-
-    if let Some(extra) = request.extra.filter(|value| !value.trim().is_empty()) {
-        writeln!(file, "extra: {}", extra).map_err(|err| err.to_string())?;
-    }
-
-    writeln!(file).map_err(|err| err.to_string())?;
-    Ok(path.to_string_lossy().to_string())
+    services::logging::append_error_log(&app, request)
 }
 
 #[tauri::command]
@@ -1177,8 +532,8 @@ fn consume_pending_open_cdb_paths(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .register_uri_scheme_protocol(MEDIA_PROTOCOL_NAME, |_ctx, request| {
-            handle_media_protocol_request(request)
+        .register_uri_scheme_protocol(services::media::media_protocol_name(), |_ctx, request| {
+            services::media::handle_media_protocol_request(request)
         })
         .manage(PendingOpenCdbPaths(Mutex::new(Vec::new())))
         .manage(OpenCdbSessions(
@@ -1197,19 +552,19 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            cdb::open_cdb_tab,
-            cdb::create_cdb_tab,
-            cdb::close_cdb_tab,
-            cdb::save_cdb_tab,
-            cdb::search_cards_page,
-            cdb::query_cards_raw,
-            cdb::get_card_by_id,
-            cdb::modify_cards,
-            cdb::delete_cards,
-            cdb::create_cdb_from_cards,
-            cdb::copy_card_assets,
-            cdb::analyze_cdb_merge,
-            cdb::execute_cdb_merge,
+            commands::cdb::open_cdb_tab,
+            commands::cdb::create_cdb_tab,
+            commands::cdb::close_cdb_tab,
+            commands::cdb::save_cdb_tab,
+            commands::cdb::search_cards_page,
+            commands::cdb::query_cards_raw,
+            commands::cdb::get_card_by_id,
+            commands::cdb::modify_cards,
+            commands::cdb::delete_cards,
+            commands::cdb::create_cdb_from_cards,
+            commands::cdb::copy_card_assets,
+            commands::cdb::analyze_cdb_merge,
+            commands::cdb::execute_cdb_merge,
             read_cdb,
             read_text_file,
             write_cdb,
@@ -1260,14 +615,18 @@ mod tests {
 
     fn create_test_cdb(path: &Path, rows: &[(u32, i64)]) {
         let conn = rusqlite::Connection::open(path).unwrap();
-        conn.execute("CREATE TABLE datas (id INTEGER PRIMARY KEY, type INTEGER NOT NULL)", [])
-            .unwrap();
+        conn.execute(
+            "CREATE TABLE datas (id INTEGER PRIMARY KEY, type INTEGER NOT NULL)",
+            [],
+        )
+        .unwrap();
 
         let mut stmt = conn
             .prepare("INSERT INTO datas (id, type) VALUES (?1, ?2)")
             .unwrap();
         for (id, card_type) in rows {
-            stmt.execute(rusqlite::params![i64::from(*id), *card_type]).unwrap();
+            stmt.execute(rusqlite::params![i64::from(*id), *card_type])
+                .unwrap();
         }
     }
 
@@ -1280,7 +639,10 @@ mod tests {
         assert_eq!(normalize_model(Some("".to_string())), DEFAULT_AI_MODEL);
         assert_eq!(normalize_temperature(Some(5.0)), 2.0);
         assert_eq!(normalize_temperature(Some(-1.0)), 0.0);
-        assert_eq!(normalize_temperature(Some(f64::NAN)), DEFAULT_AI_TEMPERATURE);
+        assert_eq!(
+            normalize_temperature(Some(f64::NAN)),
+            DEFAULT_AI_TEMPERATURE
+        );
         assert_eq!(
             normalize_script_template("line1\r\nline2".to_string()),
             "line1\nline2"
@@ -1300,7 +662,7 @@ mod tests {
         let base_dir = Path::new("workspace");
         let nested_path = Path::new("workspace").join("script").join("c100.lua");
 
-        let entry = path_to_zip_entry(&nested_path, base_dir).unwrap();
+        let entry = services::package::path_to_zip_entry(&nested_path, base_dir).unwrap();
 
         assert_eq!(entry, "script/c100.lua");
     }
@@ -1316,21 +678,19 @@ mod tests {
         fs::write(&local_script, "-- local").unwrap();
         fs::write(&nested_script, "-- nested").unwrap();
 
-        let escaped_path = cdb_dir
-            .parent()
-            .unwrap()
-            .join("dataeditory-outside.lua");
+        let escaped_path = cdb_dir.parent().unwrap().join("dataeditory-outside.lua");
         fs::write(&escaped_path, "-- outside").unwrap();
 
         let resolved_local =
-            resolve_script_dependency_path(&cdb_dir, &script_dir, "utility.lua").unwrap();
-        let resolved_prefixed = resolve_script_dependency_path(
+            services::package::resolve_script_dependency_path(&cdb_dir, &script_dir, "utility.lua")
+                .unwrap();
+        let resolved_prefixed = services::package::resolve_script_dependency_path(
             &cdb_dir,
             &script_dir,
             "script/shared/common.lua",
         )
         .unwrap();
-        let escaped = resolve_script_dependency_path(
+        let escaped = services::package::resolve_script_dependency_path(
             &cdb_dir,
             &script_dir,
             "../../dataeditory-outside.lua",
@@ -1354,7 +714,7 @@ mod tests {
         fs::write(&second, []).unwrap();
         fs::write(&ignored, []).unwrap();
 
-        let collected = collect_cdb_paths_from_args(vec![
+        let collected = services::media::collect_cdb_paths_from_args(vec![
             first.as_os_str().to_os_string(),
             second.as_os_str().to_os_string(),
             ignored.as_os_str().to_os_string(),
@@ -1363,7 +723,9 @@ mod tests {
 
         assert_eq!(collected.len(), 2);
         assert!(collected.iter().any(|path| path.ends_with("cards-a.cdb")));
-        assert!(collected.iter().any(|path| path.to_ascii_lowercase().ends_with("cards-b.cdb")));
+        assert!(collected
+            .iter()
+            .any(|path| path.to_ascii_lowercase().ends_with("cards-b.cdb")));
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -1380,25 +742,23 @@ mod tests {
         fs::create_dir_all(&field_pics_dir).unwrap();
         fs::create_dir_all(&script_dir).unwrap();
 
-        create_test_cdb(
-            &cdb_path,
-            &[
-                (111, TYPE_SPELL_BIT | SUBTYPE_FIELD_BIT),
-                (222, 0x1),
-            ],
-        );
+        create_test_cdb(&cdb_path, &[(111, 0x2 | 0x80000), (222, 0x1)]);
 
         fs::write(pics_dir.join("111.jpg"), [1u8]).unwrap();
         fs::write(pics_dir.join("222.jpg"), [2u8]).unwrap();
         fs::write(pics_dir.join("333.jpg"), [3u8]).unwrap();
         fs::write(field_pics_dir.join("111.jpg"), [4u8]).unwrap();
         fs::write(field_pics_dir.join("222.jpg"), [5u8]).unwrap();
-        fs::write(script_dir.join("c111.lua"), "Duel.LoadScript(\"utility.lua\")").unwrap();
+        fs::write(
+            script_dir.join("c111.lua"),
+            "Duel.LoadScript(\"utility.lua\")",
+        )
+        .unwrap();
         fs::write(script_dir.join("c222.lua"), "-- direct").unwrap();
         fs::write(script_dir.join("c333.lua"), "-- unrelated").unwrap();
         fs::write(script_dir.join("utility.lua"), "-- shared").unwrap();
 
-        package_cdb_assets_as_zip(
+        services::package::package_cdb_assets_as_zip(
             cdb_path.to_string_lossy().to_string(),
             output_zip_path.to_string_lossy().to_string(),
         )
