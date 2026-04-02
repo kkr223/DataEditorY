@@ -1,99 +1,63 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import type { CdbTab } from '$lib/stores/db';
-  import type { MainView } from '$lib/stores/appShell.svelte';
-  import type { ScriptWorkspaceState } from '$lib/types';
+  import type { WorkspaceDocument } from '$lib/core/workspace/types';
 
   let {
-    settingsOpen = false,
-    mainView = 'editor',
-    tabs = [],
+    workspaces = [],
+    activeWorkspaceId = null,
     activeTabId = null,
-    scriptTabs = [],
-    activeScriptTabId = null,
-    getScriptTabDisplayName = (tab: ScriptWorkspaceState) => tab.cardName,
-    onOpenSettings = () => {},
-    onCloseSettings = () => {},
-    onActivateTab = (_tabId: string) => {},
-    onCloseTab = async (_tabId: string) => {},
-    onActivateScriptTab = (_tabId: string) => {},
-    onCloseScriptTab = async (_tabId: string) => {},
+    onActivateWorkspace = (_tabId: string) => {},
+    onCloseWorkspace = async (_tabId: string) => {},
     onOpenAnother = async () => {},
   }: {
-    settingsOpen?: boolean;
-    mainView?: MainView;
-    tabs?: CdbTab[];
+    workspaces?: WorkspaceDocument[];
+    activeWorkspaceId?: string | null;
     activeTabId?: string | null;
-    scriptTabs?: ScriptWorkspaceState[];
-    activeScriptTabId?: string | null;
-    getScriptTabDisplayName?: (tab: ScriptWorkspaceState) => string;
-    onOpenSettings?: () => void;
-    onCloseSettings?: () => void;
-    onActivateTab?: (tabId: string) => void;
-    onCloseTab?: (tabId: string) => void | Promise<void>;
-    onActivateScriptTab?: (tabId: string) => void;
-    onCloseScriptTab?: (tabId: string) => void | Promise<void>;
+    onActivateWorkspace?: (tabId: string) => void;
+    onCloseWorkspace?: (tabId: string) => void | Promise<void>;
     onOpenAnother?: () => void | Promise<void>;
   } = $props();
+
+  function getWorkspaceIcon(workspace: WorkspaceDocument) {
+    if (workspace.kind === 'settings') {
+      return 'settings';
+    }
+
+    if (workspace.kind === 'script') {
+      return 'script';
+    }
+
+    return 'db';
+  }
 </script>
 
-{#if tabs.length > 0 || scriptTabs.length > 0 || settingsOpen}
+{#if workspaces.length > 0}
   <div class="tab-bar">
-    {#if settingsOpen}
+    {#each workspaces as workspace (workspace.id)}
       <button
         class="tab-item"
-        class:active={mainView === 'settings'}
-        onclick={onOpenSettings}
+        class:active={activeWorkspaceId === workspace.id}
+        class:script-tab={workspace.kind === 'script'}
+        onclick={() => onActivateWorkspace(workspace.id)}
+        title={workspace.subtitle}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.3l.06.06A1.65 1.65 0 0 0 8.92 4a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v-.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 1 1 19.63 7l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.44.55.94 1.08 1H21a2 2 0 1 1 0 4h-.09c-.53.06-.94.56-1.08 1z"></path></svg>
-        <span class="tab-name">{$_('nav.settings')}</span>
-        <span
-          class="tab-close"
-          role="button"
-          tabindex="0"
-          onclick={(event) => { event.stopPropagation(); onCloseSettings(); }}
-          onkeydown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); onCloseSettings(); } }}
-        >×</span>
-      </button>
-    {/if}
-    {#each tabs as tab (tab.id)}
-      <button
-        class="tab-item"
-        class:active={activeTabId === tab.id}
-        onclick={() => onActivateTab(tab.id)}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-        <span class="tab-name">{tab.name}</span>
-        {#if tab.isDirty}
+        {#if getWorkspaceIcon(workspace) === 'settings'}
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.3l.06.06A1.65 1.65 0 0 0 8.92 4a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v-.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 1 1 19.63 7l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.44.55.94 1.08 1H21a2 2 0 1 1 0 4h-.09c-.53.06-.94.56-1.08 1z"></path></svg>
+        {:else if getWorkspaceIcon(workspace) === 'script'}
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M10 13h4"></path><path d="M10 17h4"></path><path d="M8 9h1"></path></svg>
+        {:else}
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+        {/if}
+        <span class="tab-name">{workspace.title}</span>
+        {#if workspace.dirty}
           <span class="tab-dirty" aria-label={$_('editor.unsaved_badge')} title={$_('editor.unsaved_badge')}>•</span>
         {/if}
         <span
           class="tab-close"
           role="button"
           tabindex="0"
-          onclick={(event) => { event.stopPropagation(); void onCloseTab(tab.id); }}
-          onkeydown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); void onCloseTab(tab.id); } }}
-        >×</span>
-      </button>
-    {/each}
-    {#each scriptTabs as tab (tab.id)}
-      <button
-        class="tab-item script-tab"
-        class:active={activeScriptTabId === tab.id && mainView === 'script'}
-        onclick={() => onActivateScriptTab(tab.id)}
-        title={tab.scriptPath}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M10 13h4"></path><path d="M10 17h4"></path><path d="M8 9h1"></path></svg>
-        <span class="tab-name">{getScriptTabDisplayName(tab)}</span>
-        {#if tab.isDirty}
-          <span class="tab-dirty" aria-label={$_('editor.unsaved_badge')} title={$_('editor.unsaved_badge')}>•</span>
-        {/if}
-        <span
-          class="tab-close"
-          role="button"
-          tabindex="0"
-          onclick={(event) => { event.stopPropagation(); void onCloseScriptTab(tab.id); }}
-          onkeydown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); void onCloseScriptTab(tab.id); } }}
+          onclick={(event) => { event.stopPropagation(); void onCloseWorkspace(workspace.id); }}
+          onkeydown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); void onCloseWorkspace(workspace.id); } }}
         >×</span>
       </button>
     {/each}

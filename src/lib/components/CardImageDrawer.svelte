@@ -198,6 +198,7 @@
   let previewFontsReady = $state(false);
   let shouldRunInitialPostRenderRefresh = $state(false);
   let hasRunInitialPostRenderRefresh = false;
+  let lastPreviewRendererSignature = "";
   let foregroundPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   let foregroundResizeObserver: ResizeObserver | null = null;
   let foregroundDragMode = $state<ForegroundEditorMode>(null);
@@ -213,8 +214,10 @@
   let foregroundDragCenterClientX = $state(0);
   let foregroundDragCenterClientY = $state(0);
   let initialForegroundState = $state<ForegroundInitialState | null>(null);
+  let lastForegroundRendererSignature = "";
 
   let yugiohCardConstructorPromise: Promise<YugiohCardConstructor> | null = null;
+  let hasPatchedYugiohCardConstructor = false;
   let resourcePathPromise: Promise<string> | null = null;
   let resolvedResourcePath = $state("");
   let previewResizeObserver: ResizeObserver | null = null;
@@ -255,9 +258,97 @@
     return resolvedResourcePath;
   }
 
+  function patchYugiohCardConstructor(YugiohCard: YugiohCardConstructor) {
+    if (hasPatchedYugiohCardConstructor) {
+      return YugiohCard;
+    }
+
+    const prototype = YugiohCard.prototype as YugiohCardConstructor["prototype"] & {
+      draw?: () => void;
+      drawSpellTrap?: () => void;
+      updateScale?: () => void;
+      spellTrapLeaf?: { set?: (data: Record<string, unknown>) => void } | null;
+      pendulumLeaf?: { set?: (data: Record<string, unknown>) => void } | null;
+      pendulumDescriptionLeaf?: { set?: (data: Record<string, unknown>) => void } | null;
+      data?: CardImageFormData;
+      [key: string]: unknown;
+    };
+    const originalDraw = prototype.draw;
+    const originalDrawSpellTrap = prototype.drawSpellTrap;
+    const drawSequence = [
+      "drawCard",
+      "drawName",
+      "drawAttribute",
+      "drawLevel",
+      "drawRank",
+      "drawSpellTrap",
+      "drawImage",
+      "drawMask",
+      "drawPendulum",
+      "drawPendulumDescription",
+      "drawPackage",
+      "drawLinkArrow",
+      "drawEffect",
+      "drawDescription",
+      "drawAtkDefLink",
+      "drawPassword",
+      "drawCopyright",
+      "drawLaser",
+      "drawRare",
+      "drawAttributeRare",
+      "drawTwentieth",
+    ] as const;
+    const fallbackLeafByMethod: Partial<Record<(typeof drawSequence)[number], keyof typeof prototype>> = {
+      drawSpellTrap: "spellTrapLeaf",
+      drawPendulum: "pendulumLeaf",
+      drawPendulumDescription: "pendulumDescriptionLeaf",
+    };
+
+    if (typeof originalDraw === "function") {
+      prototype.draw = function patchedDraw(this: typeof prototype) {
+        try {
+          originalDraw.call(this);
+        } catch (error) {
+          for (const methodName of drawSequence) {
+            const method = this[methodName];
+            if (typeof method !== "function") continue;
+
+            try {
+              (method as () => void).call(this);
+            } catch (methodError) {
+              const fallbackLeafKey = fallbackLeafByMethod[methodName];
+              const fallbackLeaf = fallbackLeafKey
+                ? this[fallbackLeafKey] as { set?: (data: Record<string, unknown>) => void } | null | undefined
+                : null;
+              fallbackLeaf?.set?.({ visible: false });
+            }
+          }
+
+          this.updateScale?.();
+        }
+      };
+    }
+
+    if (typeof originalDrawSpellTrap !== "function") {
+      hasPatchedYugiohCardConstructor = true;
+      return YugiohCard;
+    }
+
+    prototype.drawSpellTrap = function patchedDrawSpellTrap(this: typeof prototype) {
+      try {
+        originalDrawSpellTrap.call(this);
+      } catch (error) {
+        this.spellTrapLeaf?.set?.({ visible: false });
+      }
+    };
+
+    hasPatchedYugiohCardConstructor = true;
+    return YugiohCard;
+  }
+
   async function getYugiohCardConstructor(): Promise<YugiohCardConstructor> {
     if (!yugiohCardConstructorPromise) {
-      yugiohCardConstructorPromise = import("yugioh-card").then((module) => module.YugiohCard as YugiohCardConstructor);
+      yugiohCardConstructorPromise = import("yugioh-card").then((module) => patchYugiohCardConstructor(module.YugiohCard as YugiohCardConstructor));
     }
     return yugiohCardConstructorPromise;
   }
@@ -265,6 +356,7 @@
   function destroyPreview() {
     previewCard?.leafer?.destroy?.();
     previewCard = null;
+    lastPreviewRendererSignature = "";
     if (previewHost) {
       previewHost.innerHTML = "";
     }
@@ -273,6 +365,7 @@
   function destroyForegroundPreview() {
     foregroundPreviewCard?.leafer?.destroy?.();
     foregroundPreviewCard = null;
+    lastForegroundRendererSignature = "";
     if (foregroundPreviewHost) {
       foregroundPreviewHost.innerHTML = "";
     }
@@ -1112,6 +1205,60 @@
     return data.type === "spell" && data.icon === "field";
   }
 
+  function getRendererSignature(data: CardImageFormData) {
+    return [
+      data.language,
+      data.font,
+      data.type,
+      data.cardType,
+      data.pendulumType,
+      data.icon,
+      data.attribute,
+      data.radius ? "rounded" : "square",
+    ].join("|");
+  }
+
+  function buildBootstrapPreviewData(data: CardImageFormData): CardImageFormData {
+    return normalizeCardImageFormData({
+      language: data.language,
+      font: data.font,
+      name: "",
+      color: "",
+      align: "left",
+      gradient: false,
+      gradientColor1: "#999999",
+      gradientColor2: "#ffffff",
+      type: "monster",
+      attribute: data.attribute || "dark",
+      icon: "",
+      image: "",
+      cardType: "normal",
+      pendulumType: "effect-pendulum",
+      level: 0,
+      rank: 0,
+      pendulumScale: 0,
+      pendulumDescription: "",
+      monsterType: "",
+      atkBar: true,
+      atk: 0,
+      def: 0,
+      arrowList: [],
+      description: "",
+      firstLineCompress: false,
+      descriptionAlign: false,
+      descriptionZoom: 1,
+      descriptionWeight: 0,
+      package: "",
+      password: "",
+      copyright: data.copyright,
+      laser: "",
+      rare: "",
+      twentieth: false,
+      radius: data.radius,
+      scale: data.scale,
+    });
+  }
+
   function applyExtraBuildIsolation(data: CardImageFormData): CardImageFormData {
     if (HAS_EXTRA_BUILD) {
       return data;
@@ -1517,7 +1664,7 @@
     return new Uint8Array(arrayBuffer);
   }
 
-  async function ensurePreviewCard() {
+  async function ensurePreviewCard(initialData: CardImageFormData) {
     await tick();
     if (!open || !previewHost) return null;
 
@@ -1525,7 +1672,7 @@
     if (!previewCard) {
       previewCard = new YugiohCard({
         view: previewHost,
-        data: buildPreviewData(),
+        data: buildBootstrapPreviewData(initialData),
         resourcePath: await ensureResolvedResourcePath(),
       });
     }
@@ -1533,7 +1680,7 @@
     return previewCard;
   }
 
-  async function ensureForegroundPreviewCard() {
+  async function ensureForegroundPreviewCard(initialData: CardImageFormData) {
     await tick();
     if (!open || !foregroundEditorOpen || !foregroundPreviewHost) return null;
 
@@ -1541,7 +1688,7 @@
     if (!foregroundPreviewCard) {
       foregroundPreviewCard = new YugiohCard({
         view: foregroundPreviewHost,
-        data: buildForegroundPreviewData(),
+        data: buildBootstrapPreviewData(initialData),
         resourcePath: await ensureResolvedResourcePath(),
       });
     }
@@ -1555,9 +1702,23 @@
     try {
       errorMessage = "";
       const resourcePath = await ensureResolvedResourcePath();
-      const cardInstance = await ensurePreviewCard();
       const previewData = buildPreviewData();
-      cardInstance?.setData?.(previewData);
+      const rendererSignature = getRendererSignature(previewData);
+      if (rendererSignature !== lastPreviewRendererSignature) {
+        destroyPreview();
+        lastPreviewRendererSignature = rendererSignature;
+      }
+
+      let cardInstance = await ensurePreviewCard(previewData);
+      try {
+        cardInstance?.setData?.(previewData);
+      } catch {
+        destroyPreview();
+        lastPreviewRendererSignature = rendererSignature;
+        cardInstance = await ensurePreviewCard(previewData);
+        cardInstance?.setData?.(previewData);
+      }
+
       if (hasForegroundOverlay(previewData)) {
         applyForegroundLayerOrdering(cardInstance);
       }
@@ -1586,9 +1747,23 @@
 
     try {
       const resourcePath = await ensureResolvedResourcePath();
-      const cardInstance = await ensureForegroundPreviewCard();
       const previewData = buildForegroundPreviewData();
-      cardInstance?.setData?.(previewData);
+      const rendererSignature = getRendererSignature(previewData);
+      if (rendererSignature !== lastForegroundRendererSignature) {
+        destroyForegroundPreview();
+        lastForegroundRendererSignature = rendererSignature;
+      }
+
+      let cardInstance = await ensureForegroundPreviewCard(previewData);
+      try {
+        cardInstance?.setData?.(previewData);
+      } catch {
+        destroyForegroundPreview();
+        lastForegroundRendererSignature = rendererSignature;
+        cardInstance = await ensureForegroundPreviewCard(previewData);
+        cardInstance?.setData?.(previewData);
+      }
+
       if (hasForegroundOverlay(previewData)) {
         applyForegroundLayerOrdering(cardInstance);
       }

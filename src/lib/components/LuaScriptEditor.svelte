@@ -1,31 +1,50 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { tauriBridge } from '$lib/infrastructure/tauri';
-  import { activeScriptTab, getActiveScriptTab, reloadActiveScriptTab, saveActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
-  import { activeTabId, getCardByIdInTab, modifyCardsInTab, tabs } from '$lib/stores/db';
-  import { HAS_AI_FEATURE } from '$lib/config/build';
-  import { showToast } from '$lib/stores/toast.svelte';
-  import { updateVisibleCards } from '$lib/stores/editor.svelte';
-  import { writeErrorLog } from '$lib/utils/errorLog';
+  import { activeScriptTab, getActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
+  import { activeTabId, tabs } from '$lib/stores/db';
+  import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
   import { collectLuaCallHighlights } from '$lib/utils/luaScriptCalls';
   import type { CardDataEntry } from '$lib/types';
   import type { AgentStage } from '$lib/utils/ai';
   import type { editor as MonacoEditor } from 'monaco-editor';
-  import { normalizeCardStrings, toPersistableCard } from '$lib/domain/card/draft';
+  import { normalizeCardStrings } from '$lib/domain/card/draft';
   import { buildScriptFileName } from '$lib/domain/script/workspace';
-  import { createAiAppContext } from '$lib/services/aiAppContext';
-  import { generateCardScriptFile, getScriptGenerationStageLabel, ensureAiReady, ensureScriptOverwriteConfirmed, isAbortError } from '$lib/services/scriptGeneration';
-  import { openScriptExternally } from '$lib/services/cardScriptService';
-
-  type MonacoModule = typeof import('$lib/utils/luaScriptMonaco');
-  type MonacoApi = typeof import('monaco-editor');
+  import { getScriptGenerationStageLabel } from '$lib/services/scriptGeneration';
+  import {
+    buildCallHighlightDecorations,
+    buildScriptEditorContextKey,
+    extractFocusedSuggestLabel,
+    resolveHintAnchor,
+    resolveHoverAbove,
+    shouldHandleHintSuppressShortcut,
+  } from '$lib/features/script-editor/controller';
+  import {
+    generateScriptFromEditorFlow,
+    loadScriptCardContextFlow,
+    openScriptExternallyFlow,
+    reloadScriptEditorFlow,
+    saveScriptEditorFlow,
+    saveScriptStringFlow,
+  } from '$lib/features/script-editor/useCases';
+  import {
+    createScriptMonacoRuntime,
+    type ScriptMonacoApi as MonacoApi,
+    type ScriptMonacoModule as MonacoModule,
+    type ScriptMonacoRuntime,
+  } from '$lib/features/script-editor/runtime';
+  import ScriptToolbar from '$lib/features/script-editor/components/ScriptToolbar.svelte';
+  import ScriptHintOverlays from '$lib/features/script-editor/components/ScriptHintOverlays.svelte';
+  import ScriptSidePanel from '$lib/features/script-editor/components/ScriptSidePanel.svelte';
+  import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
+  const hasAiCapability = isCapabilityEnabled('ai');
 
   let editorHost = $state<HTMLDivElement | null>(null);
   let monacoModule = $state<MonacoModule | null>(null);
   let monacoApi = $state<MonacoApi | null>(null);
   let editorInstance = $state<MonacoEditor.IStandaloneCodeEditor | null>(null);
   let callHighlightDecorations = $state<MonacoEditor.IEditorDecorationsCollection | null>(null);
+  let monacoRuntime = $state<ScriptMonacoRuntime | null>(null);
   let currentBoundTabId = $state<string | null>(null);
   let isApplyingModel = false;
   let cardContext = $state<CardDataEntry | null>(null);
@@ -48,7 +67,6 @@
   let currentFunctionHintAnchorTop = $state(12);
   let hoverAbove = true;
   let suggestHintTimer: ReturnType<typeof setTimeout> | null = null;
-  let themeObserver: MutationObserver | null = null;
   let validateTimer: ReturnType<typeof setTimeout> | null = null;
   let lastHighlightSource = '';
   let lastHighlightDecorations = $state<{
@@ -68,11 +86,6 @@
     return values;
   });
 
-  function normalizeCardContext(card: CardDataEntry | null | undefined) {
-    if (!card) return null;
-    return toPersistableCard(card);
-  }
-
   function getScriptTabTitle() {
     const tab = $activeScriptTab;
     if (!tab) return '';
@@ -83,58 +96,34 @@
     const tab = getActiveScriptTab();
     if (!tab) {
       cardContext = null;
+      savedScriptStrings = Array.from({ length: 16 }, () => '');
       return;
     }
 
     const currentToken = ++loadContextToken;
-    const sourceTabId = tab.sourceTabId || $tabs.find((item) => item.path === tab.cdbPath)?.id || null;
-    if (!sourceTabId) {
-      cardContext = null;
-      return;
-    }
-
-    try {
-      const card = await getCardByIdInTab(sourceTabId, tab.cardCode);
-      if (currentToken !== loadContextToken) return;
-      cardContext = normalizeCardContext(card);
-      savedScriptStrings = normalizeCardStrings(card?.strings);
-    } catch {
-      if (currentToken !== loadContextToken) return;
-      cardContext = null;
-      savedScriptStrings = Array.from({ length: 16 }, () => '');
-    }
+    const result = await loadScriptCardContextFlow({
+      tab,
+      dbTabs: $tabs,
+      loadToken: currentToken,
+    });
+    if (result.loadToken !== loadContextToken) return;
+    cardContext = result.cardContext;
+    savedScriptStrings = result.savedScriptStrings;
   }
 
   async function handleStringBlur(index: number) {
-    const tab = getActiveScriptTab();
-    if (!tab || !cardContext) return;
-
-    const nextValue = cardContext.strings[index] ?? '';
-    if (nextValue === (savedScriptStrings[index] ?? '')) return;
-
-    const sourceTabId = tab.sourceTabId || $tabs.find((item) => item.path === tab.cdbPath)?.id || null;
-    if (!sourceTabId) {
-      showToast($_('editor.save_failed'), 'error');
-      return;
-    }
-
-    const nextCard: CardDataEntry = {
-      ...cardContext,
-      strings: normalizeCardStrings(cardContext.strings),
-      setcode: Array.isArray(cardContext.setcode) ? [...cardContext.setcode] : [],
-    };
-
-    const ok = await modifyCardsInTab(sourceTabId, [nextCard]);
-    if (!ok) {
-      showToast($_('editor.save_failed'), 'error');
-      return;
-    }
-
-    if ($activeTabId === sourceTabId) {
-      updateVisibleCards([nextCard]);
-    }
-
-    savedScriptStrings = normalizeCardStrings(nextCard.strings);
+    const result = await saveScriptStringFlow({
+      tab: getActiveScriptTab(),
+      cardContext,
+      savedScriptStrings,
+      index,
+      dbTabs: $tabs,
+      activeDbTabId: $activeTabId,
+      t: (key, options) => $_(key, options as never),
+    });
+    if (!result) return;
+    cardContext = result.cardContext;
+    savedScriptStrings = result.savedScriptStrings;
   }
 
   function handleStringInput(index: number, value: string) {
@@ -227,12 +216,8 @@
     currentFunctionHintAnchorTop = 12;
   }
 
-  function shouldHandleHintSuppressShortcut(event: KeyboardEvent) {
-    return event.key === 'Alt' && Boolean(editorInstance?.hasTextFocus());
-  }
-
   function handleHintSuppressKeydown(event: KeyboardEvent) {
-    if (!shouldHandleHintSuppressShortcut(event)) return;
+    if (!shouldHandleHintSuppressShortcut(event, Boolean(editorInstance?.hasTextFocus()))) return;
     isCurrentFunctionHintSuppressed = true;
   }
 
@@ -251,20 +236,13 @@
     }
 
     const visiblePosition = editorInstance.getScrolledVisiblePosition(position);
-    if (!visiblePosition) {
-      return { top: 12, placement: 'top' as const };
-    }
-
-    const hostTop = editorHost.offsetTop + 1;
-    const anchorTop = hostTop + visiblePosition.top;
-    const placement = anchorTop <= Math.max(visiblePosition.height * 5, 132)
-      ? 'bottom'
-      : 'top';
-
-    return {
-      top: placement === 'bottom' ? anchorTop + visiblePosition.height : anchorTop,
-      placement,
-    } as const;
+    return resolveHintAnchor(visiblePosition
+      ? {
+          hostOffsetTop: editorHost.offsetTop,
+          visibleTop: visiblePosition.top,
+          visibleHeight: visiblePosition.height,
+        }
+      : null);
   }
 
   function syncCallHighlights() {
@@ -279,27 +257,17 @@
     }
 
     const source = model.getValue();
-    const highlights = source === lastHighlightSource
-      ? lastHighlightDecorations
-      : collectLuaCallHighlights(source).map((item) => ({
-          range: {
-            startLineNumber: item.startLineNumber,
-            startColumn: item.startColumn,
-            endLineNumber: item.endLineNumber,
-            endColumn: item.endColumn,
-          },
-          options: {
-            inlineClassName: 'lua-call-highlight',
-          },
-        }));
-
-    if (source !== lastHighlightSource) {
-      lastHighlightSource = source;
-      lastHighlightDecorations = highlights;
-    }
+    const nextHighlights = buildCallHighlightDecorations(
+      source,
+      lastHighlightSource,
+      lastHighlightDecorations,
+      collectLuaCallHighlights,
+    );
+    lastHighlightSource = nextHighlights.source;
+    lastHighlightDecorations = nextHighlights.decorations;
 
     callHighlightDecorations ??= editorInstance.createDecorationsCollection();
-    callHighlightDecorations.set(highlights);
+    callHighlightDecorations.set(nextHighlights.decorations);
   }
 
   function scheduleModelValidation() {
@@ -329,9 +297,11 @@
     if (!editorInstance || !position) return;
 
     const visiblePosition = editorInstance.getScrolledVisiblePosition(position);
-    if (!visiblePosition) return;
-
-    const nextHoverAbove = visiblePosition.top > Math.max(visiblePosition.height * 4, 96);
+    const nextHoverAbove = resolveHoverAbove({
+      visibleTop: visiblePosition?.top,
+      visibleHeight: visiblePosition?.height,
+      previous: hoverAbove,
+    });
     if (nextHoverAbove === hoverAbove) return;
 
     hoverAbove = nextHoverAbove;
@@ -340,25 +310,6 @@
         above: hoverAbove,
       },
     });
-  }
-
-  function extractFocusedSuggestLabel() {
-    if (!editorHost) return null;
-
-    const focusedRow = editorHost.querySelector('.suggest-widget .monaco-list-row.focused');
-    if (!(focusedRow instanceof HTMLElement)) return null;
-
-    const labelNode = focusedRow.querySelector('.label-name');
-    if (labelNode instanceof HTMLElement) {
-      return labelNode.textContent?.trim() || null;
-    }
-
-    const iconLabel = focusedRow.querySelector('.monaco-icon-label');
-    if (iconLabel instanceof HTMLElement) {
-      return iconLabel.textContent?.trim() || null;
-    }
-
-    return focusedRow.getAttribute('aria-label')?.split(',')[0]?.trim() || null;
   }
 
   function syncSuggestHint() {
@@ -374,7 +325,7 @@
       return;
     }
 
-    const label = extractFocusedSuggestLabel();
+    const label = extractFocusedSuggestLabel(editorHost);
     const description = label ? monacoModule.lookupCompletionDescription(label) : null;
     suggestHintText = description ?? '';
     if (suggestHintText) {
@@ -429,86 +380,35 @@
     const tab = getActiveScriptTab();
     if (!tab || isSaving) return;
 
+    isSaving = true;
     try {
-      isSaving = true;
-      const ok = await saveActiveScriptTab();
-      showToast($_(ok ? 'editor.script_save_success' : 'editor.script_save_failed'), ok ? 'success' : 'error');
-    } catch (error) {
-      console.error('Failed to save script', error);
-      void writeErrorLog({
-        source: 'script.save',
-        error,
-        extra: {
-          path: tab.scriptPath,
-          cardCode: tab.cardCode,
-        },
+      await saveScriptEditorFlow({
+        tab,
+        isSaving: false,
+        t: (key, options) => $_(key, options as never),
       });
-      showToast($_('editor.script_save_failed'), 'error');
     } finally {
       isSaving = false;
     }
   }
 
   async function handleGenerateScript() {
-    const tab = getActiveScriptTab();
-    if (!tab || isGeneratingScript) return;
-    if (!(await ensureAiReady())) return;
-
-    try {
-      const shouldOverwrite = await ensureScriptOverwriteConfirmed(tab.cdbPath, tab.cardCode);
-      if (!shouldOverwrite) return;
-
-      const sourceTabId = tab.sourceTabId || $tabs.find((item) => item.path === tab.cdbPath)?.id || null;
-      const latestCard = sourceTabId
-        ? normalizeCardContext(await getCardByIdInTab(sourceTabId, tab.cardCode))
-        : normalizeCardContext(cardContext);
-      const targetCard = latestCard ?? normalizeCardContext(cardContext);
-
-      if (!targetCard) {
-        showToast($_('editor.script_generate_failed'), 'error');
-        return;
-      }
-
-      isGeneratingScript = true;
-      scriptGenerationStage = 'collecting_references';
-      const abortController = new AbortController();
-      scriptGenerationAbortController = abortController;
-
-      await generateCardScriptFile({
-        cdbPath: tab.cdbPath,
-        sourceTabId,
-        card: {
-          ...targetCard,
-          name: targetCard.name ?? tab.cardName,
-        },
-        signal: abortController.signal,
-        onStageChange: (stage) => {
-          scriptGenerationStage = stage;
-        },
-      });
-      showToast($_('editor.script_generated', { values: { code: String(tab.cardCode) } }), 'success');
-    } catch (error) {
-      if (isAbortError(error)) {
-        showToast($_('editor.script_generation_canceled'), 'info');
-        return;
-      }
-
-      console.error('Failed to generate script', error);
-      void writeErrorLog({
-        source: 'script.generate',
-        error,
-        extra: {
-          cdbPath: tab.cdbPath,
-          cardCode: tab.cardCode,
-          cardName: tab.cardName,
-        },
-      });
-      showToast($_('editor.script_generate_failed'), 'error');
-    } finally {
-      isGeneratingScript = false;
-      scriptGenerationStage = '';
-      scriptGenerationAbortController = null;
-    }
+    await generateScriptFromEditorFlow({
+      tab: getActiveScriptTab(),
+      isGeneratingScript,
+      cardContext,
+      dbTabs: $tabs,
+      t: (key, options) => $_(key, options as never),
+      setIsGeneratingScript: (value) => {
+        isGeneratingScript = value;
+      },
+      setScriptGenerationStage: (value) => {
+        scriptGenerationStage = value;
+      },
+      setAbortController: (value) => {
+        scriptGenerationAbortController = value;
+      },
+    });
   }
 
   function handleCancelGenerateScript() {
@@ -519,140 +419,71 @@
     const tab = getActiveScriptTab();
     if (!tab || isReloading) return;
 
-    if (tab.isDirty) {
-      const confirmed = await tauriBridge.ask($_('editor.script_reload_confirm'), {
-        title: $_('editor.script_reload_title'),
-        kind: 'warning',
-      });
-      if (!confirmed) return;
-    }
-
+    isReloading = true;
     try {
-      isReloading = true;
-      const ok = await reloadActiveScriptTab();
+      const ok = await reloadScriptEditorFlow({
+        tab,
+        isReloading: false,
+        t: (key, options) => $_(key, options as never),
+      });
       if (ok) {
         await loadCardContext();
         await syncEditorWithActiveTab();
-        showToast($_('editor.script_reload_success'), 'success');
       }
-    } catch (error) {
-      console.error('Failed to reload script', error);
-      void writeErrorLog({
-        source: 'script.reload',
-        error,
-        extra: {
-          path: tab.scriptPath,
-          cardCode: tab.cardCode,
-        },
-      });
-      showToast($_('editor.script_reload_failed'), 'error');
     } finally {
       isReloading = false;
     }
   }
 
   async function handleOpenExternal() {
-    const tab = getActiveScriptTab();
-    if (!tab) return;
-
-    try {
-      await openScriptExternally(tab.scriptPath);
-    } catch (error) {
-      console.error('Failed to open script externally', error);
-      void writeErrorLog({
-        source: 'script.open-external',
-        error,
-        extra: {
-          path: tab.scriptPath,
-          cardCode: tab.cardCode,
-        },
-      });
-      showToast($_('editor.script_open_failed'), 'error');
-    }
+    await openScriptExternallyFlow({
+      tab: getActiveScriptTab(),
+      t: (key, options) => $_(key, options as never),
+    });
   }
 
   onMount(async () => {
-    const loadedModule = await import('$lib/utils/luaScriptMonaco');
-    const loadedMonaco = await loadedModule.loadMonaco();
-    monacoModule = loadedModule;
-    monacoApi = loadedMonaco;
-
     if (!editorHost) return;
 
-    editorInstance = loadedMonaco.editor.create(editorHost, {
-      automaticLayout: true,
-      contextmenu: false,
-      minimap: { enabled: false },
-      fontSize: 14,
-      lineHeight: 22,
-      lineNumbersMinChars: 3,
-      scrollBeyondLastLine: false,
-      wordWrap: 'on',
-      tabSize: 2,
-      insertSpaces: false,
-      language: 'lua',
-      renderWhitespace: 'selection',
-      smoothScrolling: true,
-      suggest: {
-        showInlineDetails: true,
-        snippetsPreventQuickSuggestions: false,
+    monacoRuntime = await createScriptMonacoRuntime({
+      host: editorHost,
+      onDidChangeModelContent: () => {
+        if (isApplyingModel || !currentBoundTabId) return;
+        const model = editorInstance?.getModel();
+        if (!model || !monacoModule) return;
+
+        updateScriptTabContent(currentBoundTabId, model.getValue());
+        scheduleModelValidation();
+        refreshSuggestHint();
+        refreshCurrentFunctionHint();
       },
-      hover: {
-        above: true,
+      onDidChangeCursorPosition: () => {
+        refreshSuggestHint();
+        refreshCurrentFunctionHint();
       },
-      padding: {
-        top: 0,
-        bottom: 0,
+      onKeyUp: () => {
+        refreshSuggestHint();
+        refreshCurrentFunctionHint();
       },
+      onMouseMove: (position) => {
+        syncHoverPlacement(position);
+      },
+      onDidBlurEditorText: () => {
+        clearSuggestHint();
+        handleHintSuppressBlur();
+      },
+      onDidScrollChange: () => {
+        refreshSuggestHint();
+        refreshCurrentFunctionHint();
+      },
+      onWindowKeydown: handleHintSuppressKeydown,
+      onWindowKeyup: handleHintSuppressKeyup,
+      onWindowBlur: handleHintSuppressBlur,
     });
-    callHighlightDecorations = editorInstance.createDecorationsCollection();
-
-    editorInstance.onDidChangeModelContent(() => {
-      if (isApplyingModel || !currentBoundTabId) return;
-      const model = editorInstance?.getModel();
-      if (!model || !monacoModule) return;
-
-      updateScriptTabContent(currentBoundTabId, model.getValue());
-      scheduleModelValidation();
-      refreshSuggestHint();
-      refreshCurrentFunctionHint();
-    });
-
-    editorInstance.onDidChangeCursorPosition(() => {
-      refreshSuggestHint();
-      refreshCurrentFunctionHint();
-    });
-
-    editorInstance.onKeyUp(() => {
-      refreshSuggestHint();
-      refreshCurrentFunctionHint();
-    });
-
-    editorInstance.onMouseMove((event) => {
-      syncHoverPlacement(event.target.position);
-    });
-
-    editorInstance.onDidBlurEditorText(() => {
-      clearSuggestHint();
-      handleHintSuppressBlur();
-    });
-
-    editorInstance.onDidScrollChange(() => {
-      refreshSuggestHint();
-      refreshCurrentFunctionHint();
-    });
-
-    themeObserver = new MutationObserver(() => {
-      monacoModule?.syncMonacoTheme();
-    });
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-theme'],
-    });
-
-    window.addEventListener('keydown', handleHintSuppressKeydown);
-    window.addEventListener('keyup', handleHintSuppressKeyup);
-    window.addEventListener('blur', handleHintSuppressBlur);
+    monacoModule = monacoRuntime.module;
+    monacoApi = monacoRuntime.api;
+    editorInstance = monacoRuntime.editor;
+    callHighlightDecorations = monacoRuntime.callHighlightDecorations;
 
     isMonacoReady = true;
     await loadCardContext();
@@ -670,22 +501,15 @@
     callHighlightDecorations = null;
     clearTimeout(validateTimer ?? undefined);
     validateTimer = null;
-    themeObserver?.disconnect();
-    themeObserver = null;
-    window.removeEventListener('keydown', handleHintSuppressKeydown);
-    window.removeEventListener('keyup', handleHintSuppressKeyup);
-    window.removeEventListener('blur', handleHintSuppressBlur);
-    editorInstance?.dispose();
+    monacoRuntime?.dispose();
+    monacoRuntime = null;
   });
 
   $effect(() => {
-    const contextKey = [
-      $activeScriptTab?.id ?? '',
-      $activeScriptTab?.cdbPath ?? '',
-      String($activeScriptTab?.cardCode ?? 0),
-      $activeScriptTab?.sourceTabId ?? '',
-      $tabs.map((item) => `${item.id}:${item.path}`).join('|'),
-    ].join('::');
+    const contextKey = buildScriptEditorContextKey({
+      activeScriptTab: $activeScriptTab,
+      dbTabs: $tabs,
+    });
 
     if (!isMonacoReady) return;
     if (contextKey === lastContextKey) return;
@@ -716,101 +540,64 @@
 
 {#if $activeScriptTab}
   <section class="script-page">
-    <div class="script-toolbar">
-      <div class="script-toolbar-main">
-        <h2>{getScriptTabTitle()}</h2>
-        <div class="script-meta">
-          <span>{$_('editor.script_workspace_card', { values: { code: String($activeScriptTab.cardCode) } })}</span>
-          <span>{cardContext?.name || $activeScriptTab.cardName || '-'}</span>
-          <span title={$activeScriptTab.cdbPath}>{$activeScriptTab.cdbPath}</span>
-        </div>
-      </div>
-      <div class="script-toolbar-actions">
-        {#if HAS_AI_FEATURE}
-          <button class="btn-secondary" type="button" onclick={handleGenerateScript} disabled={isGeneratingScript}>
-            {isGeneratingScript ? $_('editor.script_generating') : $_('editor.script_generate_button')}
-          </button>
-          {#if isGeneratingScript}
-            <button class="btn-secondary" type="button" onclick={handleCancelGenerateScript}>
-              {$_('editor.script_cancel_button')}
-            </button>
-          {/if}
-        {/if}
-        <button class="btn-secondary" type="button" onclick={handleReload} disabled={isReloading}>
-          {isReloading ? $_('editor.script_reloading') : $_('editor.script_reload')}
-        </button>
-        <button class="btn-secondary" type="button" onclick={handleOpenExternal}>
-          {$_('editor.script_open_external')}
-        </button>
-        <button class="btn-primary" type="button" onclick={handleSave} disabled={isSaving}>
-          {isSaving ? $_('editor.script_saving') : $_('editor.script_save')}
-        </button>
-      </div>
-    </div>
-    {#if HAS_AI_FEATURE && isGeneratingScript}
-      <div class="script-stage-banner">{getScriptGenerationStageLabel(scriptGenerationStage)}</div>
-    {/if}
+    <ScriptToolbar
+      title={getScriptTabTitle()}
+      cardCodeLabel={$_('editor.script_workspace_card', { values: { code: String($activeScriptTab.cardCode) } })}
+      cardName={cardContext?.name || $activeScriptTab.cardName || '-'}
+      cdbPath={$activeScriptTab.cdbPath}
+      hasAiCapability={hasAiCapability}
+      isGeneratingScript={isGeneratingScript}
+      isReloading={isReloading}
+      isSaving={isSaving}
+      stageLabel={getScriptGenerationStageLabel(scriptGenerationStage)}
+      generateLabel={$_('editor.script_generate_button')}
+      generatingLabel={$_('editor.script_generating')}
+      cancelLabel={$_('editor.script_cancel_button')}
+      reloadLabel={$_('editor.script_reload')}
+      reloadingLabel={$_('editor.script_reloading')}
+      openExternalLabel={$_('editor.script_open_external')}
+      saveLabel={$_('editor.script_save')}
+      savingLabel={$_('editor.script_saving')}
+      onGenerate={handleGenerateScript}
+      onCancelGenerate={handleCancelGenerateScript}
+      onReload={handleReload}
+      onOpenExternal={handleOpenExternal}
+      onSave={handleSave}
+    />
 
     <div class="script-layout">
       <div class="script-editor-shell">
-        {#if currentFunctionHintTitle && !isCurrentFunctionHintSuppressed}
-          <div
-            class="current-function-hint"
-            class:top={currentFunctionHintPlacement === 'top'}
-            class:bottom={currentFunctionHintPlacement === 'bottom'}
-            style={`top:${currentFunctionHintAnchorTop}px;`}
-          >
-            <div class="current-function-hint-title">{currentFunctionHintTitle}</div>
-            {#if currentFunctionHintDescription}
-              <div class="current-function-hint-description">{currentFunctionHintDescription}</div>
-            {/if}
-          </div>
-        {/if}
-        {#if suggestHintText}
-          <div
-            class="suggest-inline-hint"
-            class:top={suggestHintPlacement === 'top'}
-            class:bottom={suggestHintPlacement === 'bottom'}
-            style={`top:${suggestHintAnchorTop}px;`}
-          >{suggestHintText}</div>
-        {/if}
+        <ScriptHintOverlays
+          currentFunctionHintTitle={currentFunctionHintTitle}
+          currentFunctionHintDescription={currentFunctionHintDescription}
+          isCurrentFunctionHintSuppressed={isCurrentFunctionHintSuppressed}
+          currentFunctionHintPlacement={currentFunctionHintPlacement}
+          currentFunctionHintAnchorTop={currentFunctionHintAnchorTop}
+          suggestHintText={suggestHintText}
+          suggestHintPlacement={suggestHintPlacement}
+          suggestHintAnchorTop={suggestHintAnchorTop}
+        />
         <div class="script-editor" bind:this={editorHost}></div>
       </div>
 
-      <aside class="script-side-panel">
-        <section class="script-side-card">
-          <h3>{$_('editor.desc')}</h3>
-          <div class="effect-text">{cardContext?.desc || $_('editor.script_effect_empty')}</div>
-        </section>
-
-        <section class="script-side-card">
-          <h3>{$_('editor.script_strings_title')}</h3>
-          <div class="string-list">
-            {#each scriptStrings as value, index}
-              <div class="string-row">
-                <button class="string-label" type="button" onclick={() => handleInsertStringId(index)}>
-                  aux.Stringid(id, {index})
-                </button>
-                <input
-                  class="string-input"
-                  type="text"
-                  value={value}
-                  placeholder={$_('editor.script_string_empty')}
-                  oninput={(event) => handleStringInput(index, (event.currentTarget as HTMLInputElement).value)}
-                  onblur={() => void handleStringBlur(index)}
-                />
-              </div>
-            {/each}
-          </div>
-        </section>
-      </aside>
+      <ScriptSidePanel
+        descriptionTitle={$_('editor.desc')}
+        stringsTitle={$_('editor.script_strings_title')}
+        effectText={cardContext?.desc || ''}
+        effectEmptyText={$_('editor.script_effect_empty')}
+        stringPlaceholder={$_('editor.script_string_empty')}
+        scriptStrings={scriptStrings}
+        onInsertStringId={handleInsertStringId}
+        onStringInput={handleStringInput}
+        onStringBlur={handleStringBlur}
+      />
     </div>
   </section>
 {:else}
-  <section class="script-empty">
-    <h2>{$_('editor.script_empty_title')}</h2>
-    <p>{$_('editor.script_empty_description')}</p>
-  </section>
+  <ScriptEmptyState
+    title={$_('editor.script_empty_title')}
+    description={$_('editor.script_empty_description')}
+  />
 {/if}
 
 <style>
@@ -822,60 +609,6 @@
       radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 26%),
       radial-gradient(circle at right top, rgba(16, 185, 129, 0.12), transparent 24%),
       var(--bg-base);
-  }
-
-  .script-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--border-color);
-    background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
-  }
-
-  .script-toolbar-main {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .script-toolbar-main h2 {
-    margin: 0;
-    font-size: 0.9rem;
-    line-height: 1.15;
-  }
-
-  .script-meta {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    color: var(--text-secondary);
-    font-size: 0.72rem;
-    line-height: 1.2;
-  }
-
-  .script-meta span {
-    max-width: 20rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .script-toolbar-actions {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-
-  .script-stage-banner {
-    padding: 4px 10px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    color: var(--text-secondary);
-    font-size: 0.72rem;
-    line-height: 1.2;
-    background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
   }
 
   .script-layout {
@@ -993,72 +726,6 @@
     color: inherit !important;
   }
 
-  .suggest-inline-hint {
-    position: absolute;
-    left: 16px;
-    right: 16px;
-    max-width: min(56vw, 920px);
-    padding: 0.5rem 0.75rem;
-    border-radius: 8px;
-    background: rgba(26, 34, 32, 0.82);
-    color: rgba(221, 235, 226, 0.72);
-    font-size: 0.86rem;
-    line-height: 1.5;
-    font-style: italic;
-    pointer-events: none;
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: min(24vh, 220px);
-    overflow-y: auto;
-    backdrop-filter: blur(2px);
-    z-index: 6;
-  }
-
-  .current-function-hint {
-    position: absolute;
-    left: 14px;
-    max-width: min(44vw, 680px);
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    padding: 0.5rem 0.7rem;
-    border: 1px solid rgba(146, 185, 159, 0.24);
-    border-radius: 10px;
-    background: rgba(34, 43, 39, 0.92);
-    color: rgba(230, 242, 235, 0.9);
-    backdrop-filter: blur(3px);
-    pointer-events: none;
-    z-index: 6;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
-  }
-
-  .current-function-hint.top,
-  .suggest-inline-hint.top {
-    transform: translateY(calc(-100% - 10px));
-  }
-
-  .current-function-hint.bottom,
-  .suggest-inline-hint.bottom {
-    transform: translateY(10px);
-  }
-
-  .current-function-hint-title {
-    font-family: 'Consolas', 'SFMono-Regular', 'Courier New', monospace;
-    font-size: 0.9rem;
-    line-height: 1.4;
-    color: #e1f3e5;
-    white-space: normal;
-    word-break: break-word;
-  }
-
-  .current-function-hint-description {
-    font-size: 0.84rem;
-    line-height: 1.45;
-    color: rgba(218, 233, 223, 0.76);
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
   :global([data-theme='light']) .script-editor {
     background: #f1f5ec;
   }
@@ -1090,26 +757,6 @@
     --vscode-editorInfo-border: rgba(94, 144, 166, 0.16) !important;
   }
 
-  :global([data-theme='light']) .suggest-inline-hint {
-    background: rgba(255, 255, 255, 0.9);
-    color: rgba(52, 76, 62, 0.72);
-  }
-
-  :global([data-theme='light']) .current-function-hint {
-    border-color: rgba(109, 150, 119, 0.22);
-    background: rgba(255, 255, 255, 0.92);
-    color: rgba(36, 60, 46, 0.88);
-    box-shadow: 0 10px 22px rgba(67, 96, 77, 0.08);
-  }
-
-  :global([data-theme='light']) .current-function-hint-title {
-    color: #234432;
-  }
-
-  :global([data-theme='light']) .current-function-hint-description {
-    color: rgba(48, 77, 60, 0.72);
-  }
-
   :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-call-highlight) {
     color: #1d5fd1 !important;
     font-weight: 600;
@@ -1125,149 +772,10 @@
     color: #16311e !important;
   }
 
-  .script-side-panel {
-    border-left: 1px solid var(--border-color);
-    padding: 6px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    background: color-mix(in srgb, var(--bg-surface) 76%, transparent);
-  }
-
-  .script-side-card {
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .script-side-card h3 {
-    margin: 0;
-    font-size: 0.8rem;
-  }
-
-  .effect-text,
-  .string-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .effect-text {
-    color: var(--text-secondary);
-    font-size: 0.77rem;
-    line-height: 1.45;
-    white-space: pre-wrap;
-    word-break: break-word;
-    padding: 0;
-  }
-
-  .string-list {
-    color: var(--text-secondary);
-  }
-
-  .string-row {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 5px 0;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .string-row:last-child {
-    border-bottom: none;
-  }
-
-  .string-label {
-    color: var(--accent-primary);
-    font-size: 0.7rem;
-    font-family: Consolas, 'Courier New', monospace;
-    align-self: flex-start;
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  .string-label:hover {
-    filter: brightness(1.1);
-  }
-
-  .string-label:focus-visible {
-    outline: 1px solid var(--accent-primary);
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-
-  .string-input {
-    width: 100%;
-    height: 1.8rem;
-    min-height: 1.8rem;
-    resize: none;
-    border-radius: 7px;
-    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    background: color-mix(in srgb, var(--bg-base) 90%, transparent);
-    color: var(--text-secondary);
-    font-size: 0.76rem;
-    line-height: 1.2;
-    padding: 0.24rem 0.48rem;
-  }
-
-  .string-input:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 45%, transparent);
-  }
-
-  .script-empty {
-    height: 100%;
-    display: grid;
-    place-items: center;
-    text-align: center;
-    color: var(--text-secondary);
-    gap: 10px;
-  }
-
-  button {
-    font: inherit;
-  }
-
-  .btn-primary,
-  .btn-secondary {
-    border-radius: 8px;
-    padding: 0.34rem 0.6rem;
-    font-size: 0.76rem;
-    font-weight: 700;
-    line-height: 1.1;
-  }
-
-  .btn-primary {
-    background: linear-gradient(135deg, #2563eb, #0891b2);
-    color: white;
-  }
-
-  .btn-secondary {
-    background: var(--bg-base);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-  }
-
   @media (max-width: 1180px) {
     .script-layout {
       grid-template-columns: 1fr;
       grid-template-rows: minmax(0, 1fr) auto;
-    }
-
-    .script-side-panel {
-      border-left: none;
-      border-top: 1px solid var(--border-color);
-      max-height: 38vh;
     }
   }
 </style>
