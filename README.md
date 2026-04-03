@@ -97,7 +97,7 @@ bun run tauri:build:all
 
 运行时会使用以下附加资源：
 
-- `resources/strings.conf`
+- `resources/strings/`
 - `resources/cover.jpg`
 - `resources/lua-intel/`
 - `resources/yugioh-card/`（仅 `extra`）
@@ -109,7 +109,12 @@ Lua 编辑器相关资源的维护方式：
 - 日常维护只需要修改 `static/resources/` 下的源文件，不要直接修改生成产物
 - 桌面版运行时会优先读取程序目录下的 `resources/lua-intel/`
 
-`strings.conf` 也支持外部覆盖：如果程序当前目录存在同名文件，启动时会优先使用它，而不是内置版本。
+字符串资源支持目录聚合：程序会读取 `strings/` 目录下的所有有效文本文件，并与内置资源一起合并使用。
+
+- 内置基础资源位于 `static/resources/strings/`
+- 桌面版运行时会额外扫描程序当前目录、程序目录及其 `resources/strings/`
+- 无效 UTF-8、疑似二进制、超大文件和子目录内容会被自动忽略
+- 为兼容旧版本，若目录不存在，仍会回退读取单个 `strings.conf`
 
 ## 使用概览
 

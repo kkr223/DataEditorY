@@ -33,7 +33,7 @@ const BUILD_VARIANTS = {
 };
 
 const REQUIRED_BUNDLE_RESOURCES = {
-  '../static/resources/strings.conf': 'resources/strings.conf',
+  '../static/resources/strings': 'resources/strings',
   '../static/resources/cover.jpg': 'resources/cover.jpg',
   '../static/resources/_functions.txt': 'resources/lua-intel/_functions.txt',
   '../static/resources/def.lua': 'resources/lua-intel/def.lua',

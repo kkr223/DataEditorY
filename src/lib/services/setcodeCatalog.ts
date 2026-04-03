@@ -3,26 +3,42 @@ import { loadStringsConfContent } from '$lib/infrastructure/tauri/commands';
 
 export type SetcodeOption = SelectOption<string> & { label: string };
 
-function parseStringsConf(content: string): SetcodeOption[] {
+type StringsCatalogIndex = {
+  files?: string[];
+};
+
+const FALLBACK_STRINGS_FILES = ['base.conf'];
+
+function normalizeSetcodeHex(raw: string) {
+  const normalized = raw.trim().toLowerCase().replace(/^0x/, '');
+  if (!/^[0-9a-f]+$/i.test(normalized)) return null;
+  return `0x${normalized.padStart(4, '0').toUpperCase()}`;
+}
+
+export function parseStringsCatalog(content: string): SetcodeOption[] {
   const result: SetcodeOption[] = [];
+  const seen = new Set<string>();
   if (!content) return result;
 
   for (const line of content.split('\n')) {
-    if (!line.trim().startsWith('!setname')) continue;
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('!setname')) continue;
 
-    const parts = line.trim().split(/\s+/);
+    const parts = trimmed.split(/\s+/);
     if (parts.length < 3) continue;
 
-    let hex = parts[1];
-    if (hex.toLowerCase().startsWith('0x')) {
-      hex = `0x${hex.substring(2).padStart(4, '0').toUpperCase()}`;
-    } else {
-      hex = `0x${parseInt(hex, 16).toString(16).padStart(4, '0').toUpperCase()}`;
-    }
+    const hex = normalizeSetcodeHex(parts[1]);
+    if (!hex) continue;
+    const label = parts.slice(2).join(' ').trim();
+    if (!label) continue;
+
+    const dedupeKey = `${hex}::${label}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
 
     result.push({
       value: hex,
-      label: parts[2],
+      label,
     });
   }
 
@@ -35,20 +51,41 @@ async function readStringsConf() {
   try {
     return await loadStringsConfContent();
   } catch {
-    const response = await fetch('/resources/strings.conf');
-    if (!response.ok) {
-      throw new Error(`Failed to load strings.conf: ${response.status}`);
+    let files = FALLBACK_STRINGS_FILES;
+
+    try {
+      const manifestResponse = await fetch('/resources/strings/index.json');
+      if (manifestResponse.ok) {
+        const manifest = (await manifestResponse.json()) as StringsCatalogIndex;
+        if (Array.isArray(manifest.files) && manifest.files.length > 0) {
+          files = manifest.files.filter((value) => typeof value === 'string' && value.trim().length > 0);
+        }
+      }
+    } catch {
+      // Keep the static fallback list when the manifest is unavailable.
     }
-    return response.text();
+
+    const contents = await Promise.all(
+      files.map(async (file) => {
+        const normalized = file.replace(/^[/\\]+/, '');
+        const response = await fetch(`/resources/strings/${normalized}`);
+        if (!response.ok) {
+          throw new Error(`Failed to load strings file ${normalized}: ${response.status}`);
+        }
+        return response.text();
+      }),
+    );
+
+    return contents.join('\n');
   }
 }
 
 export async function loadPopularSetcodes() {
   if (!popularSetcodesPromise) {
     popularSetcodesPromise = readStringsConf()
-      .then(parseStringsConf)
+      .then(parseStringsCatalog)
       .catch((error) => {
-        console.error('Failed to load strings.conf', error);
+        console.error('Failed to load strings catalog', error);
         return [];
       });
   }

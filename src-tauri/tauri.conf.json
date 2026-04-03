@@ -33,7 +33,7 @@
     "active": true,
     "targets": "all",
     "resources": {
-      "../static/resources/strings.conf": "resources/strings.conf",
+      "../static/resources/strings": "resources/strings",
       "../static/resources/cover.jpg": "resources/cover.jpg",
       "../static/resources/_functions.txt": "resources/lua-intel/_functions.txt",
       "../static/resources/constant.lua": "resources/lua-intel/constant.lua",

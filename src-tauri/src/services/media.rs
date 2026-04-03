@@ -14,6 +14,9 @@ use tauri::http::{
 use tauri::{AppHandle, Manager};
 
 const MEDIA_PROTOCOL_NAME: &str = "app-media";
+const STRINGS_DIR_NAME: &str = "strings";
+const LEGACY_STRINGS_FILE_NAME: &str = "strings.conf";
+const MAX_STRINGS_TEXT_FILE_BYTES: u64 = 512 * 1024;
 
 fn media_protocol_error(status: StatusCode, message: &str) -> Response<Vec<u8>> {
     Response::builder()
@@ -204,43 +207,165 @@ pub fn import_card_image(
     writer.flush().map_err(|err| err.to_string())
 }
 
-pub fn load_strings_conf(app: &AppHandle) -> Result<String, String> {
+fn strings_dir_candidates(app: &AppHandle) -> Vec<PathBuf> {
     let mut candidates: Vec<PathBuf> = Vec::new();
 
     if let Ok(resource_dir) = app.path().resource_dir() {
-        candidates.push(resource_dir.join("resources").join("strings.conf"));
-        candidates.push(resource_dir.join("strings.conf"));
+        candidates.push(resource_dir.join("resources").join(STRINGS_DIR_NAME));
+        candidates.push(resource_dir.join(STRINGS_DIR_NAME));
     }
 
     if let Ok(current_dir) = std::env::current_dir() {
-        candidates.push(current_dir.join("strings.conf"));
-        candidates.push(current_dir.join("static").join("strings.conf"));
+        candidates.push(current_dir.join(STRINGS_DIR_NAME));
+        candidates.push(current_dir.join("static").join(STRINGS_DIR_NAME));
         candidates.push(
             current_dir
                 .join("static")
                 .join("resources")
-                .join("strings.conf"),
+                .join(STRINGS_DIR_NAME),
         );
     }
 
     if let Ok(current_exe) = std::env::current_exe() {
         if let Some(exe_dir) = current_exe.parent() {
-            candidates.push(exe_dir.join("strings.conf"));
-            candidates.push(exe_dir.join("resources").join("strings.conf"));
+            candidates.push(exe_dir.join(STRINGS_DIR_NAME));
+            candidates.push(exe_dir.join("resources").join(STRINGS_DIR_NAME));
             if let Some(parent) = exe_dir.parent() {
-                candidates.push(parent.join("strings.conf"));
-                candidates.push(parent.join("resources").join("strings.conf"));
+                candidates.push(parent.join(STRINGS_DIR_NAME));
+                candidates.push(parent.join("resources").join(STRINGS_DIR_NAME));
             }
         }
     }
 
-    for path in candidates {
-        if path.exists() {
-            return fs::read_to_string(&path).map_err(|err| err.to_string());
+    candidates
+}
+
+fn legacy_strings_file_candidates(app: &AppHandle) -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join("resources").join(LEGACY_STRINGS_FILE_NAME));
+        candidates.push(resource_dir.join(LEGACY_STRINGS_FILE_NAME));
+    }
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        candidates.push(current_dir.join(LEGACY_STRINGS_FILE_NAME));
+        candidates.push(current_dir.join("static").join(LEGACY_STRINGS_FILE_NAME));
+        candidates.push(
+            current_dir
+                .join("static")
+                .join("resources")
+                .join(LEGACY_STRINGS_FILE_NAME),
+        );
+    }
+
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(exe_dir) = current_exe.parent() {
+            candidates.push(exe_dir.join(LEGACY_STRINGS_FILE_NAME));
+            candidates.push(exe_dir.join("resources").join(LEGACY_STRINGS_FILE_NAME));
+            if let Some(parent) = exe_dir.parent() {
+                candidates.push(parent.join(LEGACY_STRINGS_FILE_NAME));
+                candidates.push(parent.join("resources").join(LEGACY_STRINGS_FILE_NAME));
+            }
         }
     }
 
-    Err("strings.conf not found in external locations".to_string())
+    candidates
+}
+
+fn read_strings_text_file(path: &Path) -> Result<String, String> {
+    let metadata = fs::metadata(path).map_err(|err| err.to_string())?;
+    if !metadata.is_file() {
+        return Err("Path is not a regular file".to_string());
+    }
+    if metadata.len() > MAX_STRINGS_TEXT_FILE_BYTES {
+        return Err(format!(
+            "File exceeds the {} byte safety limit",
+            MAX_STRINGS_TEXT_FILE_BYTES
+        ));
+    }
+
+    let bytes = fs::read(path).map_err(|err| err.to_string())?;
+    if bytes.contains(&0) {
+        return Err("Binary-looking file detected".to_string());
+    }
+
+    let text = String::from_utf8(bytes).map_err(|err| err.to_string())?;
+    Ok(text.replace("\r\n", "\n"))
+}
+
+fn read_strings_directory(dir: &Path) -> Result<Vec<String>, String> {
+    let metadata = fs::metadata(dir).map_err(|err| err.to_string())?;
+    if !metadata.is_dir() {
+        return Err("Path is not a directory".to_string());
+    }
+
+    let canonical_dir = fs::canonicalize(dir).map_err(|err| err.to_string())?;
+    let mut entries = fs::read_dir(&canonical_dir)
+        .map_err(|err| err.to_string())?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>();
+    entries.sort_by(|a, b| {
+        a.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .cmp(
+                &b.file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default(),
+            )
+    });
+
+    let mut contents = Vec::new();
+    for path in entries {
+        let Ok(canonical_path) = fs::canonicalize(&path) else {
+            continue;
+        };
+        if !canonical_path.starts_with(&canonical_dir) {
+            continue;
+        }
+        let Ok(file_type) = fs::metadata(&canonical_path).map(|metadata| metadata.file_type()) else {
+            continue;
+        };
+        if !file_type.is_file() {
+            continue;
+        }
+
+        if let Ok(content) = read_strings_text_file(&canonical_path) {
+            if !content.trim().is_empty() {
+                contents.push(content);
+            }
+        }
+    }
+
+    Ok(contents)
+}
+
+pub fn load_strings_conf(app: &AppHandle) -> Result<String, String> {
+    let mut aggregated = Vec::new();
+
+    for dir in strings_dir_candidates(app) {
+        if !dir.exists() {
+            continue;
+        }
+
+        if let Ok(mut contents) = read_strings_directory(&dir) {
+            aggregated.append(&mut contents);
+        }
+    }
+
+    if !aggregated.is_empty() {
+        return Ok(aggregated.join("\n"));
+    }
+
+    for path in legacy_strings_file_candidates(app) {
+        if path.exists() {
+            return read_strings_text_file(&path);
+        }
+    }
+
+    Err("No valid strings text files found in configured locations".to_string())
 }
 
 fn vscode_candidates() -> Vec<PathBuf> {
@@ -381,4 +506,54 @@ where
             })
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn make_temp_dir(label: &str) -> PathBuf {
+        let unique = format!(
+            "dataeditory-media-{label}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        );
+        let path = std::env::temp_dir().join(unique);
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn reads_and_sorts_valid_text_files_from_strings_directory() {
+        let root = make_temp_dir("strings-dir");
+        fs::write(root.join("b.conf"), "!setname 0x2 Beta").unwrap();
+        fs::write(root.join("a.txt"), "!setname 0x1 Alpha").unwrap();
+        fs::write(root.join("binary.bin"), [0u8, 159, 146, 150]).unwrap();
+        fs::create_dir_all(root.join("nested")).unwrap();
+        fs::write(root.join("nested").join("ignored.txt"), "!setname 0x3 Gamma").unwrap();
+
+        let result = read_strings_directory(&root).unwrap();
+
+        assert_eq!(result.len(), 2);
+        assert!(result[0].contains("Alpha"));
+        assert!(result[1].contains("Beta"));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn rejects_oversized_text_files() {
+        let root = make_temp_dir("strings-size");
+        let path = root.join("huge.conf");
+        fs::write(&path, vec![b'a'; (MAX_STRINGS_TEXT_FILE_BYTES as usize) + 1]).unwrap();
+
+        let result = read_strings_text_file(&path);
+
+        assert!(result.is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
 }
