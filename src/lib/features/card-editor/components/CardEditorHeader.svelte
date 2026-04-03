@@ -18,11 +18,11 @@
 </div>
 
 <div class="top-strip">
-  <div class="strip-field" style="width:120px">
+  <div class="strip-field strip-field-id">
     <label for="edit-id">{idLabel}</label>
     <input type="number" id="edit-id" bind:value={draftCard.code} />
   </div>
-  <div class="strip-field" style="width:90px">
+  <div class="strip-field strip-field-alias">
     <label for="edit-alias">{aliasLabel}</label>
     <input type="number" id="edit-alias" bind:value={draftCard.alias} />
   </div>
@@ -66,6 +66,14 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+
+  .strip-field-id {
+    width: 8rem;
+  }
+
+  .strip-field-alias {
+    width: 6rem;
   }
 
   .strip-field label {

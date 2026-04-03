@@ -107,7 +107,7 @@
 
 <style>
   .topbar {
-    height: clamp(56px, 3.2vw, 68px);
+    height: 3.75rem;
     flex-shrink: 0;
     background-color: var(--bg-surface);
     border-bottom: 1px solid var(--border-color);
@@ -137,7 +137,7 @@
   }
 
   .logo h1 {
-    font-size: clamp(1.05rem, 0.4vw + 0.85rem, 1.35rem);
+    font-size: 1.2rem;
     font-weight: 700;
     color: var(--accent-primary);
     letter-spacing: -0.5px;
