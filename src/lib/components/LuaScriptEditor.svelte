@@ -17,7 +17,10 @@
     extractFocusedSuggestLabel,
     resolveHintAnchor,
     resolveHoverAbove,
+    resolveScriptReferenceShortcut,
     shouldHandleHintSuppressShortcut,
+    shouldCloseScriptReferenceOverlay,
+    type ScriptReferenceManualKind,
   } from '$lib/features/script-editor/controller';
   import {
     generateScriptFromEditorFlow,
@@ -35,8 +38,10 @@
   } from '$lib/features/script-editor/runtime';
   import ScriptToolbar from '$lib/features/script-editor/components/ScriptToolbar.svelte';
   import ScriptHintOverlays from '$lib/features/script-editor/components/ScriptHintOverlays.svelte';
+  import ScriptReferenceOverlay from '$lib/features/script-editor/components/ScriptReferenceOverlay.svelte';
   import ScriptSidePanel from '$lib/features/script-editor/components/ScriptSidePanel.svelte';
   import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
+  import type { LuaReferenceManualItem } from '$lib/utils/luaScriptMonaco';
   const hasAiCapability = isCapabilityEnabled('ai');
 
   let editorHost = $state<HTMLDivElement | null>(null);
@@ -65,6 +70,12 @@
   let isCurrentFunctionHintSuppressed = $state(false);
   let currentFunctionHintPlacement = $state<'top' | 'bottom'>('top');
   let currentFunctionHintAnchorTop = $state(12);
+  let referenceOverlayKind = $state<ScriptReferenceManualKind | null>(null);
+  let referenceManualItems = $state<Record<ScriptReferenceManualKind, LuaReferenceManualItem[]>>({
+    constants: [],
+    functions: [],
+  });
+  let referenceSelection = $state<ReturnType<MonacoEditor.IStandaloneCodeEditor['getSelection']>>(null);
   let hoverAbove = true;
   let suggestHintTimer: ReturnType<typeof setTimeout> | null = null;
   let validateTimer: ReturnType<typeof setTimeout> | null = null;
@@ -146,12 +157,39 @@
     }
   }
 
+  function openReferenceOverlay(kind: ScriptReferenceManualKind) {
+    referenceSelection = editorInstance?.getSelection() ?? null;
+    referenceOverlayKind = kind;
+  }
+
+  function closeReferenceOverlay() {
+    referenceOverlayKind = null;
+  }
+
+  function handleInsertReferenceItem(item: LuaReferenceManualItem) {
+    if (!editorInstance || !monacoModule) return;
+
+    if (referenceSelection) {
+      editorInstance.setSelection(referenceSelection);
+    }
+    editorInstance.focus();
+
+    const inserted = monacoModule.insertSnippet(editorInstance, item.insertText);
+    if (!inserted) return;
+
+    referenceSelection = editorInstance.getSelection() ?? null;
+    closeReferenceOverlay();
+    refreshCurrentFunctionHint();
+    refreshSuggestHint();
+  }
+
   async function syncEditorWithActiveTab() {
     if (!editorInstance || !monacoModule || !monacoApi) return;
 
     const tab = getActiveScriptTab();
     if (!tab) {
       currentBoundTabId = null;
+      closeReferenceOverlay();
       editorInstance.setModel(null);
       return;
     }
@@ -228,6 +266,36 @@
 
   function handleHintSuppressBlur() {
     isCurrentFunctionHintSuppressed = false;
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent) {
+    const isReferenceOverlayOpen = referenceOverlayKind !== null;
+    if (shouldCloseScriptReferenceOverlay(event, isReferenceOverlayOpen)) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeReferenceOverlay();
+      editorInstance?.focus();
+      return;
+    }
+
+    const handbookShortcut = resolveScriptReferenceShortcut(
+      event,
+      Boolean(editorInstance?.hasTextFocus()),
+      isReferenceOverlayOpen,
+    );
+    if (handbookShortcut) {
+      event.preventDefault();
+      event.stopPropagation();
+      openReferenceOverlay(handbookShortcut);
+      return;
+    }
+
+    handleHintSuppressKeydown(event);
+  }
+
+  function handleWindowKeyup(event: KeyboardEvent) {
+    if (referenceOverlayKind) return;
+    handleHintSuppressKeyup(event);
   }
 
   function getHintAnchor(position: { lineNumber: number; column: number } | null | undefined) {
@@ -476,14 +544,18 @@
         refreshSuggestHint();
         refreshCurrentFunctionHint();
       },
-      onWindowKeydown: handleHintSuppressKeydown,
-      onWindowKeyup: handleHintSuppressKeyup,
+      onWindowKeydown: handleWindowKeydown,
+      onWindowKeyup: handleWindowKeyup,
       onWindowBlur: handleHintSuppressBlur,
     });
     monacoModule = monacoRuntime.module;
     monacoApi = monacoRuntime.api;
     editorInstance = monacoRuntime.editor;
     callHighlightDecorations = monacoRuntime.callHighlightDecorations;
+    referenceManualItems = {
+      constants: monacoRuntime.module.getReferenceManualItems('constants'),
+      functions: monacoRuntime.module.getReferenceManualItems('functions'),
+    };
 
     isMonacoReady = true;
     await loadCardContext();
@@ -576,6 +648,22 @@
           suggestHintText={suggestHintText}
           suggestHintPlacement={suggestHintPlacement}
           suggestHintAnchorTop={suggestHintAnchorTop}
+        />
+        <ScriptReferenceOverlay
+          open={referenceOverlayKind !== null}
+          title={referenceOverlayKind === 'constants'
+            ? $_('editor.script_reference_constants_title')
+            : $_('editor.script_reference_functions_title')}
+          shortcutHint={referenceOverlayKind === 'constants'
+            ? $_('editor.script_reference_constants_shortcut')
+            : $_('editor.script_reference_functions_shortcut')}
+          searchPlaceholder={$_('editor.script_reference_search_placeholder')}
+          emptyText={$_('editor.script_reference_empty')}
+          closeLabel={$_('cancel')}
+          insertLabel={$_('editor.script_reference_insert')}
+          items={referenceOverlayKind ? referenceManualItems[referenceOverlayKind] : []}
+          onClose={closeReferenceOverlay}
+          onInsert={handleInsertReferenceItem}
         />
         <div class="script-editor" bind:this={editorHost}></div>
       </div>

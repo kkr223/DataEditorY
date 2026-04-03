@@ -3,6 +3,7 @@ import type { LuaCallHighlight } from '$lib/utils/luaScriptCalls';
 import { toPersistableCard } from '$lib/domain/card/draft';
 
 export type HintPlacement = 'top' | 'bottom';
+export type ScriptReferenceManualKind = 'constants' | 'functions';
 
 export type MonacoDecorationRange = {
   startLineNumber: number;
@@ -78,6 +79,38 @@ export function resolveHoverAbove(input: {
 
 export function shouldHandleHintSuppressShortcut(event: KeyboardEvent, hasEditorTextFocus: boolean) {
   return event.key === 'Alt' && hasEditorTextFocus;
+}
+
+export function resolveScriptReferenceShortcut(
+  event: KeyboardEvent,
+  hasEditorTextFocus: boolean,
+  hasReferenceOverlayOpen: boolean,
+) {
+  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+    return null;
+  }
+
+  const canHandle = hasEditorTextFocus || hasReferenceOverlayOpen;
+  if (!canHandle) {
+    return null;
+  }
+
+  if (event.key === 'F6') {
+    return 'constants' satisfies ScriptReferenceManualKind;
+  }
+
+  if (event.key === 'F8') {
+    return 'functions' satisfies ScriptReferenceManualKind;
+  }
+
+  return null;
+}
+
+export function shouldCloseScriptReferenceOverlay(
+  event: KeyboardEvent,
+  hasReferenceOverlayOpen: boolean,
+) {
+  return hasReferenceOverlayOpen && event.key === 'Escape';
 }
 
 export function extractFocusedSuggestLabel(editorHost: ParentNode | null) {

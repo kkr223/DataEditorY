@@ -17,7 +17,7 @@ import {
   type LuaSemanticTextModel,
   type LuaVisibleSymbol,
 } from '$lib/utils/luaSemantic';
-import type { CardDataEntry, LuaFunctionItem } from '$lib/types';
+import type { CardDataEntry, LuaConstantItem, LuaFunctionItem } from '$lib/types';
 
 type LuaModelContext = {
   cardCode: number;
@@ -35,6 +35,19 @@ type LuaNode = {
     end?: { line: number; column: number };
   };
   [key: string]: unknown;
+};
+
+export type LuaReferenceManualKind = 'constants' | 'functions';
+export type LuaReferenceManualItem = {
+  key: string;
+  title: string;
+  detail: string;
+  description: string;
+  category: string;
+  valueText: string;
+  insertText: string;
+  insertAsSnippet: boolean;
+  searchText: string;
 };
 
 const LUA_MARKER_OWNER = 'dataeditory-lua';
@@ -937,6 +950,58 @@ function buildConstantDocumentation(name: string, value: string, description: st
   ]);
 }
 
+function buildReferenceSearchText(parts: Array<string | null | undefined>) {
+  return parts
+    .map((item) => item?.trim())
+    .filter(Boolean)
+    .join('\n')
+    .toLowerCase();
+}
+
+function buildConstantReferenceManualItem(item: LuaConstantItem): LuaReferenceManualItem {
+  const category = item.category?.trim() || 'General';
+  const description = normalizeCompletionHint(item.description, `${item.name} = ${item.value}`) ?? '';
+  return {
+    key: `constant:${item.name}`,
+    title: item.name,
+    detail: `${item.name} = ${item.value}`,
+    description,
+    category,
+    valueText: item.value,
+    insertText: item.name,
+    insertAsSnippet: false,
+    searchText: buildReferenceSearchText([
+      item.name,
+      item.value,
+      item.description,
+      category,
+    ]),
+  };
+}
+
+function buildFunctionReferenceManualItem(item: LuaFunctionItem): LuaReferenceManualItem {
+  const category = item.category?.trim() || item.namespace || 'General';
+  const description = normalizeCompletionHint(item.description, item.signature) ?? '';
+  return {
+    key: `function:${item.name}`,
+    title: item.name,
+    detail: toSignatureLabel(item),
+    description,
+    category,
+    valueText: '',
+    insertText: buildFunctionInsertText(item.name, item),
+    insertAsSnippet: true,
+    searchText: buildReferenceSearchText([
+      item.name,
+      item.shortName,
+      item.signature,
+      item.returnType,
+      item.description,
+      category,
+    ]),
+  };
+}
+
 function getSemanticDocument(model: monaco.editor.ITextModel) {
   return getLuaSemanticDocument(model as unknown as LuaSemanticTextModel, luaCatalog);
 }
@@ -1365,6 +1430,14 @@ export function getCurrentFunctionHint(
 
 export function getToolbarSnippets() {
   return luaCatalog.snippets;
+}
+
+export function getReferenceManualItems(kind: LuaReferenceManualKind) {
+  if (kind === 'constants') {
+    return luaCatalog.constants.map(buildConstantReferenceManualItem);
+  }
+
+  return luaCatalog.functions.map(buildFunctionReferenceManualItem);
 }
 
 export function insertSnippet(
