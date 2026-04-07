@@ -212,6 +212,350 @@
     "sortText": "1020"
   },
   {
+    "name": "targetchkc",
+    "prefix": "#tgk",
+    "body": [
+      "function s.$1tg(e,tp,eg,ep,ev,re,r,rp,chk,chkc)",
+      "\tif chkc then return chkc:Is$2() and $3 end",
+      "\tif chk==0 then return $4 end",
+      "\tDuel.Hint(HINT_SELECTMSG,tp,$5)",
+      "\tlocal g=Duel.SelectTarget(tp,s.$6,tp,$7,$8,1,1,nil$9)",
+      "\tDuel.SetOperationInfo(0,$10,g,1,0,0)",
+      "end"
+    ],
+    "description": "target with chkc",
+    "sortText": "1021"
+  },
+  {
+    "name": "releasecost",
+    "prefix": "#rlct",
+    "body": [
+      "function s.$1cost(e,tp,eg,ep,ev,re,r,rp,chk)",
+      "\tif chk==0 then return Duel.CheckReleaseGroupCost(tp,s.$2,1,false,nil,nil$3) end",
+      "\tDuel.Hint(HINT_SELECTMSG,tp,HINTMSG_RELEASE)",
+      "\tlocal g=Duel.SelectReleaseGroupCost(tp,s.$2,1,1,false,nil,nil$3)",
+      "\tDuel.Release(g,REASON_COST)",
+      "end"
+    ],
+    "description": "release cost",
+    "sortText": "1022"
+  },
+  {
+    "name": "discardcost",
+    "prefix": "#dhct",
+    "body": [
+      "function s.$1cost(e,tp,eg,ep,ev,re,r,rp,chk)",
+      "\tif chk==0 then return Duel.IsExistingMatchingCard(s.$2,tp,LOCATION_HAND,0,1,e:GetHandler()) end",
+      "\tDuel.DiscardHand(tp,s.$2,1,1,REASON_COST|REASON_DISCARD,e:GetHandler())",
+      "end"
+    ],
+    "description": "discard hand cost",
+    "sortText": "1023"
+  },
+  {
+    "name": "removegravecost",
+    "prefix": "#rmct",
+    "body": [
+      "function s.$1cost(e,tp,eg,ep,ev,re,r,rp,chk)",
+      "\tif chk==0 then return Duel.IsExistingMatchingCard(aux.bfgcostfilter,tp,LOCATION_GRAVE,0,1,nil) end",
+      "\tDuel.Hint(HINT_SELECTMSG,tp,HINTMSG_REMOVE)",
+      "\tlocal g=Duel.SelectMatchingCard(tp,aux.bfgcostfilter,tp,LOCATION_GRAVE,0,1,1,nil)",
+      "\tDuel.Remove(g,POS_FACEUP,REASON_COST)",
+      "end"
+    ],
+    "description": "banish from grave cost",
+    "sortText": "1024"
+  },
+  {
+    "name": "sendgravecost",
+    "prefix": "#sgct",
+    "body": [
+      "function s.$1cost(e,tp,eg,ep,ev,re,r,rp,chk)",
+      "\tif chk==0 then return Duel.IsExistingMatchingCard(s.$2,tp,LOCATION_HAND|LOCATION_ONFIELD,0,1,e:GetHandler()) end",
+      "\tDuel.Hint(HINT_SELECTMSG,tp,HINTMSG_TOGRAVE)",
+      "\tlocal g=Duel.SelectMatchingCard(tp,s.$2,tp,LOCATION_HAND|LOCATION_ONFIELD,0,1,1,e:GetHandler())",
+      "\tDuel.SendtoGrave(g,REASON_COST)",
+      "end"
+    ],
+    "description": "send to grave cost",
+    "sortText": "1025"
+  },
+  {
+    "name": "selectyesno",
+    "prefix": "#syn",
+    "body": [
+      "if Duel.SelectYesNo(tp,aux.Stringid(id,$1)) then",
+      "\t$2",
+      "end"
+    ],
+    "description": "SelectYesNo",
+    "sortText": "1026"
+  },
+  {
+    "name": "searchtarget",
+    "prefix": "#thtg",
+    "body": [
+      "function s.thtg(e,tp,eg,ep,ev,re,r,rp,chk)",
+      "\tif chk==0 then return Duel.IsExistingMatchingCard(s.thfilter,tp,LOCATION_$1,0,1,nil) end",
+      "\tDuel.SetOperationInfo(0,CATEGORY_TOHAND,nil,1,tp,LOCATION_$1)",
+      "end"
+    ],
+    "description": "search target",
+    "sortText": "1027"
+  },
+  {
+    "name": "searchoperation",
+    "prefix": "#thop",
+    "body": [
+      "function s.thop(e,tp,eg,ep,ev,re,r,rp)",
+      "\tDuel.Hint(HINT_SELECTMSG,tp,HINTMSG_ATOHAND)",
+      "\tlocal g=Duel.SelectMatchingCard(tp,s.thfilter,tp,LOCATION_$1,0,1,1,nil)",
+      "\tif #g>0 then",
+      "\t\tDuel.SendtoHand(g,nil,REASON_EFFECT)",
+      "\t\tDuel.ConfirmCards(1-tp,g)",
+      "\tend",
+      "end"
+    ],
+    "description": "search operation",
+    "sortText": "1028"
+  },
+  {
+    "name": "recovertarget",
+    "prefix": "#rctg",
+    "body": [
+      "function s.rctg(e,tp,eg,ep,ev,re,r,rp,chk)",
+      "\tif chk==0 then return true end",
+      "\tDuel.SetOperationInfo(0,CATEGORY_RECOVER,nil,0,tp,$1)",
+      "end"
+    ],
+    "description": "recover target",
+    "sortText": "1029"
+  },
+  {
+    "name": "recoveroperation",
+    "prefix": "#rcop",
+    "body": [
+      "function s.rcop(e,tp,eg,ep,ev,re,r,rp)",
+      "\tDuel.Recover(tp,$1,REASON_EFFECT)",
+      "end"
+    ],
+    "description": "recover operation",
+    "sortText": "1030"
+  },
+  {
+    "name": "damagetarget",
+    "prefix": "#dmtg",
+    "body": [
+      "function s.dmtg(e,tp,eg,ep,ev,re,r,rp,chk)",
+      "\tif chk==0 then return true end",
+      "\tDuel.SetOperationInfo(0,CATEGORY_DAMAGE,nil,0,1-tp,$1)",
+      "end"
+    ],
+    "description": "damage target",
+    "sortText": "1031"
+  },
+  {
+    "name": "damageoperation",
+    "prefix": "#dmop",
+    "body": [
+      "function s.dmop(e,tp,eg,ep,ev,re,r,rp)",
+      "\tDuel.Damage(1-tp,$1,REASON_EFFECT)",
+      "end"
+    ],
+    "description": "damage operation",
+    "sortText": "1032"
+  },
+  {
+    "name": "specialsummontarget",
+    "prefix": "#sptg",
+    "body": [
+      "function s.sptg(e,tp,eg,ep,ev,re,r,rp,chk)",
+      "\tif chk==0 then return Duel.GetLocationCount(tp,LOCATION_MZONE)>0",
+      "\t\tand Duel.IsExistingMatchingCard(s.spfilter,tp,LOCATION_$1,0,1,nil,e,tp) end",
+      "\tDuel.SetOperationInfo(0,CATEGORY_SPECIAL_SUMMON,nil,1,tp,LOCATION_$1)",
+      "end"
+    ],
+    "description": "special summon target",
+    "sortText": "1033"
+  },
+  {
+    "name": "specialsummonoperation",
+    "prefix": "#spop",
+    "body": [
+      "function s.spop(e,tp,eg,ep,ev,re,r,rp)",
+      "\tif Duel.GetLocationCount(tp,LOCATION_MZONE)<=0 then return end",
+      "\tDuel.Hint(HINT_SELECTMSG,tp,HINTMSG_SPSUMMON)",
+      "\tlocal g=Duel.SelectMatchingCard(tp,s.spfilter,tp,LOCATION_$1,0,1,1,nil,e,tp)",
+      "\tlocal tc=g:GetFirst()",
+      "\tif tc then",
+      "\t\tDuel.SpecialSummon(tc,0,tp,tp,false,false,POS_FACEUP)",
+      "\tend",
+      "end"
+    ],
+    "description": "special summon operation",
+    "sortText": "1034"
+  },
+  {
+    "name": "destroytarget",
+    "prefix": "#dstg",
+    "body": [
+      "function s.dstg(e,tp,eg,ep,ev,re,r,rp,chk,chkc)",
+      "\tif chkc then return chkc:IsOnField() and chkc:IsControler(1-tp) end",
+      "\tif chk==0 then return Duel.IsExistingTarget(aux.TRUE,tp,0,LOCATION_ONFIELD,1,nil) end",
+      "\tDuel.Hint(HINT_SELECTMSG,tp,HINTMSG_DESTROY)",
+      "\tlocal g=Duel.SelectTarget(tp,aux.TRUE,tp,0,LOCATION_ONFIELD,1,1,nil)",
+      "\tDuel.SetOperationInfo(0,CATEGORY_DESTROY,g,1,0,0)",
+      "end"
+    ],
+    "description": "destroy target",
+    "sortText": "1035"
+  },
+  {
+    "name": "destroyoperation",
+    "prefix": "#dsop",
+    "body": [
+      "function s.dsop(e,tp,eg,ep,ev,re,r,rp)",
+      "\tlocal tc=Duel.GetFirstTarget()",
+      "\tif tc and tc:IsRelateToEffect(e) then",
+      "\t\tDuel.Destroy(tc,REASON_EFFECT)",
+      "\tend",
+      "end"
+    ],
+    "description": "destroy operation",
+    "sortText": "1036"
+  },
+  {
+    "name": "targetgroupoperation",
+    "prefix": "#tgop",
+    "body": [
+      "function s.$1op(e,tp,eg,ep,ev,re,r,rp)",
+      "\tlocal g=Duel.GetTargetCards(e)",
+      "\tif #g==0 then return end",
+      "\tfor tc in aux.Next(g) do",
+      "\t\tif tc:IsRelateToEffect(e) then",
+      "\t\t\t$2",
+      "\t\tend",
+      "\tend",
+      "end"
+    ],
+    "description": "operate on targeted group",
+    "sortText": "1037"
+  },
+  {
+    "name": "singletargetoperation",
+    "prefix": "#stop",
+    "body": [
+      "function s.$1op(e,tp,eg,ep,ev,re,r,rp)",
+      "\tlocal tc=Duel.GetFirstTarget()",
+      "\tif not tc or not tc:IsRelateToEffect(e) then return end",
+      "\t$2",
+      "end"
+    ],
+    "description": "operate on first target",
+    "sortText": "1038"
+  },
+  {
+    "name": "negatetarget",
+    "prefix": "#ngtg",
+    "body": [
+      "function s.ngtg(e,tp,eg,ep,ev,re,r,rp,chk)",
+      "\tif chk==0 then return Duel.IsChainNegatable(ev) end",
+      "\tDuel.SetOperationInfo(0,CATEGORY_NEGATE,eg,1,0,0)",
+      "end"
+    ],
+    "description": "negate target",
+    "sortText": "1039"
+  },
+  {
+    "name": "negateoperation",
+    "prefix": "#ngop",
+    "body": [
+      "function s.ngop(e,tp,eg,ep,ev,re,r,rp)",
+      "\tif Duel.NegateActivation(ev) and re:GetHandler():IsRelateToEffect(re) then",
+      "\t\tDuel.Destroy(eg,REASON_EFFECT)",
+      "\tend",
+      "end"
+    ],
+    "description": "negate operation",
+    "sortText": "1040"
+  },
+  {
+    "name": "quickeffect",
+    "prefix": "#qef",
+    "body": [
+      "local e$1=Effect.CreateEffect(c)",
+      "e$1:SetDescription(aux.Stringid(id,$2))",
+      "e$1:SetCategory($3)",
+      "e$1:SetType(EFFECT_TYPE_QUICK_O)",
+      "e$1:SetCode($4)",
+      "e$1:SetRange($5)",
+      "e$1:SetProperty($6)",
+      "e$1:SetHintTiming(0,$7)",
+      "e$1:SetCountLimit(1,{id,$8})",
+      "e$1:SetCondition(s.$9con)",
+      "e$1:SetCost(s.${10}cost)",
+      "e$1:SetTarget(s.${11}tg)",
+      "e$1:SetOperation(s.${12}op)",
+      "c:RegisterEffect(e$1)"
+    ],
+    "description": "quick effect skeleton",
+    "sortText": "1041"
+  },
+  {
+    "name": "triggeroeffect",
+    "prefix": "#tro",
+    "body": [
+      "local e$1=Effect.CreateEffect(c)",
+      "e$1:SetDescription(aux.Stringid(id,$2))",
+      "e$1:SetCategory($3)",
+      "e$1:SetType(EFFECT_TYPE_SINGLE+EFFECT_TYPE_TRIGGER_O)",
+      "e$1:SetProperty(EFFECT_FLAG_DELAY$4)",
+      "e$1:SetCode($5)",
+      "e$1:SetCountLimit(1,{id,$6})",
+      "e$1:SetCondition(s.$7con)",
+      "e$1:SetCost(s.$8cost)",
+      "e$1:SetTarget(s.$9tg)",
+      "e$1:SetOperation(s.${10}op)",
+      "c:RegisterEffect(e$1)"
+    ],
+    "description": "trigger optional effect skeleton",
+    "sortText": "1042"
+  },
+  {
+    "name": "negateeffect",
+    "prefix": "#neg",
+    "body": [
+      "local e$1=Effect.CreateEffect(c)",
+      "e$1:SetDescription(aux.Stringid(id,$2))",
+      "e$1:SetCategory(CATEGORY_NEGATE+CATEGORY_DESTROY)",
+      "e$1:SetType(EFFECT_TYPE_QUICK_O)",
+      "e$1:SetCode(EVENT_CHAINING)",
+      "e$1:SetProperty(EFFECT_FLAG_DAMAGE_STEP+EFFECT_FLAG_DAMAGE_CAL)",
+      "e$1:SetRange($3)",
+      "e$1:SetCountLimit(1,{id,$4})",
+      "e$1:SetCondition(s.$5con)",
+      "e$1:SetCost(s.$6cost)",
+      "e$1:SetTarget(s.ngtg)",
+      "e$1:SetOperation(s.ngop)",
+      "c:RegisterEffect(e$1)"
+    ],
+    "description": "standard negate effect skeleton",
+    "sortText": "1043"
+  },
+  {
+    "name": "disablestandard",
+    "prefix": "#dis",
+    "body": [
+      "local e$1=Effect.CreateEffect(c)",
+      "e$1:SetType(EFFECT_TYPE_SINGLE)",
+      "e$1:SetCode(EFFECT_DISABLE)",
+      "e$1:SetReset(RESET_EVENT|RESETS_STANDARD)",
+      "$2"
+    ],
+    "description": "disable effect",
+    "sortText": "1044"
+  },
+  {
     "name": "Script Header",
     "prefix": "ygo.header",
     "body": [
