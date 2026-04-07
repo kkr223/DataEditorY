@@ -1,14 +1,14 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import type { LuaReferenceManualItem } from '$lib/utils/luaScriptMonaco';
+  import type { LuaReferenceManualItem, LuaReferenceManualKind } from '$lib/utils/luaScriptMonaco';
 
   export let open = false;
+  export let kind: LuaReferenceManualKind = 'constants';
   export let title = '';
   export let shortcutHint = '';
   export let searchPlaceholder = '';
   export let emptyText = '';
   export let closeLabel = '';
-  export let insertLabel = '';
   export let items: LuaReferenceManualItem[] = [];
   export let onClose: () => void = () => {};
   export let onInsert: (item: LuaReferenceManualItem) => void = () => {};
@@ -64,12 +64,11 @@
   >
     <section class="script-reference-panel">
       <header class="script-reference-header">
-        <div class="script-reference-header-copy">
-          <h2>{title}</h2>
-          {#if shortcutHint}
-            <p>{shortcutHint}</p>
-          {/if}
-        </div>
+        {#if shortcutHint}
+          <p class="script-reference-shortcut">{shortcutHint}</p>
+        {:else}
+          <span></span>
+        {/if}
         <button type="button" class="script-reference-close" onclick={onClose}>{closeLabel}</button>
       </header>
 
@@ -84,23 +83,37 @@
         <span class="script-reference-count">{filteredItems.length} / {items.length}</span>
       </div>
 
-      <div class="script-reference-list">
+      <div
+        class="script-reference-list"
+        class:constants-list={kind === 'constants'}
+        class:functions-list={kind === 'functions'}
+      >
         {#if filteredItems.length > 0}
           {#each filteredItems as item (item.key)}
             <button
               type="button"
               class="script-reference-item"
+              class:constants={kind === 'constants'}
+              class:functions={kind === 'functions'}
               onclick={() => handleInsertClick(item)}
             >
-              <div class="script-reference-item-top">
-                <span class="script-reference-item-title">{item.title}</span>
-                <span class="script-reference-item-category">{item.category}</span>
-              </div>
-              <div class="script-reference-item-detail">{item.detail}</div>
-              {#if item.description}
+              {#if kind === 'constants'}
+                <div class="script-reference-item-top">
+                  <span class="script-reference-item-title">{item.title}</span>
+                  <span class="script-reference-item-value">{item.valueText}</span>
+                </div>
                 <div class="script-reference-item-description">{item.description}</div>
+                <div class="script-reference-item-bottom">
+                  <span class="script-reference-item-category">{item.category}</span>
+                </div>
+              {:else}
+                <div class="script-reference-function-row">
+                  <span class="script-reference-item-title">{item.title}</span>
+                  <span class="script-reference-item-detail">{item.detail}</span>
+                  <span class="script-reference-item-category">{item.category}</span>
+                </div>
+                <div class="script-reference-item-description functions-description">{item.description}</div>
               {/if}
-              <div class="script-reference-item-action">{insertLabel}</div>
             </button>
           {/each}
         {:else}
@@ -142,31 +155,24 @@
 
   .script-reference-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.68rem 0.78rem 0.52rem;
+    padding: 0.34rem 0.62rem 0.28rem;
     border-bottom: 1px solid rgba(117, 166, 130, 0.1);
   }
 
-  .script-reference-header-copy h2 {
+  .script-reference-shortcut {
     margin: 0;
-    font-size: 0.96rem;
+    font-size: 0.76rem;
     line-height: 1.3;
-    color: #eef9f0;
-  }
-
-  .script-reference-header-copy p {
-    margin: 0.18rem 0 0;
-    font-size: 0.77rem;
-    line-height: 1.4;
     color: rgba(214, 229, 218, 0.62);
   }
 
   .script-reference-close {
     flex: none;
     min-width: 3.6rem;
-    padding: 0.36rem 0.68rem;
+    padding: 0.28rem 0.62rem;
     border: 1px solid rgba(117, 166, 130, 0.16);
     border-radius: 8px;
     background: rgba(41, 56, 49, 0.42);
@@ -185,14 +191,14 @@
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    padding: 0.55rem 0.78rem 0.62rem;
+    padding: 0.4rem 0.62rem 0.44rem;
     border-bottom: 1px solid rgba(117, 166, 130, 0.08);
   }
 
   .script-reference-search {
     flex: 1;
     min-width: 0;
-    padding: 0.6rem 0.76rem;
+    padding: 0.46rem 0.7rem;
     border: 1px solid rgba(117, 166, 130, 0.18);
     border-radius: 8px;
     background: rgba(8, 14, 12, 0.4);
@@ -217,9 +223,16 @@
     padding: 0.52rem 0.78rem 0.78rem;
     overflow: auto;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr));
     gap: 0.55rem;
     align-content: start;
+  }
+
+  .script-reference-list.constants-list {
+    grid-template-columns: repeat(auto-fit, minmax(23rem, 1fr));
+  }
+
+  .script-reference-list.functions-list {
+    grid-template-columns: 1fr;
   }
 
   .script-reference-item {
@@ -248,8 +261,17 @@
     gap: 0.8rem;
   }
 
+  .script-reference-item-bottom,
+  .script-reference-function-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+  }
+
   .script-reference-item-title,
-  .script-reference-item-detail {
+  .script-reference-item-detail,
+  .script-reference-item-value {
     font-family: 'Consolas', 'SFMono-Regular', 'Courier New', monospace;
   }
 
@@ -258,6 +280,14 @@
     line-height: 1.32;
     color: #edf8ef;
     word-break: break-word;
+  }
+
+  .script-reference-item-value {
+    flex: none;
+    font-size: 0.82rem;
+    line-height: 1.32;
+    color: rgba(202, 231, 210, 0.84);
+    white-space: nowrap;
   }
 
   .script-reference-item-category {
@@ -271,9 +301,14 @@
   }
 
   .script-reference-item-detail {
+    min-width: 0;
+    flex: 1;
     font-size: 0.76rem;
     line-height: 1.38;
     color: rgba(196, 219, 202, 0.78);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     word-break: break-word;
   }
 
@@ -283,17 +318,31 @@
     color: rgba(214, 230, 218, 0.66);
     white-space: pre-wrap;
     word-break: break-word;
-    display: -webkit-box;
-    line-clamp: 3;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
 
-  .script-reference-item-action {
-    justify-self: end;
-    font-size: 0.72rem;
-    color: rgba(159, 239, 183, 0.92);
+  .script-reference-item.functions {
+    padding-top: 0.52rem;
+    padding-bottom: 0.52rem;
+  }
+
+  .script-reference-item.functions .script-reference-item-title {
+    flex: none;
+    min-width: 11rem;
+  }
+
+  .script-reference-item.functions .script-reference-item-category {
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .functions-description {
+    display: block;
+    line-clamp: unset;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: initial;
+    overflow: visible;
   }
 
   .script-reference-empty {
@@ -315,11 +364,7 @@
     box-shadow: 0 12px 28px rgba(73, 94, 78, 0.08);
   }
 
-  :global([data-theme='light']) .script-reference-header-copy h2 {
-    color: #173023;
-  }
-
-  :global([data-theme='light']) .script-reference-header-copy p,
+  :global([data-theme='light']) .script-reference-shortcut,
   :global([data-theme='light']) .script-reference-count,
   :global([data-theme='light']) .script-reference-item-description,
   :global([data-theme='light']) .script-reference-empty {
@@ -366,10 +411,6 @@
     color: rgba(40, 70, 49, 0.74);
   }
 
-  :global([data-theme='light']) .script-reference-item-action {
-    color: rgba(24, 122, 57, 0.88);
-  }
-
   @media (max-width: 920px) {
     .script-reference-overlay {
       inset: 0;
@@ -390,7 +431,16 @@
     }
 
     .script-reference-list {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr !important;
+    }
+
+    .script-reference-function-row {
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .script-reference-item.functions .script-reference-item-title {
+      min-width: 0;
     }
   }
 </style>

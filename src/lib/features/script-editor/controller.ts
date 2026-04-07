@@ -95,11 +95,11 @@ export function resolveScriptReferenceShortcut(
     return null;
   }
 
-  if (event.key === 'F6') {
+  if (event.key === 'F9') {
     return 'constants' satisfies ScriptReferenceManualKind;
   }
 
-  if (event.key === 'F8') {
+  if (event.key === 'F10') {
     return 'functions' satisfies ScriptReferenceManualKind;
   }
 

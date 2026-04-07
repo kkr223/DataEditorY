@@ -286,7 +286,12 @@
     if (handbookShortcut) {
       event.preventDefault();
       event.stopPropagation();
-      openReferenceOverlay(handbookShortcut);
+      if (referenceOverlayKind === handbookShortcut) {
+        closeReferenceOverlay();
+        editorInstance?.focus();
+      } else {
+        openReferenceOverlay(handbookShortcut);
+      }
       return;
     }
 
@@ -651,6 +656,7 @@
         />
         <ScriptReferenceOverlay
           open={referenceOverlayKind !== null}
+          kind={referenceOverlayKind ?? 'constants'}
           title={referenceOverlayKind === 'constants'
             ? $_('editor.script_reference_constants_title')
             : $_('editor.script_reference_functions_title')}
@@ -659,8 +665,7 @@
             : $_('editor.script_reference_functions_shortcut')}
           searchPlaceholder={$_('editor.script_reference_search_placeholder')}
           emptyText={$_('editor.script_reference_empty')}
-          closeLabel={$_('cancel')}
-          insertLabel={$_('editor.script_reference_insert')}
+          closeLabel={$_('editor.script_reference_close')}
           items={referenceOverlayKind ? referenceManualItems[referenceOverlayKind] : []}
           onClose={closeReferenceOverlay}
           onInsert={handleInsertReferenceItem}

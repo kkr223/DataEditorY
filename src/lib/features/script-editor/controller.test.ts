@@ -136,25 +136,25 @@ describe('script editor controller helpers', () => {
 
   test('resolves handbook shortcuts only when the editor or overlay can handle them', () => {
     expect(resolveScriptReferenceShortcut(
-      createKeyboardEventLike({ key: 'F6' }),
+      createKeyboardEventLike({ key: 'F9' }),
       true,
       false,
     )).toBe('constants');
 
     expect(resolveScriptReferenceShortcut(
-      createKeyboardEventLike({ key: 'F8' }),
+      createKeyboardEventLike({ key: 'F10' }),
       false,
       true,
     )).toBe('functions');
 
     expect(resolveScriptReferenceShortcut(
-      createKeyboardEventLike({ key: 'F6', ctrlKey: true }),
+      createKeyboardEventLike({ key: 'F9', ctrlKey: true }),
       true,
       false,
     )).toBeNull();
 
     expect(resolveScriptReferenceShortcut(
-      createKeyboardEventLike({ key: 'F8' }),
+      createKeyboardEventLike({ key: 'F10' }),
       false,
       false,
     )).toBeNull();
