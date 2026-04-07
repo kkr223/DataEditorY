@@ -62,7 +62,7 @@
   }
 
   .strip-field-alias {
-    width: 6rem;
+    width: 7.5rem;
   }
 
   .strip-field label {
