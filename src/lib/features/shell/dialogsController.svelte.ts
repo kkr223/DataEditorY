@@ -53,6 +53,7 @@ export function createShellDialogsController() {
     mergeIncludeScripts: true,
     isAnalyzingMerge: false,
     isMergingCdb: false,
+    isPackageMenuVisible: false,
     mergeAnalysis: null as AnalyzeCdbMergeResponse | null,
     mergeAnalysisKey: '',
     manualMergeChoices: {} as Record<number, 'a' | 'b'>,
@@ -360,6 +361,22 @@ export function createShellDialogsController() {
   }
 
   async function handlePackageZip() {
+    return handlePackageAs('zip');
+  }
+
+  async function handlePackageYpk() {
+    return handlePackageAs('ypk');
+  }
+
+  function showPackageMenu() {
+    state.isPackageMenuVisible = true;
+  }
+
+  function hidePackageMenu() {
+    state.isPackageMenuVisible = false;
+  }
+
+  async function handlePackageAs(format: 'zip' | 'ypk') {
     const cdbPath = getCurrentPackageCdbPath();
     if (!cdbPath) {
       showToast(t('editor.package_zip_no_cdb'), 'info');
@@ -371,8 +388,8 @@ export function createShellDialogsController() {
     }
 
     const outputPath = await tauriBridge.save({
-      defaultPath: cdbPath.replace(/\.cdb$/i, '.zip'),
-      filters: [{ name: 'ZIP', extensions: ['zip'] }],
+      defaultPath: cdbPath.replace(/\.cdb$/i, `.${format}`),
+      filters: [{ name: format.toUpperCase(), extensions: [format] }],
     });
     if (!outputPath) {
       return;
@@ -381,18 +398,24 @@ export function createShellDialogsController() {
     try {
       const result = await packageCdbAssetsAsZip(cdbPath, outputPath);
       showToast(
-        t('editor.package_zip_success', { values: { path: result.path } }),
+        t(
+          format === 'zip' ? 'editor.package_zip_success' : 'editor.package_ypk_success',
+          { values: { path: result.path } },
+        ),
         'success',
         3200,
       );
     } catch (error) {
-      console.error('Failed to package cdb assets as zip', error);
+      console.error(`Failed to package cdb assets as ${format}`, error);
       void writeErrorLog({
-        source: 'shell.package-cdb-assets-as-zip',
+        source: format === 'zip' ? 'shell.package-cdb-assets-as-zip' : 'shell.package-cdb-assets-as-ypk',
         error,
         extra: { cdbPath, outputPath },
       });
-      showToast(t('editor.package_zip_failed'), 'error');
+      showToast(
+        t(format === 'zip' ? 'editor.package_zip_failed' : 'editor.package_ypk_failed'),
+        'error',
+      );
     }
   }
 
@@ -408,5 +431,8 @@ export function createShellDialogsController() {
     handleAnalyzeMerge,
     handleExecuteMerge,
     handlePackageZip,
+    handlePackageYpk,
+    showPackageMenu,
+    hidePackageMenu,
   };
 }

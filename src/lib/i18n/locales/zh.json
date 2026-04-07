@@ -13,7 +13,9 @@
     "create": "创建",
     "create_filtered_cdb": "筛选建库",
     "merge_cdb": "合并 CDB",
+    "package": "打包",
     "package_zip": "打包 ZIP",
+    "package_ypk": "打包 YPK",
     "theme_toggle": "切换主题",
     "day_mode": "白天模式",
     "night_mode": "夜间模式"
@@ -462,6 +464,8 @@
     "package_zip_unsaved_cdb_confirm": "数据库 {name} 有未保存修改。是否先保存数据库再继续打包？",
     "package_zip_success": "已打包为 ZIP：{path}",
     "package_zip_failed": "打包 ZIP 失败",
+    "package_ypk_success": "已打包为 YPK：{path}",
+    "package_ypk_failed": "打包 YPK 失败",
     "script_save": "保存脚本",
     "script_saving": "保存中...",
     "script_save_success": "脚本已保存",

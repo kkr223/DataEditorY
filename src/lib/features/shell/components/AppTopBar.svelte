@@ -15,11 +15,15 @@
     onMergeCdb = async () => {},
     onOpenSettings = () => {},
     onPackageZip = async () => {},
+    onPackageYpk = async () => {},
     onToggleTheme = () => {},
     onToggleLanguage = () => {},
     onShowOpenHistory = () => {},
     onHideOpenHistory = () => {},
     onHideOpenHistoryImmediately = () => {},
+    onShowPackageMenu = () => {},
+    onHidePackageMenu = () => {},
+    isPackageMenuVisible = false,
     onOpenRecent = async (_path: string) => {},
     onRemoveRecent = (_path: string) => {},
   }: {
@@ -34,11 +38,15 @@
     onMergeCdb?: () => void | Promise<void>;
     onOpenSettings?: () => void;
     onPackageZip?: () => void | Promise<void>;
+    onPackageYpk?: () => void | Promise<void>;
     onToggleTheme?: () => void;
     onToggleLanguage?: () => void;
     onShowOpenHistory?: () => void;
     onHideOpenHistory?: () => void;
     onHideOpenHistoryImmediately?: () => void;
+    onShowPackageMenu?: () => void;
+    onHidePackageMenu?: () => void;
+    isPackageMenuVisible?: boolean;
     onOpenRecent?: (path: string) => void | Promise<void>;
     onRemoveRecent?: (path: string) => void;
   } = $props();
@@ -87,10 +95,31 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a2 2 0 0 1 2 2v.35a1 1 0 0 0 .57.9l.31.15a1 1 0 0 0 1.04-.1l.25-.18a2 2 0 0 1 2.8.24l.99 1.15a2 2 0 0 1-.15 2.82l-.26.22a1 1 0 0 0-.3.98l.1.35a1 1 0 0 0 .77.7l.32.07a2 2 0 0 1 1.56 1.95v1.5a2 2 0 0 1-1.56 1.95l-.32.07a1 1 0 0 0-.77.7l-.1.35a1 1 0 0 0 .3.98l.26.22a2 2 0 0 1 .15 2.82l-.99 1.15a2 2 0 0 1-2.8.24l-.25-.18a1 1 0 0 0-1.04-.1l-.31.15a1 1 0 0 0-.57.9V19a2 2 0 0 1-2 2h-1.5a2 2 0 0 1-2-2v-.35a1 1 0 0 0-.57-.9l-.31-.15a1 1 0 0 0-1.04.1l-.25.18a2 2 0 0 1-2.8-.24l-.99-1.15a2 2 0 0 1 .15-2.82l.26-.22a1 1 0 0 0 .3-.98l-.1-.35a1 1 0 0 0-.77-.7l-.32-.07A2 2 0 0 1 2 15.75v-1.5A2 2 0 0 1 3.56 12.3l.32-.07a1 1 0 0 0 .77-.7l.1-.35a1 1 0 0 0-.3-.98l-.26-.22a2 2 0 0 1-.15-2.82l.99-1.15a2 2 0 0 1 2.8-.24l.25.18a1 1 0 0 0 1.04.1l.31-.15a1 1 0 0 0 .57-.9V5a2 2 0 0 1 2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
         {$_('nav.settings')}
       </button>
-      <button class="nav-item" onclick={onPackageZip} disabled={!hasPackageTarget}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"></path><path d="M1 3h22v5H1z"></path><path d="M10 12h4"></path><path d="M12 3v18"></path></svg>
-        {$_('nav.package_zip')}
-      </button>
+      <div
+        class="nav-item-group package-nav-group"
+        role="group"
+        aria-label={$_('nav.package')}
+        onmouseenter={onShowPackageMenu}
+        onmouseleave={onHidePackageMenu}
+        onfocusin={onShowPackageMenu}
+        onfocusout={onHidePackageMenu}
+      >
+        <button class="nav-item" disabled={!hasPackageTarget} aria-haspopup="menu" aria-expanded={isPackageMenuVisible}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"></path><path d="M1 3h22v5H1z"></path><path d="M10 12h4"></path><path d="M12 3v18"></path></svg>
+          {$_('nav.package')}
+          <svg xmlns="http://www.w3.org/2000/svg" class="nav-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+        {#if hasPackageTarget && isPackageMenuVisible}
+          <div class="package-popover" role="menu" aria-label={$_('nav.package')}>
+            <button class="package-item" role="menuitem" onclick={onPackageZip}>
+              {$_('nav.package_zip')}
+            </button>
+            <button class="package-item" role="menuitem" onclick={onPackageYpk}>
+              {$_('nav.package_ypk')}
+            </button>
+          </div>
+        {/if}
+      </div>
     </nav>
   </div>
   <div class="topbar-right">
@@ -160,6 +189,12 @@
     margin-bottom: -8px;
   }
 
+  .package-nav-group {
+    display: flex;
+    padding-bottom: 8px;
+    margin-bottom: -8px;
+  }
+
   .nav-item {
     display: flex;
     align-items: center;
@@ -181,6 +216,10 @@
 
   .nav-item svg {
     opacity: 0.8;
+  }
+
+  .nav-caret {
+    opacity: 0.66;
   }
 
   .nav-item:hover {
@@ -205,5 +244,40 @@
   .theme-toggle {
     border: 1px solid var(--border-color);
     background: var(--bg-base);
+  }
+
+  .package-popover {
+    position: absolute;
+    top: calc(100% - 2px);
+    left: 0;
+    min-width: 9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0.35rem;
+    border-radius: calc(var(--border-radius-md) + 2px);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+    z-index: 40;
+  }
+
+  .package-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.48rem 0.62rem;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: var(--border-radius-md);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .package-item:hover {
+    background: var(--bg-surface-hover);
+    color: var(--text-primary);
   }
 </style>

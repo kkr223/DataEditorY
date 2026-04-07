@@ -71,6 +71,10 @@
       onMergeCdb={dialogsController.openMergeCdbDialog}
       onOpenSettings={openSettingsView}
       onPackageZip={dialogsController.handlePackageZip}
+      onPackageYpk={dialogsController.handlePackageYpk}
+      onShowPackageMenu={dialogsController.showPackageMenu}
+      onHidePackageMenu={dialogsController.hidePackageMenu}
+      isPackageMenuVisible={dialogsController.state.isPackageMenuVisible}
       onToggleTheme={shellController.toggleTheme}
       onToggleLanguage={shellController.toggleLanguage}
       onShowOpenHistory={shellController.showOpenHistory}

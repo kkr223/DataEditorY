@@ -13,7 +13,9 @@
     "create": "Create",
     "create_filtered_cdb": "Build From Filter",
     "merge_cdb": "Merge CDB",
+    "package": "Package",
     "package_zip": "Package ZIP",
+    "package_ypk": "Package YPK",
     "theme_toggle": "Toggle theme",
     "day_mode": "Day mode",
     "night_mode": "Night mode"
@@ -462,6 +464,8 @@
     "package_zip_unsaved_cdb_confirm": "Database {name} has unsaved changes. Save it before packaging?",
     "package_zip_success": "Packaged ZIP created: {path}",
     "package_zip_failed": "Failed to package ZIP",
+    "package_ypk_success": "Packaged YPK created: {path}",
+    "package_ypk_failed": "Failed to package YPK",
     "script_save": "Save Script",
     "script_saving": "Saving...",
     "script_save_success": "Script saved",

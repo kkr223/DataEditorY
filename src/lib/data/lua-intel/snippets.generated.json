@@ -115,34 +115,13 @@
     "sortText": "1010"
   },
   {
-    "name": "isexistingmatchingcard",
-    "prefix": "#iema",
-    "body": [
-      "Duel.IsExistingMatchingCard(s.$1,tp,$2,$3,1,nil$4)"
-    ],
-    "description": "IsExistingMatchingCard",
-    "sortText": "1011"
-  },
-  {
-    "name": "specialsummonstep",
-    "prefix": "#sssp",
-    "body": [
-      "if Duel.SpecialSummonStep($1,0,tp,tp,false,false,POS_FACEUP) then",
-      "\t$2",
-      "end",
-      "Duel.SpecialSummonComplete()"
-    ],
-    "description": "SpecialSummonStep",
-    "sortText": "1012"
-  },
-  {
     "name": "registerflageffect",
     "prefix": "#rfe",
     "body": [
       "$1:RegisterFlagEffect(id,RESET_EVENT|RESETS_STANDARD,$2,1)"
     ],
     "description": "RegisterFlagEffect",
-    "sortText": "1013"
+    "sortText": "1011"
   },
   {
     "name": "getmatchinggroup",
@@ -151,26 +130,7 @@
       "local g=Duel.GetMatchingGroup(s.$1,tp,$2,$3,nil$4)"
     ],
     "description": "GetMatchingGroup",
-    "sortText": "1014"
-  },
-  {
-    "name": "releaseselect",
-    "prefix": "#rels",
-    "body": [
-      "Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_RELEASE)",
-      "local g=Duel.SelectReleaseGroupCost(tp,s.$1,1,1,false,nil,nil$2)"
-    ],
-    "description": "SelectReleaseGroupCost",
-    "sortText": "1015"
-  },
-  {
-    "name": "destroy",
-    "prefix": "#des",
-    "body": [
-      "Duel.Destroy($1,REASON_EFFECT)"
-    ],
-    "description": "Destroy",
-    "sortText": "1016"
+    "sortText": "1012"
   },
   {
     "name": "sendtohand",
@@ -180,7 +140,7 @@
       "Duel.ConfirmCards(1-tp,$1)"
     ],
     "description": "SendtoHand",
-    "sortText": "1017"
+    "sortText": "1013"
   },
   {
     "name": "specialsummon",
@@ -189,7 +149,7 @@
       "Duel.SpecialSummon($1,0,tp,tp,false,false,POS_FACEUP)"
     ],
     "description": "SpecialSummon",
-    "sortText": "1018"
+    "sortText": "1014"
   },
   {
     "name": "selectmatchcard",
@@ -199,7 +159,7 @@
       "local g=Duel.SelectMatchingCard(tp,s.$2,tp,$3,$4,1,1,nil$5)"
     ],
     "description": "selectmatchcard",
-    "sortText": "1019"
+    "sortText": "1015"
   },
   {
     "name": "selecttarget",
@@ -209,7 +169,7 @@
       "local tg=Duel.SelectTarget(tp,s.$2,tp,$3,$4,1,1,nil$5)"
     ],
     "description": "selecttarget",
-    "sortText": "1020"
+    "sortText": "1016"
   },
   {
     "name": "targetchkc",
@@ -224,7 +184,7 @@
       "end"
     ],
     "description": "target with chkc",
-    "sortText": "1021"
+    "sortText": "1017"
   },
   {
     "name": "releasecost",
@@ -238,7 +198,7 @@
       "end"
     ],
     "description": "release cost",
-    "sortText": "1022"
+    "sortText": "1018"
   },
   {
     "name": "discardcost",
@@ -250,7 +210,7 @@
       "end"
     ],
     "description": "discard hand cost",
-    "sortText": "1023"
+    "sortText": "1019"
   },
   {
     "name": "removegravecost",
@@ -264,7 +224,7 @@
       "end"
     ],
     "description": "banish from grave cost",
-    "sortText": "1024"
+    "sortText": "1020"
   },
   {
     "name": "sendgravecost",
@@ -278,7 +238,7 @@
       "end"
     ],
     "description": "send to grave cost",
-    "sortText": "1025"
+    "sortText": "1021"
   },
   {
     "name": "selectyesno",
@@ -289,7 +249,7 @@
       "end"
     ],
     "description": "SelectYesNo",
-    "sortText": "1026"
+    "sortText": "1022"
   },
   {
     "name": "searchtarget",
@@ -301,7 +261,7 @@
       "end"
     ],
     "description": "search target",
-    "sortText": "1027"
+    "sortText": "1023"
   },
   {
     "name": "searchoperation",
@@ -317,7 +277,7 @@
       "end"
     ],
     "description": "search operation",
-    "sortText": "1028"
+    "sortText": "1024"
   },
   {
     "name": "recovertarget",
@@ -329,7 +289,7 @@
       "end"
     ],
     "description": "recover target",
-    "sortText": "1029"
+    "sortText": "1025"
   },
   {
     "name": "recoveroperation",
@@ -340,7 +300,7 @@
       "end"
     ],
     "description": "recover operation",
-    "sortText": "1030"
+    "sortText": "1026"
   },
   {
     "name": "damagetarget",
@@ -352,7 +312,7 @@
       "end"
     ],
     "description": "damage target",
-    "sortText": "1031"
+    "sortText": "1027"
   },
   {
     "name": "damageoperation",
@@ -363,7 +323,7 @@
       "end"
     ],
     "description": "damage operation",
-    "sortText": "1032"
+    "sortText": "1028"
   },
   {
     "name": "specialsummontarget",
@@ -376,7 +336,7 @@
       "end"
     ],
     "description": "special summon target",
-    "sortText": "1033"
+    "sortText": "1029"
   },
   {
     "name": "specialsummonoperation",
@@ -393,7 +353,7 @@
       "end"
     ],
     "description": "special summon operation",
-    "sortText": "1034"
+    "sortText": "1030"
   },
   {
     "name": "destroytarget",
@@ -408,7 +368,7 @@
       "end"
     ],
     "description": "destroy target",
-    "sortText": "1035"
+    "sortText": "1031"
   },
   {
     "name": "destroyoperation",
@@ -422,7 +382,7 @@
       "end"
     ],
     "description": "destroy operation",
-    "sortText": "1036"
+    "sortText": "1032"
   },
   {
     "name": "targetgroupoperation",
@@ -439,7 +399,7 @@
       "end"
     ],
     "description": "operate on targeted group",
-    "sortText": "1037"
+    "sortText": "1033"
   },
   {
     "name": "singletargetoperation",
@@ -452,7 +412,7 @@
       "end"
     ],
     "description": "operate on first target",
-    "sortText": "1038"
+    "sortText": "1034"
   },
   {
     "name": "negatetarget",
@@ -464,7 +424,7 @@
       "end"
     ],
     "description": "negate target",
-    "sortText": "1039"
+    "sortText": "1035"
   },
   {
     "name": "negateoperation",
@@ -477,7 +437,7 @@
       "end"
     ],
     "description": "negate operation",
-    "sortText": "1040"
+    "sortText": "1036"
   },
   {
     "name": "quickeffect",
@@ -499,7 +459,7 @@
       "c:RegisterEffect(e$1)"
     ],
     "description": "quick effect skeleton",
-    "sortText": "1041"
+    "sortText": "1037"
   },
   {
     "name": "triggeroeffect",
@@ -519,7 +479,7 @@
       "c:RegisterEffect(e$1)"
     ],
     "description": "trigger optional effect skeleton",
-    "sortText": "1042"
+    "sortText": "1038"
   },
   {
     "name": "negateeffect",
@@ -540,7 +500,7 @@
       "c:RegisterEffect(e$1)"
     ],
     "description": "standard negate effect skeleton",
-    "sortText": "1043"
+    "sortText": "1039"
   },
   {
     "name": "disablestandard",
@@ -553,7 +513,7 @@
       "$2"
     ],
     "description": "disable effect",
-    "sortText": "1044"
+    "sortText": "1040"
   },
   {
     "name": "Script Header",

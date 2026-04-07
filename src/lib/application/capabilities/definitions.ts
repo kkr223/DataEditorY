@@ -28,7 +28,7 @@ export function createCapabilityRegistry(features: AppFeatureFlags): CapabilityD
       id: 'package',
       enabled: true,
       dependencies: ['db-editor'],
-      actions: ['package-zip', 'create-filtered-cdb'],
+      actions: ['package-zip', 'package-ypk', 'create-filtered-cdb'],
       uiMounts: ['topbar', 'shell:create-filtered-cdb'],
     },
     {
