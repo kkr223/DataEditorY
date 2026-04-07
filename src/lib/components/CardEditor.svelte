@@ -555,12 +555,11 @@
 
 {#if $isDbLoaded}
   <div class="editor-area">
-    <CardEditorHeader
-      {draftCard}
-      title={$_("editor.title")}
-      saveLabel={$_("editor.save_db")}
-      idLabel={$_("editor.id")}
-      aliasLabel={$_("editor.alias")}
+      <CardEditorHeader
+        {draftCard}
+        saveLabel={$_("editor.save_db")}
+        idLabel={$_("editor.id")}
+        aliasLabel={$_("editor.alias")}
       nameLabel={$_("editor.name")}
       newCardLabel={$_("editor.new_card")}
       onSave={handleSave}

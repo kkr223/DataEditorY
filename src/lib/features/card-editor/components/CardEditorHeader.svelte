@@ -2,7 +2,6 @@
   import type { CardDataEntry } from "$lib/types";
 
   export let draftCard: CardDataEntry;
-  export let title = "";
   export let saveLabel = "";
   export let idLabel = "";
   export let aliasLabel = "";
@@ -11,11 +10,6 @@
   export let onSave: () => void | Promise<void> = () => {};
   export let onNewCard: () => void = () => {};
 </script>
-
-<div class="editor-header">
-  <h2>{title}</h2>
-  <button class="btn-primary btn-sm" onclick={onSave}>{saveLabel}</button>
-</div>
 
 <div class="top-strip">
   <div class="strip-field strip-field-id">
@@ -30,25 +24,13 @@
     <label for="edit-name">{nameLabel}</label>
     <input type="text" id="edit-name" bind:value={draftCard.name} />
   </div>
-  <button class="btn-secondary btn-sm top-action" onclick={onNewCard}>{newCardLabel}</button>
+  <div class="top-actions">
+    <button class="btn-secondary btn-sm top-action" onclick={onNewCard}>{newCardLabel}</button>
+    <button class="btn-primary btn-sm top-action" onclick={onSave}>{saveLabel}</button>
+  </div>
 </div>
 
 <style>
-  .editor-header {
-    height: 2.5rem;
-    min-height: 2.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 10px;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .editor-header h2 {
-    font-size: 1rem;
-    font-weight: 600;
-  }
-
   .top-strip {
     display: flex;
     gap: 6px;
@@ -60,6 +42,13 @@
 
   .top-action {
     height: fit-content;
+  }
+
+  .top-actions {
+    display: flex;
+    align-items: end;
+    gap: 6px;
+    margin-left: auto;
   }
 
   .strip-field {
