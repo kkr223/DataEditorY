@@ -5,8 +5,12 @@ import {
 } from '$lib/features/shell/dialogsHelpers';
 
 describe('shell dialog helpers', () => {
-  test('builds a stable merge analysis key from both paths', () => {
-    expect(buildMergeAnalysisKey('a.cdb', 'b.cdb')).toBe('a.cdb::b.cdb');
+  test('builds a stable merge analysis key from ordered paths and options', () => {
+    expect(buildMergeAnalysisKey(['a.cdb', 'b.cdb'], true, false)).toBe(JSON.stringify({
+      sourcePaths: ['a.cdb', 'b.cdb'],
+      includeImages: true,
+      includeScripts: false,
+    }));
   });
 
   test('detects whether an output path is still available', () => {

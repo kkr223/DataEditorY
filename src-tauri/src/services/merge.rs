@@ -1,6 +1,6 @@
 use rand::RngCore;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -9,12 +9,34 @@ use crate::services::assets::{
     cdb_dir_from_path, copy_if_exists, field_image_path, main_image_path, script_path,
 };
 use crate::{
-    models::cdb::{AnalyzeCdbMergeResponse, CardDto, ExecuteCdbMergeRequest, MergeConflictDto},
+    models::cdb::{
+        AnalyzeCdbMergeResponse, CardDto, ExecuteCdbMergeRequest, ExecuteCdbMergeResponse,
+        MergeSourceItemDto, MergeSourcePlanDto,
+    },
     repository::cdb as cdb_repository,
 };
 
 const TYPE_SPELL: u32 = 0x2;
 const SUBTYPE_FIELD: u32 = 0x80000;
+
+#[derive(Debug, Clone)]
+struct MergeSourceContext {
+    path: String,
+    name: String,
+    dir: PathBuf,
+    cards: Vec<CardDto>,
+}
+
+#[derive(Debug, Clone)]
+struct MergePlan {
+    sources: Vec<MergeSourceContext>,
+    merged_cards: Vec<CardDto>,
+    duplicate_card_total: u32,
+    winning_card_source_by_code: HashMap<u32, usize>,
+    winning_main_image_source_by_code: HashMap<u32, usize>,
+    winning_field_image_source_by_code: HashMap<u32, usize>,
+    winning_script_source_by_code: HashMap<u32, usize>,
+}
 
 fn basename(path: &str) -> String {
     Path::new(path)
@@ -47,251 +69,305 @@ fn build_stage_dir(output_path: &Path, label: &str) -> Result<PathBuf, String> {
     )))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum MergeSide {
-    A,
-    B,
-}
-
-fn choose_merge_side(
-    conflict_mode: &str,
-    code: u32,
-    manual_choices: &HashMap<u32, String>,
-) -> Result<MergeSide, String> {
-    match conflict_mode {
-        "preferA" => Ok(MergeSide::A),
-        "preferB" => Ok(MergeSide::B),
-        "manual" => match manual_choices.get(&code).map(|value| value.trim()) {
-            Some("a") | Some("A") => Ok(MergeSide::A),
-            Some("b") | Some("B") => Ok(MergeSide::B),
-            _ => Err(format!("Missing manual merge choice for card {code}")),
-        },
-        other => Err(format!("Unsupported merge conflict mode: {other}")),
-    }
-}
-
 fn card_has_field_subtype(card: &CardDto) -> bool {
     (card.type_ & TYPE_SPELL) != 0 && (card.type_ & SUBTYPE_FIELD) != 0
 }
 
-pub fn analyze_cdb_merge_paths(
-    a_path: &str,
-    b_path: &str,
-) -> Result<AnalyzeCdbMergeResponse, String> {
-    let a_cards = cdb_repository::load_all_cards_from_path(Path::new(a_path))?;
-    let b_cards = cdb_repository::load_all_cards_from_path(Path::new(b_path))?;
-    let a_dir = cdb_dir_from_path(a_path)?;
-    let b_dir = cdb_dir_from_path(b_path)?;
+fn is_cdb_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.eq_ignore_ascii_case("cdb"))
+        .unwrap_or(false)
+}
 
-    let a_by_code: HashMap<u32, CardDto> = a_cards
-        .iter()
-        .cloned()
-        .map(|card| (card.code, card))
-        .collect();
-    let b_by_code: HashMap<u32, CardDto> = b_cards
-        .iter()
-        .cloned()
-        .map(|card| (card.code, card))
-        .collect();
+fn load_merge_sources(source_paths: &[String]) -> Result<Vec<MergeSourceContext>, String> {
+    let mut seen = HashSet::new();
+    let mut sources = Vec::new();
 
-    let mut all_codes = a_by_code.keys().copied().collect::<Vec<_>>();
-    for code in b_by_code.keys().copied() {
-        if !all_codes.contains(&code) {
-            all_codes.push(code);
+    for source_path in source_paths {
+        let trimmed = source_path.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+
+        let source_dir = cdb_dir_from_path(trimmed)?;
+        let cards = cdb_repository::load_all_cards_from_path(Path::new(trimmed))?;
+        sources.push(MergeSourceContext {
+            path: trimmed.to_string(),
+            name: basename(trimmed),
+            dir: source_dir,
+            cards,
+        });
+    }
+
+    if sources.is_empty() {
+        return Err("Please provide at least one CDB source".to_string());
+    }
+
+    Ok(sources)
+}
+
+fn build_merge_plan(
+    source_paths: &[String],
+    include_images: bool,
+    include_scripts: bool,
+) -> Result<MergePlan, String> {
+    let sources = load_merge_sources(source_paths)?;
+    let mut merged_cards_by_code = HashMap::<u32, CardDto>::new();
+    let mut duplicate_codes = HashSet::<u32>::new();
+    let mut winning_card_source_by_code = HashMap::<u32, usize>::new();
+    let mut winning_main_image_source_by_code = HashMap::<u32, usize>::new();
+    let mut winning_field_image_source_by_code = HashMap::<u32, usize>::new();
+    let mut winning_script_source_by_code = HashMap::<u32, usize>::new();
+
+    for (source_index, source) in sources.iter().enumerate() {
+        for card in &source.cards {
+            if merged_cards_by_code.contains_key(&card.code) {
+                duplicate_codes.insert(card.code);
+            }
+
+            merged_cards_by_code.insert(card.code, card.clone());
+            winning_card_source_by_code.insert(card.code, source_index);
+
+            if include_images {
+                if main_image_path(&source.dir, card.code).is_file() {
+                    winning_main_image_source_by_code.insert(card.code, source_index);
+                }
+                if field_image_path(&source.dir, card.code).is_file() {
+                    winning_field_image_source_by_code.insert(card.code, source_index);
+                }
+            }
+
+            if include_scripts && script_path(&source.dir, card.code).is_file() {
+                winning_script_source_by_code.insert(card.code, source_index);
+            }
         }
     }
-    all_codes.sort_unstable();
 
-    let mut conflicts = Vec::new();
-    for code in all_codes {
-        let Some(a_card) = a_by_code.get(&code).cloned() else {
+    let mut merged_cards = merged_cards_by_code.into_values().collect::<Vec<_>>();
+    merged_cards.sort_by_key(|card| card.code);
+
+    Ok(MergePlan {
+        sources,
+        merged_cards,
+        duplicate_card_total: duplicate_codes.len() as u32,
+        winning_card_source_by_code,
+        winning_main_image_source_by_code,
+        winning_field_image_source_by_code,
+        winning_script_source_by_code,
+    })
+}
+
+fn build_analysis_response(plan: &MergePlan) -> AnalyzeCdbMergeResponse {
+    let mut source_plans = Vec::with_capacity(plan.sources.len());
+
+    for (source_index, source) in plan.sources.iter().enumerate() {
+        let mut winning_field_image_count = 0_u32;
+        for card in &plan.merged_cards {
+            if card_has_field_subtype(card)
+                && plan.winning_field_image_source_by_code.get(&card.code).copied()
+                    == Some(source_index)
+            {
+                winning_field_image_count += 1;
+            }
+        }
+
+        source_plans.push(MergeSourcePlanDto {
+            path: source.path.clone(),
+            name: source.name.clone(),
+            card_total: source.cards.len() as u32,
+            winning_card_count: plan
+                .winning_card_source_by_code
+                .values()
+                .filter(|&&winner_index| winner_index == source_index)
+                .count() as u32,
+            winning_main_image_count: plan
+                .winning_main_image_source_by_code
+                .values()
+                .filter(|&&winner_index| winner_index == source_index)
+                .count() as u32,
+            winning_field_image_count,
+            winning_script_count: plan
+                .winning_script_source_by_code
+                .values()
+                .filter(|&&winner_index| winner_index == source_index)
+                .count() as u32,
+        });
+    }
+
+    AnalyzeCdbMergeResponse {
+        source_count: plan.sources.len() as u32,
+        merged_total: plan.merged_cards.len() as u32,
+        duplicate_card_total: plan.duplicate_card_total,
+        main_image_total: plan.winning_main_image_source_by_code.len() as u32,
+        field_image_total: plan
+            .merged_cards
+            .iter()
+            .filter(|card| {
+                card_has_field_subtype(card)
+                    && plan.winning_field_image_source_by_code.contains_key(&card.code)
+            })
+            .count() as u32,
+        script_total: plan.winning_script_source_by_code.len() as u32,
+        sources: source_plans,
+    }
+}
+
+fn derive_output_cdb_path(output_dir: &Path) -> PathBuf {
+    let folder_name = output_dir
+        .file_name()
+        .and_then(|value| value.to_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("merged");
+    output_dir.join(format!("{folder_name}.cdb"))
+}
+
+fn validate_output_dir(output_dir: &Path, sources: &[MergeSourceContext]) -> Result<(), String> {
+    let normalized_output_dir = output_dir
+        .canonicalize()
+        .unwrap_or_else(|_| output_dir.to_path_buf());
+    for source in sources {
+        let normalized_source_dir = source
+            .dir
+            .canonicalize()
+            .unwrap_or_else(|_| source.dir.clone());
+        if normalized_output_dir == normalized_source_dir {
+            return Err(format!(
+                "Output folder cannot be the same as a source project folder: {}",
+                source.dir.to_string_lossy()
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub fn collect_merge_sources_from_folder(
+    directory_path: &str,
+) -> Result<Vec<MergeSourceItemDto>, String> {
+    let root = PathBuf::from(directory_path);
+    if !root.exists() || !root.is_dir() {
+        return Err("Selected path is not a folder".to_string());
+    }
+
+    let mut project_dirs = fs::read_dir(&root)
+        .map_err(|err| err.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| err.to_string())?;
+    project_dirs.sort_by_key(|entry| entry.file_name());
+
+    let mut sources = Vec::new();
+    for project_dir in project_dirs {
+        let project_path = project_dir.path();
+        if !project_path.is_dir() {
             continue;
-        };
-        let Some(b_card) = b_by_code.get(&code).cloned() else {
-            continue;
-        };
+        }
 
-        let a_image = main_image_path(&a_dir, code).is_file();
-        let b_image = main_image_path(&b_dir, code).is_file();
-        let a_field_image = field_image_path(&a_dir, code).is_file();
-        let b_field_image = field_image_path(&b_dir, code).is_file();
-        let a_script = script_path(&a_dir, code).is_file();
-        let b_script = script_path(&b_dir, code).is_file();
+        let mut cdb_files = fs::read_dir(&project_path)
+            .map_err(|err| err.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|err| err.to_string())?;
+        cdb_files.sort_by_key(|entry| entry.file_name());
 
-        let has_card_conflict = a_card != b_card;
-        let has_image_conflict = a_image && b_image;
-        let has_field_image_conflict = a_field_image && b_field_image;
-        let has_script_conflict = a_script && b_script;
+        for cdb_file in cdb_files {
+            let cdb_path = cdb_file.path();
+            if !cdb_path.is_file() || !is_cdb_file(&cdb_path) {
+                continue;
+            }
 
-        if has_card_conflict
-            || has_image_conflict
-            || has_field_image_conflict
-            || has_script_conflict
-        {
-            conflicts.push(MergeConflictDto {
-                code,
-                a_card,
-                b_card,
-                has_card_conflict,
-                has_image_conflict,
-                has_field_image_conflict,
-                has_script_conflict,
+            let cards = cdb_repository::load_all_cards_from_path(&cdb_path)?;
+            sources.push(MergeSourceItemDto {
+                path: cdb_path.to_string_lossy().to_string(),
+                name: cdb_path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .map(ToOwned::to_owned)
+                    .unwrap_or_else(|| "unknown.cdb".to_string()),
+                project_dir: project_path.to_string_lossy().to_string(),
+                card_total: cards.len() as u32,
             });
         }
     }
 
-    let merged_total = {
-        let mut unique_codes = a_by_code.keys().copied().collect::<Vec<_>>();
-        for code in b_by_code.keys().copied() {
-            if !unique_codes.contains(&code) {
-                unique_codes.push(code);
-            }
-        }
-        unique_codes.len() as u32
-    };
-
-    Ok(AnalyzeCdbMergeResponse {
-        a_name: basename(a_path),
-        b_name: basename(b_path),
-        a_total: a_cards.len() as u32,
-        b_total: b_cards.len() as u32,
-        merged_total,
-        conflicts,
-    })
+    Ok(sources)
 }
 
-pub fn execute_cdb_merge(request: ExecuteCdbMergeRequest) -> Result<(), String> {
-    let analysis = analyze_cdb_merge_paths(&request.a_path, &request.b_path)?;
-    if request.conflict_mode == "manual" {
-        for conflict in &analysis.conflicts {
-            choose_merge_side(
-                &request.conflict_mode,
-                conflict.code,
-                &request.manual_choices,
-            )?;
-        }
-    }
+pub fn analyze_cdb_merge_paths(
+    source_paths: &[String],
+    include_images: bool,
+    include_scripts: bool,
+) -> Result<AnalyzeCdbMergeResponse, String> {
+    let plan = build_merge_plan(source_paths, include_images, include_scripts)?;
+    Ok(build_analysis_response(&plan))
+}
 
-    let a_cards = cdb_repository::load_all_cards_from_path(Path::new(&request.a_path))?;
-    let b_cards = cdb_repository::load_all_cards_from_path(Path::new(&request.b_path))?;
-    let a_dir = cdb_dir_from_path(&request.a_path)?;
-    let b_dir = cdb_dir_from_path(&request.b_path)?;
+pub fn execute_cdb_merge(
+    request: ExecuteCdbMergeRequest,
+) -> Result<ExecuteCdbMergeResponse, String> {
+    let plan = build_merge_plan(
+        &request.source_paths,
+        request.include_images,
+        request.include_scripts,
+    )?;
+    let output_dir = PathBuf::from(&request.output_dir);
+    ensure_dir(&output_dir)?;
+    validate_output_dir(&output_dir, &plan.sources)?;
 
-    let mut merged_cards = HashMap::<u32, CardDto>::new();
-    let mut preferred_side_by_code = HashMap::<u32, MergeSide>::new();
+    let output_cdb_path = derive_output_cdb_path(&output_dir);
+    ensure_parent_dir(&output_cdb_path)?;
 
-    for card in &a_cards {
-        merged_cards.insert(card.code, card.clone());
-        preferred_side_by_code.insert(card.code, MergeSide::A);
-    }
-
-    for card in &b_cards {
-        match merged_cards.get(&card.code) {
-            None => {
-                merged_cards.insert(card.code, card.clone());
-                preferred_side_by_code.insert(card.code, MergeSide::B);
-            }
-            Some(existing) => {
-                let preferred_side = if existing == card {
-                    preferred_side_by_code
-                        .get(&card.code)
-                        .copied()
-                        .unwrap_or(MergeSide::A)
-                } else {
-                    choose_merge_side(&request.conflict_mode, card.code, &request.manual_choices)?
-                };
-
-                if preferred_side == MergeSide::B {
-                    merged_cards.insert(card.code, card.clone());
-                }
-                preferred_side_by_code.insert(card.code, preferred_side);
-            }
-        }
-    }
-
-    let mut merged_cards_list = merged_cards.into_values().collect::<Vec<_>>();
-    merged_cards_list.sort_by_key(|card| card.code);
-
-    let output_path = PathBuf::from(&request.output_path);
-    ensure_parent_dir(&output_path)?;
-
-    let stage_dir = build_stage_dir(&output_path, "merge")?;
+    let stage_dir = build_stage_dir(&output_cdb_path, "merge")?;
     ensure_dir(&stage_dir)?;
-    let output_file_name = output_path
-        .file_name()
-        .ok_or_else(|| "Unable to resolve output file name".to_string())?;
-    let staged_cdb_path = stage_dir.join(output_file_name);
+    let staged_cdb_path = stage_dir.join(
+        output_cdb_path
+            .file_name()
+            .ok_or_else(|| "Unable to resolve output file name".to_string())?,
+    );
 
     let staged_pics_dir = stage_dir.join("pics");
     let staged_field_pics_dir = staged_pics_dir.join("field");
     let staged_script_dir = stage_dir.join("script");
 
-    cdb_repository::recreate_cdb_with_cards(&staged_cdb_path, &merged_cards_list)?;
+    cdb_repository::recreate_cdb_with_cards(&staged_cdb_path, &plan.merged_cards)?;
 
     if request.include_images {
-        for card in &merged_cards_list {
-            let code = card.code;
-            let preferred_side = preferred_side_by_code
-                .get(&code)
-                .copied()
-                .unwrap_or(MergeSide::A);
-            let preferred_dir = if preferred_side == MergeSide::A {
-                &a_dir
-            } else {
-                &b_dir
-            };
-            let fallback_dir = if preferred_side == MergeSide::A {
-                &b_dir
-            } else {
-                &a_dir
-            };
-
-            let preferred_main = main_image_path(preferred_dir, code);
-            let fallback_main = main_image_path(fallback_dir, code);
-            let staged_main = staged_pics_dir.join(format!("{code}.jpg"));
-            if !copy_if_exists(&preferred_main, &staged_main)? {
-                let _ = copy_if_exists(&fallback_main, &staged_main)?;
+        for card in &plan.merged_cards {
+            if let Some(&winner_index) = plan.winning_main_image_source_by_code.get(&card.code) {
+                let winner_dir = &plan.sources[winner_index].dir;
+                let _ = copy_if_exists(
+                    &main_image_path(winner_dir, card.code),
+                    &staged_pics_dir.join(format!("{}.jpg", card.code)),
+                )?;
             }
 
-            let preferred_field = field_image_path(preferred_dir, code);
-            let fallback_field = field_image_path(fallback_dir, code);
-            let staged_field = staged_field_pics_dir.join(format!("{code}.jpg"));
-            if !copy_if_exists(&preferred_field, &staged_field)? && card_has_field_subtype(card) {
-                let _ = copy_if_exists(&fallback_field, &staged_field)?;
+            if card_has_field_subtype(card) {
+                if let Some(&winner_index) = plan.winning_field_image_source_by_code.get(&card.code)
+                {
+                    let winner_dir = &plan.sources[winner_index].dir;
+                    let _ = copy_if_exists(
+                        &field_image_path(winner_dir, card.code),
+                        &staged_field_pics_dir.join(format!("{}.jpg", card.code)),
+                    )?;
+                }
             }
         }
     }
 
     if request.include_scripts {
-        for card in &merged_cards_list {
-            let code = card.code;
-            let preferred_side = preferred_side_by_code
-                .get(&code)
-                .copied()
-                .unwrap_or(MergeSide::A);
-            let preferred_dir = if preferred_side == MergeSide::A {
-                &a_dir
-            } else {
-                &b_dir
-            };
-            let fallback_dir = if preferred_side == MergeSide::A {
-                &b_dir
-            } else {
-                &a_dir
-            };
-
-            let preferred_script = script_path(preferred_dir, code);
-            let fallback_script = script_path(fallback_dir, code);
-            let staged_script = staged_script_dir.join(format!("c{code}.lua"));
-            if !copy_if_exists(&preferred_script, &staged_script)? {
-                let _ = copy_if_exists(&fallback_script, &staged_script)?;
+        for card in &plan.merged_cards {
+            if let Some(&winner_index) = plan.winning_script_source_by_code.get(&card.code) {
+                let winner_dir = &plan.sources[winner_index].dir;
+                let _ = copy_if_exists(
+                    &script_path(winner_dir, card.code),
+                    &staged_script_dir.join(format!("c{}.lua", card.code)),
+                )?;
             }
         }
     }
 
-    let output_dir = output_path
-        .parent()
-        .ok_or_else(|| "Unable to resolve output directory".to_string())?;
     let target_pics_dir = output_dir.join("pics");
     let target_script_dir = output_dir.join("script");
     let backup_cdb_path = output_dir.join(".__dataeditory-merge-backup.cdb");
@@ -303,11 +379,11 @@ pub fn execute_cdb_merge(request: ExecuteCdbMergeRequest) -> Result<(), String> 
     let mut moved_scripts = false;
 
     let commit_result = (|| -> Result<(), String> {
-        if output_path.exists() {
+        if output_cdb_path.exists() {
             if backup_cdb_path.exists() {
                 fs::remove_file(&backup_cdb_path).map_err(|err| err.to_string())?;
             }
-            fs::rename(&output_path, &backup_cdb_path).map_err(|err| err.to_string())?;
+            fs::rename(&output_cdb_path, &backup_cdb_path).map_err(|err| err.to_string())?;
         }
 
         if request.include_images && target_pics_dir.exists() {
@@ -324,7 +400,7 @@ pub fn execute_cdb_merge(request: ExecuteCdbMergeRequest) -> Result<(), String> 
             fs::rename(&target_script_dir, &backup_script_dir).map_err(|err| err.to_string())?;
         }
 
-        fs::rename(&staged_cdb_path, &output_path).map_err(|err| err.to_string())?;
+        fs::rename(&staged_cdb_path, &output_cdb_path).map_err(|err| err.to_string())?;
         moved_cdb = true;
 
         if request.include_images && staged_pics_dir.exists() {
@@ -348,10 +424,10 @@ pub fn execute_cdb_merge(request: ExecuteCdbMergeRequest) -> Result<(), String> 
             let _ = fs::remove_dir_all(&target_pics_dir);
         }
         if moved_cdb {
-            let _ = fs::remove_file(&output_path);
+            let _ = fs::remove_file(&output_cdb_path);
         }
         if backup_cdb_path.exists() {
-            let _ = fs::rename(&backup_cdb_path, &output_path);
+            let _ = fs::rename(&backup_cdb_path, &output_cdb_path);
         }
         if backup_pics_dir.exists() {
             let _ = fs::rename(&backup_pics_dir, &target_pics_dir);
@@ -374,5 +450,7 @@ pub fn execute_cdb_merge(request: ExecuteCdbMergeRequest) -> Result<(), String> 
     }
     let _ = fs::remove_dir_all(&stage_dir);
 
-    Ok(())
+    Ok(ExecuteCdbMergeResponse {
+        output_path: output_cdb_path.to_string_lossy().to_string(),
+    })
 }
