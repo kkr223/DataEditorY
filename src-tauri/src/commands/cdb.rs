@@ -2,11 +2,9 @@ use tauri::{AppHandle, State};
 
 use crate::{
     models::cdb::{
-        AnalyzeCdbMergeRequest, AnalyzeCdbMergeResponse, CardDto,
-        CollectMergeSourcesFromFolderRequest, CopyCardAssetsRequest, CreateCdbFromCardsRequest,
-        DeleteCardsRequest, ExecuteCdbMergeRequest, ExecuteCdbMergeResponse, MergeSourceItemDto,
-        ModifyCardsRequest, OpenCdbTabResponse, QueryCardsRequest, SearchCardsPageRequest,
-        SearchCardsPageResponse,
+        AnalyzeCdbMergeRequest, AnalyzeCdbMergeResponse, CardDto, CopyCardAssetsRequest,
+        CreateCdbFromCardsRequest, DeleteCardsRequest, ExecuteCdbMergeRequest, ModifyCardsRequest,
+        OpenCdbTabResponse, QueryCardsRequest, SearchCardsPageRequest, SearchCardsPageResponse,
     },
     services::{
         assets as cdb_assets_service, cdb_cards as cdb_cards_service,
@@ -100,23 +98,10 @@ pub fn copy_card_assets(request: CopyCardAssetsRequest) -> Result<(), String> {
 pub fn analyze_cdb_merge(
     request: AnalyzeCdbMergeRequest,
 ) -> Result<AnalyzeCdbMergeResponse, String> {
-    cdb_merge_service::analyze_cdb_merge_paths(
-        &request.source_paths,
-        request.include_images,
-        request.include_scripts,
-    )
+    cdb_merge_service::analyze_cdb_merge_paths(&request.a_path, &request.b_path)
 }
 
 #[tauri::command]
-pub fn collect_merge_sources_from_folder(
-    request: CollectMergeSourcesFromFolderRequest,
-) -> Result<Vec<MergeSourceItemDto>, String> {
-    cdb_merge_service::collect_merge_sources_from_folder(&request.directory_path)
-}
-
-#[tauri::command]
-pub fn execute_cdb_merge(
-    request: ExecuteCdbMergeRequest,
-) -> Result<ExecuteCdbMergeResponse, String> {
+pub fn execute_cdb_merge(request: ExecuteCdbMergeRequest) -> Result<(), String> {
     cdb_merge_service::execute_cdb_merge(request)
 }

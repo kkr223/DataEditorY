@@ -112,13 +112,7 @@
       open={dialogsController.state.isMergeCdbOpen}
       state={dialogsController.state}
       onClose={dialogsController.closeMergeCdbDialog}
-      onPickFiles={dialogsController.pickMergeFiles}
-      onPickFolder={dialogsController.pickMergeFolder}
-      onRemoveSource={dialogsController.removeMergeSource}
-      onMoveSource={dialogsController.moveMergeSource}
-      onReorderSource={dialogsController.reorderMergeSource}
-      onSetIncludeImages={dialogsController.setMergeIncludeImages}
-      onSetIncludeScripts={dialogsController.setMergeIncludeScripts}
+      onPickPath={dialogsController.pickMergePath}
       onAnalyze={dialogsController.handleAnalyzeMerge}
       onConfirm={dialogsController.handleExecuteMerge}
     />

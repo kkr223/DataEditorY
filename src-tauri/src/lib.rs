@@ -564,7 +564,6 @@ pub fn run() {
             commands::cdb::create_cdb_from_cards,
             commands::cdb::copy_card_assets,
             commands::cdb::analyze_cdb_merge,
-            commands::cdb::collect_merge_sources_from_folder,
             commands::cdb::execute_cdb_merge,
             read_cdb,
             read_text_file,
