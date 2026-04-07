@@ -757,6 +757,9 @@ mod tests {
         fs::write(script_dir.join("c222.lua"), "-- direct").unwrap();
         fs::write(script_dir.join("c333.lua"), "-- unrelated").unwrap();
         fs::write(script_dir.join("utility.lua"), "-- shared").unwrap();
+        fs::write(root.join("strings.conf"), "# strings").unwrap();
+        fs::write(root.join("custom.CONF"), "# custom").unwrap();
+        fs::write(root.join("notes.txt"), "ignore").unwrap();
 
         services::package::package_cdb_assets_as_zip(
             cdb_path.to_string_lossy().to_string(),
@@ -779,9 +782,12 @@ mod tests {
         assert!(entries.contains(&"script/c111.lua".to_string()));
         assert!(entries.contains(&"script/c222.lua".to_string()));
         assert!(entries.contains(&"script/utility.lua".to_string()));
+        assert!(entries.contains(&"strings.conf".to_string()));
+        assert!(entries.contains(&"custom.CONF".to_string()));
         assert!(!entries.contains(&"pics/333.jpg".to_string()));
         assert!(!entries.contains(&"pics/field/222.jpg".to_string()));
         assert!(!entries.contains(&"script/c333.lua".to_string()));
+        assert!(!entries.contains(&"notes.txt".to_string()));
 
         let _ = fs::remove_dir_all(&root);
     }
