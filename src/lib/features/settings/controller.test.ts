@@ -15,6 +15,7 @@ describe('settings controller helpers', () => {
       temperature: 1,
       scriptTemplate: '',
       useExternalScriptEditor: false,
+      saveScriptImageToLocal: false,
       secretKey: '',
     });
   });
@@ -37,6 +38,7 @@ describe('settings controller helpers', () => {
         temperature: 1.4,
         scriptTemplate: '-- template',
         useExternalScriptEditor: true,
+        saveScriptImageToLocal: true,
         hasSecretKey: true,
         coverImagePath: null,
         errorLogPath: 'D:/logs/error.log',
@@ -49,6 +51,7 @@ describe('settings controller helpers', () => {
     expect(form.temperature).toBe(1.4);
     expect(form.scriptTemplate).toBe('-- template');
     expect(form.useExternalScriptEditor).toBe(true);
+    expect(form.saveScriptImageToLocal).toBe(true);
     expect(form.secretKey).toBe('');
     expect(result.isHydrated).toBe(true);
   });
@@ -65,6 +68,7 @@ describe('settings controller helpers', () => {
         temperature: 0.5,
         scriptTemplate: '-- updated',
         useExternalScriptEditor: false,
+        saveScriptImageToLocal: false,
         hasSecretKey: true,
         coverImagePath: null,
         errorLogPath: '',
@@ -88,6 +92,7 @@ describe('settings controller helpers', () => {
       temperature: 1,
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
+      saveScriptImageToLocal: false,
       hasSecretKey: false,
       coverImagePath: null,
       errorLogPath: '',
@@ -100,6 +105,7 @@ describe('settings controller helpers', () => {
       temperature: 1,
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
+      saveScriptImageToLocal: false,
       hasSecretKey: true,
       coverImagePath: null,
       errorLogPath: '',

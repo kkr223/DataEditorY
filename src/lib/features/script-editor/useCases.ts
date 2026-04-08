@@ -9,6 +9,7 @@ import { updateVisibleCards } from '$lib/stores/editor.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { normalizeCardStrings } from '$lib/domain/card/draft';
 import { buildScriptImagePath } from '$lib/domain/script/workspace';
+import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import {
   ensureAiReady,
   ensureScriptOverwriteConfirmed,
@@ -307,94 +308,76 @@ export type ScriptImageRenderInfo = {
   effectText: string;
 };
 
+export type ScriptImageSelection = {
+  content: string;
+  startLineNumber: number;
+};
+
 async function buildScriptImageBlob(input: {
-  tab: ScriptWorkspaceState;
+  content: string;
+  lineNumberStart?: number;
   monacoModule: ScriptMonacoModule;
   renderInfo: ScriptImageRenderInfo;
 }) {
-  return input.monacoModule.renderLuaCodeImageBlob(input.tab.content, {
+  return input.monacoModule.renderLuaCodeImageBlob(input.content, {
     title: input.renderInfo.title,
     metaLines: input.renderInfo.metaLines,
     effectTitle: input.renderInfo.effectTitle,
     effectText: input.renderInfo.effectText,
+    lineNumberStart: input.lineNumberStart,
   });
 }
 
-export async function exportScriptImageFlow(input: {
+export async function shareScriptImageFlow(input: {
   tab: ScriptWorkspaceState | null;
   monacoModule: ScriptMonacoModule | null;
-  isExporting: boolean;
+  isSharing: boolean;
   renderInfo: ScriptImageRenderInfo;
+  selection?: ScriptImageSelection | null;
   t: Translate;
 }) {
   const tab = input.tab;
-  if (!tab || !input.monacoModule || input.isExporting) {
+  if (!tab || !input.monacoModule || input.isSharing) {
     return false;
   }
 
   const outputPath = buildScriptImagePath(tab.cdbPath, tab.cardCode);
-  if (!outputPath) {
+  if (appSettingsState.values.saveScriptImageToLocal && !outputPath) {
     showToast(input.t('editor.script_export_image_failed'), 'error');
     return false;
   }
 
   try {
     const blob = await buildScriptImageBlob({
-      tab,
-      monacoModule: input.monacoModule,
-      renderInfo: input.renderInfo,
-    });
-    await writeBinaryFile(outputPath, await blobToUint8Array(blob));
-    showToast(input.t('editor.script_export_image_success', { values: { path: outputPath } }), 'success');
-    return true;
-  } catch (error) {
-    console.error('Failed to export script image', error);
-    void writeErrorLog({
-      source: 'script.export-image',
-      error,
-      extra: {
-        scriptPath: tab.scriptPath,
-        outputPath,
-        cardCode: tab.cardCode,
-      },
-    });
-    showToast(input.t('editor.script_export_image_failed'), 'error');
-    return false;
-  }
-}
-
-export async function copyScriptImageFlow(input: {
-  tab: ScriptWorkspaceState | null;
-  monacoModule: ScriptMonacoModule | null;
-  isCopying: boolean;
-  renderInfo: ScriptImageRenderInfo;
-  t: Translate;
-}) {
-  const tab = input.tab;
-  if (!tab || !input.monacoModule || input.isCopying) {
-    return false;
-  }
-
-  try {
-    const blob = await buildScriptImageBlob({
-      tab,
+      content: input.selection?.content ?? tab.content,
+      lineNumberStart: input.selection?.startLineNumber,
       monacoModule: input.monacoModule,
       renderInfo: input.renderInfo,
     });
     await writeImageBlobToClipboard(blob);
+
+    if (appSettingsState.values.saveScriptImageToLocal && outputPath) {
+      await writeBinaryFile(outputPath, await blobToUint8Array(blob));
+      showToast(input.t('editor.script_export_image_success', { values: { path: outputPath } }), 'success');
+      return true;
+    }
+
     showToast(input.t('editor.script_copy_image_success'), 'success');
     return true;
   } catch (error) {
-    console.error('Failed to copy script image', error);
+    console.error('Failed to share script image', error);
     void writeErrorLog({
-      source: 'script.copy-image',
+      source: 'script.share-image',
       error,
       extra: {
         scriptPath: tab.scriptPath,
         cardCode: tab.cardCode,
+        outputPath,
+        saveScriptImageToLocal: appSettingsState.values.saveScriptImageToLocal,
+        selectionStartLineNumber: input.selection?.startLineNumber ?? null,
       },
     });
-    showToast(input.t('editor.script_copy_image_failed'), 'error');
+    showToast(input.t('editor.script_export_image_failed'), 'error');
     return false;
   }
 }

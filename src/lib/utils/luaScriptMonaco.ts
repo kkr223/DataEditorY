@@ -176,6 +176,7 @@ export type LuaCodeImageRenderOptions = {
   metaLines?: string[];
   effectTitle?: string;
   effectText?: string;
+  lineNumberStart?: number;
 };
 
 type LuaCodeImageSegment = {
@@ -533,6 +534,7 @@ export function renderLuaCodeImage(content: string, options: LuaCodeImageRenderO
   const tabSize = 2;
   const fontFamily = '"Cascadia Mono", Consolas, "Courier New", monospace';
   const lineCount = Math.max(1, lines.length);
+  const lineNumberStart = Math.max(1, options.lineNumberStart ?? 1);
 
   const measureCanvas = document.createElement('canvas');
   const measureContext = measureCanvas.getContext('2d');
@@ -673,7 +675,7 @@ export function renderLuaCodeImage(content: string, options: LuaCodeImageRenderO
     context.font = buildCanvasFont(fontSize, fontFamily);
     context.fillStyle = theme.lineNumber;
     context.textAlign = 'right';
-    context.fillText(String(lineIndex + 1), paddingX + gutterWidth - 8, y);
+    context.fillText(String(lineNumberStart + lineIndex), paddingX + gutterWidth - 8, y);
 
     let x = paddingX + gutterWidth;
     context.textAlign = 'left';

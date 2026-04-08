@@ -3,10 +3,14 @@
   export let description = '';
   export let externalEditorLabel = '';
   export let externalEditorHint = '';
+  export let saveScriptImageToLocalLabel = '';
+  export let saveScriptImageToLocalHint = '';
   export let scriptTemplate = '';
   export let onScriptTemplateInput: (value: string) => void = () => {};
   export let useExternalScriptEditor = false;
+  export let saveScriptImageToLocal = false;
   export let onExternalEditorChange: (value: boolean) => void = () => {};
+  export let onSaveScriptImageToLocalChange: (value: boolean) => void = () => {};
 </script>
 
 <div class="sp-card sp-tpl">
@@ -25,6 +29,15 @@
     </label>
   </div>
   <small class="sp-hint">{externalEditorHint}</small>
+  <label class="sp-check sp-check-secondary">
+    <input
+      type="checkbox"
+      checked={saveScriptImageToLocal}
+      onchange={(event) => onSaveScriptImageToLocalChange((event.currentTarget as HTMLInputElement).checked)}
+    />
+    <span>{saveScriptImageToLocalLabel}</span>
+  </label>
+  <small class="sp-hint">{saveScriptImageToLocalHint}</small>
   <textarea
     class="sp-textarea"
     rows="5"
@@ -92,6 +105,7 @@
   }
   .sp-check input { width: auto; accent-color: var(--accent-primary); }
   .sp-check span { font-size: 0.8rem; font-weight: 500; color: var(--text-primary); }
+  .sp-check-secondary { margin-top: 2px; }
   .sp-hint {
     font-size: 0.72rem;
     color: var(--text-disabled);

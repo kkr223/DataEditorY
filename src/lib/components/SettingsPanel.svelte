@@ -170,6 +170,8 @@
       description={$_('settings.script_template_description')}
       externalEditorLabel={$_('settings.use_external_script_editor')}
       externalEditorHint={$_('settings.use_external_script_editor_hint')}
+      saveScriptImageToLocalLabel={$_('settings.save_script_image_to_local')}
+      saveScriptImageToLocalHint={$_('settings.save_script_image_to_local_hint')}
       scriptTemplate={form.scriptTemplate}
       onScriptTemplateInput={(value) => {
         form.scriptTemplate = value;
@@ -177,6 +179,10 @@
       useExternalScriptEditor={form.useExternalScriptEditor}
       onExternalEditorChange={(value) => {
         form.useExternalScriptEditor = value;
+      }}
+      saveScriptImageToLocal={form.saveScriptImageToLocal}
+      onSaveScriptImageToLocalChange={(value) => {
+        form.saveScriptImageToLocal = value;
       }}
     />
 

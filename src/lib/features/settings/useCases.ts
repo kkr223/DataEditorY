@@ -63,6 +63,7 @@ export async function saveSettingsFlow(input: {
       temperature: getNormalizedSettingsTemperature(input.form.temperature),
       scriptTemplate: input.form.scriptTemplate,
       useExternalScriptEditor: input.form.useExternalScriptEditor,
+      saveScriptImageToLocal: input.form.saveScriptImageToLocal,
       secretKey: input.form.secretKey,
     });
     input.form.secretKey = '';
@@ -125,6 +126,7 @@ export async function saveSelectedModelFlow(input: {
       temperature: getNormalizedSettingsTemperature(input.form.temperature),
       scriptTemplate: input.form.scriptTemplate,
       useExternalScriptEditor: input.form.useExternalScriptEditor,
+      saveScriptImageToLocal: input.form.saveScriptImageToLocal,
     });
     showToast(input.t('settings.model_saved'), 'success');
     return true;
@@ -156,6 +158,7 @@ export async function clearSecretKeyFlow(input: {
       temperature: getNormalizedSettingsTemperature(input.form.temperature),
       scriptTemplate: input.form.scriptTemplate,
       useExternalScriptEditor: input.form.useExternalScriptEditor,
+      saveScriptImageToLocal: input.form.saveScriptImageToLocal,
       clearSecretKey: true,
     });
     input.form.secretKey = '';

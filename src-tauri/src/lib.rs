@@ -41,6 +41,7 @@ pub(crate) struct PersistedAppSettings {
     pub(crate) temperature: f64,
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: bool,
+    pub(crate) save_script_image_to_local: bool,
     pub(crate) encrypted_secret_key: Option<String>,
 }
 
@@ -52,6 +53,7 @@ impl Default for PersistedAppSettings {
             temperature: DEFAULT_AI_TEMPERATURE,
             script_template: DEFAULT_SCRIPT_TEMPLATE.to_string(),
             use_external_script_editor: false,
+            save_script_image_to_local: false,
             encrypted_secret_key: None,
         }
     }
@@ -65,6 +67,7 @@ pub(crate) struct AppSettingsPayload {
     pub(crate) temperature: f64,
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: bool,
+    pub(crate) save_script_image_to_local: bool,
     pub(crate) has_secret_key: bool,
     pub(crate) cover_image_path: Option<String>,
     pub(crate) error_log_path: String,
@@ -78,6 +81,7 @@ pub(crate) struct SaveAppSettingsRequest {
     pub(crate) temperature: Option<f64>,
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: Option<bool>,
+    pub(crate) save_script_image_to_local: Option<bool>,
     pub(crate) secret_key: Option<String>,
     pub(crate) clear_secret_key: Option<bool>,
 }
@@ -332,6 +336,7 @@ pub(crate) fn to_settings_payload(
             settings.script_template
         },
         use_external_script_editor: settings.use_external_script_editor,
+        save_script_image_to_local: settings.save_script_image_to_local,
         has_secret_key: settings.encrypted_secret_key.is_some(),
         cover_image_path: if cover_path.exists() {
             Some(cover_path.to_string_lossy().to_string())

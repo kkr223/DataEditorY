@@ -6,6 +6,7 @@ export type SettingsFormState = {
   temperature: number;
   scriptTemplate: string;
   useExternalScriptEditor: boolean;
+  saveScriptImageToLocal: boolean;
   secretKey: string;
 };
 
@@ -16,6 +17,7 @@ export function createSettingsFormState(): SettingsFormState {
     temperature: 1,
     scriptTemplate: '',
     useExternalScriptEditor: false,
+    saveScriptImageToLocal: false,
     secretKey: '',
   };
 }
@@ -41,6 +43,7 @@ export function hydrateSettingsForm(
   form.temperature = values.temperature;
   form.scriptTemplate = values.scriptTemplate;
   form.useExternalScriptEditor = values.useExternalScriptEditor;
+  form.saveScriptImageToLocal = values.saveScriptImageToLocal;
 
   if (!input.isHydrated) {
     form.secretKey = '';
@@ -60,6 +63,7 @@ export function isSettingsFormDirty(
     || getNormalizedSettingsTemperature(form.temperature) !== getNormalizedSettingsTemperature(values.temperature)
     || form.scriptTemplate !== values.scriptTemplate
     || form.useExternalScriptEditor !== values.useExternalScriptEditor
+    || form.saveScriptImageToLocal !== values.saveScriptImageToLocal
     || form.secretKey.trim().length > 0;
 }
 

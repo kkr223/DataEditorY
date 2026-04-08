@@ -33,14 +33,14 @@
     TYPE_BITS,
   } from '$lib/utils/card';
   import {
-    copyScriptImageFlow,
-    exportScriptImageFlow,
     generateScriptFromEditorFlow,
     loadScriptCardContextFlow,
     openScriptExternallyFlow,
     reloadScriptEditorFlow,
     saveScriptEditorFlow,
     saveScriptStringFlow,
+    shareScriptImageFlow,
+    type ScriptImageSelection,
   } from '$lib/features/script-editor/useCases';
   import {
     createScriptMonacoRuntime,
@@ -67,10 +67,10 @@
   let cardContext = $state<CardDataEntry | null>(null);
   let isReloading = $state(false);
   let isSaving = $state(false);
-  let isExportingImage = $state(false);
-  let isCopyingImage = $state(false);
+  let isSharingImage = $state(false);
   let isGeneratingScript = $state(false);
   let isMonacoReady = $state(false);
+  let hasSelectedCode = $state(false);
   let loadContextToken = 0;
   let lastContextKey = $state('');
   let savedScriptStrings = $state<string[]>(Array.from({ length: 16 }, () => ''));
@@ -169,6 +169,35 @@
     };
   }
 
+  function getScriptImageSelection() {
+    const selection = editorInstance?.getSelection();
+    const model = editorInstance?.getModel();
+    if (!selection || !model || selection.isEmpty()) {
+      hasSelectedCode = false;
+      return null;
+    }
+
+    const startLineNumber = selection.startLineNumber;
+    const inclusiveEndLineNumber = selection.endColumn === 1 && selection.endLineNumber > startLineNumber
+      ? selection.endLineNumber - 1
+      : selection.endLineNumber;
+    const endLineNumber = Math.max(startLineNumber, inclusiveEndLineNumber);
+    const lines = [];
+    for (let lineNumber = startLineNumber; lineNumber <= endLineNumber; lineNumber += 1) {
+      lines.push(model.getLineContent(lineNumber));
+    }
+
+    hasSelectedCode = lines.length > 0;
+    if (lines.length === 0) {
+      return null;
+    }
+
+    return {
+      content: lines.join('\n'),
+      startLineNumber,
+    } satisfies ScriptImageSelection;
+  }
+
   async function loadCardContext() {
     const tab = getActiveScriptTab();
     if (!tab) {
@@ -257,6 +286,7 @@
       currentBoundTabId = null;
       closeReferenceOverlay();
       editorInstance.setModel(null);
+      hasSelectedCode = false;
       return;
     }
 
@@ -300,6 +330,7 @@
     }
 
     currentBoundTabId = tab.id;
+    syncSelectionState();
   }
 
   function clearSuggestHint() {
@@ -332,6 +363,10 @@
 
   function handleHintSuppressBlur() {
     isCurrentFunctionHintSuppressed = false;
+  }
+
+  function syncSelectionState() {
+    hasSelectedCode = !editorInstance?.getSelection()?.isEmpty();
   }
 
   function handleWindowKeydown(event: KeyboardEvent) {
@@ -581,39 +616,22 @@
     });
   }
 
-  async function handleExportImage() {
+  async function handleShareImage() {
     const tab = getActiveScriptTab();
-    if (!tab || !monacoModule || isExportingImage) return;
+    if (!tab || !monacoModule || isSharingImage) return;
 
-    isExportingImage = true;
+    isSharingImage = true;
     try {
-      await exportScriptImageFlow({
+      await shareScriptImageFlow({
         tab,
         monacoModule,
-        isExporting: false,
+        isSharing: false,
         renderInfo: getScriptImageRenderInfo(),
+        selection: getScriptImageSelection(),
         t: (key, options) => $_(key, options as never),
       });
     } finally {
-      isExportingImage = false;
-    }
-  }
-
-  async function handleCopyImage() {
-    const tab = getActiveScriptTab();
-    if (!tab || !monacoModule || isCopyingImage) return;
-
-    isCopyingImage = true;
-    try {
-      await copyScriptImageFlow({
-        tab,
-        monacoModule,
-        isCopying: false,
-        renderInfo: getScriptImageRenderInfo(),
-        t: (key, options) => $_(key, options as never),
-      });
-    } finally {
-      isCopyingImage = false;
+      isSharingImage = false;
     }
   }
 
@@ -635,6 +653,9 @@
       onDidChangeCursorPosition: () => {
         refreshSuggestHint();
         refreshCurrentFunctionHint();
+      },
+      onDidChangeCursorSelection: () => {
+        syncSelectionState();
       },
       onKeyUp: () => {
         refreshSuggestHint();
@@ -659,6 +680,7 @@
     monacoApi = monacoRuntime.api;
     editorInstance = monacoRuntime.editor;
     callHighlightDecorations = monacoRuntime.callHighlightDecorations;
+    syncSelectionState();
     referenceManualItems = {
       constants: monacoRuntime.module.getReferenceManualItems('constants'),
       functions: monacoRuntime.module.getReferenceManualItems('functions'),
@@ -735,20 +757,16 @@
       reloadLabel={$_('editor.script_reload')}
       reloadingLabel={$_('editor.script_reloading')}
       openExternalLabel={$_('editor.script_open_external')}
-      exportImageLabel={$_('editor.script_export_image')}
-      copyImageLabel={$_('editor.script_copy_image')}
+      imageActionLabel={$_(hasSelectedCode ? 'editor.script_export_selected_image' : 'editor.script_export_image')}
       saveLabel={$_('editor.script_save')}
-      isExportingImage={isExportingImage}
-      isCopyingImage={isCopyingImage}
-      exportingImageLabel={$_('editor.script_exporting_image')}
-      copyingImageLabel={$_('editor.script_copying_image')}
+      isSharingImage={isSharingImage}
+      sharingImageLabel={$_('editor.script_exporting_image')}
       savingLabel={$_('editor.script_saving')}
       onGenerate={handleGenerateScript}
       onCancelGenerate={handleCancelGenerateScript}
       onReload={handleReload}
       onOpenExternal={handleOpenExternal}
-      onExportImage={handleExportImage}
-      onCopyImage={handleCopyImage}
+      onShareImage={handleShareImage}
       onSave={handleSave}
     />
 
