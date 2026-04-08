@@ -14,12 +14,20 @@
   export let reloadLabel = '';
   export let reloadingLabel = '';
   export let openExternalLabel = '';
+  export let exportImageLabel = '';
+  export let copyImageLabel = '';
   export let saveLabel = '';
+  export let isExportingImage = false;
+  export let isCopyingImage = false;
+  export let exportingImageLabel = '';
+  export let copyingImageLabel = '';
   export let savingLabel = '';
   export let onGenerate: () => void | Promise<void> = () => {};
   export let onCancelGenerate: () => void = () => {};
   export let onReload: () => void | Promise<void> = () => {};
   export let onOpenExternal: () => void | Promise<void> = () => {};
+  export let onExportImage: () => void | Promise<void> = () => {};
+  export let onCopyImage: () => void | Promise<void> = () => {};
   export let onSave: () => void | Promise<void> = () => {};
 </script>
 
@@ -48,6 +56,12 @@
     </button>
     <button class="btn-secondary" type="button" onclick={onOpenExternal}>
       {openExternalLabel}
+    </button>
+    <button class="btn-secondary" type="button" onclick={onExportImage} disabled={isExportingImage}>
+      {isExportingImage ? exportingImageLabel : exportImageLabel}
+    </button>
+    <button class="btn-secondary" type="button" onclick={onCopyImage} disabled={isCopyingImage}>
+      {isCopyingImage ? copyingImageLabel : copyImageLabel}
     </button>
     <button class="btn-primary" type="button" onclick={onSave} disabled={isSaving}>
       {isSaving ? savingLabel : saveLabel}

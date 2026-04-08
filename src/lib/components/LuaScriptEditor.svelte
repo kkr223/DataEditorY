@@ -23,6 +23,18 @@
     type ScriptReferenceManualKind,
   } from '$lib/features/script-editor/controller';
   import {
+    ATTRIBUTE_OPTIONS,
+    getCardTypeKey,
+    getPackedLScale,
+    getPackedLevel,
+    getPackedRScale,
+    LINK_MARKERS,
+    RACE_OPTIONS,
+    TYPE_BITS,
+  } from '$lib/utils/card';
+  import {
+    copyScriptImageFlow,
+    exportScriptImageFlow,
     generateScriptFromEditorFlow,
     loadScriptCardContextFlow,
     openScriptExternallyFlow,
@@ -55,6 +67,8 @@
   let cardContext = $state<CardDataEntry | null>(null);
   let isReloading = $state(false);
   let isSaving = $state(false);
+  let isExportingImage = $state(false);
+  let isCopyingImage = $state(false);
   let isGeneratingScript = $state(false);
   let isMonacoReady = $state(false);
   let loadContextToken = 0;
@@ -101,6 +115,58 @@
     const tab = $activeScriptTab;
     if (!tab) return '';
     return buildScriptFileName(tab.cardCode);
+  }
+
+  function getCardMetaLines(card: CardDataEntry | null, fallbackCode: number) {
+    if (!card) {
+      return [`ID: ${fallbackCode}`];
+    }
+
+    const typeText = TYPE_BITS
+      .filter((item) => (card.type & item.bit) !== 0)
+      .map((item) => $_(item.key))
+      .join(' / ') || $_('search.na');
+    const attributeText = ATTRIBUTE_OPTIONS.find((item) => item.value === card.attribute)?.key
+      ? $_(ATTRIBUTE_OPTIONS.find((item) => item.value === card.attribute)?.key as string)
+      : $_('search.na');
+    const raceText = RACE_OPTIONS.find((item) => item.value === card.race)?.key
+      ? $_(RACE_OPTIONS.find((item) => item.value === card.race)?.key as string)
+      : $_('search.na');
+    const mainType = $_(getCardTypeKey(card.type));
+    const levelValue = getPackedLevel(card.level);
+    const leftScale = getPackedLScale(card.level);
+    const rightScale = getPackedRScale(card.level);
+    const isLink = (card.type & 0x4000000) !== 0;
+    const isPendulum = leftScale > 0 || rightScale > 0;
+    const statsLine = isLink
+      ? `ATK ${card.attack}  LINK ${levelValue || 0}`
+      : `ATK ${card.attack}  DEF ${card.defense}  ${mainType === $_('search.types.monster') ? `LV ${levelValue || 0}` : mainType}`;
+    const extras = [];
+    if (isPendulum) {
+      extras.push(`Scale ${leftScale}/${rightScale}`);
+    }
+    if (isLink) {
+      const markers = LINK_MARKERS.filter((item) => (card.linkMarker & item.bit) !== 0).map((item) => item.label).join(' ');
+      if (markers) {
+        extras.push(`Link ${markers}`);
+      }
+    }
+
+    return [
+      `ID: ${card.code}`,
+      `Type: ${typeText}`,
+      `Attribute / Race: ${attributeText} / ${raceText}`,
+      extras.length > 0 ? `${statsLine}  ${extras.join('  ')}` : statsLine,
+    ];
+  }
+
+  function getScriptImageRenderInfo() {
+    return {
+      title: cardContext?.name?.trim() || getScriptTabTitle(),
+      metaLines: getCardMetaLines(cardContext, $activeScriptTab?.cardCode ?? 0),
+      effectTitle: $_('editor.desc'),
+      effectText: cardContext?.desc?.trim() || $_('editor.script_effect_empty'),
+    };
   }
 
   async function loadCardContext() {
@@ -515,6 +581,42 @@
     });
   }
 
+  async function handleExportImage() {
+    const tab = getActiveScriptTab();
+    if (!tab || !monacoModule || isExportingImage) return;
+
+    isExportingImage = true;
+    try {
+      await exportScriptImageFlow({
+        tab,
+        monacoModule,
+        isExporting: false,
+        renderInfo: getScriptImageRenderInfo(),
+        t: (key, options) => $_(key, options as never),
+      });
+    } finally {
+      isExportingImage = false;
+    }
+  }
+
+  async function handleCopyImage() {
+    const tab = getActiveScriptTab();
+    if (!tab || !monacoModule || isCopyingImage) return;
+
+    isCopyingImage = true;
+    try {
+      await copyScriptImageFlow({
+        tab,
+        monacoModule,
+        isCopying: false,
+        renderInfo: getScriptImageRenderInfo(),
+        t: (key, options) => $_(key, options as never),
+      });
+    } finally {
+      isCopyingImage = false;
+    }
+  }
+
   onMount(async () => {
     if (!editorHost) return;
 
@@ -633,12 +735,20 @@
       reloadLabel={$_('editor.script_reload')}
       reloadingLabel={$_('editor.script_reloading')}
       openExternalLabel={$_('editor.script_open_external')}
+      exportImageLabel={$_('editor.script_export_image')}
+      copyImageLabel={$_('editor.script_copy_image')}
       saveLabel={$_('editor.script_save')}
+      isExportingImage={isExportingImage}
+      isCopyingImage={isCopyingImage}
+      exportingImageLabel={$_('editor.script_exporting_image')}
+      copyingImageLabel={$_('editor.script_copying_image')}
       savingLabel={$_('editor.script_saving')}
       onGenerate={handleGenerateScript}
       onCancelGenerate={handleCancelGenerateScript}
       onReload={handleReload}
       onOpenExternal={handleOpenExternal}
+      onExportImage={handleExportImage}
+      onCopyImage={handleCopyImage}
       onSave={handleSave}
     />
 

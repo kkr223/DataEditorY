@@ -1,5 +1,6 @@
 import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
 import type { AgentStage } from '$lib/utils/ai';
+import type { ScriptMonacoModule } from '$lib/features/script-editor/runtime';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { getCardByIdInTab, modifyCardsInTab } from '$lib/stores/db';
 import { reloadActiveScriptTab, saveActiveScriptTab } from '$lib/stores/scriptEditor.svelte';
@@ -7,6 +8,7 @@ import { showToast } from '$lib/stores/toast.svelte';
 import { updateVisibleCards } from '$lib/stores/editor.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { normalizeCardStrings } from '$lib/domain/card/draft';
+import { buildScriptImagePath } from '$lib/domain/script/workspace';
 import {
   ensureAiReady,
   ensureScriptOverwriteConfirmed,
@@ -14,6 +16,7 @@ import {
   isAbortError,
 } from '$lib/services/scriptGeneration';
 import { openScriptExternally } from '$lib/services/cardScriptService';
+import { writeBinaryFile } from '$lib/infrastructure/tauri/commands';
 import { normalizeScriptCardContext } from '$lib/features/script-editor/controller';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -277,6 +280,121 @@ export async function openScriptExternallyFlow(input: {
       },
     });
     showToast(input.t('editor.script_open_failed'), 'error');
+    return false;
+  }
+}
+
+async function blobToUint8Array(blob: Blob) {
+  return Array.from(new Uint8Array(await blob.arrayBuffer()));
+}
+
+async function writeImageBlobToClipboard(blob: Blob) {
+  if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
+    throw new Error('Image clipboard API is not available');
+  }
+
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      'image/png': blob,
+    }),
+  ]);
+}
+
+export type ScriptImageRenderInfo = {
+  title: string;
+  metaLines: string[];
+  effectTitle: string;
+  effectText: string;
+};
+
+async function buildScriptImageBlob(input: {
+  tab: ScriptWorkspaceState;
+  monacoModule: ScriptMonacoModule;
+  renderInfo: ScriptImageRenderInfo;
+}) {
+  return input.monacoModule.renderLuaCodeImageBlob(input.tab.content, {
+    title: input.renderInfo.title,
+    metaLines: input.renderInfo.metaLines,
+    effectTitle: input.renderInfo.effectTitle,
+    effectText: input.renderInfo.effectText,
+  });
+}
+
+export async function exportScriptImageFlow(input: {
+  tab: ScriptWorkspaceState | null;
+  monacoModule: ScriptMonacoModule | null;
+  isExporting: boolean;
+  renderInfo: ScriptImageRenderInfo;
+  t: Translate;
+}) {
+  const tab = input.tab;
+  if (!tab || !input.monacoModule || input.isExporting) {
+    return false;
+  }
+
+  const outputPath = buildScriptImagePath(tab.cdbPath, tab.cardCode);
+  if (!outputPath) {
+    showToast(input.t('editor.script_export_image_failed'), 'error');
+    return false;
+  }
+
+  try {
+    const blob = await buildScriptImageBlob({
+      tab,
+      monacoModule: input.monacoModule,
+      renderInfo: input.renderInfo,
+    });
+    await writeBinaryFile(outputPath, await blobToUint8Array(blob));
+    showToast(input.t('editor.script_export_image_success', { values: { path: outputPath } }), 'success');
+    return true;
+  } catch (error) {
+    console.error('Failed to export script image', error);
+    void writeErrorLog({
+      source: 'script.export-image',
+      error,
+      extra: {
+        scriptPath: tab.scriptPath,
+        outputPath,
+        cardCode: tab.cardCode,
+      },
+    });
+    showToast(input.t('editor.script_export_image_failed'), 'error');
+    return false;
+  }
+}
+
+export async function copyScriptImageFlow(input: {
+  tab: ScriptWorkspaceState | null;
+  monacoModule: ScriptMonacoModule | null;
+  isCopying: boolean;
+  renderInfo: ScriptImageRenderInfo;
+  t: Translate;
+}) {
+  const tab = input.tab;
+  if (!tab || !input.monacoModule || input.isCopying) {
+    return false;
+  }
+
+  try {
+    const blob = await buildScriptImageBlob({
+      tab,
+      monacoModule: input.monacoModule,
+      renderInfo: input.renderInfo,
+    });
+    await writeImageBlobToClipboard(blob);
+    showToast(input.t('editor.script_copy_image_success'), 'success');
+    return true;
+  } catch (error) {
+    console.error('Failed to copy script image', error);
+    void writeErrorLog({
+      source: 'script.copy-image',
+      error,
+      extra: {
+        scriptPath: tab.scriptPath,
+        cardCode: tab.cardCode,
+      },
+    });
+    showToast(input.t('editor.script_copy_image_failed'), 'error');
     return false;
   }
 }
