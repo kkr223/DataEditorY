@@ -1,7 +1,7 @@
 import type { CardDataEntry } from '$lib/types';
 import type { AgentStage } from '$lib/utils/ai';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { deleteCard, getCardById, modifyCard } from '$lib/stores/db';
+import { deleteCard, getCardById, getCardsByIds, modifyCard } from '$lib/stores/db';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import { setSingleSelectedCard, updateVisibleCards } from '$lib/stores/editor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
@@ -379,8 +379,7 @@ export async function saveParsedCardsIndividuallyFlow(input: {
     return false;
   }
 
-  const existingCards = await Promise.all(validCards.map((card) => getCardById(Number(card.code))));
-  const conflicts = existingCards.filter((card) => card !== undefined);
+  const conflicts = await getCardsByIds(validCards.map((card) => Number(card.code)));
   if (conflicts.length > 0) {
     const shouldOverwrite = await tauriBridge.ask(
       input.t('editor.ai_parse_multi_overwrite_confirm', {

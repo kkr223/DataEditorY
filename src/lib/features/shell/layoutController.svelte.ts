@@ -4,7 +4,7 @@ import { tauriBridge } from '$lib/infrastructure/tauri';
 import { consumePendingOpenCdbPaths } from '$lib/infrastructure/tauri/commands';
 import {
   deleteCards,
-  getCardById,
+  getCardsByIds,
   getLastUndoLabel,
   hasUndoableAction,
   isDbLoaded,
@@ -200,8 +200,7 @@ export function createShellLayoutController() {
     }
 
     const clipboardCards = getCardClipboard();
-    const existingCards = await Promise.all(clipboardCards.map((card) => getCardById(card.code)));
-    const conflictingCards = existingCards.filter((card) => card !== undefined);
+    const conflictingCards = await getCardsByIds(clipboardCards.map((card) => card.code));
     if (conflictingCards.length > 0) {
       const shouldOverwrite = await tauriBridge.ask(
         `Overwrite ${conflictingCards.length} existing cards?`,

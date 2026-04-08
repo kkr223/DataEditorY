@@ -462,6 +462,31 @@ export async function getCardByIdInTab(tabId: string, cardId: number): Promise<C
   }
 }
 
+export async function getCardsByIdsInTab(tabId: string, cardIds: number[]): Promise<CardDataEntry[]> {
+  const safeIds = [...new Set(cardIds.filter((cardId) => Number.isInteger(cardId) && cardId > 0))];
+  if (safeIds.length === 0) {
+    return [];
+  }
+
+  try {
+    return await invokeCommand<CardDataEntry[]>('get_cards_by_ids', {
+      request: {
+        tabId,
+        cardIds: safeIds,
+      },
+    });
+  } catch (err) {
+    console.error('Failed to fetch cards by ids:', err);
+    return [];
+  }
+}
+
+export async function getCardsByIds(cardIds: number[]): Promise<CardDataEntry[]> {
+  const tab = get(activeTab);
+  if (!tab) return [];
+  return getCardsByIdsInTab(tab.id, cardIds);
+}
+
 /** Modify (upsert) a card in the active tab's working CDB */
 export async function modifyCard(card: CardDataEntry): Promise<boolean> {
   return modifyCards([card]);
@@ -472,7 +497,10 @@ export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): P
   if (!tab) return false;
 
   try {
-    const previousCards = await Promise.all(cards.map((card) => getCardByIdInTab(tab.id, card.code)));
+    const previousCardsByCode = new Map(
+      (await getCardsByIdsInTab(tab.id, cards.map((card) => card.code)))
+        .map((card) => [card.code, card] as const),
+    );
     await invokeCommand('modify_cards', {
       request: {
         tabId: tab.id,
@@ -483,7 +511,7 @@ export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): P
       kind: 'modify',
       label: cards.length === 1 ? `Edit card ${cards[0].code}` : `Modify ${cards.length} cards`,
       affectedIds: cards.map((card) => card.code),
-      previousCards: previousCards.map((card) => card ?? null),
+      previousCards: cards.map((card) => previousCardsByCode.get(card.code) ?? null),
     });
     syncCachedCardsInTab(tab.id, cards);
     markTabDirty(tab.id, true);
@@ -543,9 +571,7 @@ export async function deleteCards(cardIds: number[]): Promise<boolean> {
   if (!tab) return false;
 
   try {
-    const deletedCards = (await Promise.all(cardIds.map((cardId) => getCardByIdInTab(tab.id, cardId))))
-      .filter((card): card is CardDataEntry => card !== undefined)
-      .map((card) => cloneCard(card));
+    const deletedCards = (await getCardsByIdsInTab(tab.id, cardIds)).map((card) => cloneCard(card));
 
     await invokeCommand('delete_cards', {
       request: {

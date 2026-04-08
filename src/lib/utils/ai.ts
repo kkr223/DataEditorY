@@ -66,6 +66,7 @@ export type AiAppContext = {
   listOpenDatabases: () => OpenDbMeta[];
   getActiveDatabaseId: () => string | null;
   getCardByIdInTab: (tabId: string, cardId: number) => Promise<CardDataEntry | undefined>;
+  getCardsByIdsInTab: (tabId: string, cardIds: number[]) => Promise<CardDataEntry[]>;
   queryCardsRaw: (tabId: string, queryClause: string, params?: Record<string, string | number>) => Promise<CardDataEntry[]>;
   getSelectedCardsInActiveTab: () => CardDataEntry[];
   getVisibleCardsInActiveTab: () => CardDataEntry[];
@@ -761,7 +762,7 @@ async function queryCardsByIds(context: AiAppContext, tabId: string, cardIds: nu
     return [];
   }
 
-  return context.queryCardsRaw(tabId, `datas.id IN (${safeIds.join(',')}) ORDER BY datas.id`);
+  return context.getCardsByIdsInTab(tabId, safeIds);
 }
 
 async function collectBatchTargetCards(context: AiAppContext, target: BatchTarget) {

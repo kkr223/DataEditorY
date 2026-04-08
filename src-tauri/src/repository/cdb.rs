@@ -310,6 +310,40 @@ pub(crate) fn get_card(conn: &Connection, card_id: u32) -> Result<Option<CardDto
     card_from_row(row).map(Some).map_err(|err| err.to_string())
 }
 
+pub(crate) fn get_cards_by_ids(conn: &Connection, card_ids: &[u32]) -> Result<Vec<CardDto>, String> {
+    let unique_ids: Vec<u32> = card_ids
+        .iter()
+        .copied()
+        .filter(|card_id| *card_id > 0)
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    if unique_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let placeholders = (1..=unique_ids.len())
+        .map(|index| format!("?{index}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "{SELECT_CARD_COLUMNS} WHERE datas.id IN ({placeholders}) ORDER BY datas.id"
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
+    let mut rows = stmt
+        .query(rusqlite::params_from_iter(
+            unique_ids.iter().copied().map(i64::from),
+        ))
+        .map_err(|err| err.to_string())?;
+    let mut cards = Vec::new();
+
+    while let Some(row) = rows.next().map_err(|err| err.to_string())? {
+        cards.push(card_from_row(row).map_err(|err| err.to_string())?);
+    }
+
+    Ok(cards)
+}
+
 fn write_card(
     stmt_datas: &mut Statement<'_>,
     stmt_texts: &mut Statement<'_>,

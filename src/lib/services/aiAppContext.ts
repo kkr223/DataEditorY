@@ -3,6 +3,7 @@ import {
   activeTab,
   deleteCardsWithSnapshotInTab,
   getCardByIdInTab,
+  getCardsByIdsInTab,
   modifyCardsWithSnapshotInTab,
   queryCardsRaw,
   tabs,
@@ -44,6 +45,7 @@ export function createAiAppContext(): AiAppContext {
       return get(activeTab)?.id ?? null;
     },
     getCardByIdInTab,
+    getCardsByIdsInTab,
     queryCardsRaw,
     getSelectedCardsInActiveTab() {
       return getSelectedCards();

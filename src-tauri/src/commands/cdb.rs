@@ -4,9 +4,10 @@ use crate::{
     models::cdb::{
         AnalyzeCdbMergeRequest, AnalyzeCdbMergeResponse, CardDto,
         CollectMergeSourcesFromFolderRequest, CopyCardAssetsRequest, CreateCdbFromCardsRequest,
-        DeleteCardsRequest, ExecuteCdbMergeRequest, ExecuteCdbMergeResponse, MergeSourceItemDto,
-        ModifyCardsRequest, OpenCdbTabResponse, QueryCardsRequest, SearchCardsPageRequest,
-        SearchCardsPageResponse, UndoModifyOperationRequest,
+        DeleteCardsRequest, ExecuteCdbMergeRequest, ExecuteCdbMergeResponse,
+        GetCardsByIdsRequest, MergeSourceItemDto, ModifyCardsRequest, OpenCdbTabResponse,
+        QueryCardsRequest, SearchCardsPageRequest, SearchCardsPageResponse,
+        UndoModifyOperationRequest,
     },
     services::{
         assets as cdb_assets_service, cdb_cards as cdb_cards_service,
@@ -68,6 +69,14 @@ pub fn get_card_by_id(
     card_id: u32,
 ) -> Result<Option<CardDto>, String> {
     cdb_cards_service::get_card_by_id(state.inner(), tab_id, card_id)
+}
+
+#[tauri::command]
+pub fn get_cards_by_ids(
+    state: State<'_, OpenCdbSessions>,
+    request: GetCardsByIdsRequest,
+) -> Result<Vec<CardDto>, String> {
+    cdb_cards_service::get_cards_by_ids(state.inner(), request)
 }
 
 #[tauri::command]

@@ -559,6 +559,7 @@ pub fn run() {
             commands::cdb::search_cards_page,
             commands::cdb::query_cards_raw,
             commands::cdb::get_card_by_id,
+            commands::cdb::get_cards_by_ids,
             commands::cdb::modify_cards,
             commands::cdb::delete_cards,
             commands::cdb::create_cdb_from_cards,

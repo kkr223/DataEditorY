@@ -77,6 +77,14 @@ pub struct DeleteCardsRequest {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GetCardsByIdsRequest {
+    pub tab_id: String,
+    #[serde(default)]
+    pub card_ids: Vec<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateCdbFromCardsRequest {
     pub output_path: String,
     pub cards: Vec<CardDto>,
