@@ -1,7 +1,12 @@
-import { cdbToYugiohCard, type YugiohCardData as BaseYugiohCardData } from "cdb2yugiohcard";
 import type { CardDataEntry } from "$lib/types";
+import {
+  convertCardDataToCardImageData,
+  type CardImageBaseData,
+  type CardImageLanguage,
+} from "$lib/utils/cardImageAdapter";
+export type { CardImageLanguage } from "$lib/utils/cardImageAdapter";
 
-export type CardImageFormData = BaseYugiohCardData & {
+export type CardImageFormData = CardImageBaseData & {
   foregroundImage: string;
   foregroundWidth: number;
   foregroundHeight: number;
@@ -21,7 +26,6 @@ export type CardImageFormData = BaseYugiohCardData & {
   nameShadowGradientColor1: string;
   nameShadowGradientColor2: string;
 };
-export type CardImageLanguage = BaseYugiohCardData["language"];
 
 export type CardImageConfigDocument = {
   kind: "dataeditory-card-image-config";
@@ -200,7 +204,7 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
   return {
     ...DEFAULT_CARD_IMAGE_FORM_DATA,
     ...data,
-    language: String(data.language ?? DEFAULT_CARD_IMAGE_FORM_DATA.language),
+    language: String(data.language ?? DEFAULT_CARD_IMAGE_FORM_DATA.language) as CardImageLanguage,
     font: String(data.font ?? DEFAULT_CARD_IMAGE_FORM_DATA.font),
     name: String(data.name ?? DEFAULT_CARD_IMAGE_FORM_DATA.name),
     color: String(data.color ?? DEFAULT_CARD_IMAGE_FORM_DATA.color),
@@ -261,7 +265,7 @@ export function getCardImageLocaleDefaults(
   card: CardDataEntry,
   language: CardImageLanguage = "sc",
 ): CardImageFormData {
-  return normalizeCardImageFormData(cdbToYugiohCard(card as never, {
+  return normalizeCardImageFormData(convertCardDataToCardImageData(card, {
     language,
     image: "",
     package: "",

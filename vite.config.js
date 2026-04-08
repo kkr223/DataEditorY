@@ -93,10 +93,6 @@ export default defineConfig(async () => ({
             return "vendor-yugioh-card";
           }
 
-          if (normalizedId.includes("/node_modules/cdb2yugiohcard/")) {
-            return "vendor-card-image";
-          }
-
           if (normalizedId.includes("/node_modules/@tauri-apps/")) {
             return "vendor-tauri";
           }

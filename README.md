@@ -222,7 +222,6 @@ src-tauri/          # Tauri/Rust 后端
 - Vite / SvelteKit
 - Rust / SQLite
 - `rusqlite`
-- `cdb2yugiohcard`
 - `yugioh-card`
 
-其中 `cdb2yugiohcard` 与 `yugioh-card` 主要用于制卡器相关的数据转换与卡图渲染。
+其中 `yugioh-card` 主要用于制卡器相关的卡图渲染。
