@@ -422,23 +422,13 @@ export async function undoLastOperation(): Promise<boolean> {
       const cardsToRestore = operation.previousCards.filter((card): card is CardDataEntry => card !== null);
       const deletedIds = operation.affectedIds.filter((cardId, index) => operation.previousCards[index] === null);
 
-      if (cardsToRestore.length > 0) {
-        await invokeCommand('modify_cards', {
-          request: {
-            tabId: tab.id,
-            cards: cardsToRestore.map((card) => cloneCard(card)),
-          },
-        });
-      }
-
-      if (deletedIds.length > 0) {
-        await invokeCommand('delete_cards', {
-          request: {
-            tabId: tab.id,
-            cardIds: deletedIds,
-          },
-        });
-      }
+      await invokeCommand('undo_modify_operation', {
+        request: {
+          tabId: tab.id,
+          cardsToRestore: cardsToRestore.map((card) => cloneCard(card)),
+          idsToDelete: deletedIds,
+        },
+      });
     } else if (operation.deletedCards.length > 0) {
       await invokeCommand('modify_cards', {
         request: {

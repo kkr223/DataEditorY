@@ -50,6 +50,9 @@
   const isDragging = $derived(draggedIndex >= 0);
 
   /* ── Handle drag start from the whole row ── */
+  let dragPointerId = -1;
+  let dragPointerTarget: HTMLElement | null = null;
+
   function handleItemPointerDown(event: PointerEvent, index: number) {
     if (event.button !== 0) return;
     // Don't start drag when clicking interactive children
@@ -61,6 +64,12 @@
     draggedIndex = index;
     dropTargetIndex = index;
     pointerY = event.clientY;
+
+    // Capture the pointer so we get pointerup even if the mouse leaves the window
+    const el = event.currentTarget as HTMLElement;
+    el.setPointerCapture(event.pointerId);
+    dragPointerId = event.pointerId;
+    dragPointerTarget = el;
   }
 
   /* ── Track pointer during drag ── */
@@ -105,13 +114,33 @@
       }
     }
 
+    releaseDragCapture();
     draggedIndex = -1;
     dropTargetIndex = -1;
   }
 
   function handleSortCancel() {
+    releaseDragCapture();
     draggedIndex = -1;
     dropTargetIndex = -1;
+  }
+
+  function handleKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && isDragging) {
+      event.preventDefault();
+      event.stopPropagation();
+      handleSortCancel();
+    }
+  }
+
+  function releaseDragCapture() {
+    if (dragPointerTarget && dragPointerId >= 0) {
+      try {
+        dragPointerTarget.releasePointerCapture(dragPointerId);
+      } catch { /* already released */ }
+    }
+    dragPointerId = -1;
+    dragPointerTarget = null;
   }
 
   /* ── Should we render a drop indicator line BEFORE index i? ── */
@@ -129,6 +158,8 @@
 <svelte:window
   onpointermove={handleWindowPointerMove}
   onpointerup={handleWindowPointerUp}
+  onpointercancel={handleSortCancel}
+  onkeydown={handleKeyDown}
   onblur={handleSortCancel}
 />
 

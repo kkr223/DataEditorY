@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import type { CardDataEntry } from '$lib/types';
-import { cloneEditableCard, createCardSnapshot, createEmptyCard } from '$lib/domain/card/draft';
+import { areCardsEquivalent, cloneEditableCard, createEmptyCard } from '$lib/domain/card/draft';
 import { normalizeGeneratedScript } from '$lib/domain/script/workspace';
 import {
   ATTRIBUTE_MAP,
@@ -652,18 +652,6 @@ async function pickCardFromDb(context: AiAppContext, code: number, dbPath?: stri
     }
   }
 
-  if (!dbPath) {
-    for (const tab of context.listOpenDatabases()) {
-      const card = await context.getCardByIdInTab(tab.id, code);
-      if (card) {
-        return {
-          db: { name: tab.name, path: tab.path },
-          card: serializeCardForAi(card),
-        };
-      }
-    }
-  }
-
   return null;
 }
 
@@ -940,7 +928,7 @@ async function applyBatchCardEdit(context: AiAppContext, args: BatchEditArgs) {
   const changedPairs = cards
     .map((card) => {
       const nextCard = applyBatchOperationToCard(card, operation);
-      return createCardSnapshot(nextCard) === createCardSnapshot(card)
+      return areCardsEquivalent(nextCard, card)
         ? null
         : {
             previous: cloneEditableCard(card),

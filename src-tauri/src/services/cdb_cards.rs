@@ -4,6 +4,7 @@ use crate::{
     models::cdb::{
         CardDto, CreateCdbFromCardsRequest, DeleteCardsRequest, ModifyCardsRequest,
         QueryCardsRequest, SearchCardsPageRequest, SearchCardsPageResponse,
+        UndoModifyOperationRequest,
     },
     repository::cdb as cdb_repository,
     session::cdb::{with_session_meta, OpenCdbSessions},
@@ -17,7 +18,10 @@ pub fn search_cards_page(
     request: SearchCardsPageRequest,
 ) -> Result<SearchCardsPageResponse, String> {
     with_session_meta(sessions, &request.tab_id, |session| {
-        let conn = cdb_repository::open_connection(&session.working_path)?;
+        let conn = session
+            .conn
+            .lock()
+            .map_err(|_| "Failed to acquire connection lock".to_string())?;
         let page = request.page.unwrap_or(1).max(1);
         let page_size = request
             .page_size
@@ -47,7 +51,10 @@ pub fn query_cards_raw(
     request: QueryCardsRequest,
 ) -> Result<Vec<CardDto>, String> {
     with_session_meta(sessions, &request.tab_id, |session| {
-        let conn = cdb_repository::open_connection(&session.working_path)?;
+        let conn = session
+            .conn
+            .lock()
+            .map_err(|_| "Failed to acquire connection lock".to_string())?;
         cdb_repository::query_cards(&conn, &request.query_clause, &request.params)
     })
 }
@@ -58,27 +65,53 @@ pub fn get_card_by_id(
     card_id: u32,
 ) -> Result<Option<CardDto>, String> {
     with_session_meta(sessions, &tab_id, |session| {
-        let conn = cdb_repository::open_connection(&session.working_path)?;
+        let conn = session
+            .conn
+            .lock()
+            .map_err(|_| "Failed to acquire connection lock".to_string())?;
         cdb_repository::get_card(&conn, card_id)
     })
 }
 
 pub fn modify_cards(sessions: &OpenCdbSessions, request: ModifyCardsRequest) -> Result<(), String> {
     with_session_meta(sessions, &request.tab_id, |session| {
-        let mut conn = cdb_repository::open_connection(&session.working_path)?;
+        let mut conn = session
+            .conn
+            .lock()
+            .map_err(|_| "Failed to acquire connection lock".to_string())?;
         cdb_repository::upsert_cards(&mut conn, &request.cards)
     })
 }
 
 pub fn delete_cards(sessions: &OpenCdbSessions, request: DeleteCardsRequest) -> Result<(), String> {
     with_session_meta(sessions, &request.tab_id, |session| {
-        let mut conn = cdb_repository::open_connection(&session.working_path)?;
+        let mut conn = session
+            .conn
+            .lock()
+            .map_err(|_| "Failed to acquire connection lock".to_string())?;
         cdb_repository::delete_cards_by_id(&mut conn, &request.card_ids)
     })
 }
 
 pub fn create_cdb_from_cards(request: CreateCdbFromCardsRequest) -> Result<(), String> {
     cdb_repository::recreate_cdb_with_cards(Path::new(&request.output_path), &request.cards)
+}
+
+pub fn undo_modify_operation(
+    sessions: &OpenCdbSessions,
+    request: UndoModifyOperationRequest,
+) -> Result<(), String> {
+    with_session_meta(sessions, &request.tab_id, |session| {
+        let mut conn = session
+            .conn
+            .lock()
+            .map_err(|_| "Failed to acquire connection lock".to_string())?;
+        cdb_repository::undo_modify_operation(
+            &mut conn,
+            &request.cards_to_restore,
+            &request.ids_to_delete,
+        )
+    })
 }
 
 #[cfg(test)]

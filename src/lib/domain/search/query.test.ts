@@ -16,15 +16,18 @@ describe('search query builder', () => {
     expect(query.whereClause).toContain('texts.name LIKE :name1');
     expect(query.whereClause).toContain('datas.id BETWEEN :idPrefixStart0 AND :idPrefixEnd0');
     expect(query.whereClause).toContain('datas.alias BETWEEN :idPrefixStart0 AND :idPrefixEnd0');
-    expect(query.whereClause).toContain('datas.attribute = 16');
-    expect(query.whereClause).toContain('= 4779');
-    expect(query.whereClause).toContain('datas.type & 32');
+    expect(query.whereClause).toContain('datas.attribute = :attribute');
+    expect(query.whereClause).toContain('= :setcode0');
+    expect(query.whereClause).toContain('datas.type & :typeBit');
     expect(query.params.name0).toBe('%blue%');
     expect(query.params.name1).toBe('%eyes%');
     expect(query.params.idPrefixStart0).toBe(12);
     expect(query.params.idPrefixEnd0).toBe(12);
     expect(query.params.idPrefixStart1).toBe(120);
     expect(query.params.idPrefixEnd1).toBe(129);
+    expect(query.params.attribute).toBe(16);
+    expect(query.params.setcode0).toBe(0x12ab);
+    expect(query.params.typeBit).toBe(0x1);
   });
 
   test('handles prefix-only numeric id filters and setcode filters', () => {
@@ -54,5 +57,6 @@ describe('search query builder', () => {
     });
 
     expect(query.whereClause).toContain('1=0');
+    expect(query.params.atkMin).toBe(1000);
   });
 });

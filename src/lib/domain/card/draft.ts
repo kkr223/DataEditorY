@@ -2,6 +2,27 @@ import type { CardDataEntry, CardDraftState } from '$lib/types';
 
 export const CARD_TEXT_SLOT_COUNT = 16;
 
+type CardSnapshotFields = {
+  code: number;
+  alias: number;
+  name: string;
+  desc: string;
+  strings: string[];
+  setcode: number[];
+  type: number;
+  attack: number;
+  defense: number;
+  level: number;
+  race: number;
+  attribute: number;
+  lscale: number;
+  rscale: number;
+  linkMarker: number;
+  category: number;
+  ot: number;
+  ruleCode: number;
+};
+
 function normalizeRuleCode(value: unknown) {
   const numeric = Number(value ?? 0);
   return Number.isFinite(numeric) ? numeric : 0;
@@ -47,8 +68,8 @@ export function createEmptyCard(): CardDataEntry {
   };
 }
 
-export function createCardSnapshot(card: CardDataEntry) {
-  return JSON.stringify({
+function toCardSnapshotFields(card: CardDataEntry): CardSnapshotFields {
+  return {
     code: card.code,
     alias: card.alias,
     name: card.name,
@@ -67,7 +88,43 @@ export function createCardSnapshot(card: CardDataEntry) {
     category: card.category,
     ot: card.ot,
     ruleCode: card.ruleCode,
-  });
+  };
+}
+
+function arraysEqual<T>(left: T[], right: T[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((value, index) => value === right[index]);
+}
+
+export function createCardSnapshot(card: CardDataEntry) {
+  return JSON.stringify(toCardSnapshotFields(card));
+}
+
+export function areCardsEquivalent(left: CardDataEntry, right: CardDataEntry) {
+  const leftFields = toCardSnapshotFields(left);
+  const rightFields = toCardSnapshotFields(right);
+
+  return leftFields.code === rightFields.code
+    && leftFields.alias === rightFields.alias
+    && leftFields.name === rightFields.name
+    && leftFields.desc === rightFields.desc
+    && arraysEqual(leftFields.strings, rightFields.strings)
+    && arraysEqual(leftFields.setcode, rightFields.setcode)
+    && leftFields.type === rightFields.type
+    && leftFields.attack === rightFields.attack
+    && leftFields.defense === rightFields.defense
+    && leftFields.level === rightFields.level
+    && leftFields.race === rightFields.race
+    && leftFields.attribute === rightFields.attribute
+    && leftFields.lscale === rightFields.lscale
+    && leftFields.rscale === rightFields.rscale
+    && leftFields.linkMarker === rightFields.linkMarker
+    && leftFields.category === rightFields.category
+    && leftFields.ot === rightFields.ot
+    && leftFields.ruleCode === rightFields.ruleCode;
 }
 
 export function createCardDraftState(card: CardDataEntry = createEmptyCard(), originalCode: number | null = null): CardDraftState {

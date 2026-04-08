@@ -6,7 +6,7 @@ use crate::{
         CollectMergeSourcesFromFolderRequest, CopyCardAssetsRequest, CreateCdbFromCardsRequest,
         DeleteCardsRequest, ExecuteCdbMergeRequest, ExecuteCdbMergeResponse, MergeSourceItemDto,
         ModifyCardsRequest, OpenCdbTabResponse, QueryCardsRequest, SearchCardsPageRequest,
-        SearchCardsPageResponse,
+        SearchCardsPageResponse, UndoModifyOperationRequest,
     },
     services::{
         assets as cdb_assets_service, cdb_cards as cdb_cards_service,
@@ -119,4 +119,12 @@ pub fn execute_cdb_merge(
     request: ExecuteCdbMergeRequest,
 ) -> Result<ExecuteCdbMergeResponse, String> {
     cdb_merge_service::execute_cdb_merge(request)
+}
+
+#[tauri::command]
+pub fn undo_modify_operation(
+    state: State<'_, OpenCdbSessions>,
+    request: UndoModifyOperationRequest,
+) -> Result<(), String> {
+    cdb_cards_service::undo_modify_operation(state.inner(), request)
 }

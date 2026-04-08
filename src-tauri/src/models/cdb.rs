@@ -159,3 +159,13 @@ pub struct CopyCardAssetsRequest {
     #[serde(default)]
     pub include_scripts: bool,
 }
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UndoModifyOperationRequest {
+    pub tab_id: String,
+    #[serde(default)]
+    pub cards_to_restore: Vec<CardDto>,
+    #[serde(default)]
+    pub ids_to_delete: Vec<u32>,
+}

@@ -84,16 +84,23 @@ fn ensure_parent_dir(path: &Path) -> Result<(), String> {
 
 pub(crate) fn open_connection(path: &Path) -> Result<Connection, String> {
     let conn = Connection::open(path).map_err(|err| err.to_string())?;
+    let mut regex_cache: HashMap<String, Regex> = HashMap::new();
     conn.create_scalar_function(
         "regexp",
         2,
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        |ctx| {
+        move |ctx| {
             let pattern = ctx.get::<String>(0)?;
             let input = ctx.get::<String>(1)?;
-            let regex = Regex::new(&pattern)
-                .map_err(|err| rusqlite::Error::UserFunctionError(Box::new(err)))?;
-            Ok(regex.is_match(&input))
+            if !regex_cache.contains_key(&pattern) {
+                let compiled = Regex::new(&pattern)
+                    .map_err(|err| rusqlite::Error::UserFunctionError(Box::new(err)))?;
+                if regex_cache.len() >= 64 {
+                    regex_cache.clear();
+                }
+                regex_cache.insert(pattern.clone(), compiled);
+            }
+            Ok(regex_cache[&pattern].is_match(&input))
         },
     )
     .map_err(|err| err.to_string())?;
@@ -424,6 +431,37 @@ pub(crate) fn delete_cards_by_id(conn: &mut Connection, card_ids: &[u32]) -> Res
             .map_err(|err| err.to_string())?;
         tx.execute("DELETE FROM texts WHERE id = ?", [i64::from(*card_id)])
             .map_err(|err| err.to_string())?;
+    }
+    tx.commit().map_err(|err| err.to_string())
+}
+
+/// Atomically restore cards and delete cards in a single transaction.
+/// Used by the undo system to guarantee that either both operations succeed
+/// or neither does.
+pub(crate) fn undo_modify_operation(
+    conn: &mut Connection,
+    cards_to_restore: &[CardDto],
+    ids_to_delete: &[u32],
+) -> Result<(), String> {
+    let tx = conn.transaction().map_err(|err| err.to_string())?;
+    {
+        if !cards_to_restore.is_empty() {
+            let mut stmt_datas = tx
+                .prepare(INSERT_DATAS_STMT)
+                .map_err(|err| err.to_string())?;
+            let mut stmt_texts = tx
+                .prepare(INSERT_TEXTS_STMT)
+                .map_err(|err| err.to_string())?;
+            for card in cards_to_restore {
+                write_card(&mut stmt_datas, &mut stmt_texts, card)?;
+            }
+        }
+        for card_id in ids_to_delete {
+            tx.execute("DELETE FROM datas WHERE id = ?", [i64::from(*card_id)])
+                .map_err(|err| err.to_string())?;
+            tx.execute("DELETE FROM texts WHERE id = ?", [i64::from(*card_id)])
+                .map_err(|err| err.to_string())?;
+        }
     }
     tx.commit().map_err(|err| err.to_string())
 }
