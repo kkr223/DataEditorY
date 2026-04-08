@@ -28,6 +28,10 @@ describe('search query builder', () => {
     expect(query.params.attribute).toBe(16);
     expect(query.params.setcode0).toBe(0x12ab);
     expect(query.params.typeBit).toBe(0x1);
+    expect(query.whereClause).toContain('(datas.type & :rule0) = :rule0');
+    expect(query.whereClause).toContain('((datas.level & 255) >= :rule1)');
+    expect(query.params.rule0).toBe(0x20);
+    expect(query.params.rule1).toBe(8);
   });
 
   test('handles prefix-only numeric id filters and setcode filters', () => {

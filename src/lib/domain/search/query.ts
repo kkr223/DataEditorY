@@ -197,7 +197,8 @@ export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
   if (filters.rule) {
     const parsedRule = parseRuleExpression(filters.rule);
     if (parsedRule) {
-      conditions.push(parsedRule);
+      conditions.push(parsedRule.clause);
+      Object.assign(params, parsedRule.params);
     }
   }
 
