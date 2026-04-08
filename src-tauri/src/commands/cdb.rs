@@ -2,9 +2,12 @@ use tauri::{AppHandle, State};
 
 use crate::{
     models::cdb::{
-        AnalyzeCdbMergeRequest, AnalyzeCdbMergeResponse, CardDto, CopyCardAssetsRequest,
-        CreateCdbFromCardsRequest, DeleteCardsRequest, ExecuteCdbMergeRequest, ModifyCardsRequest,
-        OpenCdbTabResponse, QueryCardsRequest, SearchCardsPageRequest, SearchCardsPageResponse,
+        AnalyzeCdbMergeRequest, AnalyzeCdbMergeResponse, CardDto,
+        CollectMergeSourcesFromFolderRequest, CopyCardAssetsRequest, CreateCdbFromCardsRequest,
+        DeleteCardsRequest, ExecuteCdbMergeRequest, ExecuteCdbMergeResponse,
+        GetCardsByIdsRequest, MergeSourceItemDto, ModifyCardsRequest, OpenCdbTabResponse,
+        QueryCardsRequest, SearchCardsPageRequest, SearchCardsPageResponse,
+        UndoModifyOperationRequest,
     },
     services::{
         assets as cdb_assets_service, cdb_cards as cdb_cards_service,
@@ -69,6 +72,14 @@ pub fn get_card_by_id(
 }
 
 #[tauri::command]
+pub fn get_cards_by_ids(
+    state: State<'_, OpenCdbSessions>,
+    request: GetCardsByIdsRequest,
+) -> Result<Vec<CardDto>, String> {
+    cdb_cards_service::get_cards_by_ids(state.inner(), request)
+}
+
+#[tauri::command]
 pub fn modify_cards(
     state: State<'_, OpenCdbSessions>,
     request: ModifyCardsRequest,
@@ -98,10 +109,31 @@ pub fn copy_card_assets(request: CopyCardAssetsRequest) -> Result<(), String> {
 pub fn analyze_cdb_merge(
     request: AnalyzeCdbMergeRequest,
 ) -> Result<AnalyzeCdbMergeResponse, String> {
-    cdb_merge_service::analyze_cdb_merge_paths(&request.a_path, &request.b_path)
+    cdb_merge_service::analyze_cdb_merge_paths(
+        &request.source_paths,
+        request.include_images,
+        request.include_scripts,
+    )
 }
 
 #[tauri::command]
-pub fn execute_cdb_merge(request: ExecuteCdbMergeRequest) -> Result<(), String> {
+pub fn collect_merge_sources_from_folder(
+    request: CollectMergeSourcesFromFolderRequest,
+) -> Result<Vec<MergeSourceItemDto>, String> {
+    cdb_merge_service::collect_merge_sources_from_folder(&request.directory_path)
+}
+
+#[tauri::command]
+pub fn execute_cdb_merge(
+    request: ExecuteCdbMergeRequest,
+) -> Result<ExecuteCdbMergeResponse, String> {
     cdb_merge_service::execute_cdb_merge(request)
+}
+
+#[tauri::command]
+pub fn undo_modify_operation(
+    state: State<'_, OpenCdbSessions>,
+    request: UndoModifyOperationRequest,
+) -> Result<(), String> {
+    cdb_cards_service::undo_modify_operation(state.inner(), request)
 }

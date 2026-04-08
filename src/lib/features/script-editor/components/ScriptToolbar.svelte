@@ -14,12 +14,16 @@
   export let reloadLabel = '';
   export let reloadingLabel = '';
   export let openExternalLabel = '';
+  export let imageActionLabel = '';
   export let saveLabel = '';
+  export let isSharingImage = false;
+  export let sharingImageLabel = '';
   export let savingLabel = '';
   export let onGenerate: () => void | Promise<void> = () => {};
   export let onCancelGenerate: () => void = () => {};
   export let onReload: () => void | Promise<void> = () => {};
   export let onOpenExternal: () => void | Promise<void> = () => {};
+  export let onShareImage: () => void | Promise<void> = () => {};
   export let onSave: () => void | Promise<void> = () => {};
 </script>
 
@@ -48,6 +52,9 @@
     </button>
     <button class="btn-secondary" type="button" onclick={onOpenExternal}>
       {openExternalLabel}
+    </button>
+    <button class="btn-secondary" type="button" onclick={onShareImage} disabled={isSharingImage}>
+      {isSharingImage ? sharingImageLabel : imageActionLabel}
     </button>
     <button class="btn-primary" type="button" onclick={onSave} disabled={isSaving}>
       {isSaving ? savingLabel : saveLabel}

@@ -77,6 +77,14 @@ pub struct DeleteCardsRequest {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GetCardsByIdsRequest {
+    pub tab_id: String,
+    #[serde(default)]
+    pub card_ids: Vec<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateCdbFromCardsRequest {
     pub output_path: String,
     pub cards: Vec<CardDto>,
@@ -84,43 +92,64 @@ pub struct CreateCdbFromCardsRequest {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MergeConflictDto {
-    pub code: u32,
-    pub a_card: CardDto,
-    pub b_card: CardDto,
-    pub has_card_conflict: bool,
-    pub has_image_conflict: bool,
-    pub has_field_image_conflict: bool,
-    pub has_script_conflict: bool,
+pub struct MergeSourceItemDto {
+    pub path: String,
+    pub name: String,
+    pub project_dir: String,
+    pub card_total: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeSourcePlanDto {
+    pub path: String,
+    pub name: String,
+    pub card_total: u32,
+    pub winning_card_count: u32,
+    pub winning_main_image_count: u32,
+    pub winning_field_image_count: u32,
+    pub winning_script_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalyzeCdbMergeResponse {
-    pub a_name: String,
-    pub b_name: String,
-    pub a_total: u32,
-    pub b_total: u32,
+    pub source_count: u32,
     pub merged_total: u32,
-    pub conflicts: Vec<MergeConflictDto>,
+    pub duplicate_card_total: u32,
+    pub main_image_total: u32,
+    pub field_image_total: u32,
+    pub script_total: u32,
+    pub sources: Vec<MergeSourcePlanDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecuteCdbMergeResponse {
+    pub output_path: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectMergeSourcesFromFolderRequest {
+    pub directory_path: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalyzeCdbMergeRequest {
-    pub a_path: String,
-    pub b_path: String,
+    pub source_paths: Vec<String>,
+    #[serde(default)]
+    pub include_images: bool,
+    #[serde(default)]
+    pub include_scripts: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecuteCdbMergeRequest {
-    pub a_path: String,
-    pub b_path: String,
-    pub output_path: String,
-    pub conflict_mode: String,
-    #[serde(default)]
-    pub manual_choices: HashMap<u32, String>,
+    pub source_paths: Vec<String>,
+    pub output_dir: String,
     #[serde(default)]
     pub include_images: bool,
     #[serde(default)]
@@ -137,4 +166,14 @@ pub struct CopyCardAssetsRequest {
     pub include_images: bool,
     #[serde(default)]
     pub include_scripts: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UndoModifyOperationRequest {
+    pub tab_id: String,
+    #[serde(default)]
+    pub cards_to_restore: Vec<CardDto>,
+    #[serde(default)]
+    pub ids_to_delete: Vec<u32>,
 }

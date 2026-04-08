@@ -111,7 +111,7 @@ jobs:
           }
 
           $requiredResources = @(
-            @{ RelativePath = "strings.conf"; SourcePath = "$sourceResourceDir/strings.conf" },
+            @{ RelativePath = "strings"; SourcePath = "$sourceResourceDir/strings" },
             @{ RelativePath = "cover.jpg"; SourcePath = "$sourceResourceDir/cover.jpg" }
           )
 

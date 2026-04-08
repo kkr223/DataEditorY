@@ -13,23 +13,35 @@ export type ZipPackageInfo = {
   path: string;
 };
 
-export type MergeConflictItem = {
-  code: number;
-  aCard: import('$lib/types').CardDataEntry;
-  bCard: import('$lib/types').CardDataEntry;
-  hasCardConflict: boolean;
-  hasImageConflict: boolean;
-  hasFieldImageConflict: boolean;
-  hasScriptConflict: boolean;
+export type MergeSourceItem = {
+  path: string;
+  name: string;
+  projectDir: string;
+  cardTotal?: number;
+};
+
+export type MergeSourcePlanItem = {
+  path: string;
+  name: string;
+  cardTotal: number;
+  winningCardCount: number;
+  winningMainImageCount: number;
+  winningFieldImageCount: number;
+  winningScriptCount: number;
 };
 
 export type AnalyzeCdbMergeResponse = {
-  aName: string;
-  bName: string;
-  aTotal: number;
-  bTotal: number;
+  sourceCount: number;
   mergedTotal: number;
-  conflicts: MergeConflictItem[];
+  duplicateCardTotal: number;
+  mainImageTotal: number;
+  fieldImageTotal: number;
+  scriptTotal: number;
+  sources: MergeSourcePlanItem[];
+};
+
+export type ExecuteCdbMergeResponse = {
+  outputPath: string;
 };
 
 export async function getCardScriptInfo(cdbPath: string, cardId: number) {
@@ -108,22 +120,25 @@ export async function copyCardAssets(input: {
   return invokeCommand('copy_card_assets', { request: input });
 }
 
-export async function analyzeCdbMerge(aPath: string, bPath: string) {
+export async function collectMergeSourcesFromFolder(directoryPath: string) {
+  return invokeCommand<MergeSourceItem[]>('collect_merge_sources_from_folder', {
+    request: { directoryPath },
+  });
+}
+
+export async function analyzeCdbMerge(sourcePaths: string[], includeImages: boolean, includeScripts: boolean) {
   return invokeCommand<AnalyzeCdbMergeResponse>('analyze_cdb_merge', {
-    request: { aPath, bPath },
+    request: { sourcePaths, includeImages, includeScripts },
   });
 }
 
 export async function executeCdbMerge(input: {
-  aPath: string;
-  bPath: string;
-  outputPath: string;
-  conflictMode: 'preferA' | 'preferB' | 'manual';
-  manualChoices: Record<number, 'a' | 'b'>;
+  sourcePaths: string[];
+  outputDir: string;
   includeImages: boolean;
   includeScripts: boolean;
 }) {
-  return invokeCommand('execute_cdb_merge', { request: input });
+  return invokeCommand<ExecuteCdbMergeResponse>('execute_cdb_merge', { request: input });
 }
 
 export async function consumePendingOpenCdbPaths() {

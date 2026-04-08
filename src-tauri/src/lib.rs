@@ -41,6 +41,7 @@ pub(crate) struct PersistedAppSettings {
     pub(crate) temperature: f64,
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: bool,
+    pub(crate) save_script_image_to_local: bool,
     pub(crate) encrypted_secret_key: Option<String>,
 }
 
@@ -52,6 +53,7 @@ impl Default for PersistedAppSettings {
             temperature: DEFAULT_AI_TEMPERATURE,
             script_template: DEFAULT_SCRIPT_TEMPLATE.to_string(),
             use_external_script_editor: false,
+            save_script_image_to_local: false,
             encrypted_secret_key: None,
         }
     }
@@ -65,6 +67,7 @@ pub(crate) struct AppSettingsPayload {
     pub(crate) temperature: f64,
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: bool,
+    pub(crate) save_script_image_to_local: bool,
     pub(crate) has_secret_key: bool,
     pub(crate) cover_image_path: Option<String>,
     pub(crate) error_log_path: String,
@@ -78,6 +81,7 @@ pub(crate) struct SaveAppSettingsRequest {
     pub(crate) temperature: Option<f64>,
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: Option<bool>,
+    pub(crate) save_script_image_to_local: Option<bool>,
     pub(crate) secret_key: Option<String>,
     pub(crate) clear_secret_key: Option<bool>,
 }
@@ -332,6 +336,7 @@ pub(crate) fn to_settings_payload(
             settings.script_template
         },
         use_external_script_editor: settings.use_external_script_editor,
+        save_script_image_to_local: settings.save_script_image_to_local,
         has_secret_key: settings.encrypted_secret_key.is_some(),
         cover_image_path: if cover_path.exists() {
             Some(cover_path.to_string_lossy().to_string())
@@ -559,12 +564,15 @@ pub fn run() {
             commands::cdb::search_cards_page,
             commands::cdb::query_cards_raw,
             commands::cdb::get_card_by_id,
+            commands::cdb::get_cards_by_ids,
             commands::cdb::modify_cards,
             commands::cdb::delete_cards,
             commands::cdb::create_cdb_from_cards,
             commands::cdb::copy_card_assets,
             commands::cdb::analyze_cdb_merge,
+            commands::cdb::collect_merge_sources_from_folder,
             commands::cdb::execute_cdb_merge,
+            commands::cdb::undo_modify_operation,
             read_cdb,
             read_text_file,
             write_cdb,
@@ -757,6 +765,9 @@ mod tests {
         fs::write(script_dir.join("c222.lua"), "-- direct").unwrap();
         fs::write(script_dir.join("c333.lua"), "-- unrelated").unwrap();
         fs::write(script_dir.join("utility.lua"), "-- shared").unwrap();
+        fs::write(root.join("strings.conf"), "# strings").unwrap();
+        fs::write(root.join("custom.CONF"), "# custom").unwrap();
+        fs::write(root.join("notes.txt"), "ignore").unwrap();
 
         services::package::package_cdb_assets_as_zip(
             cdb_path.to_string_lossy().to_string(),
@@ -779,9 +790,12 @@ mod tests {
         assert!(entries.contains(&"script/c111.lua".to_string()));
         assert!(entries.contains(&"script/c222.lua".to_string()));
         assert!(entries.contains(&"script/utility.lua".to_string()));
+        assert!(entries.contains(&"strings.conf".to_string()));
+        assert!(entries.contains(&"custom.CONF".to_string()));
         assert!(!entries.contains(&"pics/333.jpg".to_string()));
         assert!(!entries.contains(&"pics/field/222.jpg".to_string()));
         assert!(!entries.contains(&"script/c333.lua".to_string()));
+        assert!(!entries.contains(&"notes.txt".to_string()));
 
         let _ = fs::remove_dir_all(&root);
     }

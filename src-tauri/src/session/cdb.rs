@@ -1,9 +1,10 @@
 use rand::RngCore;
+use rusqlite::Connection;
 use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 use tauri::{AppHandle, Manager};
 
@@ -11,6 +12,7 @@ use tauri::{AppHandle, Manager};
 pub(crate) struct CdbSessionMeta {
     pub(crate) path: String,
     pub(crate) working_path: PathBuf,
+    pub(crate) conn: Arc<Mutex<Connection>>,
 }
 
 pub struct OpenCdbSessions(pub Mutex<HashMap<String, CdbSessionMeta>>);

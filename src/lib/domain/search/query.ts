@@ -60,6 +60,17 @@ export function parseSetcodeFilter(input: string): number | null {
   return parseInt(hex, 16) & 0xffff;
 }
 
+function pushNumericCondition(
+  conditions: string[],
+  params: Record<string, string | number>,
+  key: string,
+  value: number,
+  buildCondition: (placeholder: string) => string,
+) {
+  params[key] = value;
+  conditions.push(buildCondition(`:${key}`));
+}
+
 export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
   const conditions: string[] = [];
   const params: Record<string, string | number> = {};
@@ -107,19 +118,27 @@ export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
 
   if (filters.atkMin !== '' && filters.atkMin !== undefined) {
     const value = parseInt(filters.atkMin.toString(), 10);
-    if (!isNaN(value)) conditions.push(`datas.atk >= ${value}`);
+    if (!isNaN(value)) {
+      pushNumericCondition(conditions, params, 'atkMin', value, (placeholder) => `datas.atk >= ${placeholder}`);
+    }
   }
   if (filters.atkMax !== '' && filters.atkMax !== undefined) {
     const value = parseInt(filters.atkMax.toString(), 10);
-    if (!isNaN(value)) conditions.push(`datas.atk <= ${value}`);
+    if (!isNaN(value)) {
+      pushNumericCondition(conditions, params, 'atkMax', value, (placeholder) => `datas.atk <= ${placeholder}`);
+    }
   }
   if (filters.defMin !== '' && filters.defMin !== undefined) {
     const value = parseInt(filters.defMin.toString(), 10);
-    if (!isNaN(value)) conditions.push(`datas.def >= ${value}`);
+    if (!isNaN(value)) {
+      pushNumericCondition(conditions, params, 'defMin', value, (placeholder) => `datas.def >= ${placeholder}`);
+    }
   }
   if (filters.defMax !== '' && filters.defMax !== undefined) {
     const value = parseInt(filters.defMax.toString(), 10);
-    if (!isNaN(value)) conditions.push(`datas.def <= ${value}`);
+    if (!isNaN(value)) {
+      pushNumericCondition(conditions, params, 'defMax', value, (placeholder) => `datas.def <= ${placeholder}`);
+    }
   }
 
   const hasMonsterOnlyFilter =
@@ -136,49 +155,50 @@ export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
 
   if (filters.type && TYPE_MAP[filters.type] !== undefined) {
     const typeBit = TYPE_MAP[filters.type];
-    conditions.push(`(datas.type & ${typeBit}) = ${typeBit}`);
+    pushNumericCondition(conditions, params, 'typeBit', typeBit, (placeholder) => `(datas.type & ${placeholder}) = ${placeholder}`);
   }
 
   if (filters.subtype) {
     if (filters.subtype === 'normal' && filters.type === 'spell') {
-      conditions.push(`(datas.type & ${SPELL_SUBTYPE_MASK}) = 0`);
+      pushNumericCondition(conditions, params, 'spellSubtypeMask', SPELL_SUBTYPE_MASK, (placeholder) => `(datas.type & ${placeholder}) = 0`);
     } else if (filters.subtype === 'normal' && filters.type === 'trap') {
-      conditions.push(`(datas.type & ${TRAP_SUBTYPE_MASK}) = 0`);
+      pushNumericCondition(conditions, params, 'trapSubtypeMask', TRAP_SUBTYPE_MASK, (placeholder) => `(datas.type & ${placeholder}) = 0`);
     } else {
       let subtypeBit: number | undefined;
       if (filters.subtype === 'continuous_spell' || filters.subtype === 'continuous_trap') subtypeBit = 0x20000;
       else if (filters.subtype === 'ritual_spell') subtypeBit = 0x80;
       else subtypeBit = SUBTYPE_MAP[filters.subtype];
-      if (subtypeBit !== undefined) conditions.push(`(datas.type & ${subtypeBit}) = ${subtypeBit}`);
+      if (subtypeBit !== undefined) {
+        pushNumericCondition(conditions, params, 'subtypeBit', subtypeBit, (placeholder) => `(datas.type & ${placeholder}) = ${placeholder}`);
+      }
     }
   }
 
   if (filters.attribute && ATTRIBUTE_MAP[filters.attribute] !== undefined) {
-    conditions.push(`datas.attribute = ${ATTRIBUTE_MAP[filters.attribute]}`);
+    pushNumericCondition(conditions, params, 'attribute', ATTRIBUTE_MAP[filters.attribute], (placeholder) => `datas.attribute = ${placeholder}`);
   }
 
   if (filters.race && RACE_MAP[filters.race] !== undefined) {
-    conditions.push(`datas.race = ${RACE_MAP[filters.race]}`);
+    pushNumericCondition(conditions, params, 'race', RACE_MAP[filters.race], (placeholder) => `datas.race = ${placeholder}`);
   }
 
-  for (const rawValue of [filters.setcode1, filters.setcode2, filters.setcode3, filters.setcode4]) {
+  for (const [index, rawValue] of [filters.setcode1, filters.setcode2, filters.setcode3, filters.setcode4].entries()) {
     if (!rawValue) continue;
     const parsedSetcode = parseSetcodeFilter(rawValue);
     if (parsedSetcode === null) continue;
-    conditions.push(
-      `(
-        ((CAST(datas.setcode AS INTEGER) >> 0) & 65535) = ${parsedSetcode}
-        OR ((CAST(datas.setcode AS INTEGER) >> 16) & 65535) = ${parsedSetcode}
-        OR ((CAST(datas.setcode AS INTEGER) >> 32) & 65535) = ${parsedSetcode}
-        OR ((CAST(datas.setcode AS INTEGER) >> 48) & 65535) = ${parsedSetcode}
-      )`
-    );
+    pushNumericCondition(conditions, params, `setcode${index}`, parsedSetcode, (placeholder) => `(
+      ((CAST(datas.setcode AS INTEGER) >> 0) & 65535) = ${placeholder}
+      OR ((CAST(datas.setcode AS INTEGER) >> 16) & 65535) = ${placeholder}
+      OR ((CAST(datas.setcode AS INTEGER) >> 32) & 65535) = ${placeholder}
+      OR ((CAST(datas.setcode AS INTEGER) >> 48) & 65535) = ${placeholder}
+    )`);
   }
 
   if (filters.rule) {
     const parsedRule = parseRuleExpression(filters.rule);
     if (parsedRule) {
-      conditions.push(parsedRule);
+      conditions.push(parsedRule.clause);
+      Object.assign(params, parsedRule.params);
     }
   }
 

@@ -157,6 +157,30 @@ fn collect_picture_paths_for_package(
     paths
 }
 
+fn collect_conf_paths_for_package(cdb_dir: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut paths = Vec::new();
+
+    for entry in fs::read_dir(cdb_dir).map_err(|err| err.to_string())? {
+        let entry = entry.map_err(|err| err.to_string())?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let is_conf = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .map(|extension| extension.eq_ignore_ascii_case("conf"))
+            .unwrap_or(false);
+        if is_conf {
+            paths.push(path);
+        }
+    }
+
+    paths.sort();
+    Ok(paths)
+}
+
 pub(crate) fn path_to_zip_entry(path: &Path, base_dir: &Path) -> Result<String, String> {
     let relative = match path.strip_prefix(base_dir) {
         Ok(relative) => relative.to_path_buf(),
@@ -248,6 +272,9 @@ pub fn package_cdb_assets_as_zip(
         collect_picture_paths_for_package(cdb_dir, &manifest.card_ids, &manifest.field_spell_ids)
     {
         add_path_to_zip(&mut zip, &pic_path, cdb_dir)?;
+    }
+    for conf_path in collect_conf_paths_for_package(cdb_dir)? {
+        add_path_to_zip(&mut zip, &conf_path, cdb_dir)?;
     }
     for script_path in collect_script_paths_for_package(cdb_dir, &manifest.card_ids)? {
         add_path_to_zip(&mut zip, &script_path, cdb_dir)?;

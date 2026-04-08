@@ -25,6 +25,9 @@ pub fn save_app_settings(
     settings.use_external_script_editor = request
         .use_external_script_editor
         .unwrap_or(settings.use_external_script_editor);
+    settings.save_script_image_to_local = request
+        .save_script_image_to_local
+        .unwrap_or(settings.save_script_image_to_local);
 
     if request.clear_secret_key.unwrap_or(false) {
         settings.encrypted_secret_key = None;

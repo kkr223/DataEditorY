@@ -8,8 +8,8 @@
     LINK_MARKERS,
     PERMISSION_OPTIONS,
     RACE_OPTIONS,
-    TYPE_BITS,
   } from "$lib/utils/card";
+  import { SUBTYPE_MAP, TYPE_MAP } from "$lib/domain/card/taxonomy";
 
   export let draftCard: CardDataEntry;
   export let imageSrc = "";
@@ -45,6 +45,57 @@
   export let onSetcodeHexChange: (index: number, value: string) => void = () => {};
   export let onUpdateDraftLevel: (nextLevel: number) => void = () => {};
   export let onUpdateDraftScale: (side: "left" | "right", nextScale: number) => void = () => {};
+
+  type TypeOption = { bit: number; key: string };
+  type TypeSection = { rows: TypeOption[][] };
+
+  const TYPE_SECTIONS: TypeSection[] = [
+    {
+      rows: [
+        [
+          { bit: TYPE_MAP.monster, key: "editor.subtype.monster" },
+          { bit: SUBTYPE_MAP.effect, key: "editor.subtype.effect" },
+          { bit: SUBTYPE_MAP.tuner, key: "editor.subtype.tuner" },
+          { bit: SUBTYPE_MAP.normal, key: "editor.subtype.normal" },
+          { bit: SUBTYPE_MAP.pendulum, key: "editor.subtype.pendulum" },
+        ],
+        [
+          { bit: SUBTYPE_MAP.ritual, key: "editor.subtype.ritual" },
+          { bit: SUBTYPE_MAP.fusion, key: "editor.subtype.fusion" },
+          { bit: SUBTYPE_MAP.synchro, key: "editor.subtype.synchro" },
+          { bit: SUBTYPE_MAP.xyz, key: "editor.subtype.xyz" },
+          { bit: SUBTYPE_MAP.link, key: "editor.subtype.link" },
+        ],
+        [
+          { bit: SUBTYPE_MAP.toon, key: "editor.subtype.toon" },
+          { bit: SUBTYPE_MAP.spirit, key: "editor.subtype.spirit" },
+          { bit: SUBTYPE_MAP.flip, key: "editor.subtype.flip" },
+          { bit: SUBTYPE_MAP.union, key: "editor.subtype.union" },
+          { bit: SUBTYPE_MAP.gemini, key: "editor.subtype.gemini" },
+        ],
+        [
+          { bit: SUBTYPE_MAP.spssummon, key: "editor.subtype.spssummon" },
+          { bit: SUBTYPE_MAP.token, key: "editor.subtype.token" },
+        ],
+      ],
+    },
+    {
+      rows: [[
+        { bit: TYPE_MAP.spell, key: "editor.subtype.spell" },
+        { bit: SUBTYPE_MAP.quickplay, key: "editor.subtype.quickplay" },
+        { bit: SUBTYPE_MAP.equip, key: "editor.subtype.equip" },
+        { bit: SUBTYPE_MAP.field, key: "editor.subtype.field" },
+        { bit: SUBTYPE_MAP.ritual_spell, key: "editor.subtype.ritual" },
+      ]],
+    },
+    {
+      rows: [[
+        { bit: TYPE_MAP.trap, key: "editor.subtype.trap" },
+        { bit: SUBTYPE_MAP.continuous_trap, key: "editor.subtype.continuous" },
+        { bit: SUBTYPE_MAP.counter, key: "editor.subtype.counter" },
+      ]],
+    },
+  ];
 </script>
 
 <div class="editor-columns">
@@ -111,34 +162,57 @@
             {/each}
           </select>
         </div>
-        <div class="inline-field">
-          <label for="edit-atk">{atkLabel}</label>
-          <input type="number" id="edit-atk" bind:value={draftCard.attack} />
-        </div>
-        <div class="inline-field">
-          <label for="edit-def">{defLabel}</label>
-          <input type="number" id="edit-def" bind:value={draftCard.defense} disabled={isLink} />
-        </div>
-      </div>
-    </div>
+        <div class="compact-link-panel">
+          <label class="compact-panel-label compact-panel-main-label compact-panel-value-label" for="edit-atk">{atkLabel}</label>
+          <span class="compact-panel-label compact-panel-title" title={linkMarkersLabel}></span>
+          <label class="compact-panel-label compact-panel-main-label compact-panel-value-label" for="edit-def">{defLabel}</label>
 
-    <div class="fg">
-      <span class="group-label">{typesLabel}</span>
-      <div class="checkbox-grid">
-        {#each TYPE_BITS as tb}
-          <label class="checkbox-label">
+          <input class="compact-panel-input compact-panel-value-input" type="number" id="edit-atk" bind:value={draftCard.attack} />
+
+          <div class="compact-link-section" class:disabled-opacity={!isLink}>
+            <div class="link-marker-grid">
+              {#each LINK_MARKERS as lm}
+                <button
+                  class="link-arrow"
+                  class:active={isLink && (draftCard.linkMarker & lm.bit) !== 0}
+                  disabled={!isLink}
+                  style="grid-row:{lm.row + 1};grid-column:{lm.col + 1}"
+                  onclick={() => (draftCard.linkMarker ^= lm.bit)}
+                >{lm.label}</button>
+              {/each}
+              <div class="link-center" style="grid-row:2;grid-column:2">⬡</div>
+            </div>
+          </div>
+
+          <input class="compact-panel-input compact-panel-value-input" type="number" id="edit-def" bind:value={draftCard.defense} disabled={isLink} />
+
+          <div class="compact-scale-slot compact-scale-slot-left" class:disabled-opacity={!isPend} title={`${scaleLabel} ${scaleLeftLabel}`}>
+            <label class="compact-panel-label compact-panel-scale-label compact-panel-label-center" for="edit-lscale" title={scaleLeftLabel}></label>
             <input
-              type="checkbox"
-              checked={(draftCard.type & tb.bit) !== 0}
-              onchange={(e) => {
-                const t = e.target as HTMLInputElement;
-                if (t.checked) draftCard.type |= tb.bit;
-                else draftCard.type &= ~tb.bit;
-              }}
+              class="compact-panel-input"
+              type="number"
+              id="edit-lscale"
+              min="0"
+              max="13"
+              disabled={!isPend}
+              value={draftCard.lscale}
+              oninput={(event) => onUpdateDraftScale("left", Number((event.currentTarget as HTMLInputElement).value))}
             />
-            {$_(tb.key)}
-          </label>
-        {/each}
+          </div>
+          <div class="compact-scale-slot compact-scale-slot-right" class:disabled-opacity={!isPend} title={`${scaleLabel} ${scaleRightLabel}`}>
+            <label class="compact-panel-label compact-panel-scale-label compact-panel-label-center" for="edit-rscale" title={scaleRightLabel}></label>
+            <input
+              class="compact-panel-input"
+              type="number"
+              id="edit-rscale"
+              min="0"
+              max="13"
+              disabled={!isPend}
+              value={draftCard.rscale}
+              oninput={(event) => onUpdateDraftScale("right", Number((event.currentTarget as HTMLInputElement).value))}
+            />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -149,6 +223,34 @@
   </div>
 
   <div class="editor-col">
+    <div class="fg">
+      <span class="group-label">{typesLabel}</span>
+      <div class="type-sections">
+        {#each TYPE_SECTIONS as section, sectionIndex}
+          <div class="type-section" class:with-separator={sectionIndex > 0}>
+            {#each section.rows as row}
+              <div class="type-row">
+                {#each row as option}
+                  <label class="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={(draftCard.type & option.bit) !== 0}
+                      onchange={(e) => {
+                        const t = e.target as HTMLInputElement;
+                        if (t.checked) draftCard.type |= option.bit;
+                        else draftCard.type &= ~option.bit;
+                      }}
+                    />
+                    {$_(option.key)}
+                  </label>
+                {/each}
+              </div>
+            {/each}
+          </div>
+        {/each}
+      </div>
+    </div>
+
     <div class="fg">
       <span class="group-label">{setcodesLabel}</span>
       <div class="setcode-grid">
@@ -163,54 +265,6 @@
             onHexChange={onSetcodeHexChange}
           />
         {/each}
-      </div>
-    </div>
-
-    <div class="row-2 align-start">
-      <div class="fg" class:disabled-opacity={!isLink}>
-        <span class="group-label">{linkMarkersLabel}</span>
-        <div class="link-marker-grid">
-          {#each LINK_MARKERS as lm}
-            <button
-              class="link-arrow"
-              class:active={isLink && (draftCard.linkMarker & lm.bit) !== 0}
-              disabled={!isLink}
-              style="grid-row:{lm.row + 1};grid-column:{lm.col + 1}"
-              onclick={() => (draftCard.linkMarker ^= lm.bit)}
-            >{lm.label}</button>
-          {/each}
-          <div class="link-center" style="grid-row:2;grid-column:2">⬡</div>
-        </div>
-      </div>
-
-      <div class="fg flex-1" class:disabled-opacity={!isPend}>
-        <span class="group-label">{scaleLabel}</span>
-        <div class="row-2">
-          <div class="fg">
-            <label for="edit-lscale">{scaleLeftLabel}</label>
-            <input
-              type="number"
-              id="edit-lscale"
-              min="0"
-              max="13"
-              disabled={!isPend}
-              value={draftCard.lscale}
-              oninput={(event) => onUpdateDraftScale("left", Number((event.currentTarget as HTMLInputElement).value))}
-            />
-          </div>
-          <div class="fg">
-            <label for="edit-rscale">{scaleRightLabel}</label>
-            <input
-              type="number"
-              id="edit-rscale"
-              min="0"
-              max="13"
-              disabled={!isPend}
-              value={draftCard.rscale}
-              oninput={(event) => onUpdateDraftScale("right", Number((event.currentTarget as HTMLInputElement).value))}
-            />
-          </div>
-        </div>
       </div>
     </div>
 
@@ -233,29 +287,34 @@
     flex: 1;
     display: flex;
     overflow: hidden;
+    min-height: 0;
   }
 
   .editor-col {
-    flex: 1;
-    padding: 8px 10px;
+    flex: 1 1 0;
+    padding: 0.4rem 0.5rem;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    min-height: 0;
   }
 
   .editor-col:first-child {
+    flex: 1 1 0;
     border-right: 1px solid var(--border-color);
   }
 
   .card-top-row {
     display: flex;
-    gap: 8px;
-    margin-bottom: 6px;
+    gap: 0.4rem;
+    margin-bottom: 0.3rem;
+    align-items: flex-end;
   }
 
   .image-picker {
-    width: clamp(130px, 10vw, 190px);
-    min-width: 130px;
+    width: 9.75rem;
+    min-width: 9.75rem;
     aspect-ratio: 0.69;
     background: var(--bg-base);
     border: 1px dashed var(--border-color);
@@ -266,7 +325,7 @@
     justify-content: center;
     overflow: hidden;
     transition: border-color 0.2s;
-    align-self: flex-start;
+    align-self: auto;
   }
 
   .image-picker:hover {
@@ -290,55 +349,132 @@
   }
 
   .stats-beside-img {
-    flex: 1;
+    flex: 1 1 13.75rem;
+    min-width: 13.75rem;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 1px;
     justify-content: flex-start;
   }
 
   .fg {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    margin-bottom: 6px;
+    gap: 2px;
+    margin-bottom: 0.2rem;
   }
 
-  .row-2 {
+  .compact-link-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+    column-gap: 0.45rem;
+    row-gap: 0.12rem;
+    margin-top: auto;
+    padding-top: 0.45rem;
+    align-items: center;
+  }
+
+  .compact-panel-title {
+    text-align: center;
+    min-height: 0.82rem;
+  }
+
+  .compact-panel-label {
+    font-size: 0.78rem;
+    margin: 0;
+    line-height: 1;
+  }
+
+  .compact-panel-main-label {
+    margin-bottom: 0.14rem;
+  }
+
+  .compact-panel-value-label {
+    text-align: left;
+    padding-left: 0.35rem;
+  }
+
+  .compact-panel-label-center {
+    text-align: center;
+  }
+
+  .compact-panel-scale-label::before {
+    display: inline-block;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+
+  .compact-panel-scale-label[for="edit-lscale"]::before {
+    content: "←";
+  }
+
+  .compact-panel-scale-label[for="edit-rscale"]::before {
+    content: "→";
+  }
+
+  .compact-panel-input {
+    text-align: center;
+    min-height: 1.8rem;
+    padding: 3px 6px;
+  }
+
+  .compact-panel-value-input {
+    text-align: left;
+  }
+
+  .compact-panel-value-input::-webkit-outer-spin-button,
+  .compact-panel-value-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .compact-panel-value-input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .compact-link-section {
+    grid-column: 2;
+    grid-row: 2 / 5;
     display: flex;
-    gap: 6px;
+    justify-content: center;
   }
 
-  .row-2 .fg {
-    flex: 1;
-    margin-bottom: 0;
+  .compact-scale-slot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    align-self: end;
   }
 
-  .align-start {
-    align-items: flex-start;
+  .compact-scale-slot-left {
+    grid-column: 1;
+    grid-row: 4;
   }
 
-  .flex-1 {
-    flex: 1;
+  .compact-scale-slot-right {
+    grid-column: 3;
+    grid-row: 4;
   }
 
   .inline-field {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 1px 0;
+    gap: 0.3rem;
+    padding: 0;
   }
 
   .inline-field label {
-    min-width: 60px;
+    min-width: 3.35rem;
     font-size: 0.82rem;
     color: var(--text-secondary);
     text-align: left;
     margin: 0;
+    flex-shrink: 0;
   }
 
-  .inline-field input,
   .inline-field select {
     flex: 1;
     width: 100%;
@@ -351,12 +487,12 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    gap: 3px;
+    gap: 2px;
   }
 
   .flex-1-min textarea {
     flex: 1;
-    min-height: 120px;
+    min-height: 6rem;
     resize: none;
   }
 
@@ -393,20 +529,37 @@
     padding: 6px;
   }
 
-  .checkbox-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1px 4px;
+  .type-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 0.533rem;
     background: var(--bg-base);
-    padding: 4px 6px;
+    padding: 0.533rem 0.667rem;
     border-radius: 4px;
     border: 1px solid var(--border-color);
+  }
+
+  .type-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.533rem;
+  }
+
+  .type-section.with-separator {
+    border-top: 1px solid var(--border-color);
+    padding-top: 0.533rem;
+  }
+
+  .type-row {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.267rem 0.8rem;
   }
 
   .checkbox-label {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 0.333rem;
     cursor: pointer;
     user-select: none;
     font-size: 0.82rem;
@@ -427,23 +580,23 @@
     flex-direction: column;
     gap: 3px;
     background: var(--bg-base);
-    padding: 6px;
+    padding: 0.4rem;
     border-radius: 4px;
     border: 1px solid var(--border-color);
   }
 
   .link-marker-grid {
     display: grid;
-    grid-template-columns: 28px 28px 28px;
-    grid-template-rows: 28px 28px 28px;
-    gap: 3px;
+    grid-template-columns: 1.75rem 1.75rem 1.75rem;
+    grid-template-rows: 1.75rem 1.75rem 1.75rem;
+    gap: 0.15rem;
     justify-content: start;
   }
 
   .link-arrow {
-    width: 28px;
-    height: 28px;
-    font-size: 0.9rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.85rem;
     padding: 0 !important;
     border: 1px solid var(--border-color);
     background: var(--bg-base);
@@ -481,8 +634,8 @@
     pointer-events: none;
   }
 
-  .disabled-opacity input,
-  .disabled-opacity button {
+  .disabled-opacity button,
+  .disabled-opacity input {
     cursor: not-allowed;
   }
 
@@ -497,6 +650,7 @@
 
   .hints-container {
     flex: 1;
+    min-height: 9rem;
     overflow-y: auto;
     border: 1px solid var(--border-color);
     border-radius: 4px;
@@ -506,8 +660,8 @@
   .hint-row {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0 6px;
+    gap: 0.267rem;
+    padding: 0 0.4rem;
     border-bottom: 1px solid var(--border-color);
   }
 
@@ -518,7 +672,7 @@
   .hint-label {
     font-size: 0.76rem;
     color: var(--text-secondary);
-    min-width: 26px;
+    min-width: 1.733rem;
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
   }
@@ -534,20 +688,4 @@
     box-shadow: none;
   }
 
-  @media (min-width: 2560px) {
-    .editor-col {
-      padding: 0.7rem 0.9rem;
-    }
-
-    .link-marker-grid {
-      grid-template-columns: 32px 32px 32px;
-      grid-template-rows: 32px 32px 32px;
-    }
-
-    .link-arrow {
-      width: 32px;
-      height: 32px;
-      font-size: 1rem;
-    }
-  }
 </style>

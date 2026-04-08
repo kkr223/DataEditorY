@@ -35,8 +35,7 @@
     setWorkspaceSaveHandler,
   } from "$lib/application/workspace/lifecycle";
   import { appSettingsState } from "$lib/stores/appSettings.svelte";
-  import type { AgentStage } from "$lib/utils/ai";
-  import { getScriptGenerationStageLabel } from "$lib/services/scriptGeneration";
+  import { getScriptGenerationStageLabel, type ScriptGenerationStage } from "$lib/services/scriptGenerationStages";
   import { resolveCardImageSrc } from "$lib/services/cardImageService";
   import {
     buildEmptyDraftState,
@@ -45,6 +44,7 @@
     createCardImageInteractionController,
     createCardScriptGenerationController,
     createCardScriptGenerationState,
+    createInitialParseManuscript,
     handleCardEditorKeydown,
     handleParseModalBackdropDismiss,
     isDraftDirty as isDraftStateDirty,
@@ -53,26 +53,32 @@
   } from "$lib/features/card-editor/controller";
   import {
     deleteDraftCardFlow,
-    generateCardScriptFlow,
     modifyDraftCardFlow,
     openCardScriptFlow,
-    openParseModalFlow,
-    parseCardManuscriptFlow,
-    pickCardImageFlow,
     saveAsDraftCardFlow,
-    saveParsedCardsIndividuallyFlow,
     saveDraftCardFlow,
   } from "$lib/features/card-editor/useCases";
   import CardEditorFooter from "$lib/features/card-editor/components/CardEditorFooter.svelte";
   import CardEditorForm from "$lib/features/card-editor/components/CardEditorForm.svelte";
   import CardEditorHeader from "$lib/features/card-editor/components/CardEditorHeader.svelte";
-  import CardImageDrawerHost from "$lib/features/card-editor/components/CardImageDrawerHost.svelte";
   import CardImagePreview from "$lib/features/card-editor/components/CardImagePreview.svelte";
-  import CardParseDialog from "$lib/features/card-editor/components/CardParseDialog.svelte";
+
+  type CardEditorExtraUseCasesModule = typeof import("$lib/features/card-editor/extraUseCases");
+  type CardParseDialogModule = typeof import("$lib/features/card-editor/components/CardParseDialog.svelte");
+  type CardImageDrawerHostModule = typeof import("$lib/features/card-editor/components/CardImageDrawerHost.svelte");
 
   const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
   const hasAiCapability = isCapabilityEnabled("ai");
   const hasCardImageCapability = isCapabilityEnabled("card-image");
+  const loadCardEditorExtraUseCases = __APP_FEATURES__.ai || __APP_FEATURES__.cardImage
+    ? () => import("$lib/features/card-editor/extraUseCases")
+    : null;
+  const loadCardParseDialogModule = __APP_FEATURES__.ai
+    ? () => import("$lib/features/card-editor/components/CardParseDialog.svelte")
+    : null;
+  const loadCardImageDrawerHostModule = __APP_FEATURES__.cardImage
+    ? () => import("$lib/features/card-editor/components/CardImageDrawerHost.svelte")
+    : null;
 
 
   let draftCard = $state<CardDataEntry>(createEmptyCard());
@@ -89,8 +95,13 @@
   let lastLoadedCardSnapshot = $state("");
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
   let isParseModalOpen = $state(false);
+  let aiInteractionMode = $state<"parse" | "instruction">("parse");
   let manuscriptInput = $state("");
   let isParsingManuscript = $state(false);
+  let aiInteractionResult = $state("");
+  let cardEditorExtraUseCasesPromise = $state<Promise<CardEditorExtraUseCasesModule> | null>(null);
+  let cardParseDialogModulePromise = $state<Promise<CardParseDialogModule> | null>(null);
+  let cardImageDrawerHostModulePromise = $state<Promise<CardImageDrawerHostModule> | null>(null);
   const scriptGeneration = $state(createCardScriptGenerationState());
   let isKeyboardNavigating = $state(false);
 
@@ -115,6 +126,30 @@
 
   function getDefaultCoverSrc() {
     return appSettingsState.coverImageSrc || "/resources/cover.jpg";
+  }
+
+  function ensureCardEditorExtraUseCases() {
+    if (!loadCardEditorExtraUseCases || (!hasAiCapability && !hasCardImageCapability)) {
+      return null;
+    }
+    cardEditorExtraUseCasesPromise ??= loadCardEditorExtraUseCases();
+    return cardEditorExtraUseCasesPromise;
+  }
+
+  function ensureCardParseDialogModule() {
+    if (!loadCardParseDialogModule || !hasAiCapability) {
+      return null;
+    }
+    cardParseDialogModulePromise ??= loadCardParseDialogModule();
+    return cardParseDialogModulePromise;
+  }
+
+  function ensureCardImageDrawerHostModule() {
+    if (!loadCardImageDrawerHostModule || !hasCardImageCapability) {
+      return null;
+    }
+    cardImageDrawerHostModulePromise ??= loadCardImageDrawerHostModule();
+    return cardImageDrawerHostModulePromise;
   }
 
   function syncSetcodesFromCard(card: CardDataEntry) {
@@ -363,7 +398,10 @@
   });
 
   async function handleImagePick() {
-    await pickCardImageFlow({
+    const extraModule = ensureCardEditorExtraUseCases();
+    if (!extraModule) return;
+
+    await (await extraModule).pickCardImageFlow({
       activeCdbPath: $activeTab?.path ?? null,
       draftCard,
       t: (key, options) => $_(key, options as never),
@@ -409,7 +447,10 @@
   }
 
   async function handleGenerateScript() {
-    await generateCardScriptFlow({
+    const extraModule = ensureCardEditorExtraUseCases();
+    if (!extraModule) return;
+
+    await (await extraModule).generateCardScriptFlow({
       activeCdbPath: $activeTab?.path ?? null,
       activeTabId: $activeTabId,
       draftCard,
@@ -425,7 +466,10 @@
   }
 
   async function saveParsedCardsIndividually(cards: CardDataEntry[]) {
-    return saveParsedCardsIndividuallyFlow({
+    const extraModule = ensureCardEditorExtraUseCases();
+    if (!extraModule) return false;
+
+    return (await extraModule).saveParsedCardsIndividuallyFlow({
       cards,
       t: (key, options) => $_(key, options as never),
       loadCardIntoDraft,
@@ -435,11 +479,12 @@
   }
 
   async function handleOpenParseModal() {
-    await openParseModalFlow({
+    const extraModule = ensureCardEditorExtraUseCases();
+    if (!extraModule) return;
+
+    await (await extraModule).openParseModalFlow({
       hasAiCapability,
       draftCard,
-      isEditingExisting,
-      resetToNewDraft: handleNewCard,
       setManuscriptInput: (value) => {
         manuscriptInput = value;
       },
@@ -447,6 +492,9 @@
         isParseModalOpen = value;
       },
     });
+    aiInteractionMode = "parse";
+    aiInteractionResult = "";
+    ensureCardParseDialogModule();
   }
 
   function closeParseModal() {
@@ -454,16 +502,56 @@
     isParseModalOpen = false;
   }
 
+  function handleAiInteractionModeChange(mode: "parse" | "instruction") {
+    aiInteractionMode = mode;
+    if (mode === "instruction") {
+      aiInteractionResult = "";
+      if (manuscriptInput.trim() === createInitialParseManuscript(draftCard)) {
+        manuscriptInput = "";
+      }
+    }
+  }
+
   function handleParseModalBackdropKeydown(event: KeyboardEvent) {
     handleParseModalBackdropDismiss(event, closeParseModal);
   }
 
   async function handleParseManuscriptConfirm() {
-    await parseCardManuscriptFlow({
+    const extraModule = ensureCardEditorExtraUseCases();
+    if (!extraModule) return;
+
+    if (aiInteractionMode === "instruction") {
+      await (await extraModule).runEditorInstructionFlow({
+        hasAiCapability,
+        instruction: manuscriptInput,
+        activeCdbPath: $activeTab?.path ?? null,
+        currentCardCode: draftCard.code ?? null,
+        currentCard: draftCard,
+        t: (key, options) => $_(key, options as never),
+        setIsRunning: (value) => {
+          isParsingManuscript = value;
+        },
+        refreshAfterExecution: async () => {
+          await handleSearch(true);
+        },
+        setLastResult: (value) => {
+          aiInteractionResult = value;
+        },
+      });
+      return;
+    }
+
+    await (await extraModule).parseCardManuscriptFlow({
       hasAiCapability,
       manuscriptInput,
       activeCdbPath: $activeTab?.path ?? null,
       currentCardCode: draftCard.code ?? null,
+      prepareForImport: async () => {
+        if (isEditingExisting) {
+          handleNewCard();
+          await tick();
+        }
+      },
       t: (key, options) => $_(key, options as never),
       setIsParsingManuscript: (value) => {
         isParsingManuscript = value;
@@ -533,6 +621,18 @@
   });
 
   $effect(() => {
+    if (hasAiCapability && isParseModalOpen) {
+      ensureCardParseDialogModule();
+    }
+  });
+
+  $effect(() => {
+    if (hasCardImageCapability && imageInteraction.isDrawerOpen) {
+      ensureCardImageDrawerHostModule();
+    }
+  });
+
+  $effect(() => {
     const workspaceId = $activeTabId;
     const workspaceDirty = ($activeTab?.isDirty ?? false) || isDraftDirty();
 
@@ -555,12 +655,11 @@
 
 {#if $isDbLoaded}
   <div class="editor-area">
-    <CardEditorHeader
-      {draftCard}
-      title={$_("editor.title")}
-      saveLabel={$_("editor.save_db")}
-      idLabel={$_("editor.id")}
-      aliasLabel={$_("editor.alias")}
+      <CardEditorHeader
+        {draftCard}
+        saveLabel={$_("editor.save_db")}
+        idLabel={$_("editor.id")}
+        aliasLabel={$_("editor.alias")}
       nameLabel={$_("editor.name")}
       newCardLabel={$_("editor.new_card")}
       onSave={handleSave}
@@ -621,7 +720,7 @@
       {hasAiCapability}
       {hasCardImageCapability}
       isGeneratingScript={scriptGeneration.isGenerating}
-      scriptStageText={getScriptGenerationStageLabel(scriptGeneration.stage)}
+      scriptStageText={getScriptGenerationStageLabel($_, scriptGeneration.stage)}
       onNewCard={handleNewCard}
       onOpenParseModal={handleOpenParseModal}
       onOpenScript={handleOpenScript}
@@ -635,32 +734,44 @@
   </div>
 {/if}
 
-{#if hasCardImageCapability}
-  <CardImageDrawerHost
-    open={imageInteraction.isDrawerOpen}
-    card={draftCard}
-    cdbPath={$activeTab?.path ?? ""}
-    onSavedJpg={handleCardImageSaved}
-    onClose={closeCardImageDrawer}
-  />
+{#if hasCardImageCapability && cardImageDrawerHostModulePromise}
+  {#await cardImageDrawerHostModulePromise then module}
+    <module.default
+      open={imageInteraction.isDrawerOpen}
+      card={draftCard}
+      cdbPath={$activeTab?.path ?? ""}
+      onSavedJpg={handleCardImageSaved}
+      onClose={closeCardImageDrawer}
+    />
+  {/await}
 {/if}
 
-<CardParseDialog
-  open={hasAiCapability && isParseModalOpen}
-  bind:manuscriptInput
-  isParsing={isParsingManuscript}
-  onClose={closeParseModal}
-  onConfirm={handleParseManuscriptConfirm}
-  onBackdropKeydown={handleParseModalBackdropKeydown}
-  closeAriaLabel={$_("editor.card_image_crop_cancel")}
-  dialogAriaLabel={$_("editor.ai_parse_title")}
-  title={$_("editor.ai_parse_title")}
-  description={$_("editor.ai_parse_description")}
-  placeholder={$_("editor.ai_parse_placeholder")}
-  cancelLabel={$_("editor.card_image_crop_cancel")}
-  confirmLabel={$_("editor.ai_parse_confirm")}
-  parsingLabel={$_("editor.ai_parsing")}
-/>
+{#if hasAiCapability && cardParseDialogModulePromise}
+  {#await cardParseDialogModulePromise then module}
+    <module.default
+      open={isParseModalOpen}
+      mode={aiInteractionMode}
+      bind:manuscriptInput
+      isParsing={isParsingManuscript}
+      onModeChange={handleAiInteractionModeChange}
+      onClose={closeParseModal}
+      onConfirm={handleParseManuscriptConfirm}
+      onBackdropKeydown={handleParseModalBackdropKeydown}
+      closeAriaLabel={$_("editor.card_image_crop_cancel")}
+      dialogAriaLabel={$_("editor.ai_interaction_title")}
+      title={$_("editor.ai_interaction_title")}
+      description={aiInteractionMode === "parse" ? $_("editor.ai_parse_description") : $_("editor.ai_instruction_description")}
+      placeholder={aiInteractionMode === "parse" ? $_("editor.ai_parse_placeholder") : $_("editor.ai_instruction_placeholder")}
+      cancelLabel={$_("editor.card_image_crop_cancel")}
+      confirmLabel={aiInteractionMode === "parse" ? $_("editor.ai_parse_confirm") : $_("editor.ai_instruction_confirm")}
+      parsingLabel={aiInteractionMode === "parse" ? $_("editor.ai_parsing") : $_("editor.ai_instruction_running")}
+      parseModeLabel={$_("editor.ai_parse_mode")}
+      instructionModeLabel={$_("editor.ai_instruction_mode")}
+      resultTitle={$_("editor.ai_instruction_result_title")}
+      resultText={aiInteractionResult}
+    />
+  {/await}
+{/if}
 
 <CardImagePreview
   open={imageInteraction.isPreviewOpen}

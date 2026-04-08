@@ -17,6 +17,14 @@ type RuleToken =
 
 type RuleFieldKind = 'numeric' | 'mask';
 type RuleValue = { kind: 'number'; value: number } | { kind: 'field'; field: RuleFieldDefinition } | { kind: 'keyword'; value: string };
+type RuleLeftValue = Extract<RuleValue, { kind: 'number' } | { kind: 'field' }>;
+type RuleExpressionParseOptions = {
+  paramPrefix?: string;
+};
+type RuleExpressionSql = {
+  clause: string;
+  params: Record<string, number>;
+};
 export type RuleExpressionErrorCode =
   | 'unterminated_string'
   | 'unexpected_token'
@@ -277,12 +285,15 @@ function tokenizeRuleExpression(input: string) {
   return tokens;
 }
 
-export function parseRuleExpression(input: string): string | null {
+export function parseRuleExpression(input: string, options: RuleExpressionParseOptions = {}): RuleExpressionSql | null {
   const normalized = input.trim();
   if (!normalized) return null;
 
   const tokens = tokenizeRuleExpression(normalized);
+  const params: Record<string, number> = {};
+  const paramPrefix = options.paramPrefix?.trim() || 'rule';
   let index = 0;
+  let nextParamIndex = 0;
 
   function peek(): RuleToken | undefined {
     return tokens[index];
@@ -297,7 +308,14 @@ export function parseRuleExpression(input: string): string | null {
     return token;
   }
 
-  function parseLeftValue(): RuleValue {
+  function bindNumericValue(value: number) {
+    const key = `${paramPrefix}${nextParamIndex}`;
+    nextParamIndex += 1;
+    params[key] = value;
+    return `:${key}`;
+  }
+
+  function parseLeftValue(): RuleLeftValue {
     const token = consume();
     if (token.type === 'number') {
       return { kind: 'number', value: token.value };
@@ -336,7 +354,7 @@ export function parseRuleExpression(input: string): string | null {
 
   function resolveSqlValue(field: RuleFieldDefinition | null, value: RuleValue): string {
     if (value.kind === 'number') {
-      return String(value.value);
+      return bindNumericValue(value.value);
     }
 
     if (value.kind === 'field') {
@@ -352,7 +370,7 @@ export function parseRuleExpression(input: string): string | null {
       throw createRuleExpressionError('unsupported_value', { field: field.key, value: value.value });
     }
 
-    return String(resolved);
+    return bindNumericValue(resolved);
   }
 
   function parseComparison(): string {
@@ -383,7 +401,7 @@ export function parseRuleExpression(input: string): string | null {
     }
 
     const sqlOperator = operator.value === '!=' ? '<>' : operator.value;
-    const leftSql = left.kind === 'field' ? left.field.sql : String(left.value);
+    const leftSql = left.kind === 'field' ? left.field.sql : bindNumericValue(left.value);
     const rightSql = resolveSqlValue(left.kind === 'field' ? left.field : null, right);
     return `(${leftSql} ${sqlOperator} ${rightSql})`;
   }
@@ -429,5 +447,8 @@ export function parseRuleExpression(input: string): string | null {
   if (index !== tokens.length) {
     throw createRuleExpressionError('unexpected_trailing_tokens');
   }
-  return expression;
+  return {
+    clause: expression,
+    params,
+  };
 }

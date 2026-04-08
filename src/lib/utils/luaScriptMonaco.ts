@@ -3,7 +3,6 @@ import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution';
 import 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
 import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import { luaCatalog as defaultLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
 import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded } from '$lib/utils/luaScriptDiagnostics';
 import { getCompletionInsertParameters, shouldInsertFunctionReferenceOnly } from '$lib/utils/luaFunctionCompletion';
 import { loadExternalLuaCatalog } from '$lib/utils/luaIntelCatalog';
@@ -17,7 +16,7 @@ import {
   type LuaSemanticTextModel,
   type LuaVisibleSymbol,
 } from '$lib/utils/luaSemantic';
-import type { CardDataEntry, LuaFunctionItem } from '$lib/types';
+import type { CardDataEntry, LuaConstantItem, LuaFunctionItem } from '$lib/types';
 
 type LuaModelContext = {
   cardCode: number;
@@ -41,6 +40,30 @@ const LUA_MARKER_OWNER = 'dataeditory-lua';
 const modelContexts = new Map<string, LuaModelContext>();
 const METHOD_NAMESPACES = new Set(['Card', 'Effect', 'Group']);
 const GLOBAL_NAMESPACES = new Set(['Card', 'Effect', 'Group', 'Duel', 'Debug']);
+const LUA_KEYWORDS = [
+  'and',
+  'break',
+  'do',
+  'else',
+  'elseif',
+  'end',
+  'false',
+  'for',
+  'function',
+  'goto',
+  'if',
+  'in',
+  'local',
+  'nil',
+  'not',
+  'or',
+  'repeat',
+  'return',
+  'then',
+  'true',
+  'until',
+  'while',
+] as const;
 const COMMON_PARAM_TYPE_MAP: Record<string, LuaStaticType> = {
   c: 'Card',
   chkc: 'Card',
@@ -71,7 +94,17 @@ const COMMON_PARAM_TYPE_MAP: Record<string, LuaStaticType> = {
   og: 'Group',
   vg: 'Group',
 };
-let luaCatalog = defaultLuaCatalog;
+let luaCatalog: {
+  constants: LuaConstantItem[];
+  functions: LuaFunctionItem[];
+  snippets: Array<{ name: string; prefix: string; body: string[]; description: string; sortText: string }>;
+  keywords: string[];
+} = {
+  constants: [],
+  functions: [],
+  snippets: [],
+  keywords: [...LUA_KEYWORDS],
+};
 let functionsByName = new Map<string, LuaFunctionItem>();
 let functionsByNamespace = new Map<string, LuaFunctionItem[]>();
 let functionsByShortName = new Map<string, LuaFunctionItem[]>();
@@ -100,6 +133,18 @@ function rebuildCatalogIndexes() {
 async function ensureLuaCatalogLoaded() {
   if (!catalogLoadPromise) {
     catalogLoadPromise = (async () => {
+      const [constantsModule, functionsModule, snippetsModule] = await Promise.all([
+        import('$lib/data/lua-intel/constants.generated.json'),
+        import('$lib/data/lua-intel/functions.generated.json'),
+        import('$lib/data/lua-intel/snippets.generated.json'),
+      ]);
+      luaCatalog = {
+        constants: constantsModule.default,
+        functions: functionsModule.default,
+        snippets: snippetsModule.default,
+        keywords: [...LUA_KEYWORDS],
+      };
+
       const externalCatalog = await loadExternalLuaCatalog();
       if (externalCatalog) {
         luaCatalog = externalCatalog;
@@ -136,106 +181,123 @@ function getCssVar(name: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-function defineThemes() {
-  monaco.editor.defineTheme('dataeditory-dark', {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [
-      { token: 'comment', foreground: '7f8ea3' },
-      { token: 'keyword', foreground: 'd7a95b', fontStyle: 'bold' },
-      { token: 'string', foreground: '86efac' },
-      { token: 'number', foreground: 'fbbf24' },
-      { token: 'delimiter', foreground: 'cbd5e1' },
-      { token: 'identifier', foreground: 'f8fafc' },
-    ],
-    colors: {
-      'editor.background': '#121714',
-      'editor.foreground': getCssVar('--text-primary') || '#f5f8ff',
-      'editor.lineHighlightBackground': 'rgba(118, 184, 151, 0.12)',
-      'editorLineNumber.foreground': '#71877f',
-      'editorLineNumber.activeForeground': getCssVar('--text-primary') || '#f5f8ff',
-      'editorCursor.foreground': getCssVar('--accent-primary') || '#3b82f6',
-      'editor.selectionBackground': 'rgba(87, 166, 121, 0.28)',
-      'editor.inactiveSelectionBackground': 'rgba(87, 166, 121, 0.18)',
-      'editorWidget.background': '#26312d',
-      'editorWidget.border': '#4d6159',
-      'editorSuggestWidget.background': '#26312d',
-      'editorSuggestWidget.border': '#4d6159',
-      'editorSuggestWidget.selectedBackground': 'rgba(82, 122, 98, 0.46)',
-      'editorSuggestWidget.selectedForeground': '#f2fbf5',
-      'editorSuggestWidget.highlightForeground': '#b8f2c4',
-      'list.activeSelectionBackground': '#50675b',
-      'list.activeSelectionForeground': '#f2fbf5',
-      'list.inactiveSelectionBackground': 'rgba(80, 103, 91, 0.5)',
-      'list.hoverBackground': 'rgba(80, 103, 91, 0.24)',
-      'list.highlightForeground': '#b8f2c4',
-      'editorHoverWidget.background': '#26312d',
-      'editorHoverWidget.border': '#4d6159',
-      'editorError.foreground': '#d89a96',
-      'editorError.border': '#00000000',
-      'editorError.background': 'rgba(216, 154, 150, 0.12)',
-      'editorWarning.foreground': '#d3bf8a',
-      'editorWarning.border': '#00000000',
-      'editorWarning.background': 'rgba(211, 191, 138, 0.1)',
-      'editorInfo.foreground': '#89b8c9',
-      'editorInfo.border': '#00000000',
-      'editorInfo.background': 'rgba(137, 184, 201, 0.08)',
-    },
-  });
+type LuaEditorThemeSpec = {
+  base: 'vs' | 'vs-dark';
+  inherit: boolean;
+  rules: Array<{ token: string; foreground: string; fontStyle?: string }>;
+  colors: Record<string, string>;
+};
 
-  monaco.editor.defineTheme('dataeditory-light', {
-    base: 'vs',
-    inherit: true,
-    rules: [
-      { token: 'comment', foreground: '64748b' },
-      { token: 'keyword', foreground: '8a4b00', fontStyle: 'bold' },
-      { token: 'string', foreground: '15803d' },
-      { token: 'number', foreground: 'b45309' },
-      { token: 'delimiter', foreground: '1f2937' },
-      { token: 'identifier', foreground: '111827' },
-    ],
-    colors: {
-      'editor.background': '#f1f5ec',
-      'editor.foreground': getCssVar('--text-primary') || '#152033',
-      'editor.lineHighlightBackground': 'rgba(74, 133, 91, 0.1)',
-      'editorLineNumber.foreground': '#7f9683',
-      'editorLineNumber.activeForeground': getCssVar('--text-primary') || '#152033',
-      'editorCursor.foreground': getCssVar('--accent-primary') || '#2563eb',
-      'editor.selectionBackground': 'rgba(79, 142, 98, 0.22)',
-      'editor.inactiveSelectionBackground': 'rgba(79, 142, 98, 0.14)',
-      'editorWidget.background': '#ffffff',
-      'editorWidget.border': '#b5c7b7',
-      'editorSuggestWidget.background': '#ffffff',
-      'editorSuggestWidget.border': '#b5c7b7',
-      'editorSuggestWidget.selectedBackground': 'rgba(97, 141, 106, 0.16)',
-      'editorSuggestWidget.selectedForeground': '#16311e',
-      'editorSuggestWidget.highlightForeground': '#215d2f',
-      'list.activeSelectionBackground': '#dbe8dc',
-      'list.activeSelectionForeground': '#16311e',
-      'list.inactiveSelectionBackground': 'rgba(219, 232, 220, 0.72)',
-      'list.hoverBackground': 'rgba(219, 232, 220, 0.42)',
-      'list.highlightForeground': '#215d2f',
-      'editorHoverWidget.background': '#ffffff',
-      'editorHoverWidget.border': '#b5c7b7',
-      'editorError.foreground': '#c8746b',
-      'editorError.border': '#00000000',
-      'editorError.background': 'rgba(200, 116, 107, 0.1)',
-      'editorWarning.foreground': '#b08a39',
-      'editorWarning.border': '#00000000',
-      'editorWarning.background': 'rgba(176, 138, 57, 0.08)',
-      'editorInfo.foreground': '#4d87a0',
-      'editorInfo.border': '#00000000',
-      'editorInfo.background': 'rgba(77, 135, 160, 0.06)',
+function getLuaEditorThemeSpecs() {
+  return {
+    dark: {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '7f8ea3' },
+        { token: 'keyword', foreground: 'd7a95b', fontStyle: 'bold' },
+        { token: 'string', foreground: '86efac' },
+        { token: 'number', foreground: 'fbbf24' },
+        { token: 'delimiter', foreground: 'cbd5e1' },
+        { token: 'identifier', foreground: 'f8fafc' },
+      ],
+      colors: {
+        'editor.background': '#121714',
+        'editor.foreground': getCssVar('--text-primary') || '#f5f8ff',
+        'editor.lineHighlightBackground': 'rgba(118, 184, 151, 0.12)',
+        'editorLineNumber.foreground': '#71877f',
+        'editorLineNumber.activeForeground': getCssVar('--text-primary') || '#f5f8ff',
+        'editorCursor.foreground': getCssVar('--accent-primary') || '#3b82f6',
+        'editor.selectionBackground': 'rgba(87, 166, 121, 0.28)',
+        'editor.inactiveSelectionBackground': 'rgba(87, 166, 121, 0.18)',
+        'editorWidget.background': '#26312d',
+        'editorWidget.border': '#4d6159',
+        'editorSuggestWidget.background': '#26312d',
+        'editorSuggestWidget.border': '#4d6159',
+        'editorSuggestWidget.selectedBackground': 'rgba(82, 122, 98, 0.46)',
+        'editorSuggestWidget.selectedForeground': '#f2fbf5',
+        'editorSuggestWidget.highlightForeground': '#b8f2c4',
+        'list.activeSelectionBackground': '#50675b',
+        'list.activeSelectionForeground': '#f2fbf5',
+        'list.inactiveSelectionBackground': 'rgba(80, 103, 91, 0.5)',
+        'list.hoverBackground': 'rgba(80, 103, 91, 0.24)',
+        'list.highlightForeground': '#b8f2c4',
+        'editorHoverWidget.background': '#26312d',
+        'editorHoverWidget.border': '#4d6159',
+        'editorError.foreground': '#d89a96',
+        'editorError.border': '#00000000',
+        'editorError.background': 'rgba(216, 154, 150, 0.12)',
+        'editorWarning.foreground': '#d3bf8a',
+        'editorWarning.border': '#00000000',
+        'editorWarning.background': 'rgba(211, 191, 138, 0.1)',
+        'editorInfo.foreground': '#89b8c9',
+        'editorInfo.border': '#00000000',
+        'editorInfo.background': 'rgba(137, 184, 201, 0.08)',
+      },
     },
-  });
+    light: {
+      base: 'vs',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '64748b' },
+        { token: 'keyword', foreground: '8a4b00', fontStyle: 'bold' },
+        { token: 'string', foreground: '15803d' },
+        { token: 'number', foreground: 'b45309' },
+        { token: 'delimiter', foreground: '1f2937' },
+        { token: 'identifier', foreground: '111827' },
+      ],
+      colors: {
+        'editor.background': '#f1f5ec',
+        'editor.foreground': getCssVar('--text-primary') || '#152033',
+        'editor.lineHighlightBackground': 'rgba(74, 133, 91, 0.1)',
+        'editorLineNumber.foreground': '#7f9683',
+        'editorLineNumber.activeForeground': getCssVar('--text-primary') || '#152033',
+        'editorCursor.foreground': getCssVar('--accent-primary') || '#2563eb',
+        'editor.selectionBackground': 'rgba(79, 142, 98, 0.22)',
+        'editor.inactiveSelectionBackground': 'rgba(79, 142, 98, 0.14)',
+        'editorWidget.background': '#ffffff',
+        'editorWidget.border': '#b5c7b7',
+        'editorSuggestWidget.background': '#ffffff',
+        'editorSuggestWidget.border': '#b5c7b7',
+        'editorSuggestWidget.selectedBackground': 'rgba(97, 141, 106, 0.16)',
+        'editorSuggestWidget.selectedForeground': '#16311e',
+        'editorSuggestWidget.highlightForeground': '#215d2f',
+        'list.activeSelectionBackground': '#dbe8dc',
+        'list.activeSelectionForeground': '#16311e',
+        'list.inactiveSelectionBackground': 'rgba(219, 232, 220, 0.72)',
+        'list.hoverBackground': 'rgba(219, 232, 220, 0.42)',
+        'list.highlightForeground': '#215d2f',
+        'editorHoverWidget.background': '#ffffff',
+        'editorHoverWidget.border': '#b5c7b7',
+        'editorError.foreground': '#c8746b',
+        'editorError.border': '#00000000',
+        'editorError.background': 'rgba(200, 116, 107, 0.1)',
+        'editorWarning.foreground': '#b08a39',
+        'editorWarning.border': '#00000000',
+        'editorWarning.background': 'rgba(176, 138, 57, 0.08)',
+        'editorInfo.foreground': '#4d87a0',
+        'editorInfo.border': '#00000000',
+        'editorInfo.background': 'rgba(77, 135, 160, 0.06)',
+      },
+    },
+  } satisfies Record<'dark' | 'light', LuaEditorThemeSpec>;
+}
+
+function defineThemes() {
+  const specs = getLuaEditorThemeSpecs();
+  monaco.editor.defineTheme('dataeditory-dark', specs.dark);
+  monaco.editor.defineTheme('dataeditory-light', specs.light);
+}
+
+function getCurrentLuaThemeName() {
+  return document.documentElement.getAttribute('data-theme') === 'light'
+    ? 'dataeditory-light'
+    : 'dataeditory-dark';
 }
 
 export function syncMonacoTheme() {
   defineThemes();
-  const theme = document.documentElement.getAttribute('data-theme') === 'light'
-    ? 'dataeditory-light'
-    : 'dataeditory-dark';
-  monaco.editor.setTheme(theme);
+  monaco.editor.setTheme(getCurrentLuaThemeName());
 }
 
 function toMarkdownParagraphs(lines: string[]) {

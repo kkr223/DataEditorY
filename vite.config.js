@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
+import { fileURLToPath, URL } from "node:url";
 import { getBuildVariantConfig } from "./scripts/build-variant-config.mjs";
 
 const DEFAULT_DEV_HOST = "127.0.0.1";
@@ -7,38 +8,96 @@ const DEFAULT_DEV_PORT = 43127;
 const DEFAULT_HMR_PORT = 43128;
 const host = globalThis.process?.env?.TAURI_DEV_HOST || DEFAULT_DEV_HOST;
 const variant = getBuildVariantConfig(globalThis.process?.env?.APP_VARIANT);
+const baseExtraStubAliases = variant.key === "base"
+  ? [
+      {
+        find: "$lib/features/card-editor/extraUseCases",
+        replacement: fileURLToPath(
+          new URL("./src/lib/build-stubs/base/features/card-editor/extraUseCases.ts", import.meta.url),
+        ),
+      },
+      {
+        find: "$lib/features/card-editor/components/CardParseDialog.svelte",
+        replacement: fileURLToPath(
+          new URL(
+            "./src/lib/build-stubs/base/features/card-editor/components/CardParseDialog.svelte",
+            import.meta.url,
+          ),
+        ),
+      },
+      {
+        find: "$lib/features/card-editor/components/CardImageDrawerHost.svelte",
+        replacement: fileURLToPath(
+          new URL(
+            "./src/lib/build-stubs/base/features/card-editor/components/CardImageDrawerHost.svelte",
+            import.meta.url,
+          ),
+        ),
+      },
+      {
+        find: "$lib/features/script-editor/extraUseCases",
+        replacement: fileURLToPath(
+          new URL("./src/lib/build-stubs/base/features/script-editor/extraUseCases.ts", import.meta.url),
+        ),
+      },
+      {
+        find: "$lib/features/settings/extraUseCases",
+        replacement: fileURLToPath(
+          new URL("./src/lib/build-stubs/base/features/settings/extraUseCases.ts", import.meta.url),
+        ),
+      },
+      {
+        find: "$lib/features/settings/components/SettingsAiCard.svelte",
+        replacement: fileURLToPath(
+          new URL(
+            "./src/lib/build-stubs/base/features/settings/components/SettingsAiCard.svelte",
+            import.meta.url,
+          ),
+        ),
+      },
+    ]
+  : [];
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [sveltekit()],
+  resolve: {
+    alias: baseExtraStubAliases,
+  },
   define: {
     __APP_BUILD_VARIANT__: JSON.stringify(variant.key),
     __APP_BUILD_LABEL__: JSON.stringify(variant.label),
     __APP_FEATURES__: JSON.stringify(variant.features),
   },
   build: {
-    chunkSizeWarningLimit: 520,
+    chunkSizeWarningLimit: 3900,
     rollupOptions: {
       output: {
         /** @param {string} id */
         manualChunks(id) {
-          if (!id.includes("node_modules")) {
+          const normalizedId = id.replaceAll("\\", "/");
+
+          if (!normalizedId.includes("/node_modules/")) {
             return;
           }
 
-          if (id.includes("node_modules/yugioh-card")) {
+          if (normalizedId.includes("/node_modules/monaco-editor/esm/vs/basic-languages/lua/")) {
+            return "vendor-monaco-lua";
+          }
+
+          if (normalizedId.includes("/node_modules/monaco-editor/")) {
+            return "vendor-monaco";
+          }
+
+          if (normalizedId.includes("/node_modules/yugioh-card/")) {
             return "vendor-yugioh-card";
           }
 
-          if (id.includes("node_modules/cdb2yugiohcard")) {
-            return "vendor-card-image";
-          }
-
-          if (id.includes("node_modules/@tauri-apps")) {
+          if (normalizedId.includes("/node_modules/@tauri-apps/")) {
             return "vendor-tauri";
           }
 
-          if (id.includes("node_modules/svelte-i18n")) {
+          if (normalizedId.includes("/node_modules/svelte-i18n/")) {
             return "vendor-i18n";
           }
 

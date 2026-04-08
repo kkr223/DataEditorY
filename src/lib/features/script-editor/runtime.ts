@@ -44,6 +44,7 @@ export async function createScriptMonacoRuntime(input: {
   host: HTMLDivElement;
   onDidChangeModelContent: () => void;
   onDidChangeCursorPosition: () => void;
+  onDidChangeCursorSelection: () => void;
   onKeyUp: () => void;
   onMouseMove: (position: { lineNumber: number; column: number } | null | undefined) => void;
   onDidBlurEditorText: () => void;
@@ -60,6 +61,7 @@ export async function createScriptMonacoRuntime(input: {
   const disposables = [
     editor.onDidChangeModelContent(input.onDidChangeModelContent),
     editor.onDidChangeCursorPosition(input.onDidChangeCursorPosition),
+    editor.onDidChangeCursorSelection(input.onDidChangeCursorSelection),
     editor.onKeyUp(input.onKeyUp),
     editor.onMouseMove((event) => {
       input.onMouseMove(event.target.position);

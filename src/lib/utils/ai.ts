@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import type { CardDataEntry } from '$lib/types';
-import { createEmptyCard } from '$lib/domain/card/draft';
+import { areCardsEquivalent, cloneEditableCard, createEmptyCard } from '$lib/domain/card/draft';
 import { normalizeGeneratedScript } from '$lib/domain/script/workspace';
 import {
   ATTRIBUTE_MAP,
@@ -66,7 +66,20 @@ export type AiAppContext = {
   listOpenDatabases: () => OpenDbMeta[];
   getActiveDatabaseId: () => string | null;
   getCardByIdInTab: (tabId: string, cardId: number) => Promise<CardDataEntry | undefined>;
+  getCardsByIdsInTab: (tabId: string, cardIds: number[]) => Promise<CardDataEntry[]>;
   queryCardsRaw: (tabId: string, queryClause: string, params?: Record<string, string | number>) => Promise<CardDataEntry[]>;
+  getSelectedCardsInActiveTab: () => CardDataEntry[];
+  getVisibleCardsInActiveTab: () => CardDataEntry[];
+  modifyCardsWithSnapshotInTab: (
+    tabId: string,
+    cards: CardDataEntry[],
+    previousCards: Array<CardDataEntry | null | undefined>,
+  ) => Promise<boolean>;
+  deleteCardsWithSnapshotInTab: (
+    tabId: string,
+    cardIds: number[],
+    deletedCards: CardDataEntry[],
+  ) => Promise<boolean>;
   readCardScript: (code: number, dbPath?: string) => Promise<{
     exists: boolean;
     path: string | null;
@@ -93,6 +106,44 @@ type ParsedCardDraft = {
   setcodes?: Array<string | number>;
   category?: number | null;
   strings?: string[];
+};
+
+type BatchTargetScope = 'current_selection' | 'current_page' | 'all_cards' | 'search_query' | 'card_ids';
+
+type BatchTarget = {
+  scope?: BatchTargetScope;
+  dbPath?: string;
+  query?: string;
+  queryFields?: string[];
+  cardIds?: number[];
+  limit?: number;
+};
+
+type BatchOperation =
+  | {
+      type: 'set_fields';
+      patch?: ParsedCardDraft;
+    }
+  | {
+      type: 'append_text' | 'prepend_text';
+      textField?: 'name' | 'desc';
+      value?: string;
+    }
+  | {
+      type: 'replace_text';
+      textField?: 'name' | 'desc';
+      findText?: string;
+      replaceText?: string;
+      matchCase?: boolean;
+    }
+  | {
+      type: 'delete_cards';
+    };
+
+type BatchEditArgs = {
+  target?: BatchTarget;
+  operation?: BatchOperation;
+  dryRun?: boolean;
 };
 
 
@@ -192,6 +243,20 @@ const TOOL_DEFINITIONS: AiToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'get_current_selection',
+      description: 'Get the cards currently selected in the active card list. Returns the count plus a small sample only.',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: { type: 'number' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'read_card_script',
       description: 'Read an existing lua script for a card if one exists.',
       parameters: {
@@ -199,6 +264,88 @@ const TOOL_DEFINITIONS: AiToolDefinition[] = [
         properties: {
           code: { type: 'number' },
           dbPath: { type: 'string' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_batch_card_edit',
+      description: 'Apply a batch card operation inside the active or specified opened database and return only counts plus a small sample.',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: {
+            type: 'object',
+            properties: {
+              scope: {
+                type: 'string',
+                enum: ['current_selection', 'current_page', 'all_cards', 'search_query', 'card_ids'],
+              },
+              dbPath: { type: 'string' },
+              query: { type: 'string' },
+              queryFields: {
+                type: 'array',
+                items: {
+                  type: 'string',
+                  enum: ['name', 'desc'],
+                },
+              },
+              cardIds: {
+                type: 'array',
+                items: { type: 'number' },
+              },
+              limit: { type: 'number' },
+            },
+            additionalProperties: false,
+          },
+          operation: {
+            type: 'object',
+            properties: {
+              type: {
+                type: 'string',
+                enum: ['set_fields', 'append_text', 'prepend_text', 'replace_text', 'delete_cards'],
+              },
+              patch: {
+                type: 'object',
+                properties: {
+                  code: { type: 'number' },
+                  alias: { type: 'number' },
+                  name: { type: 'string' },
+                  desc: { type: 'string' },
+                  ot: { type: ['number', 'string'] },
+                  mainType: { type: 'string', enum: ['monster', 'spell', 'trap'] },
+                  subtypes: { type: 'array', items: { type: 'string' } },
+                  attribute: { type: 'string' },
+                  race: { type: 'string' },
+                  level: { type: 'number' },
+                  leftScale: { type: 'number' },
+                  rightScale: { type: 'number' },
+                  attack: { type: 'number' },
+                  defense: { type: 'number' },
+                  linkMarkers: { type: 'array', items: { type: 'string' } },
+                  setcodes: {
+                    type: 'array',
+                    items: {
+                      anyOf: [{ type: 'string' }, { type: 'number' }],
+                    },
+                  },
+                  category: { type: 'number' },
+                  strings: { type: 'array', items: { type: 'string' } },
+                },
+                additionalProperties: false,
+              },
+              textField: { type: 'string', enum: ['name', 'desc'] },
+              value: { type: 'string' },
+              findText: { type: 'string' },
+              replaceText: { type: 'string' },
+              matchCase: { type: 'boolean' },
+            },
+            additionalProperties: false,
+          },
+          dryRun: { type: 'boolean' },
         },
         additionalProperties: false,
       },
@@ -506,18 +653,6 @@ async function pickCardFromDb(context: AiAppContext, code: number, dbPath?: stri
     }
   }
 
-  if (!dbPath) {
-    for (const tab of context.listOpenDatabases()) {
-      const card = await context.getCardByIdInTab(tab.id, code);
-      if (card) {
-        return {
-          db: { name: tab.name, path: tab.path },
-          card: serializeCardForAi(card),
-        };
-      }
-    }
-  }
-
   return null;
 }
 
@@ -549,6 +684,279 @@ async function searchCards(context: AiAppContext, query: string, dbScope?: strin
   }
 
   return result.slice(0, safeLimit);
+}
+
+function normalizeBatchTarget(raw: Record<string, unknown> | undefined): BatchTarget {
+  const scope = typeof raw?.scope === 'string' ? raw.scope as BatchTargetScope : 'current_selection';
+  return {
+    scope,
+    dbPath: typeof raw?.dbPath === 'string' ? raw.dbPath : undefined,
+    query: typeof raw?.query === 'string' ? raw.query : undefined,
+    queryFields: Array.isArray(raw?.queryFields) ? raw.queryFields.map((value) => String(value)) : undefined,
+    cardIds: Array.isArray(raw?.cardIds)
+      ? raw.cardIds
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0)
+      : undefined,
+    limit: Number.isFinite(Number(raw?.limit)) ? Number(raw?.limit) : undefined,
+  };
+}
+
+function normalizeBatchOperation(raw: Record<string, unknown> | undefined): BatchOperation {
+  const type = typeof raw?.type === 'string' ? raw.type : 'set_fields';
+  if (type === 'append_text' || type === 'prepend_text') {
+    return {
+      type,
+      textField: raw?.textField === 'name' ? 'name' : 'desc',
+      value: typeof raw?.value === 'string' ? raw.value : '',
+    };
+  }
+
+  if (type === 'replace_text') {
+    return {
+      type,
+      textField: raw?.textField === 'name' ? 'name' : 'desc',
+      findText: typeof raw?.findText === 'string' ? raw.findText : '',
+      replaceText: typeof raw?.replaceText === 'string' ? raw.replaceText : '',
+      matchCase: Boolean(raw?.matchCase),
+    };
+  }
+
+  if (type === 'delete_cards') {
+    return { type };
+  }
+
+  return {
+    type: 'set_fields',
+    patch: raw?.patch && typeof raw.patch === 'object'
+      ? raw.patch as ParsedCardDraft
+      : {},
+  };
+}
+
+function resolveTabMeta(context: AiAppContext, dbPath?: string) {
+  const opened = context.listOpenDatabases();
+  if (dbPath) {
+    return opened.find((tab) => tab.path === dbPath) ?? null;
+  }
+
+  const activeId = context.getActiveDatabaseId();
+  if (activeId) {
+    return opened.find((tab) => tab.id === activeId) ?? null;
+  }
+
+  return opened[0] ?? null;
+}
+
+function limitBatchCards(cards: CardDataEntry[], limit: number | undefined) {
+  if (!Number.isFinite(limit) || (limit ?? 0) <= 0) {
+    return cards;
+  }
+
+  return cards.slice(0, Math.floor(limit as number));
+}
+
+async function queryCardsByIds(context: AiAppContext, tabId: string, cardIds: number[]) {
+  const safeIds = [...new Set(cardIds.filter((value) => Number.isInteger(value) && value > 0))];
+  if (safeIds.length === 0) {
+    return [];
+  }
+
+  return context.getCardsByIdsInTab(tabId, safeIds);
+}
+
+async function collectBatchTargetCards(context: AiAppContext, target: BatchTarget) {
+  const tab = resolveTabMeta(context, target.dbPath);
+  if (!tab) {
+    throw new Error('No opened database is available');
+  }
+
+  switch (target.scope) {
+    case 'current_page':
+      return {
+        tab,
+        cards: limitBatchCards(context.getVisibleCardsInActiveTab(), target.limit),
+      };
+    case 'all_cards':
+      return {
+        tab,
+        cards: limitBatchCards(
+          await context.queryCardsRaw(tab.id, '1=1 ORDER BY datas.id'),
+          target.limit,
+        ),
+      };
+    case 'search_query': {
+      const query = String(target.query ?? '').trim();
+      if (!query) {
+        throw new Error('A non-empty search query is required');
+      }
+
+      const queryFields = (target.queryFields ?? ['name', 'desc']).filter((field) => field === 'name' || field === 'desc');
+      if (queryFields.length === 0) {
+        throw new Error('At least one search field is required');
+      }
+
+      const safeLike = `%${escapeLikeWildcards(query)}%`;
+      const fieldClause = queryFields
+        .map((field) => field === 'name' ? 'texts.name LIKE :query ESCAPE \'\\\'' : 'texts.desc LIKE :query ESCAPE \'\\\'')
+        .join(' OR ');
+      const limitClause = Number.isFinite(target.limit) && (target.limit ?? 0) > 0
+        ? ` LIMIT ${Math.floor(target.limit as number)}`
+        : '';
+
+      return {
+        tab,
+        cards: await context.queryCardsRaw(
+          tab.id,
+          `(${fieldClause}) ORDER BY datas.id${limitClause}`,
+          { query: safeLike },
+        ),
+      };
+    }
+    case 'card_ids':
+      return {
+        tab,
+        cards: limitBatchCards(
+          await queryCardsByIds(context, tab.id, target.cardIds ?? []),
+          target.limit,
+        ),
+      };
+    case 'current_selection':
+    default:
+      return {
+        tab,
+        cards: limitBatchCards(context.getSelectedCardsInActiveTab(), target.limit),
+      };
+  }
+}
+
+function createBatchSample(cards: CardDataEntry[], limit = 8) {
+  return cards.slice(0, limit).map((card) => ({
+    code: Number(card.code ?? 0),
+    name: String(card.name ?? ''),
+  }));
+}
+
+function replaceLiteralText(
+  input: string,
+  findText: string,
+  replaceText: string,
+  matchCase: boolean,
+) {
+  if (!findText) {
+    return input;
+  }
+
+  if (matchCase) {
+    return input.split(findText).join(replaceText);
+  }
+
+  const pattern = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return input.replace(new RegExp(pattern, 'gi'), replaceText);
+}
+
+function applyBatchOperationToCard(card: CardDataEntry, operation: BatchOperation) {
+  const nextCard = cloneEditableCard(card);
+
+  switch (operation.type) {
+    case 'delete_cards':
+      return nextCard;
+    case 'set_fields':
+      return mergeParsedDraftIntoCard(nextCard, operation.patch ?? {});
+    case 'append_text':
+    case 'prepend_text': {
+      const field: 'name' | 'desc' = operation.textField ?? 'desc';
+      const value = String(operation.value ?? '');
+      nextCard[field] = operation.type === 'append_text'
+        ? `${nextCard[field] ?? ''}${value}`
+        : `${value}${nextCard[field] ?? ''}`;
+      return nextCard;
+    }
+    case 'replace_text': {
+      const field: 'name' | 'desc' = operation.textField ?? 'desc';
+      nextCard[field] = replaceLiteralText(
+        String(nextCard[field] ?? ''),
+        String(operation.findText ?? ''),
+        String(operation.replaceText ?? ''),
+        Boolean(operation.matchCase),
+      );
+      return nextCard;
+    }
+    default:
+      return nextCard;
+  }
+}
+
+async function applyBatchCardEdit(context: AiAppContext, args: BatchEditArgs) {
+  const target = normalizeBatchTarget(args.target as Record<string, unknown> | undefined);
+  const operation = normalizeBatchOperation(args.operation as Record<string, unknown> | undefined);
+  const dryRun = Boolean(args.dryRun);
+  const { tab, cards } = await collectBatchTargetCards(context, target);
+
+  if (cards.length === 0) {
+    return {
+      db: { name: tab.name, path: tab.path },
+      matchedCount: 0,
+      changedCount: 0,
+      dryRun,
+      operation: operation.type,
+      sample: [],
+    };
+  }
+
+  if (operation.type === 'delete_cards') {
+    if (!dryRun) {
+      const ok = await context.deleteCardsWithSnapshotInTab(
+        tab.id,
+        cards.map((card) => card.code),
+        cards,
+      );
+      if (!ok) {
+        throw new Error('Failed to delete cards');
+      }
+    }
+
+    return {
+      db: { name: tab.name, path: tab.path },
+      matchedCount: cards.length,
+      changedCount: cards.length,
+      dryRun,
+      operation: 'delete_cards',
+      sample: createBatchSample(cards),
+    };
+  }
+
+  const changedPairs = cards
+    .map((card) => {
+      const nextCard = applyBatchOperationToCard(card, operation);
+      return areCardsEquivalent(nextCard, card)
+        ? null
+        : {
+            previous: cloneEditableCard(card),
+            next: nextCard,
+          };
+    })
+    .filter((item): item is { previous: CardDataEntry; next: CardDataEntry } => item !== null);
+
+  if (!dryRun && changedPairs.length > 0) {
+    const ok = await context.modifyCardsWithSnapshotInTab(
+      tab.id,
+      changedPairs.map((item) => item.next),
+      changedPairs.map((item) => item.previous),
+    );
+    if (!ok) {
+      throw new Error('Failed to modify cards');
+    }
+  }
+
+  return {
+    db: { name: tab.name, path: tab.path },
+    matchedCount: cards.length,
+    changedCount: changedPairs.length,
+    dryRun,
+    operation: operation.type,
+    sample: createBatchSample(changedPairs.map((item) => item.next)),
+  };
 }
 
 function createToolExecutors(context: AiAppContext, currentCard: CardDataEntry): Record<string, ToolExecutor> {
@@ -585,6 +993,21 @@ function createToolExecutors(context: AiAppContext, currentCard: CardDataEntry):
         Number(args.limit ?? 6),
       );
     },
+    async get_current_selection(args) {
+      const safeLimit = Math.max(1, Math.min(12, Math.round(Number(args.limit ?? 8))));
+      const cards = context.getSelectedCardsInActiveTab();
+      const currentActiveTab = context.listOpenDatabases().find((tab) => tab.id === context.getActiveDatabaseId()) ?? null;
+      return {
+        db: currentActiveTab
+          ? {
+              name: currentActiveTab.name,
+              path: currentActiveTab.path,
+            }
+          : null,
+        count: cards.length,
+        sample: createBatchSample(cards, safeLimit),
+      };
+    },
     async read_card_script(args) {
       const fallbackCode = Number(currentCard.code ?? 0);
       const code = Number(args.code ?? fallbackCode);
@@ -593,6 +1016,9 @@ function createToolExecutors(context: AiAppContext, currentCard: CardDataEntry):
       }
 
       return context.readCardScript(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    },
+    async apply_batch_card_edit(args) {
+      return applyBatchCardEdit(context, args as BatchEditArgs);
     },
   };
 }
@@ -819,6 +1245,69 @@ export async function parseCardManuscript(manuscript: string, currentCard: CardD
     summary: parsed.summary ?? '',
     raw: text,
   };
+}
+
+export async function runEditorInstruction(input: {
+  instruction: string;
+  currentCard: CardDataEntry;
+  context: AiAppContext;
+  signal?: AbortSignal;
+  onStageChange?: (stage: AgentStage) => void;
+}) {
+  const trimmedInstruction = input.instruction.trim();
+  if (!trimmedInstruction) {
+    throw new Error('Instruction is empty');
+  }
+
+  return runAgent({
+    context: input.context,
+    currentCard: input.currentCard,
+    useTools: true,
+    maxSteps: 6,
+    toolNames: [
+      'list_open_databases',
+      'get_current_card',
+      'get_current_selection',
+      'get_card_by_id',
+      'search_cards',
+      'apply_batch_card_edit',
+      'read_card_script',
+    ],
+    signal: input.signal,
+    onStageChange: input.onStageChange,
+    systemPrompt: [
+      '你是 DataEditorY 的 AI 交互代理，负责在编辑器内执行自然语言指令。',
+      '你的主要职责是操作当前已打开数据库中的卡片数据，尤其是批量修改、批量替换、批量删除与基于当前选择的处理。',
+      '',
+      '## 工作方式',
+      '- 优先通过工具理解当前数据库、当前卡片、当前选择和搜索结果。',
+      '- 当用户要求执行批量操作时，优先使用 `apply_batch_card_edit`，不要把大量卡片对象直接写回最终答案。',
+      '- 对批量操作，先尽量明确目标范围：当前选择、当前页、全部卡片、搜索命中的卡片，或明确的卡号列表。',
+      '- 当需要修改字段时，使用 `set_fields`，其中 patch 的字段结构与解析文稿的 CardDraft 保持一致。',
+      '- 当需要把某段文字统一追加、前置或替换时，使用文本类操作。',
+      '',
+      '## `apply_batch_card_edit` 参数提示',
+      '- `target.scope` 可用值：`current_selection`、`current_page`、`all_cards`、`search_query`、`card_ids`。',
+      '- `target.queryFields` 默认搜索 name 和 desc；通常无需额外指定。',
+      '- `operation.type` 可用值：`set_fields`、`append_text`、`prepend_text`、`replace_text`、`delete_cards`。',
+      '- `set_fields.patch` 支持字段：name、desc、ot、mainType、subtypes、attribute、race、level、leftScale、rightScale、attack、defense、linkMarkers、setcodes、category、strings 等。',
+      '',
+      '## 输出要求',
+      '- 如果已经执行工具，请用简洁中文总结“做了什么、命中了多少张、实际改了多少张”。',
+      '- 如果用户只是提问而不是执行操作，也可以直接回答。',
+      '- 不要输出冗长推理，不要输出大段 JSON，除非用户明确要求查看。',
+      '',
+      '## 安全与准确性',
+      '- 不清楚目标范围时，先调用工具确认再执行。',
+      '- 不要臆造数据库内容、卡片信息或脚本内容。',
+      '- 除非用户明确要求删除，否则优先使用修改而不是删除。',
+    ].join('\n'),
+    userPrompt: [
+      '请在当前编辑器上下文中执行或回答下面这条指令。',
+      '',
+      trimmedInstruction,
+    ].join('\n'),
+  });
 }
 /**
  * Pre-fetches up to `maxScripts` reference Lua scripts from opened databases

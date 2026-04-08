@@ -7,6 +7,7 @@ export interface AppSettingsPayload {
   temperature: number;
   scriptTemplate: string;
   useExternalScriptEditor: boolean;
+  saveScriptImageToLocal: boolean;
   hasSecretKey: boolean;
   coverImagePath: string | null;
   errorLogPath: string;
@@ -22,6 +23,7 @@ function createDefaultSettings(): AppSettingsPayload {
     temperature: 1,
     scriptTemplate: '-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n',
     useExternalScriptEditor: false,
+    saveScriptImageToLocal: false,
     hasSecretKey: false,
     coverImagePath: null,
     errorLogPath: '',
@@ -64,6 +66,7 @@ function applySettings(payload: AppSettingsPayload) {
     temperature: normalizeTemperature(payload.temperature),
     scriptTemplate: payload.scriptTemplate?.trim() ? payload.scriptTemplate : createDefaultSettings().scriptTemplate,
     useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
+    saveScriptImageToLocal: Boolean(payload.saveScriptImageToLocal),
     hasSecretKey: Boolean(payload.hasSecretKey),
     coverImagePath: payload.coverImagePath ?? null,
     errorLogPath: payload.errorLogPath ?? '',
@@ -118,6 +121,7 @@ export async function saveAppSettings(input: {
   temperature?: number;
   scriptTemplate: string;
   useExternalScriptEditor?: boolean;
+  saveScriptImageToLocal?: boolean;
   secretKey?: string;
   clearSecretKey?: boolean;
 }) {
@@ -130,6 +134,7 @@ export async function saveAppSettings(input: {
         temperature: normalizeTemperature(input.temperature ?? appSettingsState.values.temperature),
         scriptTemplate: input.scriptTemplate,
         useExternalScriptEditor: input.useExternalScriptEditor,
+        saveScriptImageToLocal: input.saveScriptImageToLocal,
         secretKey: input.secretKey,
         clearSecretKey: input.clearSecretKey,
       },

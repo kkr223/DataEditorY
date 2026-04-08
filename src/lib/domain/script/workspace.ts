@@ -2,6 +2,15 @@ export function buildScriptFileName(cardCode: number) {
   return `c${cardCode}.lua`;
 }
 
+export function buildScriptImagePath(cdbPath: string, cardCode: number) {
+  const normalized = cdbPath.trim();
+  if (!normalized) return '';
+
+  const separatorIndex = Math.max(normalized.lastIndexOf('/'), normalized.lastIndexOf('\\'));
+  const directory = separatorIndex >= 0 ? normalized.slice(0, separatorIndex + 1) : '';
+  return `${directory}${buildScriptFileName(cardCode).replace(/\.lua$/i, '.png')}`;
+}
+
 export function normalizeScriptContent(content: string) {
   return content.replace(/\r\n/g, '\n');
 }

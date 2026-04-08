@@ -1,8 +1,9 @@
 import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
-import type { LuaCallHighlight } from '$lib/utils/luaScriptCalls';
+import type { LuaInlineHighlight } from '$lib/utils/luaScriptCalls';
 import { toPersistableCard } from '$lib/domain/card/draft';
 
 export type HintPlacement = 'top' | 'bottom';
+export type ScriptReferenceManualKind = 'constants' | 'functions';
 
 export type MonacoDecorationRange = {
   startLineNumber: number;
@@ -80,6 +81,38 @@ export function shouldHandleHintSuppressShortcut(event: KeyboardEvent, hasEditor
   return event.key === 'Alt' && hasEditorTextFocus;
 }
 
+export function resolveScriptReferenceShortcut(
+  event: KeyboardEvent,
+  hasEditorTextFocus: boolean,
+  hasReferenceOverlayOpen: boolean,
+) {
+  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+    return null;
+  }
+
+  const canHandle = hasEditorTextFocus || hasReferenceOverlayOpen;
+  if (!canHandle) {
+    return null;
+  }
+
+  if (event.key === 'F9') {
+    return 'constants' satisfies ScriptReferenceManualKind;
+  }
+
+  if (event.key === 'F10') {
+    return 'functions' satisfies ScriptReferenceManualKind;
+  }
+
+  return null;
+}
+
+export function shouldCloseScriptReferenceOverlay(
+  event: KeyboardEvent,
+  hasReferenceOverlayOpen: boolean,
+) {
+  return hasReferenceOverlayOpen && event.key === 'Escape';
+}
+
 export function extractFocusedSuggestLabel(editorHost: ParentNode | null) {
   if (!editorHost) {
     return null;
@@ -107,7 +140,7 @@ export function buildCallHighlightDecorations(
   source: string,
   lastHighlightSource: string,
   lastHighlightDecorations: MonacoDecoration[],
-  collectHighlights: (source: string) => LuaCallHighlight[],
+  collectHighlights: (source: string) => LuaInlineHighlight[],
 ) {
   if (source === lastHighlightSource) {
     return {
@@ -126,7 +159,7 @@ export function buildCallHighlightDecorations(
         endColumn: item.endColumn,
       },
       options: {
-        inlineClassName: 'lua-call-highlight',
+        inlineClassName: item.className,
       },
     })),
   };

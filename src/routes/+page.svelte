@@ -10,7 +10,7 @@
     getCachedTotal
   } from '$lib/stores/db';
   import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-  import { clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSelectedCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
+  import { clearSearchError, clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSelectedCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
   import { appShellState } from '$lib/stores/appShell.svelte';
 
   type CardListModule = typeof import('$lib/components/CardList.svelte');
@@ -66,6 +66,7 @@
     if (currentTabId !== lastTabId) {
       lastTabId = currentTabId;
       if (currentTabId) {
+        clearSearchError();
         setAllCards(getCachedCards());
         setTotalCards(getCachedTotal());
         editorState.searchFilters = restoreSearchFilters();

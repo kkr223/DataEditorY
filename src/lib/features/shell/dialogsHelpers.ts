@@ -1,5 +1,13 @@
-export function buildMergeAnalysisKey(aPath: string, bPath: string) {
-  return `${aPath}::${bPath}`;
+export function buildMergeAnalysisKey(
+  sourcePaths: string[],
+  includeImages: boolean,
+  includeScripts: boolean,
+) {
+  return JSON.stringify({
+    sourcePaths,
+    includeImages,
+    includeScripts,
+  });
 }
 
 export function isNewOutputPath(

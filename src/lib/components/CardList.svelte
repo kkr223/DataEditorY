@@ -349,7 +349,7 @@
 
 <style>
   .pane { display: flex; flex-direction: column; height: 100%; border-right: 1px solid var(--border-color); }
-  .list-pane { flex: 0 0 clamp(18rem, 23vw, 30rem); min-width: 16rem; max-width: 34rem; background-color: var(--bg-surface); }
+  .list-pane { flex: 0 0 21rem; min-width: 21rem; max-width: 21rem; background-color: var(--bg-surface); }
   .list-header-complex { display: flex; flex-direction: column; border-bottom: 1px solid var(--border-color); position: relative; z-index: 20; }
   .search-row { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md); }
   .search-input-wrapper { flex: 1; }
@@ -490,22 +490,4 @@
     box-shadow: none;
   }
 
-  @media (max-width: 1200px) {
-    .list-pane {
-      flex-basis: 16rem;
-      min-width: 14rem;
-    }
-  }
-
-  @media (min-width: 2560px) {
-    .list-pane {
-      flex-basis: 25rem;
-      max-width: 36rem;
-    }
-    .data-table td,
-    .data-table th {
-      padding-top: 0.35rem;
-      padding-bottom: 0.35rem;
-    }
-  }
 </style>

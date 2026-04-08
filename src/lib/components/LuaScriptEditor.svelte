@@ -4,28 +4,41 @@
   import { activeScriptTab, getActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
   import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
-  import { collectLuaCallHighlights } from '$lib/utils/luaScriptCalls';
+  import { collectLuaInlineHighlights } from '$lib/utils/luaScriptCalls';
   import type { CardDataEntry } from '$lib/types';
-  import type { AgentStage } from '$lib/utils/ai';
   import type { editor as MonacoEditor } from 'monaco-editor';
   import { normalizeCardStrings } from '$lib/domain/card/draft';
   import { buildScriptFileName } from '$lib/domain/script/workspace';
-  import { getScriptGenerationStageLabel } from '$lib/services/scriptGeneration';
+  import { getScriptGenerationStageLabel, type ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
   import {
     buildCallHighlightDecorations,
     buildScriptEditorContextKey,
     extractFocusedSuggestLabel,
     resolveHintAnchor,
     resolveHoverAbove,
+    resolveScriptReferenceShortcut,
     shouldHandleHintSuppressShortcut,
+    shouldCloseScriptReferenceOverlay,
+    type ScriptReferenceManualKind,
   } from '$lib/features/script-editor/controller';
   import {
-    generateScriptFromEditorFlow,
+    ATTRIBUTE_OPTIONS,
+    getCardTypeKey,
+    getPackedLScale,
+    getPackedLevel,
+    getPackedRScale,
+    LINK_MARKERS,
+    RACE_OPTIONS,
+    TYPE_BITS,
+  } from '$lib/utils/card';
+  import {
     loadScriptCardContextFlow,
     openScriptExternallyFlow,
     reloadScriptEditorFlow,
     saveScriptEditorFlow,
     saveScriptStringFlow,
+    shareScriptImageFlow,
+    type ScriptImageSelection,
   } from '$lib/features/script-editor/useCases';
   import {
     createScriptMonacoRuntime,
@@ -35,9 +48,15 @@
   } from '$lib/features/script-editor/runtime';
   import ScriptToolbar from '$lib/features/script-editor/components/ScriptToolbar.svelte';
   import ScriptHintOverlays from '$lib/features/script-editor/components/ScriptHintOverlays.svelte';
+  import ScriptReferenceOverlay from '$lib/features/script-editor/components/ScriptReferenceOverlay.svelte';
   import ScriptSidePanel from '$lib/features/script-editor/components/ScriptSidePanel.svelte';
   import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
+  import type { LuaReferenceManualItem } from '$lib/utils/luaReferenceManual';
+  type ScriptEditorExtraUseCasesModule = typeof import('$lib/features/script-editor/extraUseCases');
   const hasAiCapability = isCapabilityEnabled('ai');
+  const loadScriptEditorExtraUseCases = __APP_FEATURES__.ai
+    ? () => import('$lib/features/script-editor/extraUseCases')
+    : null;
 
   let editorHost = $state<HTMLDivElement | null>(null);
   let monacoModule = $state<MonacoModule | null>(null);
@@ -50,13 +69,16 @@
   let cardContext = $state<CardDataEntry | null>(null);
   let isReloading = $state(false);
   let isSaving = $state(false);
+  let isSharingImage = $state(false);
   let isGeneratingScript = $state(false);
   let isMonacoReady = $state(false);
+  let hasSelectedCode = $state(false);
   let loadContextToken = 0;
   let lastContextKey = $state('');
   let savedScriptStrings = $state<string[]>(Array.from({ length: 16 }, () => ''));
-  let scriptGenerationStage = $state<AgentStage | ''>('');
+  let scriptGenerationStage = $state<ScriptGenerationStage | ''>('');
   let scriptGenerationAbortController = $state<AbortController | null>(null);
+  let scriptEditorExtraUseCasesPromise = $state<Promise<ScriptEditorExtraUseCasesModule> | null>(null);
   let suggestHintText = $state('');
   let suggestHintPlacement = $state<'top' | 'bottom'>('top');
   let suggestHintAnchorTop = $state(12);
@@ -65,6 +87,13 @@
   let isCurrentFunctionHintSuppressed = $state(false);
   let currentFunctionHintPlacement = $state<'top' | 'bottom'>('top');
   let currentFunctionHintAnchorTop = $state(12);
+  let referenceOverlayKind = $state<ScriptReferenceManualKind | null>(null);
+  let isReferenceManualLoading = $state(false);
+  let referenceManualItems = $state<Record<ScriptReferenceManualKind, LuaReferenceManualItem[]>>({
+    constants: [],
+    functions: [],
+  });
+  let referenceSelection = $state<ReturnType<MonacoEditor.IStandaloneCodeEditor['getSelection']>>(null);
   let hoverAbove = true;
   let suggestHintTimer: ReturnType<typeof setTimeout> | null = null;
   let validateTimer: ReturnType<typeof setTimeout> | null = null;
@@ -86,10 +115,99 @@
     return values;
   });
 
+  function ensureScriptEditorExtraUseCases() {
+    if (!loadScriptEditorExtraUseCases || !hasAiCapability) {
+      return null;
+    }
+    scriptEditorExtraUseCasesPromise ??= loadScriptEditorExtraUseCases();
+    return scriptEditorExtraUseCasesPromise;
+  }
+
   function getScriptTabTitle() {
     const tab = $activeScriptTab;
     if (!tab) return '';
     return buildScriptFileName(tab.cardCode);
+  }
+
+  function getCardMetaLines(card: CardDataEntry | null, fallbackCode: number) {
+    if (!card) {
+      return [`ID: ${fallbackCode}`];
+    }
+
+    const typeText = TYPE_BITS
+      .filter((item) => (card.type & item.bit) !== 0)
+      .map((item) => $_(item.key))
+      .join(' / ') || $_('search.na');
+    const attributeText = ATTRIBUTE_OPTIONS.find((item) => item.value === card.attribute)?.key
+      ? $_(ATTRIBUTE_OPTIONS.find((item) => item.value === card.attribute)?.key as string)
+      : $_('search.na');
+    const raceText = RACE_OPTIONS.find((item) => item.value === card.race)?.key
+      ? $_(RACE_OPTIONS.find((item) => item.value === card.race)?.key as string)
+      : $_('search.na');
+    const mainType = $_(getCardTypeKey(card.type));
+    const levelValue = getPackedLevel(card.level);
+    const leftScale = getPackedLScale(card.level);
+    const rightScale = getPackedRScale(card.level);
+    const isLink = (card.type & 0x4000000) !== 0;
+    const isPendulum = leftScale > 0 || rightScale > 0;
+    const statsLine = isLink
+      ? `ATK ${card.attack}  LINK ${levelValue || 0}`
+      : `ATK ${card.attack}  DEF ${card.defense}  ${mainType === $_('search.types.monster') ? `LV ${levelValue || 0}` : mainType}`;
+    const extras = [];
+    if (isPendulum) {
+      extras.push(`Scale ${leftScale}/${rightScale}`);
+    }
+    if (isLink) {
+      const markers = LINK_MARKERS.filter((item) => (card.linkMarker & item.bit) !== 0).map((item) => item.label).join(' ');
+      if (markers) {
+        extras.push(`Link ${markers}`);
+      }
+    }
+
+    return [
+      `ID: ${card.code}`,
+      `Type: ${typeText}`,
+      `Attribute / Race: ${attributeText} / ${raceText}`,
+      extras.length > 0 ? `${statsLine}  ${extras.join('  ')}` : statsLine,
+    ];
+  }
+
+  function getScriptImageRenderInfo() {
+    return {
+      title: cardContext?.name?.trim() || getScriptTabTitle(),
+      metaLines: getCardMetaLines(cardContext, $activeScriptTab?.cardCode ?? 0),
+      effectTitle: $_('editor.desc'),
+      effectText: cardContext?.desc?.trim() || $_('editor.script_effect_empty'),
+    };
+  }
+
+  function getScriptImageSelection() {
+    const selection = editorInstance?.getSelection();
+    const model = editorInstance?.getModel();
+    if (!selection || !model || selection.isEmpty()) {
+      hasSelectedCode = false;
+      return null;
+    }
+
+    const startLineNumber = selection.startLineNumber;
+    const inclusiveEndLineNumber = selection.endColumn === 1 && selection.endLineNumber > startLineNumber
+      ? selection.endLineNumber - 1
+      : selection.endLineNumber;
+    const endLineNumber = Math.max(startLineNumber, inclusiveEndLineNumber);
+    const lines = [];
+    for (let lineNumber = startLineNumber; lineNumber <= endLineNumber; lineNumber += 1) {
+      lines.push(model.getLineContent(lineNumber));
+    }
+
+    hasSelectedCode = lines.length > 0;
+    if (lines.length === 0) {
+      return null;
+    }
+
+    return {
+      content: lines.join('\n'),
+      startLineNumber,
+    } satisfies ScriptImageSelection;
   }
 
   async function loadCardContext() {
@@ -146,13 +264,59 @@
     }
   }
 
+  async function ensureReferenceManualItems(kind: ScriptReferenceManualKind) {
+    if (referenceManualItems[kind].length > 0) {
+      return;
+    }
+
+    isReferenceManualLoading = true;
+    try {
+      const module = await import('$lib/utils/luaReferenceManual');
+      referenceManualItems = {
+        ...referenceManualItems,
+        [kind]: await module.loadReferenceManualItems(kind),
+      };
+    } finally {
+      isReferenceManualLoading = false;
+    }
+  }
+
+  async function openReferenceOverlay(kind: ScriptReferenceManualKind) {
+    referenceSelection = editorInstance?.getSelection() ?? null;
+    referenceOverlayKind = kind;
+    await ensureReferenceManualItems(kind);
+  }
+
+  function closeReferenceOverlay() {
+    referenceOverlayKind = null;
+  }
+
+  function handleInsertReferenceItem(item: LuaReferenceManualItem) {
+    if (!editorInstance || !monacoModule) return;
+
+    if (referenceSelection) {
+      editorInstance.setSelection(referenceSelection);
+    }
+    editorInstance.focus();
+
+    const inserted = monacoModule.insertSnippet(editorInstance, item.insertText);
+    if (!inserted) return;
+
+    referenceSelection = editorInstance.getSelection() ?? null;
+    closeReferenceOverlay();
+    refreshCurrentFunctionHint();
+    refreshSuggestHint();
+  }
+
   async function syncEditorWithActiveTab() {
     if (!editorInstance || !monacoModule || !monacoApi) return;
 
     const tab = getActiveScriptTab();
     if (!tab) {
       currentBoundTabId = null;
+      closeReferenceOverlay();
       editorInstance.setModel(null);
+      hasSelectedCode = false;
       return;
     }
 
@@ -196,6 +360,7 @@
     }
 
     currentBoundTabId = tab.id;
+    syncSelectionState();
   }
 
   function clearSuggestHint() {
@@ -230,6 +395,45 @@
     isCurrentFunctionHintSuppressed = false;
   }
 
+  function syncSelectionState() {
+    hasSelectedCode = !editorInstance?.getSelection()?.isEmpty();
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent) {
+    const isReferenceOverlayOpen = referenceOverlayKind !== null;
+    if (shouldCloseScriptReferenceOverlay(event, isReferenceOverlayOpen)) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeReferenceOverlay();
+      editorInstance?.focus();
+      return;
+    }
+
+    const handbookShortcut = resolveScriptReferenceShortcut(
+      event,
+      Boolean(editorInstance?.hasTextFocus()),
+      isReferenceOverlayOpen,
+    );
+    if (handbookShortcut) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (referenceOverlayKind === handbookShortcut) {
+        closeReferenceOverlay();
+        editorInstance?.focus();
+      } else {
+        void openReferenceOverlay(handbookShortcut);
+      }
+      return;
+    }
+
+    handleHintSuppressKeydown(event);
+  }
+
+  function handleWindowKeyup(event: KeyboardEvent) {
+    if (referenceOverlayKind) return;
+    handleHintSuppressKeyup(event);
+  }
+
   function getHintAnchor(position: { lineNumber: number; column: number } | null | undefined) {
     if (!editorInstance || !editorHost || !position) {
       return { top: 12, placement: 'top' as const };
@@ -261,7 +465,7 @@
       source,
       lastHighlightSource,
       lastHighlightDecorations,
-      collectLuaCallHighlights,
+      collectLuaInlineHighlights,
     );
     lastHighlightSource = nextHighlights.source;
     lastHighlightDecorations = nextHighlights.decorations;
@@ -393,7 +597,10 @@
   }
 
   async function handleGenerateScript() {
-    await generateScriptFromEditorFlow({
+    const extraModule = ensureScriptEditorExtraUseCases();
+    if (!extraModule) return;
+
+    await (await extraModule).generateScriptFromEditorFlow({
       tab: getActiveScriptTab(),
       isGeneratingScript,
       cardContext,
@@ -442,6 +649,24 @@
     });
   }
 
+  async function handleShareImage() {
+    const tab = getActiveScriptTab();
+    if (!tab || isSharingImage) return;
+
+    isSharingImage = true;
+    try {
+      await shareScriptImageFlow({
+        tab,
+        isSharing: false,
+        renderInfo: getScriptImageRenderInfo(),
+        selection: getScriptImageSelection(),
+        t: (key, options) => $_(key, options as never),
+      });
+    } finally {
+      isSharingImage = false;
+    }
+  }
+
   onMount(async () => {
     if (!editorHost) return;
 
@@ -461,6 +686,9 @@
         refreshSuggestHint();
         refreshCurrentFunctionHint();
       },
+      onDidChangeCursorSelection: () => {
+        syncSelectionState();
+      },
       onKeyUp: () => {
         refreshSuggestHint();
         refreshCurrentFunctionHint();
@@ -476,15 +704,15 @@
         refreshSuggestHint();
         refreshCurrentFunctionHint();
       },
-      onWindowKeydown: handleHintSuppressKeydown,
-      onWindowKeyup: handleHintSuppressKeyup,
+      onWindowKeydown: handleWindowKeydown,
+      onWindowKeyup: handleWindowKeyup,
       onWindowBlur: handleHintSuppressBlur,
     });
     monacoModule = monacoRuntime.module;
     monacoApi = monacoRuntime.api;
     editorInstance = monacoRuntime.editor;
     callHighlightDecorations = monacoRuntime.callHighlightDecorations;
-
+    syncSelectionState();
     isMonacoReady = true;
     await loadCardContext();
     await syncEditorWithActiveTab();
@@ -549,19 +777,23 @@
       isGeneratingScript={isGeneratingScript}
       isReloading={isReloading}
       isSaving={isSaving}
-      stageLabel={getScriptGenerationStageLabel(scriptGenerationStage)}
+      stageLabel={getScriptGenerationStageLabel($_, scriptGenerationStage)}
       generateLabel={$_('editor.script_generate_button')}
       generatingLabel={$_('editor.script_generating')}
       cancelLabel={$_('editor.script_cancel_button')}
       reloadLabel={$_('editor.script_reload')}
       reloadingLabel={$_('editor.script_reloading')}
       openExternalLabel={$_('editor.script_open_external')}
+      imageActionLabel={$_(hasSelectedCode ? 'editor.script_export_selected_image' : 'editor.script_export_image')}
       saveLabel={$_('editor.script_save')}
+      isSharingImage={isSharingImage}
+      sharingImageLabel={$_('editor.script_exporting_image')}
       savingLabel={$_('editor.script_saving')}
       onGenerate={handleGenerateScript}
       onCancelGenerate={handleCancelGenerateScript}
       onReload={handleReload}
       onOpenExternal={handleOpenExternal}
+      onShareImage={handleShareImage}
       onSave={handleSave}
     />
 
@@ -576,6 +808,24 @@
           suggestHintText={suggestHintText}
           suggestHintPlacement={suggestHintPlacement}
           suggestHintAnchorTop={suggestHintAnchorTop}
+        />
+        <ScriptReferenceOverlay
+          open={referenceOverlayKind !== null}
+          kind={referenceOverlayKind ?? 'constants'}
+          title={referenceOverlayKind === 'constants'
+            ? $_('editor.script_reference_constants_title')
+            : $_('editor.script_reference_functions_title')}
+          shortcutHint={referenceOverlayKind === 'constants'
+            ? $_('editor.script_reference_constants_shortcut')
+            : $_('editor.script_reference_functions_shortcut')}
+          searchPlaceholder={$_('editor.script_reference_search_placeholder')}
+          emptyText={$_('editor.script_reference_empty')}
+          loading={isReferenceManualLoading}
+          loadingText={$_('editor.script_reference_loading')}
+          closeLabel={$_('editor.script_reference_close')}
+          items={referenceOverlayKind ? referenceManualItems[referenceOverlayKind] : []}
+          onClose={closeReferenceOverlay}
+          onInsert={handleInsertReferenceItem}
         />
         <div class="script-editor" bind:this={editorHost}></div>
       </div>
@@ -672,6 +922,21 @@
     font-weight: 600;
   }
 
+  .script-editor :global(.monaco-editor .view-line .lua-call-arg-highlight) {
+    color: #c792ff !important;
+    font-weight: 600;
+  }
+
+  .script-editor :global(.monaco-editor .view-line .lua-parameter-highlight) {
+    color: #d8b4fe !important;
+    font-weight: 600;
+  }
+
+  .script-editor :global(.monaco-editor .view-line .lua-constant-highlight) {
+    color: #5eead4 !important;
+    font-weight: 600;
+  }
+
   .script-editor :global(.monaco-editor .view-overlays .current-line),
   .script-editor :global(.monaco-editor .margin-view-overlays .current-line) {
     background-color: rgba(118, 184, 151, 0.12) !important;
@@ -759,6 +1024,21 @@
 
   :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-call-highlight) {
     color: #1d5fd1 !important;
+    font-weight: 600;
+  }
+
+  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-call-arg-highlight) {
+    color: #7c3aed !important;
+    font-weight: 600;
+  }
+
+  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-parameter-highlight) {
+    color: #8b5cf6 !important;
+    font-weight: 600;
+  }
+
+  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-constant-highlight) {
+    color: #0f766e !important;
     font-weight: 600;
   }
 

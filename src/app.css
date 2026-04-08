@@ -2,6 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
+  --ui-scale: 1;
   /* Default theme: dark */
   --bg-base: #15191f;
   --bg-surface: #1f2630;
@@ -18,15 +19,15 @@
   --accent-secondary: #8b5cf6; /* Modern Purple */
   
   --border-color: #3a4659;
-  --border-radius-sm: 4px;
-  --border-radius-md: 8px;
-  --border-radius-lg: 12px;
+  --border-radius-sm: calc(4px * var(--ui-scale));
+  --border-radius-md: calc(8px * var(--ui-scale));
+  --border-radius-lg: calc(12px * var(--ui-scale));
   
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
+  --spacing-xs: calc(4px * var(--ui-scale));
+  --spacing-sm: calc(8px * var(--ui-scale));
+  --spacing-md: calc(16px * var(--ui-scale));
+  --spacing-lg: calc(24px * var(--ui-scale));
+  --spacing-xl: calc(32px * var(--ui-scale));
   
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   
@@ -60,7 +61,7 @@
 }
 
 html {
-  font-size: clamp(15px, 0.18vw + 11px, 18px);
+  font-size: calc(15px * var(--ui-scale));
 }
 
 html, body {
@@ -121,14 +122,3 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--accent-primary);
 }
 
-@media (min-width: 2560px) {
-  html {
-    font-size: 19px;
-  }
-}
-
-@media (max-width: 1280px) {
-  html {
-    font-size: 14px;
-  }
-}

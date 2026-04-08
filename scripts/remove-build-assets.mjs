@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
 
-// Keep strings.conf and cover.jpg in the frontend build.
+// Keep strings/ and cover.jpg in the frontend build.
 // Lua editor source resources and yugioh-card assets are bundled through Tauri resources instead of the web build.
 
 const yugiohCardBuildPath = resolve("build", "resources", "yugioh-card");

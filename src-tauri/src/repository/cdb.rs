@@ -84,16 +84,23 @@ fn ensure_parent_dir(path: &Path) -> Result<(), String> {
 
 pub(crate) fn open_connection(path: &Path) -> Result<Connection, String> {
     let conn = Connection::open(path).map_err(|err| err.to_string())?;
+    let mut regex_cache: HashMap<String, Regex> = HashMap::new();
     conn.create_scalar_function(
         "regexp",
         2,
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        |ctx| {
+        move |ctx| {
             let pattern = ctx.get::<String>(0)?;
             let input = ctx.get::<String>(1)?;
-            let regex = Regex::new(&pattern)
-                .map_err(|err| rusqlite::Error::UserFunctionError(Box::new(err)))?;
-            Ok(regex.is_match(&input))
+            if !regex_cache.contains_key(&pattern) {
+                let compiled = Regex::new(&pattern)
+                    .map_err(|err| rusqlite::Error::UserFunctionError(Box::new(err)))?;
+                if regex_cache.len() >= 64 {
+                    regex_cache.clear();
+                }
+                regex_cache.insert(pattern.clone(), compiled);
+            }
+            Ok(regex_cache[&pattern].is_match(&input))
         },
     )
     .map_err(|err| err.to_string())?;
@@ -303,6 +310,40 @@ pub(crate) fn get_card(conn: &Connection, card_id: u32) -> Result<Option<CardDto
     card_from_row(row).map(Some).map_err(|err| err.to_string())
 }
 
+pub(crate) fn get_cards_by_ids(conn: &Connection, card_ids: &[u32]) -> Result<Vec<CardDto>, String> {
+    let unique_ids: Vec<u32> = card_ids
+        .iter()
+        .copied()
+        .filter(|card_id| *card_id > 0)
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    if unique_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let placeholders = (1..=unique_ids.len())
+        .map(|index| format!("?{index}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "{SELECT_CARD_COLUMNS} WHERE datas.id IN ({placeholders}) ORDER BY datas.id"
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
+    let mut rows = stmt
+        .query(rusqlite::params_from_iter(
+            unique_ids.iter().copied().map(i64::from),
+        ))
+        .map_err(|err| err.to_string())?;
+    let mut cards = Vec::new();
+
+    while let Some(row) = rows.next().map_err(|err| err.to_string())? {
+        cards.push(card_from_row(row).map_err(|err| err.to_string())?);
+    }
+
+    Ok(cards)
+}
+
 fn write_card(
     stmt_datas: &mut Statement<'_>,
     stmt_texts: &mut Statement<'_>,
@@ -424,6 +465,37 @@ pub(crate) fn delete_cards_by_id(conn: &mut Connection, card_ids: &[u32]) -> Res
             .map_err(|err| err.to_string())?;
         tx.execute("DELETE FROM texts WHERE id = ?", [i64::from(*card_id)])
             .map_err(|err| err.to_string())?;
+    }
+    tx.commit().map_err(|err| err.to_string())
+}
+
+/// Atomically restore cards and delete cards in a single transaction.
+/// Used by the undo system to guarantee that either both operations succeed
+/// or neither does.
+pub(crate) fn undo_modify_operation(
+    conn: &mut Connection,
+    cards_to_restore: &[CardDto],
+    ids_to_delete: &[u32],
+) -> Result<(), String> {
+    let tx = conn.transaction().map_err(|err| err.to_string())?;
+    {
+        if !cards_to_restore.is_empty() {
+            let mut stmt_datas = tx
+                .prepare(INSERT_DATAS_STMT)
+                .map_err(|err| err.to_string())?;
+            let mut stmt_texts = tx
+                .prepare(INSERT_TEXTS_STMT)
+                .map_err(|err| err.to_string())?;
+            for card in cards_to_restore {
+                write_card(&mut stmt_datas, &mut stmt_texts, card)?;
+            }
+        }
+        for card_id in ids_to_delete {
+            tx.execute("DELETE FROM datas WHERE id = ?", [i64::from(*card_id)])
+                .map_err(|err| err.to_string())?;
+            tx.execute("DELETE FROM texts WHERE id = ?", [i64::from(*card_id)])
+                .map_err(|err| err.to_string())?;
+        }
     }
     tx.commit().map_err(|err| err.to_string())
 }

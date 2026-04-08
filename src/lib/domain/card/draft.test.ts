@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { CARD_TEXT_SLOT_COUNT, createCardDraftState, createEmptyCard, normalizeCardStrings, toPersistableCard } from './draft';
+import {
+  areCardsEquivalent,
+  CARD_TEXT_SLOT_COUNT,
+  createCardDraftState,
+  createEmptyCard,
+  normalizeCardStrings,
+  toPersistableCard,
+} from './draft';
 
 describe('card draft helpers', () => {
   test('normalizes strings to fixed slots', () => {
@@ -37,5 +44,18 @@ describe('card draft helpers', () => {
     expect(draft.originalCode).toBe(456);
     expect(draft.snapshot).toContain('"code":456');
     expect(draft.card).not.toBe(card);
+  });
+
+  test('compares cards without serializing snapshots', () => {
+    const baseCard = {
+      ...createEmptyCard(),
+      code: 789,
+      setcode: [1, 2],
+      strings: ['alpha'],
+    };
+
+    expect(areCardsEquivalent(baseCard, { ...baseCard, strings: ['alpha', '', ''] })).toBe(true);
+    expect(areCardsEquivalent(baseCard, { ...baseCard, name: 'Changed' })).toBe(false);
+    expect(areCardsEquivalent(baseCard, { ...baseCard, setcode: [1, 3] })).toBe(false);
   });
 });

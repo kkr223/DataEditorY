@@ -20,8 +20,35 @@
   let { children } = $props();
   const shellController = createShellLayoutController();
   const dialogsController = createShellDialogsController();
+  const REFERENCE_VIEWPORT_WIDTH = 1920;
+  const REFERENCE_VIEWPORT_HEIGHT = 1080;
+  const DESIGN_SCALE_BIAS = 1.2;
+  const SCALE_CURVE_EXPONENT = 0.4;
+  const MIN_UI_SCALE = 0.82;
+  const MAX_UI_SCALE = 1.32;
 
-  onMount(() => shellController.setup());
+  function syncUiScale() {
+    const widthScale = window.innerWidth / REFERENCE_VIEWPORT_WIDTH;
+    const heightScale = window.innerHeight / REFERENCE_VIEWPORT_HEIGHT;
+    const rawScale = Math.min(widthScale, heightScale);
+    const curvedScale = Math.pow(rawScale, SCALE_CURVE_EXPONENT);
+    const nextScale = Math.min(
+      MAX_UI_SCALE,
+      Math.max(MIN_UI_SCALE, curvedScale * DESIGN_SCALE_BIAS),
+    );
+    document.documentElement.style.setProperty('--ui-scale', String(nextScale));
+  }
+
+  onMount(() => {
+    shellController.setup();
+    syncUiScale();
+    window.addEventListener('resize', syncUiScale);
+
+    return () => {
+      window.removeEventListener('resize', syncUiScale);
+      document.documentElement.style.removeProperty('--ui-scale');
+    };
+  });
 </script>
 
 <Toast />
@@ -44,6 +71,10 @@
       onMergeCdb={dialogsController.openMergeCdbDialog}
       onOpenSettings={openSettingsView}
       onPackageZip={dialogsController.handlePackageZip}
+      onPackageYpk={dialogsController.handlePackageYpk}
+      onShowPackageMenu={dialogsController.showPackageMenu}
+      onHidePackageMenu={dialogsController.hidePackageMenu}
+      isPackageMenuVisible={dialogsController.state.isPackageMenuVisible}
       onToggleTheme={shellController.toggleTheme}
       onToggleLanguage={shellController.toggleLanguage}
       onShowOpenHistory={shellController.showOpenHistory}
@@ -81,7 +112,13 @@
       open={dialogsController.state.isMergeCdbOpen}
       state={dialogsController.state}
       onClose={dialogsController.closeMergeCdbDialog}
-      onPickPath={dialogsController.pickMergePath}
+      onPickFiles={dialogsController.pickMergeFiles}
+      onPickFolder={dialogsController.pickMergeFolder}
+      onRemoveSource={dialogsController.removeMergeSource}
+      onMoveSource={dialogsController.moveMergeSource}
+      onReorderSource={dialogsController.reorderMergeSource}
+      onSetIncludeImages={dialogsController.setMergeIncludeImages}
+      onSetIncludeScripts={dialogsController.setMergeIncludeScripts}
       onAnalyze={dialogsController.handleAnalyzeMerge}
       onConfirm={dialogsController.handleExecuteMerge}
     />

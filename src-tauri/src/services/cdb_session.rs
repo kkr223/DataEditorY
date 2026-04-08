@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fs, path::Path, sync::{Arc, Mutex}};
 
 use tauri::AppHandle;
 
@@ -34,6 +34,9 @@ pub fn create_cdb_tab(
 
 pub fn close_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), String> {
     if let Some(session) = remove_session(sessions, &tab_id)? {
+        // Drop the connection before deleting the file — on Windows the
+        // SQLite connection holds a file lock that prevents deletion.
+        drop(session.conn);
         cleanup_temp_path(&session.working_path);
     }
     Ok(())
@@ -43,6 +46,11 @@ pub fn save_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), St
     with_session_meta(sessions, &tab_id, |session| {
         let target_path = Path::new(&session.path);
         ensure_parent_dir(target_path)?;
+        // Lock the connection to ensure no write transaction is in flight
+        let _conn_guard = session
+            .conn
+            .lock()
+            .map_err(|_| "Failed to acquire connection lock".to_string())?;
         fs::copy(&session.working_path, target_path).map_err(|err| err.to_string())?;
         Ok(())
     })
@@ -59,13 +67,15 @@ pub(crate) fn open_cdb_tab_in_dir(
     ensure_parent_dir(&temp_path)?;
     fs::copy(&original_path, &temp_path).map_err(|err| err.to_string())?;
 
-    let response = build_open_response(&original_path, &temp_path)?;
+    let conn = cdb_repository::open_connection(&temp_path)?;
+    let response = build_open_response(&original_path, &conn)?;
     register_session(
         sessions,
         tab_id,
         CdbSessionMeta {
             path: original_path,
             working_path: temp_path,
+            conn: Arc::new(Mutex::new(conn)),
         },
     )?;
 
@@ -84,9 +94,7 @@ pub(crate) fn create_cdb_tab_in_dir(
     let temp_path = build_temp_path_in_dir(session_dir, &tab_id)?;
     ensure_parent_dir(&temp_path)?;
 
-    {
-        let _conn = cdb_repository::open_connection(&temp_path)?;
-    }
+    let conn = cdb_repository::open_connection(&temp_path)?;
 
     fs::copy(&temp_path, &original_path).map_err(|err| err.to_string())?;
 
@@ -96,6 +104,7 @@ pub(crate) fn create_cdb_tab_in_dir(
         CdbSessionMeta {
             path: original_path.to_string_lossy().to_string(),
             working_path: temp_path,
+            conn: Arc::new(Mutex::new(conn)),
         },
     )?;
 
@@ -108,17 +117,16 @@ pub(crate) fn create_cdb_tab_in_dir(
 
 fn build_open_response(
     original_path: &str,
-    temp_path: &Path,
+    conn: &rusqlite::Connection,
 ) -> Result<OpenCdbTabResponse, String> {
-    let conn = cdb_repository::open_connection(temp_path)?;
     Ok(OpenCdbTabResponse {
         name: basename(original_path),
         cached_cards: cdb_repository::query_cards(
-            &conn,
+            conn,
             "1=1 ORDER BY datas.id LIMIT 50 OFFSET 0",
             &HashMap::new(),
         )?,
-        cached_total: cdb_repository::count_cards(&conn, "1=1", &HashMap::new())?,
+        cached_total: cdb_repository::count_cards(conn, "1=1", &HashMap::new())?,
     })
 }
 
@@ -267,7 +275,10 @@ mod tests {
         .unwrap();
 
         with_session_meta(&sessions, "tab-save", |session| {
-            let mut conn = cdb_repository::open_connection(&session.working_path)?;
+            let mut conn = session
+                .conn
+                .lock()
+                .map_err(|_| "Failed to acquire connection lock".to_string())?;
             cdb_repository::upsert_cards(&mut conn, &[sample_card(200, "Beta")])?;
             Ok(())
         })
