@@ -380,6 +380,7 @@
     "race": "种族",
     "hints": "提示文本",
     "setcodes": "字段",
+    "setcode_duplicates_detected": "检测到 {count} 个重复字段定义，已按后出现的条目覆盖前面的条目。",
     "hint_line": "str{n}",
     "custom": "自定义",
     "no_card": "请选择一张卡片进行编辑。",

@@ -372,8 +372,17 @@
   }
 
   onMount(() => {
-    loadPopularSetcodes().then((options) => {
+    loadPopularSetcodes().then(({ options, duplicateSetcodes }) => {
       popularSetcodes = options;
+      if (duplicateSetcodes.length > 0) {
+        showToast(
+          $_("editor.setcode_duplicates_detected", {
+            values: { count: String(duplicateSetcodes.length) },
+          }),
+          "info",
+          4500,
+        );
+      }
     });
 
     const handleShortcut = (event: Event) => {
