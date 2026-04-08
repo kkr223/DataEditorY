@@ -6,11 +6,10 @@
   import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
   import { collectLuaInlineHighlights } from '$lib/utils/luaScriptCalls';
   import type { CardDataEntry } from '$lib/types';
-  import type { AgentStage } from '$lib/utils/ai';
   import type { editor as MonacoEditor } from 'monaco-editor';
   import { normalizeCardStrings } from '$lib/domain/card/draft';
   import { buildScriptFileName } from '$lib/domain/script/workspace';
-  import { getScriptGenerationStageLabel } from '$lib/services/scriptGeneration';
+  import { getScriptGenerationStageLabel, type ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
   import {
     buildCallHighlightDecorations,
     buildScriptEditorContextKey,
@@ -33,7 +32,6 @@
     TYPE_BITS,
   } from '$lib/utils/card';
   import {
-    generateScriptFromEditorFlow,
     loadScriptCardContextFlow,
     openScriptExternallyFlow,
     reloadScriptEditorFlow,
@@ -54,6 +52,7 @@
   import ScriptSidePanel from '$lib/features/script-editor/components/ScriptSidePanel.svelte';
   import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
   import type { LuaReferenceManualItem } from '$lib/utils/luaScriptMonaco';
+  type ScriptEditorExtraUseCasesModule = typeof import('$lib/features/script-editor/extraUseCases');
   const hasAiCapability = isCapabilityEnabled('ai');
 
   let editorHost = $state<HTMLDivElement | null>(null);
@@ -74,8 +73,9 @@
   let loadContextToken = 0;
   let lastContextKey = $state('');
   let savedScriptStrings = $state<string[]>(Array.from({ length: 16 }, () => ''));
-  let scriptGenerationStage = $state<AgentStage | ''>('');
+  let scriptGenerationStage = $state<ScriptGenerationStage | ''>('');
   let scriptGenerationAbortController = $state<AbortController | null>(null);
+  let scriptEditorExtraUseCasesPromise = $state<Promise<ScriptEditorExtraUseCasesModule> | null>(null);
   let suggestHintText = $state('');
   let suggestHintPlacement = $state<'top' | 'bottom'>('top');
   let suggestHintAnchorTop = $state(12);
@@ -110,6 +110,14 @@
     const values = Array.from({ length: 16 }, (_, index) => cardContext?.strings[index] ?? '');
     return values;
   });
+
+  function ensureScriptEditorExtraUseCases() {
+    if (!hasAiCapability) {
+      return null;
+    }
+    scriptEditorExtraUseCasesPromise ??= import('$lib/features/script-editor/extraUseCases');
+    return scriptEditorExtraUseCasesPromise;
+  }
 
   function getScriptTabTitle() {
     const tab = $activeScriptTab;
@@ -567,7 +575,10 @@
   }
 
   async function handleGenerateScript() {
-    await generateScriptFromEditorFlow({
+    const extraModule = ensureScriptEditorExtraUseCases();
+    if (!extraModule) return;
+
+    await (await extraModule).generateScriptFromEditorFlow({
       tab: getActiveScriptTab(),
       isGeneratingScript,
       cardContext,
@@ -750,7 +761,7 @@
       isGeneratingScript={isGeneratingScript}
       isReloading={isReloading}
       isSaving={isSaving}
-      stageLabel={getScriptGenerationStageLabel(scriptGenerationStage)}
+      stageLabel={getScriptGenerationStageLabel($_, scriptGenerationStage)}
       generateLabel={$_('editor.script_generate_button')}
       generatingLabel={$_('editor.script_generating')}
       cancelLabel={$_('editor.script_cancel_button')}

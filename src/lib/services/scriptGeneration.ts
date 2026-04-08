@@ -3,16 +3,16 @@ import { _ } from 'svelte-i18n';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { getCardScriptInfo, writeCardScriptDocument } from '$lib/infrastructure/tauri/commands';
 import {
-  applyScriptTemplate,
   isAbortError,
   normalizeGeneratedScript,
 } from '$lib/domain/script/workspace';
-import { appSettingsState, hasConfiguredSecretKey, loadAppSettings } from '$lib/stores/appSettings.svelte';
+import { hasConfiguredSecretKey, loadAppSettings } from '$lib/stores/appSettings.svelte';
 import { syncScriptTabFromSavedContent } from '$lib/stores/scriptEditor.svelte';
 import type { CardDataEntry } from '$lib/types';
 import type { AgentStage } from '$lib/utils/ai';
 import { generateCardScript } from '$lib/utils/ai';
 import { createAiAppContext } from '$lib/services/aiAppContext';
+import { buildTemplateContent } from '$lib/services/scriptTemplate';
 
 function t(key: string, values?: Record<string, string>) {
   return get(_)(key, values ? { values } : undefined);
@@ -29,25 +29,6 @@ export async function ensureAiReady() {
     kind: 'warning',
   });
   return false;
-}
-
-export function getScriptGenerationStageLabel(stage: AgentStage | '') {
-  switch (stage) {
-    case 'collecting_references':
-      return t('editor.script_stage_collecting_references');
-    case 'requesting_model':
-      return t('editor.script_stage_requesting_model');
-    case 'running_tools':
-      return t('editor.script_stage_running_tools');
-    case 'finalizing_response':
-      return t('editor.script_stage_finalizing_response');
-    default:
-      return t('editor.script_generating');
-  }
-}
-
-export function buildTemplateContent(cardName: string, cardCode: number) {
-  return applyScriptTemplate(appSettingsState.values.scriptTemplate, cardName, cardCode);
 }
 
 export async function ensureScriptOverwriteConfirmed(cdbPath: string, cardCode: number) {

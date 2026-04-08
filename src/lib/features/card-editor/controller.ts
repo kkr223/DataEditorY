@@ -1,5 +1,5 @@
 import type { CardDataEntry } from '$lib/types';
-import type { AgentStage } from '$lib/utils/ai';
+import type { ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
 import { cloneEditableCard, createEmptyCard } from '$lib/utils/card';
 import { createCardSnapshot } from '$lib/domain/card/draft';
 
@@ -7,7 +7,7 @@ export const CARD_LIST_PAGE_SIZE = 50;
 
 export type CardScriptGenerationState = {
   isGenerating: boolean;
-  stage: AgentStage | '';
+  stage: ScriptGenerationStage | '';
   abortController: AbortController | null;
 };
 
@@ -43,7 +43,7 @@ export function createCardScriptGenerationController(state: CardScriptGeneration
     setIsGenerating(value: boolean) {
       state.isGenerating = value;
     },
-    setStage(value: AgentStage | '') {
+    setStage(value: ScriptGenerationStage | '') {
       state.stage = value;
     },
     setAbortController(value: AbortController | null) {
