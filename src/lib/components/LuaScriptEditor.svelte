@@ -51,7 +51,7 @@
   import ScriptReferenceOverlay from '$lib/features/script-editor/components/ScriptReferenceOverlay.svelte';
   import ScriptSidePanel from '$lib/features/script-editor/components/ScriptSidePanel.svelte';
   import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
-  import type { LuaReferenceManualItem } from '$lib/utils/luaScriptMonaco';
+  import type { LuaReferenceManualItem } from '$lib/utils/luaReferenceManual';
   type ScriptEditorExtraUseCasesModule = typeof import('$lib/features/script-editor/extraUseCases');
   const hasAiCapability = isCapabilityEnabled('ai');
   const loadScriptEditorExtraUseCases = __APP_FEATURES__.ai
@@ -88,6 +88,7 @@
   let currentFunctionHintPlacement = $state<'top' | 'bottom'>('top');
   let currentFunctionHintAnchorTop = $state(12);
   let referenceOverlayKind = $state<ScriptReferenceManualKind | null>(null);
+  let isReferenceManualLoading = $state(false);
   let referenceManualItems = $state<Record<ScriptReferenceManualKind, LuaReferenceManualItem[]>>({
     constants: [],
     functions: [],
@@ -263,9 +264,27 @@
     }
   }
 
-  function openReferenceOverlay(kind: ScriptReferenceManualKind) {
+  async function ensureReferenceManualItems(kind: ScriptReferenceManualKind) {
+    if (referenceManualItems[kind].length > 0) {
+      return;
+    }
+
+    isReferenceManualLoading = true;
+    try {
+      const module = await import('$lib/utils/luaReferenceManual');
+      referenceManualItems = {
+        ...referenceManualItems,
+        [kind]: await module.loadReferenceManualItems(kind),
+      };
+    } finally {
+      isReferenceManualLoading = false;
+    }
+  }
+
+  async function openReferenceOverlay(kind: ScriptReferenceManualKind) {
     referenceSelection = editorInstance?.getSelection() ?? null;
     referenceOverlayKind = kind;
+    await ensureReferenceManualItems(kind);
   }
 
   function closeReferenceOverlay() {
@@ -402,7 +421,7 @@
         closeReferenceOverlay();
         editorInstance?.focus();
       } else {
-        openReferenceOverlay(handbookShortcut);
+        void openReferenceOverlay(handbookShortcut);
       }
       return;
     }
@@ -632,13 +651,12 @@
 
   async function handleShareImage() {
     const tab = getActiveScriptTab();
-    if (!tab || !monacoModule || isSharingImage) return;
+    if (!tab || isSharingImage) return;
 
     isSharingImage = true;
     try {
       await shareScriptImageFlow({
         tab,
-        monacoModule,
         isSharing: false,
         renderInfo: getScriptImageRenderInfo(),
         selection: getScriptImageSelection(),
@@ -695,11 +713,6 @@
     editorInstance = monacoRuntime.editor;
     callHighlightDecorations = monacoRuntime.callHighlightDecorations;
     syncSelectionState();
-    referenceManualItems = {
-      constants: monacoRuntime.module.getReferenceManualItems('constants'),
-      functions: monacoRuntime.module.getReferenceManualItems('functions'),
-    };
-
     isMonacoReady = true;
     await loadCardContext();
     await syncEditorWithActiveTab();
@@ -807,6 +820,8 @@
             : $_('editor.script_reference_functions_shortcut')}
           searchPlaceholder={$_('editor.script_reference_search_placeholder')}
           emptyText={$_('editor.script_reference_empty')}
+          loading={isReferenceManualLoading}
+          loadingText={$_('editor.script_reference_loading')}
           closeLabel={$_('editor.script_reference_close')}
           items={referenceOverlayKind ? referenceManualItems[referenceOverlayKind] : []}
           onClose={closeReferenceOverlay}

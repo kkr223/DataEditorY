@@ -507,6 +507,7 @@
     "script_reference_constants_shortcut": "Press F9 to open the constants handbook and click an entry to insert it at the cursor.",
     "script_reference_functions_shortcut": "Press F10 to open the functions handbook and click an entry to insert it at the cursor.",
     "script_reference_search_placeholder": "Search names, signatures, categories, or descriptions...",
+    "script_reference_loading": "Loading handbook...",
     "script_reference_empty": "No insertable entry matches the current filter.",
     "script_reference_close": "Close",
     "delete_confirm_title": "Confirm Delete",

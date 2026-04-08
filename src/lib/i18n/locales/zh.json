@@ -507,6 +507,7 @@
     "script_reference_constants_shortcut": "按 F9 可随时打开常量手册，点击条目会在当前光标处插入。",
     "script_reference_functions_shortcut": "按 F10 可随时打开函数手册，点击条目会在当前光标处插入。",
     "script_reference_search_placeholder": "搜索名称、签名、分类或说明...",
+    "script_reference_loading": "手册加载中...",
     "script_reference_empty": "没有匹配到可插入的条目。",
     "script_reference_close": "关闭",
     "delete_confirm_title": "确认删除",

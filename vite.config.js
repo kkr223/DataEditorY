@@ -70,28 +70,38 @@ export default defineConfig(async () => ({
     __APP_FEATURES__: JSON.stringify(variant.features),
   },
   build: {
-    chunkSizeWarningLimit: 520,
+    chunkSizeWarningLimit: 3900,
     rollupOptions: {
       output: {
         /** @param {string} id */
         manualChunks(id) {
-          if (!id.includes("node_modules")) {
+          const normalizedId = id.replaceAll("\\", "/");
+
+          if (!normalizedId.includes("/node_modules/")) {
             return;
           }
 
-          if (id.includes("node_modules/yugioh-card")) {
+          if (normalizedId.includes("/node_modules/monaco-editor/esm/vs/basic-languages/lua/")) {
+            return "vendor-monaco-lua";
+          }
+
+          if (normalizedId.includes("/node_modules/monaco-editor/")) {
+            return "vendor-monaco";
+          }
+
+          if (normalizedId.includes("/node_modules/yugioh-card/")) {
             return "vendor-yugioh-card";
           }
 
-          if (id.includes("node_modules/cdb2yugiohcard")) {
+          if (normalizedId.includes("/node_modules/cdb2yugiohcard/")) {
             return "vendor-card-image";
           }
 
-          if (id.includes("node_modules/@tauri-apps")) {
+          if (normalizedId.includes("/node_modules/@tauri-apps/")) {
             return "vendor-tauri";
           }
 
-          if (id.includes("node_modules/svelte-i18n")) {
+          if (normalizedId.includes("/node_modules/svelte-i18n/")) {
             return "vendor-i18n";
           }
 

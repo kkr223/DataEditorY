@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import type { LuaReferenceManualItem, LuaReferenceManualKind } from '$lib/utils/luaScriptMonaco';
+  import type { LuaReferenceManualItem, LuaReferenceManualKind } from '$lib/utils/luaReferenceManual';
 
   export let open = false;
   export let kind: LuaReferenceManualKind = 'constants';
@@ -8,6 +8,8 @@
   export let shortcutHint = '';
   export let searchPlaceholder = '';
   export let emptyText = '';
+  export let loading = false;
+  export let loadingText = '';
   export let closeLabel = '';
   export let items: LuaReferenceManualItem[] = [];
   export let onClose: () => void = () => {};
@@ -88,7 +90,9 @@
         class:constants-list={kind === 'constants'}
         class:functions-list={kind === 'functions'}
       >
-        {#if filteredItems.length > 0}
+        {#if loading}
+          <div class="script-reference-empty">{loadingText}</div>
+        {:else if filteredItems.length > 0}
           {#each filteredItems as item (item.key)}
             <button
               type="button"

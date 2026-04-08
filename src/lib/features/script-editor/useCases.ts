@@ -1,5 +1,4 @@
 import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
-import type { ScriptMonacoModule } from '$lib/features/script-editor/runtime';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { getCardByIdInTab, modifyCardsInTab } from '$lib/stores/db';
 import { reloadActiveScriptTab, saveActiveScriptTab } from '$lib/stores/scriptEditor.svelte';
@@ -229,10 +228,10 @@ export type ScriptImageSelection = {
 async function buildScriptImageBlob(input: {
   content: string;
   lineNumberStart?: number;
-  monacoModule: ScriptMonacoModule;
   renderInfo: ScriptImageRenderInfo;
 }) {
-  return input.monacoModule.renderLuaCodeImageBlob(input.content, {
+  const imageRenderer = await import('$lib/utils/luaScriptImageRenderer');
+  return imageRenderer.renderLuaCodeImageBlob(input.content, {
     title: input.renderInfo.title,
     metaLines: input.renderInfo.metaLines,
     effectTitle: input.renderInfo.effectTitle,
@@ -243,14 +242,13 @@ async function buildScriptImageBlob(input: {
 
 export async function shareScriptImageFlow(input: {
   tab: ScriptWorkspaceState | null;
-  monacoModule: ScriptMonacoModule | null;
   isSharing: boolean;
   renderInfo: ScriptImageRenderInfo;
   selection?: ScriptImageSelection | null;
   t: Translate;
 }) {
   const tab = input.tab;
-  if (!tab || !input.monacoModule || input.isSharing) {
+  if (!tab || input.isSharing) {
     return false;
   }
 
@@ -264,7 +262,6 @@ export async function shareScriptImageFlow(input: {
     const blob = await buildScriptImageBlob({
       content: input.selection?.content ?? tab.content,
       lineNumberStart: input.selection?.startLineNumber,
-      monacoModule: input.monacoModule,
       renderInfo: input.renderInfo,
     });
     await writeImageBlobToClipboard(blob);
