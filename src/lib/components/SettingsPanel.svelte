@@ -35,6 +35,12 @@
   let settingsAiCardModulePromise = $state<Promise<SettingsAiCardModule> | null>(null);
   let settingsExtraUseCasesPromise = $state<Promise<SettingsExtraUseCasesModule> | null>(null);
   const hasAiCapability = isCapabilityEnabled('ai');
+  const loadSettingsExtraUseCases = __APP_FEATURES__.ai
+    ? () => import('$lib/features/settings/extraUseCases')
+    : null;
+  const loadSettingsAiCardModule = __APP_FEATURES__.ai
+    ? () => import('$lib/features/settings/components/SettingsAiCard.svelte')
+    : null;
 
   let settingsDescription = $derived($_(hasAiCapability ? 'settings.description_extra' : 'settings.description_base'));
   let connectionHint = $derived.by(() => {
@@ -63,18 +69,18 @@
   );
 
   function ensureSettingsExtraUseCases() {
-    if (!hasAiCapability) {
+    if (!loadSettingsExtraUseCases || !hasAiCapability) {
       return null;
     }
-    settingsExtraUseCasesPromise ??= import('$lib/features/settings/extraUseCases');
+    settingsExtraUseCasesPromise ??= loadSettingsExtraUseCases();
     return settingsExtraUseCasesPromise;
   }
 
   function ensureSettingsAiCardModule() {
-    if (!hasAiCapability) {
+    if (!loadSettingsAiCardModule || !hasAiCapability) {
       return null;
     }
-    settingsAiCardModulePromise ??= import('$lib/features/settings/components/SettingsAiCard.svelte');
+    settingsAiCardModulePromise ??= loadSettingsAiCardModule();
     return settingsAiCardModulePromise;
   }
 

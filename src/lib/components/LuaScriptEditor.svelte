@@ -54,6 +54,9 @@
   import type { LuaReferenceManualItem } from '$lib/utils/luaScriptMonaco';
   type ScriptEditorExtraUseCasesModule = typeof import('$lib/features/script-editor/extraUseCases');
   const hasAiCapability = isCapabilityEnabled('ai');
+  const loadScriptEditorExtraUseCases = __APP_FEATURES__.ai
+    ? () => import('$lib/features/script-editor/extraUseCases')
+    : null;
 
   let editorHost = $state<HTMLDivElement | null>(null);
   let monacoModule = $state<MonacoModule | null>(null);
@@ -112,10 +115,10 @@
   });
 
   function ensureScriptEditorExtraUseCases() {
-    if (!hasAiCapability) {
+    if (!loadScriptEditorExtraUseCases || !hasAiCapability) {
       return null;
     }
-    scriptEditorExtraUseCasesPromise ??= import('$lib/features/script-editor/extraUseCases');
+    scriptEditorExtraUseCasesPromise ??= loadScriptEditorExtraUseCases();
     return scriptEditorExtraUseCasesPromise;
   }
 

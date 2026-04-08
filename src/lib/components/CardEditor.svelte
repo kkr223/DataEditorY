@@ -70,6 +70,15 @@
   const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
   const hasAiCapability = isCapabilityEnabled("ai");
   const hasCardImageCapability = isCapabilityEnabled("card-image");
+  const loadCardEditorExtraUseCases = __APP_FEATURES__.ai || __APP_FEATURES__.cardImage
+    ? () => import("$lib/features/card-editor/extraUseCases")
+    : null;
+  const loadCardParseDialogModule = __APP_FEATURES__.ai
+    ? () => import("$lib/features/card-editor/components/CardParseDialog.svelte")
+    : null;
+  const loadCardImageDrawerHostModule = __APP_FEATURES__.cardImage
+    ? () => import("$lib/features/card-editor/components/CardImageDrawerHost.svelte")
+    : null;
 
 
   let draftCard = $state<CardDataEntry>(createEmptyCard());
@@ -120,26 +129,26 @@
   }
 
   function ensureCardEditorExtraUseCases() {
-    if (!hasAiCapability && !hasCardImageCapability) {
+    if (!loadCardEditorExtraUseCases || (!hasAiCapability && !hasCardImageCapability)) {
       return null;
     }
-    cardEditorExtraUseCasesPromise ??= import("$lib/features/card-editor/extraUseCases");
+    cardEditorExtraUseCasesPromise ??= loadCardEditorExtraUseCases();
     return cardEditorExtraUseCasesPromise;
   }
 
   function ensureCardParseDialogModule() {
-    if (!hasAiCapability) {
+    if (!loadCardParseDialogModule || !hasAiCapability) {
       return null;
     }
-    cardParseDialogModulePromise ??= import("$lib/features/card-editor/components/CardParseDialog.svelte");
+    cardParseDialogModulePromise ??= loadCardParseDialogModule();
     return cardParseDialogModulePromise;
   }
 
   function ensureCardImageDrawerHostModule() {
-    if (!hasCardImageCapability) {
+    if (!loadCardImageDrawerHostModule || !hasCardImageCapability) {
       return null;
     }
-    cardImageDrawerHostModulePromise ??= import("$lib/features/card-editor/components/CardImageDrawerHost.svelte");
+    cardImageDrawerHostModulePromise ??= loadCardImageDrawerHostModule();
     return cardImageDrawerHostModulePromise;
   }
 
