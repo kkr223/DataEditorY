@@ -4,7 +4,7 @@
   import { activeScriptTab, getActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
   import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
-  import { collectLuaCallHighlights } from '$lib/utils/luaScriptCalls';
+  import { collectLuaInlineHighlights } from '$lib/utils/luaScriptCalls';
   import type { CardDataEntry } from '$lib/types';
   import type { AgentStage } from '$lib/utils/ai';
   import type { editor as MonacoEditor } from 'monaco-editor';
@@ -400,7 +400,7 @@
       source,
       lastHighlightSource,
       lastHighlightDecorations,
-      collectLuaCallHighlights,
+      collectLuaInlineHighlights,
     );
     lastHighlightSource = nextHighlights.source;
     lastHighlightDecorations = nextHighlights.decorations;
@@ -875,6 +875,21 @@
     font-weight: 600;
   }
 
+  .script-editor :global(.monaco-editor .view-line .lua-call-arg-highlight) {
+    color: #c792ff !important;
+    font-weight: 600;
+  }
+
+  .script-editor :global(.monaco-editor .view-line .lua-parameter-highlight) {
+    color: #d8b4fe !important;
+    font-weight: 600;
+  }
+
+  .script-editor :global(.monaco-editor .view-line .lua-constant-highlight) {
+    color: #5eead4 !important;
+    font-weight: 600;
+  }
+
   .script-editor :global(.monaco-editor .view-overlays .current-line),
   .script-editor :global(.monaco-editor .margin-view-overlays .current-line) {
     background-color: rgba(118, 184, 151, 0.12) !important;
@@ -962,6 +977,21 @@
 
   :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-call-highlight) {
     color: #1d5fd1 !important;
+    font-weight: 600;
+  }
+
+  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-call-arg-highlight) {
+    color: #7c3aed !important;
+    font-weight: 600;
+  }
+
+  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-parameter-highlight) {
+    color: #8b5cf6 !important;
+    font-weight: 600;
+  }
+
+  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-constant-highlight) {
+    color: #0f766e !important;
     font-weight: 600;
   }
 

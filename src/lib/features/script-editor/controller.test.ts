@@ -110,6 +110,7 @@ describe('script editor controller helpers', () => {
       [],
       () => [
         {
+          className: 'lua-call-highlight',
           startLineNumber: 1,
           startColumn: 6,
           endLineNumber: 1,

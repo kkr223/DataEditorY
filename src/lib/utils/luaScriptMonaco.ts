@@ -7,7 +7,10 @@ import { luaCatalog as defaultLuaCatalog } from '$lib/data/lua-intel/catalog.gen
 import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded } from '$lib/utils/luaScriptDiagnostics';
 import { getCompletionInsertParameters, shouldInsertFunctionReferenceOnly } from '$lib/utils/luaFunctionCompletion';
 import { loadExternalLuaCatalog } from '$lib/utils/luaIntelCatalog';
-import { collectLuaCallHighlights } from '$lib/utils/luaScriptCalls';
+import {
+  collectLuaInlineHighlights,
+  type LuaInlineHighlightClassName,
+} from '$lib/utils/luaScriptCalls';
 import {
   getCallInfoAt,
   getFunctionSymbols,
@@ -165,7 +168,7 @@ type LuaImageTheme = {
   panelBackground: string;
   panelBorder: string;
   muted: string;
-  callHighlightColor: string;
+  inlineHighlightColors: Record<LuaInlineHighlightClassName, string>;
 };
 
 export type LuaCodeImageRenderOptions = {
@@ -185,6 +188,7 @@ type LuaCodeImageSegment = {
 type LuaCodeImageHighlightRange = {
   startColumn: number;
   endColumn: number;
+  className: LuaInlineHighlightClassName;
 };
 
 function getLuaEditorThemeSpecs() {
@@ -302,7 +306,19 @@ function getCurrentLuaImageTheme(): LuaImageTheme {
     panelBackground: theme.base === 'vs' ? '#ffffff' : '#1a221f',
     panelBorder: theme.base === 'vs' ? '#b5c7b7' : '#4d6159',
     muted: theme.colors['editorLineNumber.foreground'],
-    callHighlightColor: theme.base === 'vs' ? '#1d5fd1' : '#8ec5ff',
+    inlineHighlightColors: theme.base === 'vs'
+      ? {
+          'lua-call-highlight': '#1d5fd1',
+          'lua-call-arg-highlight': '#7c3aed',
+          'lua-parameter-highlight': '#8b5cf6',
+          'lua-constant-highlight': '#0f766e',
+        }
+      : {
+          'lua-call-highlight': '#8ec5ff',
+          'lua-call-arg-highlight': '#c792ff',
+          'lua-parameter-highlight': '#d8b4fe',
+          'lua-constant-highlight': '#5eead4',
+        },
   };
 }
 
@@ -412,7 +428,7 @@ function sourceColumnToDisplayColumn(line: string, targetColumn: number, tabSize
 function applyHighlightRangesToSegments(
   segments: LuaCodeImageSegment[],
   ranges: LuaCodeImageHighlightRange[],
-  highlightColor: string,
+  theme: LuaImageTheme,
 ) {
   if (ranges.length === 0) {
     return segments;
@@ -459,7 +475,7 @@ function applyHighlightRangesToSegments(
       result.push({
         ...segment,
         text: segment.text.slice(offset, offset + highlightedLength),
-        color: highlightColor,
+        color: theme.inlineHighlightColors[activeRange.className],
         fontWeight: '600',
       });
       offset += highlightedLength;
@@ -548,12 +564,13 @@ export function renderLuaCodeImage(content: string, options: LuaCodeImageRenderO
     model.dispose();
   }
   const callHighlightRangesByLine = new Map<number, LuaCodeImageHighlightRange[]>();
-  for (const item of collectLuaCallHighlights(normalized)) {
+  for (const item of collectLuaInlineHighlights(normalized)) {
     const lineText = lines[item.startLineNumber - 1] ?? '';
     const ranges = callHighlightRangesByLine.get(item.startLineNumber) ?? [];
     ranges.push({
       startColumn: sourceColumnToDisplayColumn(lineText, item.startColumn, tabSize),
       endColumn: sourceColumnToDisplayColumn(lineText, item.endColumn, tabSize),
+      className: item.className,
     });
     callHighlightRangesByLine.set(item.startLineNumber, ranges);
   }
@@ -561,7 +578,7 @@ export function renderLuaCodeImage(content: string, options: LuaCodeImageRenderO
     applyHighlightRangesToSegments(
       segments,
       callHighlightRangesByLine.get(index + 1) ?? [],
-      theme.callHighlightColor,
+      theme,
     ),
   );
   const maxContentWidth = colorizedLines.reduce(

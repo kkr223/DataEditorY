@@ -1,5 +1,5 @@
 import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
-import type { LuaCallHighlight } from '$lib/utils/luaScriptCalls';
+import type { LuaInlineHighlight } from '$lib/utils/luaScriptCalls';
 import { toPersistableCard } from '$lib/domain/card/draft';
 
 export type HintPlacement = 'top' | 'bottom';
@@ -140,7 +140,7 @@ export function buildCallHighlightDecorations(
   source: string,
   lastHighlightSource: string,
   lastHighlightDecorations: MonacoDecoration[],
-  collectHighlights: (source: string) => LuaCallHighlight[],
+  collectHighlights: (source: string) => LuaInlineHighlight[],
 ) {
   if (source === lastHighlightSource) {
     return {
@@ -159,7 +159,7 @@ export function buildCallHighlightDecorations(
         endColumn: item.endColumn,
       },
       options: {
-        inlineClassName: 'lua-call-highlight',
+        inlineClassName: item.className,
       },
     })),
   };
