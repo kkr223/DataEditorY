@@ -45,6 +45,7 @@
     createCardImageInteractionController,
     createCardScriptGenerationController,
     createCardScriptGenerationState,
+    createInitialParseManuscript,
     handleCardEditorKeydown,
     handleParseModalBackdropDismiss,
     isDraftDirty as isDraftStateDirty,
@@ -59,6 +60,7 @@
     openParseModalFlow,
     parseCardManuscriptFlow,
     pickCardImageFlow,
+    runEditorInstructionFlow,
     saveAsDraftCardFlow,
     saveParsedCardsIndividuallyFlow,
     saveDraftCardFlow,
@@ -89,8 +91,10 @@
   let lastLoadedCardSnapshot = $state("");
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
   let isParseModalOpen = $state(false);
+  let aiInteractionMode = $state<"parse" | "instruction">("parse");
   let manuscriptInput = $state("");
   let isParsingManuscript = $state(false);
+  let aiInteractionResult = $state("");
   const scriptGeneration = $state(createCardScriptGenerationState());
   let isKeyboardNavigating = $state(false);
 
@@ -438,8 +442,6 @@
     await openParseModalFlow({
       hasAiCapability,
       draftCard,
-      isEditingExisting,
-      resetToNewDraft: handleNewCard,
       setManuscriptInput: (value) => {
         manuscriptInput = value;
       },
@@ -447,6 +449,8 @@
         isParseModalOpen = value;
       },
     });
+    aiInteractionMode = "parse";
+    aiInteractionResult = "";
   }
 
   function closeParseModal() {
@@ -454,16 +458,53 @@
     isParseModalOpen = false;
   }
 
+  function handleAiInteractionModeChange(mode: "parse" | "instruction") {
+    aiInteractionMode = mode;
+    if (mode === "instruction") {
+      aiInteractionResult = "";
+      if (manuscriptInput.trim() === createInitialParseManuscript(draftCard)) {
+        manuscriptInput = "";
+      }
+    }
+  }
+
   function handleParseModalBackdropKeydown(event: KeyboardEvent) {
     handleParseModalBackdropDismiss(event, closeParseModal);
   }
 
   async function handleParseManuscriptConfirm() {
+    if (aiInteractionMode === "instruction") {
+      await runEditorInstructionFlow({
+        hasAiCapability,
+        instruction: manuscriptInput,
+        activeCdbPath: $activeTab?.path ?? null,
+        currentCardCode: draftCard.code ?? null,
+        currentCard: draftCard,
+        t: (key, options) => $_(key, options as never),
+        setIsRunning: (value) => {
+          isParsingManuscript = value;
+        },
+        refreshAfterExecution: async () => {
+          await handleSearch(true);
+        },
+        setLastResult: (value) => {
+          aiInteractionResult = value;
+        },
+      });
+      return;
+    }
+
     await parseCardManuscriptFlow({
       hasAiCapability,
       manuscriptInput,
       activeCdbPath: $activeTab?.path ?? null,
       currentCardCode: draftCard.code ?? null,
+      prepareForImport: async () => {
+        if (isEditingExisting) {
+          handleNewCard();
+          await tick();
+        }
+      },
       t: (key, options) => $_(key, options as never),
       setIsParsingManuscript: (value) => {
         isParsingManuscript = value;
@@ -646,19 +687,25 @@
 
 <CardParseDialog
   open={hasAiCapability && isParseModalOpen}
+  mode={aiInteractionMode}
   bind:manuscriptInput
   isParsing={isParsingManuscript}
+  onModeChange={handleAiInteractionModeChange}
   onClose={closeParseModal}
   onConfirm={handleParseManuscriptConfirm}
   onBackdropKeydown={handleParseModalBackdropKeydown}
   closeAriaLabel={$_("editor.card_image_crop_cancel")}
-  dialogAriaLabel={$_("editor.ai_parse_title")}
-  title={$_("editor.ai_parse_title")}
-  description={$_("editor.ai_parse_description")}
-  placeholder={$_("editor.ai_parse_placeholder")}
+  dialogAriaLabel={$_("editor.ai_interaction_title")}
+  title={$_("editor.ai_interaction_title")}
+  description={aiInteractionMode === "parse" ? $_("editor.ai_parse_description") : $_("editor.ai_instruction_description")}
+  placeholder={aiInteractionMode === "parse" ? $_("editor.ai_parse_placeholder") : $_("editor.ai_instruction_placeholder")}
   cancelLabel={$_("editor.card_image_crop_cancel")}
-  confirmLabel={$_("editor.ai_parse_confirm")}
-  parsingLabel={$_("editor.ai_parsing")}
+  confirmLabel={aiInteractionMode === "parse" ? $_("editor.ai_parse_confirm") : $_("editor.ai_instruction_confirm")}
+  parsingLabel={aiInteractionMode === "parse" ? $_("editor.ai_parsing") : $_("editor.ai_instruction_running")}
+  parseModeLabel={$_("editor.ai_parse_mode")}
+  instructionModeLabel={$_("editor.ai_instruction_mode")}
+  resultTitle={$_("editor.ai_instruction_result_title")}
+  resultText={aiInteractionResult}
 />
 
 <CardImagePreview

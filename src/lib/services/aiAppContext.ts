@@ -1,5 +1,13 @@
 import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
-import { activeTab, getCardByIdInTab, queryCardsRaw, tabs } from '$lib/stores/db';
+import {
+  activeTab,
+  deleteCardsWithSnapshotInTab,
+  getCardByIdInTab,
+  modifyCardsWithSnapshotInTab,
+  queryCardsRaw,
+  tabs,
+} from '$lib/stores/db';
+import { getAllCards, getSelectedCards } from '$lib/stores/editor.svelte';
 import type { AiAppContext } from '$lib/utils/ai';
 import { get } from 'svelte/store';
 import { invokeCommand } from '$lib/infrastructure/tauri';
@@ -37,6 +45,14 @@ export function createAiAppContext(): AiAppContext {
     },
     getCardByIdInTab,
     queryCardsRaw,
+    getSelectedCardsInActiveTab() {
+      return getSelectedCards();
+    },
+    getVisibleCardsInActiveTab() {
+      return getAllCards();
+    },
+    modifyCardsWithSnapshotInTab,
+    deleteCardsWithSnapshotInTab,
     async readCardScript(code: number, dbPath?: string) {
       const targetTab = dbPath
         ? get(tabs).find((tab) => tab.path === dbPath)

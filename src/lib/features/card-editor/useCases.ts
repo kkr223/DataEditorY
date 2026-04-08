@@ -21,7 +21,7 @@ import {
   isAbortError,
 } from '$lib/services/scriptGeneration';
 import { createAiAppContext } from '$lib/services/aiAppContext';
-import { parseCardManuscript } from '$lib/utils/ai';
+import { parseCardManuscript, runEditorInstruction } from '$lib/utils/ai';
 import { createInitialParseManuscript } from '$lib/features/card-editor/controller';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -429,8 +429,6 @@ export async function saveParsedCardsIndividuallyFlow(input: {
 export async function openParseModalFlow(input: {
   hasAiCapability: boolean;
   draftCard: CardDataEntry;
-  isEditingExisting: boolean;
-  resetToNewDraft: () => void;
   setManuscriptInput: (value: string) => void;
   setParseModalOpen: (value: boolean) => void;
 }) {
@@ -443,10 +441,6 @@ export async function openParseModalFlow(input: {
   }
 
   const initialManuscript = createInitialParseManuscript(input.draftCard);
-  if (input.isEditingExisting) {
-    input.resetToNewDraft();
-  }
-
   input.setManuscriptInput(initialManuscript);
   input.setParseModalOpen(true);
   return true;
@@ -457,6 +451,7 @@ export async function parseCardManuscriptFlow(input: {
   manuscriptInput: string;
   activeCdbPath: string | null;
   currentCardCode: number | null;
+  prepareForImport?: () => Promise<void> | void;
   t: Translate;
   setIsParsingManuscript: (value: boolean) => void;
   setParseModalOpen: (value: boolean) => void;
@@ -489,6 +484,7 @@ export async function parseCardManuscriptFlow(input: {
 
     if (result.cards.length === 1) {
       const parsedCard = result.cards[0];
+      await input.prepareForImport?.();
       input.setDraftCard(parsedCard);
       input.syncSetcodesFromCard(parsedCard);
       await input.afterDraftApplied();
@@ -500,6 +496,7 @@ export async function parseCardManuscriptFlow(input: {
         showToast(input.t('editor.ai_parse_applied_draft'), 'success');
       }
     } else {
+      await input.prepareForImport?.();
       const saved = await input.saveParsedCardsIndividually(result.cards);
       if (!saved) {
         return false;
@@ -523,5 +520,55 @@ export async function parseCardManuscriptFlow(input: {
     return false;
   } finally {
     input.setIsParsingManuscript(false);
+  }
+}
+
+export async function runEditorInstructionFlow(input: {
+  hasAiCapability: boolean;
+  instruction: string;
+  activeCdbPath: string | null;
+  currentCardCode: number | null;
+  currentCard: CardDataEntry;
+  t: Translate;
+  setIsRunning: (value: boolean) => void;
+  refreshAfterExecution: () => Promise<void>;
+  setLastResult: (value: string) => void;
+}) {
+  if (!input.hasAiCapability) {
+    return false;
+  }
+
+  if (!input.instruction.trim()) {
+    showToast(input.t('editor.ai_instruction_empty'), 'info');
+    return false;
+  }
+
+  try {
+    input.setIsRunning(true);
+    const result = await runEditorInstruction({
+      instruction: input.instruction,
+      currentCard: input.currentCard,
+      context: createAiAppContext(),
+    });
+
+    input.setLastResult(result);
+    await input.refreshAfterExecution();
+    showToast(input.t('editor.ai_instruction_success'), 'success');
+    return true;
+  } catch (error) {
+    console.error('Failed to run editor instruction', error);
+    void writeErrorLog({
+      source: 'editor.ai.instruction',
+      error,
+      extra: {
+        cdbPath: input.activeCdbPath ?? '',
+        currentCardCode: input.currentCardCode ?? 0,
+        instructionPreview: input.instruction.slice(0, 500),
+      },
+    });
+    showToast(input.t('editor.ai_instruction_failed'), 'error');
+    return false;
+  } finally {
+    input.setIsRunning(false);
   }
 }

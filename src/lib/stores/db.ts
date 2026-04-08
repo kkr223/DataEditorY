@@ -504,6 +504,39 @@ export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): P
   }
 }
 
+export async function modifyCardsWithSnapshotInTab(
+  tabId: string,
+  cards: CardDataEntry[],
+  previousCards: Array<CardDataEntry | null | undefined>,
+): Promise<boolean> {
+  const tab = get(tabs).find((item) => item.id === tabId);
+  if (!tab) return false;
+
+  try {
+    await invokeCommand('modify_cards', {
+      request: {
+        tabId: tab.id,
+        cards: cards.map((card) => cloneCard(card)),
+      },
+    });
+    pushUndoOperation(tab.id, {
+      kind: 'modify',
+      label: cards.length === 1 ? `Edit card ${cards[0].code}` : `Modify ${cards.length} cards`,
+      affectedIds: cards.map((card) => card.code),
+      previousCards: cards.map((card, index) => {
+        const previous = previousCards[index];
+        return previous && previous.code === card.code ? cloneCard(previous) : null;
+      }),
+    });
+    syncCachedCardsInTab(tab.id, cards);
+    markTabDirty(tab.id, true);
+    return true;
+  } catch (err) {
+    console.error('Failed to modify cards with snapshots:', err);
+    return false;
+  }
+}
+
 export async function modifyCards(cards: CardDataEntry[]): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
@@ -543,6 +576,38 @@ export async function deleteCards(cardIds: number[]): Promise<boolean> {
     return true;
   } catch (err) {
     console.error("Failed to delete cards:", err);
+    return false;
+  }
+}
+
+export async function deleteCardsWithSnapshotInTab(
+  tabId: string,
+  cardIds: number[],
+  deletedCards: CardDataEntry[],
+): Promise<boolean> {
+  const tab = get(tabs).find((item) => item.id === tabId);
+  if (!tab) return false;
+
+  try {
+    await invokeCommand('delete_cards', {
+      request: {
+        tabId: tab.id,
+        cardIds,
+      },
+    });
+
+    if (deletedCards.length > 0) {
+      pushUndoOperation(tab.id, {
+        kind: 'delete',
+        label: deletedCards.length === 1 ? `Delete card ${deletedCards[0].code}` : `Delete ${deletedCards.length} cards`,
+        affectedIds: deletedCards.map((card) => card.code),
+        deletedCards: deletedCards.map((card) => cloneCard(card)),
+      });
+    }
+    markTabDirty(tab.id, true);
+    return true;
+  } catch (err) {
+    console.error('Failed to delete cards with snapshots:', err);
     return false;
   }
 }
