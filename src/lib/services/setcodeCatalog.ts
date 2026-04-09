@@ -5,6 +5,7 @@ export type SetcodeOption = SelectOption<string> & { label: string };
 export type SetcodeCatalogLoadResult = {
   options: SetcodeOption[];
   duplicateSetcodes: string[];
+  occurrenceCounts: Record<string, number>;
 };
 
 type StringsCatalogIndex = {
@@ -22,10 +23,12 @@ function normalizeSetcodeHex(raw: string) {
 export function parseStringsCatalogWithDiagnostics(content: string): SetcodeCatalogLoadResult {
   const result = new Map<string, SetcodeOption>();
   const duplicateSetcodes = new Set<string>();
+  const occurrenceCounts = new Map<string, number>();
   if (!content) {
     return {
       options: [],
       duplicateSetcodes: [],
+      occurrenceCounts: {},
     };
   }
 
@@ -41,6 +44,8 @@ export function parseStringsCatalogWithDiagnostics(content: string): SetcodeCata
     const label = parts.slice(2).join(' ').trim();
     if (!label) continue;
 
+    occurrenceCounts.set(hex, (occurrenceCounts.get(hex) ?? 0) + 1);
+
     // strings.conf allows repeated setcode definitions; the later entry overrides the earlier one.
     if (result.has(hex)) {
       duplicateSetcodes.add(hex);
@@ -55,6 +60,7 @@ export function parseStringsCatalogWithDiagnostics(content: string): SetcodeCata
   return {
     options: Array.from(result.values()),
     duplicateSetcodes: Array.from(duplicateSetcodes.values()),
+    occurrenceCounts: Object.fromEntries(occurrenceCounts),
   };
 }
 
@@ -111,11 +117,16 @@ export async function loadPopularSetcodes() {
     popularSetcodesPromise = Promise.all([readStringsConf(), readBundledStringsConf().catch(() => '')])
       .then(([content, bundledContent]) => {
         const fullCatalog = parseStringsCatalogWithDiagnostics(content);
-        const bundledDuplicates = new Set(parseStringsCatalogWithDiagnostics(bundledContent).duplicateSetcodes);
+        const bundledCatalog = parseStringsCatalogWithDiagnostics(bundledContent);
 
         return {
           options: fullCatalog.options,
-          duplicateSetcodes: fullCatalog.duplicateSetcodes.filter((code) => !bundledDuplicates.has(code)),
+          duplicateSetcodes: fullCatalog.duplicateSetcodes.filter((code) => {
+            const fullCount = fullCatalog.occurrenceCounts[code] ?? 0;
+            const bundledCount = bundledCatalog.occurrenceCounts[code] ?? 0;
+            return fullCount > bundledCount;
+          }),
+          occurrenceCounts: fullCatalog.occurrenceCounts,
         };
       })
       .catch((error) => {
@@ -123,6 +134,7 @@ export async function loadPopularSetcodes() {
         return {
           options: [],
           duplicateSetcodes: [],
+          occurrenceCounts: {},
         };
       });
   }

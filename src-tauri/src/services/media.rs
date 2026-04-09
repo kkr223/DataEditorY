@@ -2,6 +2,7 @@ use image::{codecs::jpeg::JpegEncoder, GenericImageView};
 use mime_guess::from_path;
 use percent_encoding::percent_decode_str;
 use std::{
+    collections::HashSet,
     fs,
     io::{BufWriter, Write},
     path::{Path, PathBuf},
@@ -237,7 +238,7 @@ fn strings_dir_candidates(app: &AppHandle) -> Vec<PathBuf> {
         }
     }
 
-    candidates
+    dedupe_candidate_paths(candidates)
 }
 
 fn legacy_strings_file_candidates(app: &AppHandle) -> Vec<PathBuf> {
@@ -270,7 +271,21 @@ fn legacy_strings_file_candidates(app: &AppHandle) -> Vec<PathBuf> {
         }
     }
 
-    candidates
+    dedupe_candidate_paths(candidates)
+}
+
+fn dedupe_candidate_paths(candidates: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut seen = HashSet::new();
+    let mut deduped = Vec::new();
+
+    for candidate in candidates {
+        let resolved = fs::canonicalize(&candidate).unwrap_or_else(|_| candidate.clone());
+        if seen.insert(resolved) {
+            deduped.push(candidate);
+        }
+    }
+
+    deduped
 }
 
 fn read_strings_text_file(path: &Path) -> Result<String, String> {
@@ -554,6 +569,20 @@ mod tests {
         let result = read_strings_text_file(&path);
 
         assert!(result.is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn dedupes_canonical_candidate_paths() {
+        let root = make_temp_dir("strings-dedupe");
+        let canonical = fs::canonicalize(&root).unwrap();
+        let via_dot = root.join(".");
+
+        let result = dedupe_candidate_paths(vec![root.clone(), via_dot, canonical.clone()]);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(fs::canonicalize(&result[0]).unwrap(), canonical);
+
         let _ = fs::remove_dir_all(&root);
     }
 }
