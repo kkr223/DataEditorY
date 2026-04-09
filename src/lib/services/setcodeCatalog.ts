@@ -2,6 +2,10 @@ import type { SelectOption } from '$lib/types';
 import { loadStringsConfContent } from '$lib/infrastructure/tauri/commands';
 
 export type SetcodeOption = SelectOption<string> & { label: string };
+export type SetcodeCatalogLoadResult = {
+  options: SetcodeOption[];
+  duplicateSetcodes: string[];
+};
 
 type StringsCatalogIndex = {
   files?: string[];
@@ -15,10 +19,15 @@ function normalizeSetcodeHex(raw: string) {
   return `0x${normalized.padStart(4, '0').toUpperCase()}`;
 }
 
-export function parseStringsCatalog(content: string): SetcodeOption[] {
-  const result: SetcodeOption[] = [];
-  const seen = new Set<string>();
-  if (!content) return result;
+export function parseStringsCatalogWithDiagnostics(content: string): SetcodeCatalogLoadResult {
+  const result = new Map<string, SetcodeOption>();
+  const duplicateSetcodes = new Set<string>();
+  if (!content) {
+    return {
+      options: [],
+      duplicateSetcodes: [],
+    };
+  }
 
   for (const line of content.split('\n')) {
     const trimmed = line.trim();
@@ -32,61 +41,89 @@ export function parseStringsCatalog(content: string): SetcodeOption[] {
     const label = parts.slice(2).join(' ').trim();
     if (!label) continue;
 
-    const dedupeKey = `${hex}::${label}`;
-    if (seen.has(dedupeKey)) continue;
-    seen.add(dedupeKey);
-
-    result.push({
+    // strings.conf allows repeated setcode definitions; the later entry overrides the earlier one.
+    if (result.has(hex)) {
+      duplicateSetcodes.add(hex);
+      result.delete(hex);
+    }
+    result.set(hex, {
       value: hex,
       label,
     });
   }
 
-  return result;
+  return {
+    options: Array.from(result.values()),
+    duplicateSetcodes: Array.from(duplicateSetcodes.values()),
+  };
 }
 
-let popularSetcodesPromise: Promise<SetcodeOption[]> | null = null;
+export function parseStringsCatalog(content: string): SetcodeOption[] {
+  return parseStringsCatalogWithDiagnostics(content).options;
+}
+
+let popularSetcodesPromise: Promise<SetcodeCatalogLoadResult> | null = null;
+
+async function resolveBundledStringsFiles() {
+  let files = FALLBACK_STRINGS_FILES;
+
+  try {
+    const manifestResponse = await fetch('/resources/strings/index.json');
+    if (manifestResponse.ok) {
+      const manifest = (await manifestResponse.json()) as StringsCatalogIndex;
+      if (Array.isArray(manifest.files) && manifest.files.length > 0) {
+        files = manifest.files.filter((value) => typeof value === 'string' && value.trim().length > 0);
+      }
+    }
+  } catch {
+    // Keep the static fallback list when the manifest is unavailable.
+  }
+
+  return files;
+}
+
+async function readBundledStringsConf() {
+  const files = await resolveBundledStringsFiles();
+  const contents = await Promise.all(
+    files.map(async (file) => {
+      const normalized = file.replace(/^[/\\]+/, '');
+      const response = await fetch(`/resources/strings/${normalized}`);
+      if (!response.ok) {
+        throw new Error(`Failed to load strings file ${normalized}: ${response.status}`);
+      }
+      return response.text();
+    }),
+  );
+
+  return contents.join('\n');
+}
 
 async function readStringsConf() {
   try {
     return await loadStringsConfContent();
   } catch {
-    let files = FALLBACK_STRINGS_FILES;
-
-    try {
-      const manifestResponse = await fetch('/resources/strings/index.json');
-      if (manifestResponse.ok) {
-        const manifest = (await manifestResponse.json()) as StringsCatalogIndex;
-        if (Array.isArray(manifest.files) && manifest.files.length > 0) {
-          files = manifest.files.filter((value) => typeof value === 'string' && value.trim().length > 0);
-        }
-      }
-    } catch {
-      // Keep the static fallback list when the manifest is unavailable.
-    }
-
-    const contents = await Promise.all(
-      files.map(async (file) => {
-        const normalized = file.replace(/^[/\\]+/, '');
-        const response = await fetch(`/resources/strings/${normalized}`);
-        if (!response.ok) {
-          throw new Error(`Failed to load strings file ${normalized}: ${response.status}`);
-        }
-        return response.text();
-      }),
-    );
-
-    return contents.join('\n');
+    return readBundledStringsConf();
   }
 }
 
 export async function loadPopularSetcodes() {
   if (!popularSetcodesPromise) {
-    popularSetcodesPromise = readStringsConf()
-      .then(parseStringsCatalog)
+    popularSetcodesPromise = Promise.all([readStringsConf(), readBundledStringsConf().catch(() => '')])
+      .then(([content, bundledContent]) => {
+        const fullCatalog = parseStringsCatalogWithDiagnostics(content);
+        const bundledDuplicates = new Set(parseStringsCatalogWithDiagnostics(bundledContent).duplicateSetcodes);
+
+        return {
+          options: fullCatalog.options,
+          duplicateSetcodes: fullCatalog.duplicateSetcodes.filter((code) => !bundledDuplicates.has(code)),
+        };
+      })
       .catch((error) => {
         console.error('Failed to load strings catalog', error);
-        return [];
+        return {
+          options: [],
+          duplicateSetcodes: [],
+        };
       });
   }
 

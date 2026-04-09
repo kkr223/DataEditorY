@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { parseStringsCatalog } from './setcodeCatalog';
+import { parseStringsCatalog, parseStringsCatalogWithDiagnostics } from './setcodeCatalog';
 
 describe('setcode catalog parsing', () => {
   test('collects valid setname entries from aggregated text files', () => {
@@ -16,18 +16,37 @@ describe('setcode catalog parsing', () => {
     ]);
   });
 
-  test('filters malformed and duplicated setname entries', () => {
+  test('filters malformed entries and lets later duplicates override earlier ones', () => {
     const result = parseStringsCatalog([
       '!setname nope Broken',
       '!setname 0x1000',
       '!setname 0x1000 Same',
       '!setname 1000 Same',
       '!setname 0x1000 Different',
+      '!setname 0x1001 Unique',
+      '!setname 0x1000 Final',
     ].join('\n'));
 
     expect(result).toEqual([
-      { value: '0x1000', label: 'Same' },
-      { value: '0x1000', label: 'Different' },
+      { value: '0x1001', label: 'Unique' },
+      { value: '0x1000', label: 'Final' },
     ]);
+  });
+
+  test('reports duplicated setcodes while keeping only the last definition', () => {
+    const result = parseStringsCatalogWithDiagnostics([
+      '!setname 0x075E First',
+      '!setname 0x1001 Unique',
+      '!setname 0x075E Final',
+      '!setname 0x1001 Final Unique',
+    ].join('\n'));
+
+    expect(result).toEqual({
+      options: [
+        { value: '0x075E', label: 'Final' },
+        { value: '0x1001', label: 'Final Unique' },
+      ],
+      duplicateSetcodes: ['0x075E', '0x1001'],
+    });
   });
 });
