@@ -380,7 +380,7 @@
     "race": "Race",
     "hints": "Hint Texts",
     "setcodes": "Setcodes",
-    "setcode_duplicates_detected": "{count} duplicate setcode definition(s) were found. Later entries have overridden earlier ones.",
+    "setcode_duplicates_detected": "Duplicate setcode definition detected for {code}. Later entries have overridden earlier ones.",
     "hint_line": "str{n}",
     "custom": "Custom",
     "no_card": "Select a card to edit its properties.",

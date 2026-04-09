@@ -374,10 +374,10 @@
   onMount(() => {
     loadPopularSetcodes().then(({ options, duplicateSetcodes }) => {
       popularSetcodes = options;
-      if (duplicateSetcodes.length > 0) {
+      for (const code of duplicateSetcodes.slice(0, 3)) {
         showToast(
           $_("editor.setcode_duplicates_detected", {
-            values: { count: String(duplicateSetcodes.length) },
+            values: { code },
           }),
           "info",
           4500,

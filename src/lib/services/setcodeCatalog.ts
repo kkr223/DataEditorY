@@ -64,43 +64,60 @@ export function parseStringsCatalog(content: string): SetcodeOption[] {
 
 let popularSetcodesPromise: Promise<SetcodeCatalogLoadResult> | null = null;
 
+async function resolveBundledStringsFiles() {
+  let files = FALLBACK_STRINGS_FILES;
+
+  try {
+    const manifestResponse = await fetch('/resources/strings/index.json');
+    if (manifestResponse.ok) {
+      const manifest = (await manifestResponse.json()) as StringsCatalogIndex;
+      if (Array.isArray(manifest.files) && manifest.files.length > 0) {
+        files = manifest.files.filter((value) => typeof value === 'string' && value.trim().length > 0);
+      }
+    }
+  } catch {
+    // Keep the static fallback list when the manifest is unavailable.
+  }
+
+  return files;
+}
+
+async function readBundledStringsConf() {
+  const files = await resolveBundledStringsFiles();
+  const contents = await Promise.all(
+    files.map(async (file) => {
+      const normalized = file.replace(/^[/\\]+/, '');
+      const response = await fetch(`/resources/strings/${normalized}`);
+      if (!response.ok) {
+        throw new Error(`Failed to load strings file ${normalized}: ${response.status}`);
+      }
+      return response.text();
+    }),
+  );
+
+  return contents.join('\n');
+}
+
 async function readStringsConf() {
   try {
     return await loadStringsConfContent();
   } catch {
-    let files = FALLBACK_STRINGS_FILES;
-
-    try {
-      const manifestResponse = await fetch('/resources/strings/index.json');
-      if (manifestResponse.ok) {
-        const manifest = (await manifestResponse.json()) as StringsCatalogIndex;
-        if (Array.isArray(manifest.files) && manifest.files.length > 0) {
-          files = manifest.files.filter((value) => typeof value === 'string' && value.trim().length > 0);
-        }
-      }
-    } catch {
-      // Keep the static fallback list when the manifest is unavailable.
-    }
-
-    const contents = await Promise.all(
-      files.map(async (file) => {
-        const normalized = file.replace(/^[/\\]+/, '');
-        const response = await fetch(`/resources/strings/${normalized}`);
-        if (!response.ok) {
-          throw new Error(`Failed to load strings file ${normalized}: ${response.status}`);
-        }
-        return response.text();
-      }),
-    );
-
-    return contents.join('\n');
+    return readBundledStringsConf();
   }
 }
 
 export async function loadPopularSetcodes() {
   if (!popularSetcodesPromise) {
-    popularSetcodesPromise = readStringsConf()
-      .then(parseStringsCatalogWithDiagnostics)
+    popularSetcodesPromise = Promise.all([readStringsConf(), readBundledStringsConf().catch(() => '')])
+      .then(([content, bundledContent]) => {
+        const fullCatalog = parseStringsCatalogWithDiagnostics(content);
+        const bundledDuplicates = new Set(parseStringsCatalogWithDiagnostics(bundledContent).duplicateSetcodes);
+
+        return {
+          options: fullCatalog.options,
+          duplicateSetcodes: fullCatalog.duplicateSetcodes.filter((code) => !bundledDuplicates.has(code)),
+        };
+      })
       .catch((error) => {
         console.error('Failed to load strings catalog', error);
         return {
