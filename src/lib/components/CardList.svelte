@@ -17,6 +17,13 @@
   import { APP_SHORTCUT_EVENT } from '$lib/utils/shortcuts';
 
   const PAGE_SIZE = 50;
+  const RACE_FILTER_OPTIONS = RACE_OPTIONS
+    .filter((option) => option.value !== 0 && option.key)
+    .map((option) => ({
+      value: option.key!.replace('search.races.', ''),
+      key: option.key!,
+    }));
+
   let pageCards = $derived(getAllCards());
   let totalCards = $derived(getTotalCards());
   let totalPages = $derived(Math.max(1, Math.ceil(totalCards / PAGE_SIZE)));
@@ -245,8 +252,8 @@
           <label for="search-race">{$_('search.race')}</label>
           <select id="search-race" bind:value={editorState.searchFilters.race}>
             <option value="">{$_('search.na')}</option>
-            {#each RACE_OPTIONS as r}
-              <option value={r.value}>{$_(r.key!)}</option>
+            {#each RACE_FILTER_OPTIONS as r}
+              <option value={r.value}>{$_(r.key)}</option>
             {/each}
           </select>
         </div>
