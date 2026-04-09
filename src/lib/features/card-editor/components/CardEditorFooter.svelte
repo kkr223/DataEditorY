@@ -2,6 +2,7 @@
   export let isEditingExisting = false;
   export let editingHint = "";
   export let newCardHint = "";
+  export let resetSearchLabel = "";
   export let newCardLabel = "";
   export let aiParseLabel = "";
   export let scriptLabel = "";
@@ -9,6 +10,7 @@
   export let generatingScriptLabel = "";
   export let cancelScriptLabel = "";
   export let cardImageLabel = "";
+  export let searchLabel = "";
   export let saveAsLabel = "";
   export let modifyLabel = "";
   export let deleteLabel = "";
@@ -22,6 +24,8 @@
   export let onGenerateScript: () => void | Promise<void> = () => {};
   export let onCancelGenerateScript: () => void = () => {};
   export let onOpenCardImageDrawer: () => void = () => {};
+  export let onResetSearch: () => void | Promise<void> = () => {};
+  export let onSearch: () => void | Promise<void> = () => {};
   export let onSaveAs: () => void | Promise<void> = () => {};
   export let onModify: () => void | Promise<void> = () => {};
   export let onDelete: () => void | Promise<void> = () => {};
@@ -37,7 +41,6 @@
 
 <div class="editor-bottom">
   <div class="editor-bottom-left">
-    <button class="btn-secondary btn-sm" onclick={onNewCard}>{newCardLabel}</button>
     {#if hasAiCapability}
       <button class="btn-secondary btn-sm" onclick={onOpenParseModal}>{aiParseLabel}</button>
     {/if}
@@ -60,6 +63,9 @@
     {/if}
   </div>
   <div class="btn-group">
+    <button class="btn-secondary btn-sm" onclick={onResetSearch}>{resetSearchLabel}</button>
+    <button class="btn-secondary btn-sm" onclick={onNewCard}>{newCardLabel}</button>
+    <button class="btn-secondary btn-sm" onclick={onSearch}>{searchLabel}</button>
     <button class="btn-secondary btn-sm" onclick={onSaveAs}>{saveAsLabel}</button>
     <button class="btn-primary btn-sm" onclick={onModify}>{modifyLabel}</button>
     <button class="btn-danger btn-sm" onclick={onDelete} disabled={!isEditingExisting}>{deleteLabel}</button>

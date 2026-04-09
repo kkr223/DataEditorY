@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import SetcodeField from "$lib/components/SetcodeField.svelte";
   import type { CardDataEntry } from "$lib/types";
   import {
@@ -96,6 +96,9 @@
       ]],
     },
   ];
+
+  let isEnglishLocale = false;
+  $: isEnglishLocale = ($locale ?? "").startsWith("en");
 </script>
 
 <div class="editor-columns">
@@ -231,7 +234,7 @@
             {#each section.rows as row}
               <div class="type-row">
                 {#each row as option}
-                  <label class="checkbox-label">
+                  <label class="checkbox-label" class:checkbox-label-condensed={isEnglishLocale}>
                     <input
                       type="checkbox"
                       checked={(draftCard.type & option.bit) !== 0}
@@ -301,8 +304,12 @@
   }
 
   .editor-col:first-child {
-    flex: 1 1 0;
+    flex: 1.08 1 0;
     border-right: 1px solid var(--border-color);
+  }
+
+  .editor-col:last-child {
+    flex: 0.92 1 0;
   }
 
   .card-top-row {
@@ -573,6 +580,12 @@
     width: auto;
     accent-color: var(--accent-primary);
     margin: 0;
+  }
+
+  .checkbox-label-condensed {
+    font-size: 0.78rem;
+    letter-spacing: -0.02em;
+    font-stretch: condensed;
   }
 
   .setcode-grid {

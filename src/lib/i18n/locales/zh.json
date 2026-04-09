@@ -195,6 +195,8 @@
     "modify": "修改",
     "save_as": "另存为",
     "new_card": "清空为新卡",
+    "reset_search": "重置搜索",
+    "search_from_draft": "搜索",
     "card_image_button": "编辑卡图",
     "card_image_title": "卡图编辑器",
     "card_image_description": "基于当前 cdb 数据预填表单，上传并裁剪正方形卡图后实时预览。",

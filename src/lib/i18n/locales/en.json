@@ -195,6 +195,8 @@
     "modify": "Modify",
     "save_as": "Save As",
     "new_card": "Clear for New",
+    "reset_search": "Reset Search",
+    "search_from_draft": "Search",
     "card_image_button": "Edit Card Image",
     "card_image_title": "Card Image Editor",
     "card_image_description": "Start from the current cdb data, upload and crop square art, and preview it live.",

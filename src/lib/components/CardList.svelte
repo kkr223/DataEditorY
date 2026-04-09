@@ -349,7 +349,7 @@
 
 <style>
   .pane { display: flex; flex-direction: column; height: 100%; border-right: 1px solid var(--border-color); }
-  .list-pane { flex: 0 0 21rem; min-width: 21rem; max-width: 21rem; background-color: var(--bg-surface); }
+  .list-pane { flex: 0 0 23rem; min-width: 23rem; max-width: 23rem; background-color: var(--bg-surface); }
   .list-header-complex { display: flex; flex-direction: column; border-bottom: 1px solid var(--border-color); position: relative; z-index: 20; }
   .search-row { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md); }
   .search-input-wrapper { flex: 1; }
