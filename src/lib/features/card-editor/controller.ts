@@ -1,7 +1,9 @@
-import type { CardDataEntry } from '$lib/types';
+import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
+import type { CardDataEntry, SearchFilterState } from '$lib/types';
 import type { ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
 import { cloneEditableCard, createEmptyCard } from '$lib/utils/card';
 import { createCardSnapshot } from '$lib/domain/card/draft';
+import { ATTRIBUTE_MAP, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
 
 export const CARD_LIST_PAGE_SIZE = 50;
 
@@ -136,6 +138,129 @@ export function createInitialParseManuscript(draftCard: CardDataEntry) {
   }
 
   return `${draftCard.name ?? ''}\n${draftCard.desc ?? ''}`.trim();
+}
+
+function findKeyByExactValue(source: Record<string, number>, value: number) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '';
+  }
+
+  return Object.entries(source).find(([, bit]) => bit === value)?.[0] ?? '';
+}
+
+function resolveSubtype(type: number) {
+  if ((type & TYPE_MAP.monster) !== 0) {
+    const monsterSubtypeOrder = [
+      'link',
+      'xyz',
+      'synchro',
+      'fusion',
+      'ritual',
+      'pendulum',
+      'toon',
+      'flip',
+      'tuner',
+      'gemini',
+      'union',
+      'spirit',
+      'spssummon',
+      'token',
+      'normal',
+      'effect',
+    ] as const;
+
+    return monsterSubtypeOrder.find((key) => (type & SUBTYPE_MAP[key]) !== 0) ?? '';
+  }
+
+  if ((type & TYPE_MAP.spell) !== 0) {
+    const spellSubtypeOrder = [
+      'quickplay',
+      'continuous_spell',
+      'equip',
+      'field',
+      'ritual_spell',
+    ] as const;
+
+    return spellSubtypeOrder.find((key) => (type & SUBTYPE_MAP[key]) !== 0) ?? 'normal';
+  }
+
+  if ((type & TYPE_MAP.trap) !== 0) {
+    const trapSubtypeOrder = [
+      'continuous_trap',
+      'counter',
+    ] as const;
+
+    return trapSubtypeOrder.find((key) => (type & SUBTYPE_MAP[key]) !== 0) ?? 'normal';
+  }
+
+  return '';
+}
+
+export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFilterState {
+  const nextFilters: SearchFilterState = {
+    ...DEFAULT_SEARCH_FILTERS,
+  };
+
+  if (draftCard.code > 0) {
+    nextFilters.id = String(draftCard.code);
+  }
+
+  if (draftCard.name.trim()) {
+    nextFilters.name = draftCard.name.trim();
+  }
+
+  if (draftCard.desc.trim()) {
+    nextFilters.desc = draftCard.desc.trim();
+  }
+
+  if ((draftCard.type & TYPE_MAP.monster) !== 0) {
+    nextFilters.type = 'monster';
+  } else if ((draftCard.type & TYPE_MAP.spell) !== 0) {
+    nextFilters.type = 'spell';
+  } else if ((draftCard.type & TYPE_MAP.trap) !== 0) {
+    nextFilters.type = 'trap';
+  }
+
+  const subtype = resolveSubtype(draftCard.type);
+  if (subtype) {
+    nextFilters.subtype = subtype;
+  }
+
+  if (draftCard.attack !== 0) {
+    nextFilters.atkMin = String(draftCard.attack);
+    nextFilters.atkMax = String(draftCard.attack);
+  }
+
+  if (draftCard.defense !== 0) {
+    nextFilters.defMin = String(draftCard.defense);
+    nextFilters.defMax = String(draftCard.defense);
+  }
+
+  const attribute = findKeyByExactValue(ATTRIBUTE_MAP, draftCard.attribute);
+  if (attribute) {
+    nextFilters.attribute = attribute;
+  }
+
+  const race = findKeyByExactValue(RACE_MAP, draftCard.race);
+  if (race) {
+    nextFilters.race = race;
+  }
+
+  const setcodes = Array.isArray(draftCard.setcode) ? draftCard.setcode : [];
+  for (let index = 0; index < 4; index += 1) {
+    const rawValue = Number(setcodes[index] ?? 0);
+    if (!Number.isInteger(rawValue) || rawValue <= 0) {
+      continue;
+    }
+
+    const normalizedSetcode = rawValue.toString(16);
+    if (index === 0) nextFilters.setcode1 = normalizedSetcode;
+    else if (index === 1) nextFilters.setcode2 = normalizedSetcode;
+    else if (index === 2) nextFilters.setcode3 = normalizedSetcode;
+    else nextFilters.setcode4 = normalizedSetcode;
+  }
+
+  return nextFilters;
 }
 
 export function shouldIgnoreArrowNavigation(input: {

@@ -8,7 +8,7 @@
     isDbLoaded,
     saveCdbFile,
   } from "$lib/stores/db";
-  import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
+  import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleReset, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
   import { tauriBridge } from "$lib/infrastructure/tauri";
   import type { CardDataEntry } from "$lib/types";
@@ -38,6 +38,7 @@
   import { getScriptGenerationStageLabel, type ScriptGenerationStage } from "$lib/services/scriptGenerationStages";
   import { resolveCardImageSrc } from "$lib/services/cardImageService";
   import {
+    buildSearchFiltersFromDraft,
     buildEmptyDraftState,
     buildLoadedDraftState,
     CARD_LIST_PAGE_SIZE,
@@ -364,6 +365,17 @@
       clearSelection,
       handleSearch,
     });
+  }
+
+  async function handleSearchFromDraft() {
+    if (!$isDbLoaded) return;
+    editorState.searchFilters = buildSearchFiltersFromDraft(draftCard);
+    await handleSearch(false, true);
+  }
+
+  async function handleResetSearch() {
+    if (!$isDbLoaded) return;
+    await handleReset();
   }
 
   function handleNewCard() {
@@ -716,6 +728,7 @@
       {isEditingExisting}
       editingHint={$_("editor.editing_card", { values: { code: String(originalCardCode) } })}
       newCardHint={$_("editor.new_card_hint")}
+      resetSearchLabel={$_("editor.reset_search")}
       newCardLabel={$_("editor.new_card")}
       aiParseLabel={$_("editor.ai_parse_button")}
       scriptLabel={$_("editor.script_button")}
@@ -723,6 +736,7 @@
       generatingScriptLabel={$_("editor.script_generating")}
       cancelScriptLabel={$_("editor.script_cancel_button")}
       cardImageLabel={$_("editor.card_image_button")}
+      searchLabel={$_("editor.search_from_draft")}
       saveAsLabel={$_("editor.save_as")}
       modifyLabel={$_("editor.modify")}
       deleteLabel={$_("editor.delete")}
@@ -736,6 +750,8 @@
       onGenerateScript={handleGenerateScript}
       onCancelGenerateScript={handleCancelGenerateScript}
       onOpenCardImageDrawer={openCardImageDrawer}
+      onResetSearch={handleResetSearch}
+      onSearch={handleSearchFromDraft}
       onSaveAs={handleSaveAs}
       onModify={handleModify}
       onDelete={handleDelete}
