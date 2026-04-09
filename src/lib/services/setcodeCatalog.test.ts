@@ -47,6 +47,10 @@ describe('setcode catalog parsing', () => {
         { value: '0x1001', label: 'Final Unique' },
       ],
       duplicateSetcodes: ['0x075E', '0x1001'],
+      occurrenceCounts: {
+        '0x075E': 2,
+        '0x1001': 2,
+      },
     });
   });
 });
