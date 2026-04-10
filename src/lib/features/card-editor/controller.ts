@@ -148,7 +148,7 @@ function findKeyByExactValue(source: Record<string, number>, value: number) {
   return Object.entries(source).find(([, bit]) => bit === value)?.[0] ?? '';
 }
 
-function resolveSubtype(type: number) {
+function getSelectedSubtypeKeys(type: number) {
   if ((type & TYPE_MAP.monster) !== 0) {
     const monsterSubtypeOrder = [
       'link',
@@ -169,7 +169,7 @@ function resolveSubtype(type: number) {
       'effect',
     ] as const;
 
-    return monsterSubtypeOrder.find((key) => (type & SUBTYPE_MAP[key]) !== 0) ?? '';
+    return monsterSubtypeOrder.filter((key) => (type & SUBTYPE_MAP[key]) !== 0);
   }
 
   if ((type & TYPE_MAP.spell) !== 0) {
@@ -181,7 +181,8 @@ function resolveSubtype(type: number) {
       'ritual_spell',
     ] as const;
 
-    return spellSubtypeOrder.find((key) => (type & SUBTYPE_MAP[key]) !== 0) ?? 'normal';
+    const matches = spellSubtypeOrder.filter((key) => (type & SUBTYPE_MAP[key]) !== 0);
+    return matches.length > 0 ? matches : ['normal'];
   }
 
   if ((type & TYPE_MAP.trap) !== 0) {
@@ -190,10 +191,11 @@ function resolveSubtype(type: number) {
       'counter',
     ] as const;
 
-    return trapSubtypeOrder.find((key) => (type & SUBTYPE_MAP[key]) !== 0) ?? 'normal';
+    const matches = trapSubtypeOrder.filter((key) => (type & SUBTYPE_MAP[key]) !== 0);
+    return matches.length > 0 ? matches : ['normal'];
   }
 
-  return '';
+  return [];
 }
 
 export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFilterState {
@@ -221,9 +223,13 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
     nextFilters.type = 'trap';
   }
 
-  const subtype = resolveSubtype(draftCard.type);
-  if (subtype) {
-    nextFilters.subtype = subtype;
+  const subtypeKeys = getSelectedSubtypeKeys(draftCard.type);
+  if (subtypeKeys.length === 1) {
+    nextFilters.subtype = subtypeKeys[0];
+  } else if (subtypeKeys.length > 1) {
+    nextFilters.rule = subtypeKeys
+      .map((key) => `type contains ${key}`)
+      .join(' and ');
   }
 
   if (draftCard.attack !== 0) {
