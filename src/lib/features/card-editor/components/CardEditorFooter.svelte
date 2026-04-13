@@ -113,7 +113,7 @@
     min-width: 0;
     max-width: min(32rem, 100%);
     padding: 0.36rem 0.72rem;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     border: 1px solid color-mix(in srgb, var(--accent-primary) 24%, var(--border-color));
     background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface-active));
     color: var(--text-primary);
@@ -125,7 +125,7 @@
   .background-task-dot {
     width: 0.46rem;
     height: 0.46rem;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     background: var(--accent-primary);
     box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--accent-primary) 18%, transparent);
     flex-shrink: 0;
@@ -181,7 +181,7 @@
     font-size: 0.9rem;
     font-weight: 600;
     padding: 4px 10px;
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -215,30 +215,30 @@
   }
 
   .btn-secondary-script {
-    background: color-mix(in srgb, #0ea5e9 18%, var(--bg-surface-active));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, #0ea5e9 24%, transparent);
+    background: var(--feature-script-bg);
+    box-shadow: inset 0 0 0 1px var(--feature-script-border);
   }
 
   .btn-secondary-script:hover {
-    background: color-mix(in srgb, #0ea5e9 26%, var(--bg-surface-hover));
+    background: var(--feature-script-bg-hover);
   }
 
   .btn-secondary-card-image {
-    background: color-mix(in srgb, #f59e0b 16%, var(--bg-surface-active));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, #f59e0b 24%, transparent);
+    background: var(--feature-image-bg);
+    box-shadow: inset 0 0 0 1px var(--feature-image-border);
   }
 
   .btn-secondary-card-image:hover {
-    background: color-mix(in srgb, #f59e0b 24%, var(--bg-surface-hover));
+    background: var(--feature-image-bg-hover);
   }
 
   .btn-danger {
-    background: #dc2626;
-    color: white;
+    background: var(--state-danger-bg);
+    color: var(--state-danger-text);
   }
 
   .btn-danger:hover {
-    background: #b91c1c;
+    background: var(--state-danger-bg-hover);
   }
 
   @media (max-width: 1180px) {

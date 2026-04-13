@@ -301,7 +301,7 @@
     align-items: center;
     justify-content: center;
     padding: 24px;
-    background: rgba(2, 6, 23, 0.62);
+    background: var(--dialog-backdrop);
     backdrop-filter: blur(4px);
   }
 
@@ -312,9 +312,9 @@
     flex-direction: column;
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
+    border-radius: var(--dialog-radius);
     overflow: hidden;
-    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.32);
+    box-shadow: var(--dialog-shadow);
   }
 
   .shell-dialog-wide {
@@ -400,7 +400,7 @@
   .merge-plan-item {
     padding: 10px 12px;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-base);
     display: flex;
     align-items: center;
@@ -418,16 +418,16 @@
   }
 
   .merge-source-item:hover:not(.dragging) {
-    border-color: rgba(148, 163, 184, 0.35);
-    box-shadow: 0 1px 4px rgba(2, 6, 23, 0.08);
+    border-color: var(--interactive-hover-border);
+    box-shadow: var(--shadow-soft);
   }
 
   /* ── Dragged item ── */
   .merge-source-item.dragging {
     opacity: 0.4;
     border-style: dashed;
-    border-color: rgba(59, 130, 246, 0.5);
-    background: rgba(59, 130, 246, 0.06);
+    border-color: var(--accent-soft-border);
+    background: var(--accent-soft-bg);
     transform: scale(0.97);
   }
 
@@ -441,21 +441,21 @@
   .drop-indicator {
     height: 3px;
     border-radius: 2px;
-    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    background: var(--accent-primary);
     margin: -2px 12px;
     animation: drop-indicator-pulse 0.8s ease-in-out infinite alternate;
-    box-shadow: 0 0 8px rgba(59, 130, 246, 0.35);
+    box-shadow: var(--accent-soft-glow);
     pointer-events: none;
   }
 
   @keyframes drop-indicator-pulse {
     from {
       opacity: 0.7;
-      box-shadow: 0 0 6px rgba(59, 130, 246, 0.25);
+      box-shadow: 0 0 6px color-mix(in srgb, var(--accent-primary) 25%, transparent);
     }
     to {
       opacity: 1;
-      box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary) 50%, transparent);
     }
   }
 
@@ -484,7 +484,7 @@
   .merge-empty {
     padding: 18px;
     border: 1px dashed var(--border-color);
-    border-radius: 12px;
+    border-radius: var(--control-radius-soft);
     color: var(--text-secondary);
     background: var(--bg-base);
   }
@@ -495,7 +495,7 @@
     gap: 8px;
     padding: 10px 12px;
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-base);
     min-width: 0;
   }
@@ -509,27 +509,35 @@
     padding: 0.42rem 0.8rem;
     font-size: 0.84rem;
     font-weight: 700;
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     border: none;
     cursor: pointer;
     transition: all 0.15s;
   }
 
   .btn-primary {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    color: #fff;
+    background: var(--accent-primary);
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent-primary-hover);
   }
 
   .btn-secondary {
-    background: rgba(148, 163, 184, 0.14);
+    background: var(--interactive-soft-bg);
     color: var(--text-primary);
-    border: 1px solid rgba(148, 163, 184, 0.22);
+    border: 1px solid var(--interactive-soft-border);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--bg-surface-hover);
   }
 
   .btn-icon {
     width: 30px;
     height: 30px;
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     border: 1px solid var(--border-color);
     background: var(--bg-surface);
     color: var(--text-primary);
@@ -538,12 +546,18 @@
   }
 
   .btn-icon:hover:not(:disabled) {
-    background: rgba(148, 163, 184, 0.12);
-    border-color: rgba(148, 163, 184, 0.35);
+    background: var(--interactive-soft-bg);
+    border-color: var(--interactive-hover-border);
   }
 
   .btn-danger-soft {
-    color: #dc2626;
+    color: var(--state-danger-fg);
+    border-color: var(--danger-soft-border);
+  }
+
+  .btn-danger-soft:hover:not(:disabled) {
+    background: var(--danger-soft-bg);
+    border-color: var(--danger-soft-border);
   }
   .close-dialog-btn {
     width: 32px;
@@ -551,11 +565,16 @@
     padding: 0;
     font-size: 1.35rem;
     line-height: 1;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     background: var(--bg-surface-active);
     color: var(--text-primary);
     border: none;
     cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .close-dialog-btn:hover {
+    background: var(--bg-surface-hover);
   }
 
   @media (max-width: 720px) {

@@ -377,7 +377,7 @@
     aspect-ratio: 0.69;
     background: var(--bg-base);
     border: 1px dashed var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     padding: 2px;
     display: flex;
     align-items: center;
@@ -392,8 +392,8 @@
   }
 
   .image-picker:focus-visible {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: var(--focus-ring-strong);
   }
 
   .card-img {
@@ -569,7 +569,7 @@
     background: var(--bg-base);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     padding: 3px 6px;
     font-size: 0.9rem;
     transition: border-color 0.15s;
@@ -579,7 +579,7 @@
   select:focus,
   textarea:focus {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 1px var(--accent-primary);
+    box-shadow: var(--focus-ring);
     outline: none;
   }
 
@@ -594,7 +594,7 @@
     gap: 0.533rem;
     background: var(--bg-base);
     padding: 0.533rem 0.667rem;
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     border: 1px solid var(--border-color);
   }
 
@@ -646,7 +646,7 @@
     gap: 3px;
     background: var(--bg-base);
     padding: 0.4rem;
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     border: 1px solid var(--border-color);
   }
 
@@ -666,7 +666,7 @@
     border: 1px solid var(--border-color);
     background: var(--bg-base);
     color: var(--text-secondary);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     transition: all 0.15s;
   }
 
@@ -674,7 +674,7 @@
     background: var(--accent-primary);
     color: white;
     border-color: var(--accent-primary);
-    box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+    box-shadow: var(--accent-soft-glow);
   }
 
   .link-arrow:hover {
@@ -718,7 +718,7 @@
     min-height: 9rem;
     overflow-y: auto;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     background: var(--bg-base);
   }
 

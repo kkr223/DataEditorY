@@ -55,7 +55,7 @@
     align-items: center;
     justify-content: center;
     padding: 24px;
-    background: rgba(2, 6, 23, 0.62);
+    background: var(--dialog-backdrop);
     backdrop-filter: blur(4px);
   }
 
@@ -66,9 +66,9 @@
     flex-direction: column;
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
+    border-radius: var(--dialog-radius);
     overflow: hidden;
-    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.32);
+    box-shadow: var(--dialog-shadow);
   }
 
   .shell-dialog-header,
@@ -110,7 +110,7 @@
     gap: 8px;
     padding: 10px 12px;
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-base);
     min-width: 0;
   }
@@ -124,21 +124,29 @@
     padding: 0.42rem 0.8rem;
     font-size: 0.84rem;
     font-weight: 700;
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     border: none;
     cursor: pointer;
     transition: all 0.15s;
   }
 
   .btn-primary {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    color: #fff;
+    background: var(--accent-primary);
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent-primary-hover);
   }
 
   .btn-secondary {
-    background: rgba(148, 163, 184, 0.14);
+    background: var(--interactive-soft-bg);
     color: var(--text-primary);
-    border: 1px solid rgba(148, 163, 184, 0.22);
+    border: 1px solid var(--interactive-soft-border);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--bg-surface-hover);
   }
 
   .close-dialog-btn {
@@ -147,10 +155,15 @@
     padding: 0;
     font-size: 1.35rem;
     line-height: 1;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     background: var(--bg-surface-active);
     color: var(--text-primary);
     border: none;
     cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .close-dialog-btn:hover {
+    background: var(--bg-surface-hover);
   }
 </style>
