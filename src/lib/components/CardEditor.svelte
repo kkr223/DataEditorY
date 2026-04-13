@@ -376,6 +376,8 @@
   async function handleResetSearch() {
     if (!$isDbLoaded) return;
     await handleReset();
+    clearSelection();
+    resetDraftCard();
   }
 
   function handleNewCard() {

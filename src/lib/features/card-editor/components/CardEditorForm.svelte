@@ -5,8 +5,10 @@
   import type { CardDataEntry } from "$lib/types";
   import {
     ATTRIBUTE_OPTIONS,
+    formatEditableStatValue,
     getPackedLevel,
     LINK_MARKERS,
+    parseEditableStatInput,
     PERMISSION_OPTIONS,
     RACE_OPTIONS,
   } from "$lib/utils/card";
@@ -99,7 +101,27 @@
   ];
 
   let isEnglishLocale = false;
+  let attackInput = "";
+  let defenseInput = "";
   $: isEnglishLocale = ($locale ?? "").startsWith("en");
+  $: attackInput = formatEditableStatValue(draftCard.attack);
+  $: defenseInput = isLink ? "0" : formatEditableStatValue(draftCard.defense);
+
+  function handleAttackInput(event: Event) {
+    const target = event.currentTarget as HTMLInputElement;
+    attackInput = target.value;
+    draftCard.attack = parseEditableStatInput(target.value, draftCard.attack);
+  }
+
+  function handleDefenseInput(event: Event) {
+    const target = event.currentTarget as HTMLInputElement;
+    defenseInput = target.value;
+    if (isLink) {
+      draftCard.defense = 0;
+      return;
+    }
+    draftCard.defense = parseEditableStatInput(target.value, draftCard.defense);
+  }
 </script>
 
 <div class="editor-columns" use:disableAutofill>
@@ -171,7 +193,14 @@
           <span class="compact-panel-label compact-panel-title" title={linkMarkersLabel}></span>
           <label class="compact-panel-label compact-panel-main-label compact-panel-value-label" for="edit-def">{defLabel}</label>
 
-          <input class="compact-panel-input compact-panel-value-input" type="number" id="edit-atk" bind:value={draftCard.attack} />
+          <input
+            class="compact-panel-input compact-panel-value-input"
+            type="text"
+            inputmode="numeric"
+            id="edit-atk"
+            value={attackInput}
+            oninput={handleAttackInput}
+          />
 
           <div class="compact-link-section" class:disabled-opacity={!isLink}>
             <div class="link-marker-grid">
@@ -188,7 +217,15 @@
             </div>
           </div>
 
-          <input class="compact-panel-input compact-panel-value-input" type="number" id="edit-def" bind:value={draftCard.defense} disabled={isLink} />
+          <input
+            class="compact-panel-input compact-panel-value-input"
+            type="text"
+            inputmode="numeric"
+            id="edit-def"
+            value={defenseInput}
+            oninput={handleDefenseInput}
+            disabled={isLink}
+          />
 
           <div class="compact-scale-slot compact-scale-slot-left" class:disabled-opacity={!isPend} title={`${scaleLabel} ${scaleLeftLabel}`}>
             <label class="compact-panel-label compact-panel-scale-label compact-panel-label-center" for="edit-lscale" title={scaleLeftLabel}></label>
@@ -437,7 +474,7 @@
     margin: 0;
   }
 
-  .compact-panel-value-input[type="number"] {
+  .compact-panel-value-input {
     -moz-appearance: textfield;
     appearance: textfield;
   }

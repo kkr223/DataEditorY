@@ -16,11 +16,20 @@ function toLikePattern(input: string) {
   return hasWildcard ? normalized : `%${normalized}%`;
 }
 
-function splitSearchTerms(input: string) {
-  return input
-    .split(/(?:%%|\s+)/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+function buildDexNamePattern(input: string) {
+  const normalized = input.trim();
+  if (!normalized) return '%';
+
+  if (normalized.includes('%%')) {
+    return normalized.replaceAll('%%', '%');
+  }
+
+  const escaped = normalized
+    .replaceAll('/', '//')
+    .replaceAll('%', '/%')
+    .replaceAll('_', '/_');
+
+  return `%${escaped}%`;
 }
 
 const MAX_NUMERIC_ID_DIGITS = 10;
@@ -71,20 +80,92 @@ function pushNumericCondition(
   conditions.push(buildCondition(`:${key}`));
 }
 
+function parseOptionalInteger(value: string | number | undefined) {
+  if (value === '' || value === undefined) return null;
+  const normalized = value.toString().trim();
+  if (!normalized) return null;
+  if (normalized === '.') return -1;
+  if (normalized === '?' || normalized === '？') return -2;
+
+  const parsed = parseInt(normalized, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function pushDexStatConditions(
+  conditions: string[],
+  params: Record<string, string | number>,
+  fieldKey: 'atk' | 'def',
+  minRaw: string | number | undefined,
+  maxRaw: string | number | undefined,
+) {
+  const minValue = parseOptionalInteger(minRaw);
+  const maxValue = parseOptionalInteger(maxRaw);
+
+  if (minValue === -2 || maxValue === -2) {
+    pushNumericCondition(
+      conditions,
+      params,
+      `${fieldKey}Unknown`,
+      -2,
+      (placeholder) => `datas.${fieldKey} = ${placeholder}`,
+    );
+    return;
+  }
+
+  if (minValue === -1 || maxValue === -1) {
+    pushNumericCondition(
+      conditions,
+      params,
+      `${fieldKey}Zero`,
+      0,
+      (placeholder) => `datas.${fieldKey} = ${placeholder}`,
+    );
+    return;
+  }
+
+  if (minValue !== null) {
+    pushNumericCondition(
+      conditions,
+      params,
+      `${fieldKey}Min`,
+      minValue,
+      (placeholder) => `datas.${fieldKey} >= ${placeholder}`,
+    );
+  }
+
+  if (maxValue !== null) {
+    pushNumericCondition(
+      conditions,
+      params,
+      `${fieldKey}Max`,
+      maxValue,
+      (placeholder) => `datas.${fieldKey} <= ${placeholder}`,
+    );
+  }
+}
+
+function inferMainTypeFromSubtype(subtype: string | undefined) {
+  if (!subtype) return '';
+  if (['quickplay', 'continuous_spell', 'equip', 'field', 'ritual_spell'].includes(subtype)) {
+    return 'spell';
+  }
+  if (['continuous_trap', 'counter'].includes(subtype)) {
+    return 'trap';
+  }
+  if (SUBTYPE_MAP[subtype] !== undefined) {
+    return 'monster';
+  }
+  return '';
+}
+
 export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
   const conditions: string[] = [];
   const params: Record<string, string | number> = {};
+  const resolvedType = filters.type || inferMainTypeFromSubtype(filters.subtype);
 
   if (filters.name) {
-    const keywords = splitSearchTerms(filters.name);
-    if (keywords.length > 0) {
-      const keywordConditions = keywords.map((keyword, index) => {
-        const key = `name${index}`;
-        params[key] = toLikePattern(keyword);
-        return `texts.name LIKE :${key}`;
-      });
-      conditions.push(`(${keywordConditions.join(' AND ')})`);
-    }
+    params.name = buildDexNamePattern(filters.name);
+    conditions.push(`texts.name LIKE :name ESCAPE '/'`);
   }
 
   if (filters.id) {
@@ -105,41 +186,12 @@ export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
   }
 
   if (filters.desc) {
-    const keywords = splitSearchTerms(filters.desc);
-    if (keywords.length > 0) {
-      const keywordConditions = keywords.map((keyword, index) => {
-        const key = `desc${index}`;
-        params[key] = toLikePattern(keyword);
-        return `texts.desc LIKE :${key}`;
-      });
-      conditions.push(`(${keywordConditions.join(' AND ')})`);
-    }
+    params.desc = toLikePattern(filters.desc);
+    conditions.push('texts.desc LIKE :desc');
   }
 
-  if (filters.atkMin !== '' && filters.atkMin !== undefined) {
-    const value = parseInt(filters.atkMin.toString(), 10);
-    if (!isNaN(value)) {
-      pushNumericCondition(conditions, params, 'atkMin', value, (placeholder) => `datas.atk >= ${placeholder}`);
-    }
-  }
-  if (filters.atkMax !== '' && filters.atkMax !== undefined) {
-    const value = parseInt(filters.atkMax.toString(), 10);
-    if (!isNaN(value)) {
-      pushNumericCondition(conditions, params, 'atkMax', value, (placeholder) => `datas.atk <= ${placeholder}`);
-    }
-  }
-  if (filters.defMin !== '' && filters.defMin !== undefined) {
-    const value = parseInt(filters.defMin.toString(), 10);
-    if (!isNaN(value)) {
-      pushNumericCondition(conditions, params, 'defMin', value, (placeholder) => `datas.def >= ${placeholder}`);
-    }
-  }
-  if (filters.defMax !== '' && filters.defMax !== undefined) {
-    const value = parseInt(filters.defMax.toString(), 10);
-    if (!isNaN(value)) {
-      pushNumericCondition(conditions, params, 'defMax', value, (placeholder) => `datas.def <= ${placeholder}`);
-    }
-  }
+  pushDexStatConditions(conditions, params, 'atk', filters.atkMin, filters.atkMax);
+  pushDexStatConditions(conditions, params, 'def', filters.defMin, filters.defMax);
 
   const hasMonsterOnlyFilter =
     (filters.atkMin !== '' && filters.atkMin !== undefined) ||
@@ -149,19 +201,19 @@ export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
     (filters.attribute ?? '') !== '' ||
     (filters.race ?? '') !== '';
 
-  if (hasMonsterOnlyFilter && filters.type && filters.type !== 'monster') {
+  if (hasMonsterOnlyFilter && resolvedType && resolvedType !== 'monster') {
     conditions.push('1=0');
   }
 
-  if (filters.type && TYPE_MAP[filters.type] !== undefined) {
-    const typeBit = TYPE_MAP[filters.type];
+  if (resolvedType && TYPE_MAP[resolvedType] !== undefined) {
+    const typeBit = TYPE_MAP[resolvedType];
     pushNumericCondition(conditions, params, 'typeBit', typeBit, (placeholder) => `(datas.type & ${placeholder}) = ${placeholder}`);
   }
 
   if (filters.subtype) {
-    if (filters.subtype === 'normal' && filters.type === 'spell') {
+    if (filters.subtype === 'normal' && resolvedType === 'spell') {
       pushNumericCondition(conditions, params, 'spellSubtypeMask', SPELL_SUBTYPE_MASK, (placeholder) => `(datas.type & ${placeholder}) = 0`);
-    } else if (filters.subtype === 'normal' && filters.type === 'trap') {
+    } else if (filters.subtype === 'normal' && resolvedType === 'trap') {
       pushNumericCondition(conditions, params, 'trapSubtypeMask', TRAP_SUBTYPE_MASK, (placeholder) => `(datas.type & ${placeholder}) = 0`);
     } else {
       let subtypeBit: number | undefined;

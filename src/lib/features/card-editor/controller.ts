@@ -152,6 +152,13 @@ function appendMaskContainsRule(parts: string[], field: string, values: string[]
   }
 }
 
+function toDexStatFilterValue(value: number) {
+  if (value === -2) return '-2';
+  if (value === -1) return '-1';
+  if (value >= 0) return String(value);
+  return '';
+}
+
 function findKeyByExactValue(source: Record<string, number>, value: number) {
   if (!Number.isFinite(value) || value <= 0) {
     return '';
@@ -160,8 +167,49 @@ function findKeyByExactValue(source: Record<string, number>, value: number) {
   return Object.entries(source).find(([, bit]) => bit === value)?.[0] ?? '';
 }
 
-function getSelectedSubtypeKeys(type: number) {
-  if ((type & TYPE_MAP.monster) !== 0) {
+function inferImplicitMainType(type: number) {
+  const hasMonsterSubtype =
+    (type & (
+      SUBTYPE_MAP.normal
+      | SUBTYPE_MAP.effect
+      | SUBTYPE_MAP.fusion
+      | SUBTYPE_MAP.spirit
+      | SUBTYPE_MAP.union
+      | SUBTYPE_MAP.gemini
+      | SUBTYPE_MAP.tuner
+      | SUBTYPE_MAP.synchro
+      | SUBTYPE_MAP.token
+      | SUBTYPE_MAP.flip
+      | SUBTYPE_MAP.toon
+      | SUBTYPE_MAP.xyz
+      | SUBTYPE_MAP.pendulum
+      | SUBTYPE_MAP.spssummon
+      | SUBTYPE_MAP.link
+    )) !== 0;
+
+  if (hasMonsterSubtype) return 'monster';
+
+  const hasSpellSubtype =
+    (type & (
+      SUBTYPE_MAP.quickplay
+      | SUBTYPE_MAP.equip
+      | SUBTYPE_MAP.field
+    )) !== 0;
+
+  if (hasSpellSubtype) return 'spell';
+
+  const hasTrapSubtype =
+    (type & (
+      SUBTYPE_MAP.counter
+    )) !== 0;
+
+  if (hasTrapSubtype) return 'trap';
+
+  return '';
+}
+
+function getSelectedSubtypeKeys(type: number, mainTypeOverride = '', includeImplicitNormal = true) {
+  if ((type & TYPE_MAP.monster) !== 0 || mainTypeOverride === 'monster') {
     const monsterSubtypeOrder = [
       'link',
       'xyz',
@@ -181,10 +229,11 @@ function getSelectedSubtypeKeys(type: number) {
       'effect',
     ] as const;
 
-    return monsterSubtypeOrder.filter((key) => (type & SUBTYPE_MAP[key]) !== 0);
+    const matches = monsterSubtypeOrder.filter((key) => (type & SUBTYPE_MAP[key]) !== 0);
+    return matches.length > 0 ? matches : (includeImplicitNormal ? ['normal'] : []);
   }
 
-  if ((type & TYPE_MAP.spell) !== 0) {
+  if ((type & TYPE_MAP.spell) !== 0 || mainTypeOverride === 'spell') {
     const spellSubtypeOrder = [
       'quickplay',
       'continuous_spell',
@@ -194,20 +243,69 @@ function getSelectedSubtypeKeys(type: number) {
     ] as const;
 
     const matches = spellSubtypeOrder.filter((key) => (type & SUBTYPE_MAP[key]) !== 0);
-    return matches.length > 0 ? matches : ['normal'];
+    return matches.length > 0 ? matches : (includeImplicitNormal ? ['normal'] : []);
   }
 
-  if ((type & TYPE_MAP.trap) !== 0) {
+  if ((type & TYPE_MAP.trap) !== 0 || mainTypeOverride === 'trap') {
     const trapSubtypeOrder = [
       'continuous_trap',
       'counter',
     ] as const;
 
     const matches = trapSubtypeOrder.filter((key) => (type & SUBTYPE_MAP[key]) !== 0);
-    return matches.length > 0 ? matches : ['normal'];
+    return matches.length > 0 ? matches : (includeImplicitNormal ? ['normal'] : []);
   }
 
   return [];
+}
+
+function getDexTypeRuleKeys(type: number, mainType: string) {
+  const keys: string[] = [];
+  const hasExplicitMonsterType = (type & TYPE_MAP.monster) !== 0;
+  const hasExplicitSpellType = (type & TYPE_MAP.spell) !== 0;
+  const hasExplicitTrapType = (type & TYPE_MAP.trap) !== 0;
+
+  if (mainType) {
+    keys.push(mainType);
+  }
+
+  const pushIfMissing = (key: string) => {
+    if (!keys.includes(key)) {
+      keys.push(key);
+    }
+  };
+
+  if ((type & SUBTYPE_MAP.normal) !== 0) pushIfMissing('normal');
+  if ((type & SUBTYPE_MAP.effect) !== 0) pushIfMissing('effect');
+  if ((type & SUBTYPE_MAP.fusion) !== 0) pushIfMissing('fusion');
+  if ((type & SUBTYPE_MAP.spirit) !== 0) pushIfMissing('spirit');
+  if ((type & SUBTYPE_MAP.union) !== 0) pushIfMissing('union');
+  if ((type & SUBTYPE_MAP.gemini) !== 0) pushIfMissing('gemini');
+  if ((type & SUBTYPE_MAP.tuner) !== 0) pushIfMissing('tuner');
+  if ((type & SUBTYPE_MAP.synchro) !== 0) pushIfMissing('synchro');
+  if ((type & SUBTYPE_MAP.token) !== 0) pushIfMissing('token');
+  if ((type & SUBTYPE_MAP.quickplay) !== 0) pushIfMissing('quickplay');
+  if ((type & SUBTYPE_MAP.equip) !== 0) pushIfMissing('equip');
+  if ((type & SUBTYPE_MAP.field) !== 0) pushIfMissing('field');
+  if ((type & SUBTYPE_MAP.counter) !== 0) pushIfMissing('counter');
+  if ((type & SUBTYPE_MAP.flip) !== 0) pushIfMissing('flip');
+  if ((type & SUBTYPE_MAP.toon) !== 0) pushIfMissing('toon');
+  if ((type & SUBTYPE_MAP.xyz) !== 0) pushIfMissing('xyz');
+  if ((type & SUBTYPE_MAP.pendulum) !== 0) pushIfMissing('pendulum');
+  if ((type & SUBTYPE_MAP.spssummon) !== 0) pushIfMissing('spssummon');
+  if ((type & SUBTYPE_MAP.link) !== 0) pushIfMissing('link');
+
+  if ((type & SUBTYPE_MAP.ritual) !== 0) {
+    pushIfMissing(hasExplicitSpellType ? 'ritual_spell' : 'ritual');
+  }
+
+  if ((type & SUBTYPE_MAP.continuous_spell) !== 0) {
+    if (hasExplicitSpellType) pushIfMissing('continuous_spell');
+    else if (hasExplicitTrapType) pushIfMissing('continuous_trap');
+    else pushIfMissing('continuous_spell');
+  }
+
+  return keys;
 }
 
 export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFilterState {
@@ -215,7 +313,24 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
     ...DEFAULT_SEARCH_FILTERS,
   };
   const ruleParts: string[] = [];
-  const isMonster = (draftCard.type & TYPE_MAP.monster) !== 0;
+  const hasExplicitMonsterType = (draftCard.type & TYPE_MAP.monster) !== 0;
+  const hasExplicitSpellType = (draftCard.type & TYPE_MAP.spell) !== 0;
+  const hasExplicitTrapType = (draftCard.type & TYPE_MAP.trap) !== 0;
+  const implicitMainType = inferImplicitMainType(draftCard.type);
+  const hasImplicitMonsterSearchSignal =
+    draftCard.attack !== 0
+    || draftCard.defense !== 0
+    || draftCard.level > 0
+    || draftCard.attribute > 0
+    || draftCard.race > 0
+    || draftCard.linkMarker > 0
+    || draftCard.lscale > 0
+    || draftCard.rscale > 0;
+
+  const isMonster =
+    hasExplicitMonsterType
+    || implicitMainType === 'monster'
+    || (!hasExplicitSpellType && !hasExplicitTrapType && hasImplicitMonsterSearchSignal);
   const isLink = (draftCard.type & SUBTYPE_MAP.link) !== 0;
   const isPendulum = (draftCard.type & SUBTYPE_MAP.pendulum) !== 0;
 
@@ -231,29 +346,36 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
     nextFilters.desc = draftCard.desc.trim();
   }
 
-  if ((draftCard.type & TYPE_MAP.monster) !== 0) {
+  if (isMonster) {
     nextFilters.type = 'monster';
-  } else if ((draftCard.type & TYPE_MAP.spell) !== 0) {
+  } else if (hasExplicitSpellType || implicitMainType === 'spell') {
     nextFilters.type = 'spell';
-  } else if ((draftCard.type & TYPE_MAP.trap) !== 0) {
+  } else if (hasExplicitTrapType || implicitMainType === 'trap') {
     nextFilters.type = 'trap';
   }
 
-  const subtypeKeys = getSelectedSubtypeKeys(draftCard.type);
+  const subtypeKeys = getSelectedSubtypeKeys(draftCard.type, nextFilters.type, false);
   if (subtypeKeys.length === 1) {
     nextFilters.subtype = subtypeKeys[0];
   } else if (subtypeKeys.length > 1) {
     appendMaskContainsRule(ruleParts, 'type', subtypeKeys);
   }
 
-  if (isMonster && draftCard.attack >= 0) {
-    nextFilters.atkMin = String(draftCard.attack);
-    nextFilters.atkMax = String(draftCard.attack);
+  const dexTypeRuleKeys = getDexTypeRuleKeys(draftCard.type, nextFilters.type);
+  if (dexTypeRuleKeys.length > 0) {
+    appendMaskContainsRule(ruleParts, 'type', dexTypeRuleKeys);
   }
 
-  if (isMonster && !isLink && draftCard.defense >= 0) {
-    nextFilters.defMin = String(draftCard.defense);
-    nextFilters.defMax = String(draftCard.defense);
+  const atkFilterValue = toDexStatFilterValue(draftCard.attack);
+  if (isMonster && atkFilterValue) {
+    nextFilters.atkMin = atkFilterValue;
+    nextFilters.atkMax = atkFilterValue;
+  }
+
+  const defFilterValue = toDexStatFilterValue(draftCard.defense);
+  if (isMonster && !isLink && defFilterValue) {
+    nextFilters.defMin = defFilterValue;
+    nextFilters.defMax = defFilterValue;
   }
 
   if (draftCard.ot > 0) {

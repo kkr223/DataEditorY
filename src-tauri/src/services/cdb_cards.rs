@@ -236,6 +236,61 @@ mod tests {
     }
 
     #[test]
+    fn filters_cards_by_atk_and_def_for_an_open_session() {
+        let root = make_temp_dir("search-stats");
+        let sessions = make_sessions();
+        let cards = vec![
+            sample_card(100, "Alpha"),
+            CardDto {
+                attack: 1500,
+                defense: 1200,
+                ..sample_card(200, "Beta")
+            },
+            CardDto {
+                attack: 0,
+                defense: 0,
+                ..sample_card(300, "Gamma")
+            },
+        ];
+        open_test_session(&root, &sessions, "tab-search-stats", &cards);
+
+        let atk_response = search_cards_page(
+            &sessions,
+            SearchCardsPageRequest {
+                tab_id: "tab-search-stats".to_string(),
+                where_clause: "datas.atk >= :atkMin AND datas.atk <= :atkMax".to_string(),
+                params: HashMap::from([
+                    ("atkMin".to_string(), json!(1500)),
+                    ("atkMax".to_string(), json!(1500)),
+                ]),
+                page: Some(1),
+                page_size: Some(10),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(atk_response.total, 1);
+        assert_eq!(atk_response.cards[0].code, 200);
+
+        let def_response = search_cards_page(
+            &sessions,
+            SearchCardsPageRequest {
+                tab_id: "tab-search-stats".to_string(),
+                where_clause: "datas.def = :defZero".to_string(),
+                params: HashMap::from([("defZero".to_string(), json!(0))]),
+                page: Some(1),
+                page_size: Some(10),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(def_response.total, 1);
+        assert_eq!(def_response.cards[0].code, 300);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn modifies_and_deletes_cards_in_the_working_copy() {
         let root = make_temp_dir("modify-delete");
         let sessions = make_sessions();

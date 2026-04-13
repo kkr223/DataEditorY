@@ -12,16 +12,13 @@ describe('search query builder', () => {
       rule: 'type contains effect and level >= 8',
     });
 
-    expect(query.whereClause).toContain('texts.name LIKE :name0');
-    expect(query.whereClause).toContain('texts.name LIKE :name1');
-    expect(query.whereClause.includes('texts.desc LIKE :name0')).toBe(false);
+    expect(query.whereClause).toContain("texts.name LIKE :name ESCAPE '/'");
     expect(query.whereClause).toContain('datas.id BETWEEN :idPrefixStart0 AND :idPrefixEnd0');
     expect(query.whereClause).toContain('datas.alias BETWEEN :idPrefixStart0 AND :idPrefixEnd0');
     expect(query.whereClause).toContain('datas.attribute = :attribute');
     expect(query.whereClause).toContain('= :setcode0');
     expect(query.whereClause).toContain('datas.type & :typeBit');
-    expect(query.params.name0).toBe('%blue%');
-    expect(query.params.name1).toBe('%eyes%');
+    expect(query.params.name).toBe('%blue eyes%');
     expect(query.params.idPrefixStart0).toBe(12);
     expect(query.params.idPrefixEnd0).toBe(12);
     expect(query.params.idPrefixStart1).toBe(120);
@@ -33,6 +30,24 @@ describe('search query builder', () => {
     expect(query.whereClause).toContain('((datas.level & 255) >= :rule1)');
     expect(query.params.rule0).toBe(0x20);
     expect(query.params.rule1).toBe(8);
+  });
+
+  test('follows DEX wildcard semantics for card names', () => {
+    const wildcardQuery = buildSearchQuery({
+      name: 'AOJ%%',
+    });
+    expect(wildcardQuery.params.name).toBe('AOJ%');
+
+    const suffixQuery = buildSearchQuery({
+      name: '%%Warrior',
+    });
+    expect(suffixQuery.params.name).toBe('%Warrior');
+
+    const escapedQuery = buildSearchQuery({
+      name: '100%_safe',
+    });
+    expect(escapedQuery.params.name).toBe('%100/%/_safe%');
+    expect(escapedQuery.whereClause).toContain("ESCAPE '/'");
   });
 
   test('handles prefix-only numeric id filters and setcode filters', () => {
@@ -65,6 +80,40 @@ describe('search query builder', () => {
     expect(query.params.atkMin).toBe(1000);
   });
 
+  test('treats -1 atk/def filters as DEX-style exact zero searches', () => {
+    const atkQuery = buildSearchQuery({
+      atkMin: '-1',
+    });
+    expect(atkQuery.whereClause).toContain('datas.atk = :atkZero');
+    expect(atkQuery.params.atkZero).toBe(0);
+
+    const defQuery = buildSearchQuery({
+      defMax: '-1',
+    });
+    expect(defQuery.whereClause).toContain('datas.def = :defZero');
+    expect(defQuery.params.defZero).toBe(0);
+  });
+
+  test('treats DEX unknown-stat markers as exact question-mark searches', () => {
+    const atkQuery = buildSearchQuery({
+      atkMin: '?',
+    });
+    expect(atkQuery.whereClause).toContain('datas.atk = :atkUnknown');
+    expect(atkQuery.params.atkUnknown).toBe(-2);
+
+    const defQuery = buildSearchQuery({
+      defMax: '？',
+    });
+    expect(defQuery.whereClause).toContain('datas.def = :defUnknown');
+    expect(defQuery.params.defUnknown).toBe(-2);
+
+    const dottedQuery = buildSearchQuery({
+      atkMax: '.',
+    });
+    expect(dottedQuery.whereClause).toContain('datas.atk = :atkZero');
+    expect(dottedQuery.params.atkZero).toBe(0);
+  });
+
   test('supports license rules for draft-driven searches', () => {
     const query = buildSearchQuery({
       rule: 'license = 3 and level = 8',
@@ -74,5 +123,19 @@ describe('search query builder', () => {
     expect(query.whereClause).toContain('((datas.level & 255) = :rule1)');
     expect(query.params.rule0).toBe(3);
     expect(query.params.rule1).toBe(8);
+  });
+
+  test('infers the main type from spell and trap subtypes', () => {
+    const quickplayQuery = buildSearchQuery({
+      subtype: 'quickplay',
+    });
+    expect(quickplayQuery.params.typeBit).toBe(0x2);
+    expect(quickplayQuery.params.subtypeBit).toBe(0x10000);
+
+    const counterQuery = buildSearchQuery({
+      subtype: 'counter',
+    });
+    expect(counterQuery.params.typeBit).toBe(0x4);
+    expect(counterQuery.params.subtypeBit).toBe(0x100000);
   });
 });

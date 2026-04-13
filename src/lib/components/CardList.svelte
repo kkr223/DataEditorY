@@ -78,6 +78,13 @@
     }
   }
 
+  async function handleResetAll() {
+    await handleReset();
+    window.dispatchEvent(new CustomEvent(APP_SHORTCUT_EVENT, {
+      detail: 'new-card',
+    }));
+  }
+
   function handleSearchKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
       void runSearch();
@@ -126,7 +133,7 @@
       <button class="btn-primary" onclick={() => void runSearch()} disabled={!$isDbLoaded} title={$_('search.title')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       </button>
-      <button class="btn-secondary btn-icon" onclick={handleReset} disabled={!$isDbLoaded} title={$_('search.reset')}>
+      <button class="btn-secondary btn-icon" onclick={() => void handleResetAll()} disabled={!$isDbLoaded} title={$_('search.reset')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 3v6h6"></path></svg>
       </button>
       <button class="btn-secondary btn-icon" class:active={editorState.isFilterOpen} class:has-filters={hasActiveFilters} onclick={toggleFilter} title="Filters">
@@ -173,17 +180,17 @@
         <div class="form-group">
           <span class="group-label">{$_('search.atk')}</span>
           <div class="range-inputs">
-            <input type="number" placeholder={$_('search.atk_min')} bind:value={editorState.searchFilters.atkMin} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.atk_min')} bind:value={editorState.searchFilters.atkMin} />
             <span class="range-sep">~</span>
-            <input type="number" placeholder={$_('search.atk_max')} bind:value={editorState.searchFilters.atkMax} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.atk_max')} bind:value={editorState.searchFilters.atkMax} />
           </div>
         </div>
         <div class="form-group">
           <span class="group-label">{$_('search.def')}</span>
           <div class="range-inputs">
-            <input type="number" placeholder={$_('search.def_min')} bind:value={editorState.searchFilters.defMin} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.def_min')} bind:value={editorState.searchFilters.defMin} />
             <span class="range-sep">~</span>
-            <input type="number" placeholder={$_('search.def_max')} bind:value={editorState.searchFilters.defMax} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.def_max')} bind:value={editorState.searchFilters.defMax} />
           </div>
         </div>
       </div>
@@ -461,7 +468,7 @@
     -webkit-appearance: none;
     margin: 0;
   }
-  .range-inputs input[type='number'] {
+  .range-inputs input {
     -moz-appearance: textfield;
     appearance: textfield;
   }

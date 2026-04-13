@@ -32,9 +32,34 @@ export function normalizeCardStrings(strings: string[] | undefined) {
   return Array.from({ length: CARD_TEXT_SLOT_COUNT }, (_, index) => strings?.[index] ?? '');
 }
 
+export function formatEditableStatValue(value: number) {
+  return value < 0 ? '?' : String(value);
+}
+
+export function normalizeEditableStatValue(value: number) {
+  return value < 0 ? -2 : value;
+}
+
+export function parseEditableStatInput(input: string, fallback = 0) {
+  const normalized = input.trim();
+  if (!normalized) return 0;
+  if (normalized === '?' || normalized === '？' || normalized === '-1' || normalized === '-2') {
+    return -2;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (Number.isNaN(parsed)) {
+    return fallback;
+  }
+
+  return normalizeEditableStatValue(parsed);
+}
+
 export function toPersistableCard(card: CardDataEntry): CardDataEntry {
   return {
     ...card,
+    attack: normalizeEditableStatValue(card.attack),
+    defense: normalizeEditableStatValue(card.defense),
     setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
     strings: normalizeCardStrings(card.strings),
     ruleCode: normalizeRuleCode(card.ruleCode),

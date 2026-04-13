@@ -106,6 +106,150 @@ describe('card editor controller helpers', () => {
     expect(filters.rule).toContain('linkmarker contains right');
   });
 
+  test('infers monster search when dex search uses atk without an explicit main type', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: 0,
+      attack: 1500,
+      defense: 0,
+      level: 0,
+      attribute: 0,
+      race: 0,
+      linkMarker: 0,
+      lscale: 0,
+      rscale: 0,
+      name: '',
+      desc: '',
+      code: 0,
+    }));
+
+    expect(filters.type).toBe('monster');
+    expect(filters.atkMin).toBe('1500');
+    expect(filters.atkMax).toBe('1500');
+  });
+
+  test('preserves DEX special atk/def values when searching from the draft editor', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: TYPE_MAP.monster,
+      attack: -2,
+      defense: -1,
+      name: '',
+      desc: '',
+      code: 0,
+    }));
+
+    expect(filters.type).toBe('monster');
+    expect(filters.atkMin).toBe('-2');
+    expect(filters.atkMax).toBe('-2');
+    expect(filters.defMin).toBe('-1');
+    expect(filters.defMax).toBe('-1');
+  });
+
+  test('infers spell search when only quick-play is checked in the draft editor', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: SUBTYPE_MAP.quickplay,
+      name: '',
+      desc: '',
+      code: 0,
+      attack: 0,
+      defense: 0,
+      level: 0,
+    }));
+
+    expect(filters.type).toBe('spell');
+    expect(filters.subtype).toBe('quickplay');
+    expect(filters.rule).toContain('type contains spell');
+    expect(filters.rule).toContain('type contains quickplay');
+  });
+
+  test('builds DEX-style bitwise type rules for multiple checked monster kinds', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: TYPE_MAP.monster | SUBTYPE_MAP.effect | SUBTYPE_MAP.tuner,
+      name: '',
+      desc: '',
+      code: 0,
+      attack: 0,
+      defense: 0,
+      level: 0,
+    }));
+
+    expect(filters.rule).toContain('type contains monster');
+    expect(filters.rule).toContain('type contains effect');
+    expect(filters.rule).toContain('type contains tuner');
+  });
+
+  test('does not force normal subtype when only spell is checked in the draft editor', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: TYPE_MAP.spell,
+      name: '',
+      desc: '',
+      code: 0,
+      attack: 0,
+      defense: 0,
+      level: 0,
+    }));
+
+    expect(filters.type).toBe('spell');
+    expect(filters.subtype).toBe('');
+    expect(filters.rule).toContain('type contains spell');
+  });
+
+  test('does not infer spell when only continuous is checked in the draft editor', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: SUBTYPE_MAP.continuous_spell,
+      name: '',
+      desc: '',
+      code: 0,
+      attack: 0,
+      defense: 0,
+      level: 0,
+    }));
+
+    expect(filters.type).toBe('');
+    expect(filters.subtype).toBe('');
+    expect(filters.rule).toContain('type contains continuous_spell');
+    expect(filters.rule.includes('type contains spell')).toBe(false);
+    expect(filters.rule.includes('type contains trap')).toBe(false);
+  });
+
+  test('infers monster search when only link is checked in the draft editor', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: SUBTYPE_MAP.link,
+      name: '',
+      desc: '',
+      code: 0,
+      attack: 0,
+      defense: 0,
+      level: 0,
+      linkMarker: 0,
+      lscale: 0,
+      rscale: 0,
+    }));
+
+    expect(filters.type).toBe('monster');
+    expect(filters.subtype).toBe('link');
+    expect(filters.rule).toContain('type contains monster');
+    expect(filters.rule).toContain('type contains link');
+  });
+
+  test('infers monster search when only pendulum is checked in the draft editor', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: SUBTYPE_MAP.pendulum,
+      name: '',
+      desc: '',
+      code: 0,
+      attack: 0,
+      defense: 0,
+      level: 0,
+      lscale: 0,
+      rscale: 0,
+    }));
+
+    expect(filters.type).toBe('monster');
+    expect(filters.subtype).toBe('pendulum');
+    expect(filters.rule).toContain('type contains monster');
+    expect(filters.rule).toContain('type contains pendulum');
+  });
+
   test('resolves selection navigation targets from the current list', () => {
     const cards = [createCard({ code: 1 }), createCard({ code: 2 }), createCard({ code: 3 })];
 
