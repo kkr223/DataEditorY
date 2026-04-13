@@ -81,7 +81,7 @@ export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
       const keywordConditions = keywords.map((keyword, index) => {
         const key = `name${index}`;
         params[key] = toLikePattern(keyword);
-        return `(texts.name LIKE :${key} OR texts.desc LIKE :${key})`;
+        return `texts.name LIKE :${key}`;
       });
       conditions.push(`(${keywordConditions.join(' AND ')})`);
     }

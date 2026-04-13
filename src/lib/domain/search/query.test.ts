@@ -14,6 +14,7 @@ describe('search query builder', () => {
 
     expect(query.whereClause).toContain('texts.name LIKE :name0');
     expect(query.whereClause).toContain('texts.name LIKE :name1');
+    expect(query.whereClause.includes('texts.desc LIKE :name0')).toBe(false);
     expect(query.whereClause).toContain('datas.id BETWEEN :idPrefixStart0 AND :idPrefixEnd0');
     expect(query.whereClause).toContain('datas.alias BETWEEN :idPrefixStart0 AND :idPrefixEnd0');
     expect(query.whereClause).toContain('datas.attribute = :attribute');
@@ -62,5 +63,16 @@ describe('search query builder', () => {
 
     expect(query.whereClause).toContain('1=0');
     expect(query.params.atkMin).toBe(1000);
+  });
+
+  test('supports license rules for draft-driven searches', () => {
+    const query = buildSearchQuery({
+      rule: 'license = 3 and level = 8',
+    });
+
+    expect(query.whereClause).toContain('(datas.ot = :rule0)');
+    expect(query.whereClause).toContain('((datas.level & 255) = :rule1)');
+    expect(query.params.rule0).toBe(3);
+    expect(query.params.rule1).toBe(8);
   });
 });

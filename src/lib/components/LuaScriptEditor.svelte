@@ -1052,10 +1052,4 @@
     color: #16311e !important;
   }
 
-  @media (max-width: 1180px) {
-    .script-layout {
-      grid-template-columns: 1fr;
-      grid-template-rows: minmax(0, 1fr) auto;
-    }
-  }
 </style>

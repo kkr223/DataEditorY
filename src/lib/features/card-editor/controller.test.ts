@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { CardDataEntry } from '$lib/types';
 import {
   buildEmptyDraftState,
+  buildSearchFiltersFromDraft,
   buildLoadedDraftState,
   createCardImageInteractionController,
   createInitialParseManuscript,
@@ -12,6 +13,7 @@ import {
   resolveSelectionNavigationTarget,
 } from '$lib/features/card-editor/controller';
 import { createCardSnapshot } from '$lib/domain/card/draft';
+import { LINK_MARKER_NAME_TO_BIT, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
 
 function createCard(overrides: Partial<CardDataEntry> = {}): CardDataEntry {
   return {
@@ -76,6 +78,32 @@ describe('card editor controller helpers', () => {
   test('builds an initial parse manuscript from name and description', () => {
     expect(createInitialParseManuscript(createCard())).toBe('Test Card\nTest description');
     expect(createInitialParseManuscript(createCard({ name: '', desc: '' }))).toBe('');
+  });
+
+  test('builds draft search filters including zero stats and advanced rule fields', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: TYPE_MAP.monster | SUBTYPE_MAP.link | SUBTYPE_MAP.pendulum,
+      attack: 0,
+      defense: 0,
+      level: 8,
+      lscale: 2,
+      rscale: 2,
+      linkMarker: LINK_MARKER_NAME_TO_BIT.up | LINK_MARKER_NAME_TO_BIT.right,
+      ot: 3,
+    }));
+
+    expect(filters.name).toBe('Test Card');
+    expect(filters.atkMin).toBe('0');
+    expect(filters.atkMax).toBe('0');
+    expect(filters.defMin).toBe('');
+    expect(filters.defMax).toBe('');
+    expect(filters.type).toBe('monster');
+    expect(filters.rule).toContain('ot = 3');
+    expect(filters.rule).toContain('level = 8');
+    expect(filters.rule).toContain('scale = 2');
+    expect(filters.rule).toContain('rscale = 2');
+    expect(filters.rule).toContain('linkmarker contains up');
+    expect(filters.rule).toContain('linkmarker contains right');
   });
 
   test('resolves selection navigation targets from the current list', () => {

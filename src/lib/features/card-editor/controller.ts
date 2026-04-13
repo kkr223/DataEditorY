@@ -3,7 +3,7 @@ import type { CardDataEntry, SearchFilterState } from '$lib/types';
 import type { ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
 import { cloneEditableCard, createEmptyCard } from '$lib/utils/card';
 import { createCardSnapshot } from '$lib/domain/card/draft';
-import { ATTRIBUTE_MAP, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
+import { ATTRIBUTE_MAP, LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
 
 export const CARD_LIST_PAGE_SIZE = 50;
 
@@ -140,6 +140,18 @@ export function createInitialParseManuscript(draftCard: CardDataEntry) {
   return `${draftCard.name ?? ''}\n${draftCard.desc ?? ''}`.trim();
 }
 
+function appendRuleFilter(parts: string[], clause: string) {
+  const normalized = clause.trim();
+  if (!normalized) return;
+  parts.push(normalized);
+}
+
+function appendMaskContainsRule(parts: string[], field: string, values: string[]) {
+  for (const value of values) {
+    appendRuleFilter(parts, `${field} contains ${value}`);
+  }
+}
+
 function findKeyByExactValue(source: Record<string, number>, value: number) {
   if (!Number.isFinite(value) || value <= 0) {
     return '';
@@ -202,6 +214,10 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
   const nextFilters: SearchFilterState = {
     ...DEFAULT_SEARCH_FILTERS,
   };
+  const ruleParts: string[] = [];
+  const isMonster = (draftCard.type & TYPE_MAP.monster) !== 0;
+  const isLink = (draftCard.type & SUBTYPE_MAP.link) !== 0;
+  const isPendulum = (draftCard.type & SUBTYPE_MAP.pendulum) !== 0;
 
   if (draftCard.code > 0) {
     nextFilters.id = String(draftCard.code);
@@ -227,19 +243,37 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
   if (subtypeKeys.length === 1) {
     nextFilters.subtype = subtypeKeys[0];
   } else if (subtypeKeys.length > 1) {
-    nextFilters.rule = subtypeKeys
-      .map((key) => `type contains ${key}`)
-      .join(' and ');
+    appendMaskContainsRule(ruleParts, 'type', subtypeKeys);
   }
 
-  if (draftCard.attack !== 0) {
+  if (isMonster && draftCard.attack >= 0) {
     nextFilters.atkMin = String(draftCard.attack);
     nextFilters.atkMax = String(draftCard.attack);
   }
 
-  if (draftCard.defense !== 0) {
+  if (isMonster && !isLink && draftCard.defense >= 0) {
     nextFilters.defMin = String(draftCard.defense);
     nextFilters.defMax = String(draftCard.defense);
+  }
+
+  if (draftCard.ot > 0) {
+    appendRuleFilter(ruleParts, `ot = ${draftCard.ot}`);
+  }
+
+  if (isMonster && draftCard.level > 0) {
+    appendRuleFilter(ruleParts, `level = ${draftCard.level}`);
+  }
+
+  if (isPendulum) {
+    appendRuleFilter(ruleParts, `scale = ${draftCard.lscale}`);
+    appendRuleFilter(ruleParts, `rscale = ${draftCard.rscale}`);
+  }
+
+  if (isLink && draftCard.linkMarker > 0) {
+    const linkMarkerKeys = Object.entries(LINK_MARKER_NAME_TO_BIT)
+      .filter(([, bit]) => (draftCard.linkMarker & bit) !== 0)
+      .map(([key]) => key);
+    appendMaskContainsRule(ruleParts, 'linkmarker', linkMarkerKeys);
   }
 
   const attribute = findKeyByExactValue(ATTRIBUTE_MAP, draftCard.attribute);
@@ -265,6 +299,8 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
     else if (index === 2) nextFilters.setcode3 = normalizedSetcode;
     else nextFilters.setcode4 = normalizedSetcode;
   }
+
+  nextFilters.rule = ruleParts.join(' and ');
 
   return nextFilters;
 }
