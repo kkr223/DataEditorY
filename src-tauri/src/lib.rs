@@ -26,7 +26,7 @@ const CUSTOM_COVER_FILE_NAME: &str = "cover.jpg";
 const LOGS_DIR_NAME: &str = "logs";
 const ERROR_LOG_FILE_NAME: &str = "error.log";
 const DEFAULT_SCRIPT_TEMPLATE: &str =
-    "-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n";
+    "-- {鍗″悕}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n";
 const DEFAULT_AI_MODEL: &str = "gpt-4o-mini";
 const DEFAULT_AI_TEMPERATURE: f64 = 1.0;
 const SECRET_VERSION_PREFIX: &str = "v1";
@@ -234,7 +234,7 @@ pub(crate) fn get_or_create_cipher_key(app: &AppHandle) -> Result<[u8; 32], Stri
             key.copy_from_slice(&bytes);
             return Ok(key);
         }
-        // File is corrupt / wrong size — regenerate below.
+        // File is corrupt / wrong size 鈥?regenerate below.
     }
 
     let mut key = [0u8; 32];
@@ -323,7 +323,7 @@ pub(crate) fn decrypt_secret_key(
         return Ok(plaintext);
     }
 
-    // Legacy fallback — the secret was encrypted before the migration.
+    // Legacy fallback 鈥?the secret was encrypted before the migration.
     decrypt_with_key(&legacy_cipher_key(app), encrypted_secret_key)
 }
 
@@ -415,7 +415,7 @@ fn write_cdb(path: String, data: Vec<u8>) -> Result<(), String> {
     services::media::write_cdb(path, data)
 }
 
-/// Generic file-write command — identical to write_cdb but with a clearer
+/// Generic file-write command 鈥?identical to write_cdb but with a clearer
 /// name for non-database file writes (images, scripts, exports, etc.).
 #[tauri::command]
 fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
@@ -644,20 +644,16 @@ mod tests {
     }
 
     fn create_test_cdb(path: &Path, rows: &[(u32, i64)]) {
-        let conn = rusqlite::Connection::open(path).unwrap();
-        conn.execute(
-            "CREATE TABLE datas (id INTEGER PRIMARY KEY, type INTEGER NOT NULL)",
-            [],
-        )
-        .unwrap();
-
-        let mut stmt = conn
-            .prepare("INSERT INTO datas (id, type) VALUES (?1, ?2)")
-            .unwrap();
-        for (id, card_type) in rows {
-            stmt.execute(rusqlite::params![i64::from(*id), *card_type])
-                .unwrap();
-        }
+        let mut cdb = ygopro_cdb_encode_rs::YgoProCdb::create_at_path(path).unwrap();
+        let cards: Vec<ygopro_cdb_encode_rs::CardDataEntry> = rows
+            .iter()
+            .map(|(id, card_type)| ygopro_cdb_encode_rs::CardDataEntry {
+                code: *id,
+                type_: *card_type as u32,
+                ..Default::default()
+            })
+            .collect();
+        cdb.add_cards(&cards).unwrap();
     }
 
     #[test]

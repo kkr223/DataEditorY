@@ -29,13 +29,13 @@ aes-gcm = "0.10"
 base64 = "0.22"
 rand = "0.8"
 sha2 = "0.10"
-rusqlite = { version = "0.31", features = ["bundled", "backup", "functions"] }
+ygopro-cdb-encode-rs = { path = "../../ygopro-cdb-encode-rs" }
 mime_guess = "2"
 percent-encoding = "2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"] }
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
-regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+regex = "1"
 
 [profile.release]
 # Faster linking with thin LTO

@@ -8,9 +8,10 @@ use std::{
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
 use crate::{TaskProgressPayload, ZipPackageInfo};
+use ygopro_cdb_encode_rs::YgoProCdb;
 
-const TYPE_SPELL_BIT: i64 = 0x2;
-const SUBTYPE_FIELD_BIT: i64 = 0x80000;
+const TYPE_SPELL_BIT: u32 = 0x2;
+const SUBTYPE_FIELD_BIT: u32 = 0x80000;
 
 #[derive(Debug, Clone, Default)]
 struct CardPackageManifest {
@@ -19,22 +20,15 @@ struct CardPackageManifest {
 }
 
 fn collect_card_package_manifest_from_cdb(cdb_path: &Path) -> Result<CardPackageManifest, String> {
-    let conn = rusqlite::Connection::open(cdb_path).map_err(|err| err.to_string())?;
-    let mut stmt = conn
-        .prepare("SELECT id, type FROM datas")
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))
-        .map_err(|err| err.to_string())?;
+    let cdb = YgoProCdb::from_path(cdb_path).map_err(|err| err.to_string())?;
+    let cards = cdb.find_all().map_err(|err| err.to_string())?;
 
     let mut manifest = CardPackageManifest::default();
-    for row in rows {
-        let (id, card_type) = row.map_err(|err| err.to_string())?;
-        if id > 0 {
-            let card_id = id as u32;
-            manifest.card_ids.push(card_id);
-            if (card_type & TYPE_SPELL_BIT) != 0 && (card_type & SUBTYPE_FIELD_BIT) != 0 {
-                manifest.field_spell_ids.push(card_id);
+    for card in &cards {
+        if card.code > 0 {
+            manifest.card_ids.push(card.code);
+            if (card.type_ & TYPE_SPELL_BIT) != 0 && (card.type_ & SUBTYPE_FIELD_BIT) != 0 {
+                manifest.field_spell_ids.push(card.code);
             }
         }
     }
