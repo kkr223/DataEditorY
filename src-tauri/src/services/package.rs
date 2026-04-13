@@ -1,6 +1,7 @@
 use regex::Regex;
+use rusqlite::Connection;
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     fs,
     io::{BufReader, BufWriter, Seek, Write},
     path::{Path, PathBuf},
@@ -8,7 +9,6 @@ use std::{
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
 use crate::{TaskProgressPayload, ZipPackageInfo};
-use ygopro_cdb_encode_rs::YgoProCdb;
 
 const TYPE_SPELL_BIT: u32 = 0x2;
 const SUBTYPE_FIELD_BIT: u32 = 0x80000;
@@ -19,26 +19,111 @@ struct CardPackageManifest {
     field_spell_ids: Vec<u32>,
 }
 
+#[derive(Debug, Default)]
+struct PackageResourceIndex {
+    main_picture_paths: HashMap<u32, PathBuf>,
+    field_picture_paths: HashMap<u32, PathBuf>,
+    script_paths: HashMap<u32, PathBuf>,
+    conf_paths: Vec<PathBuf>,
+}
+
 fn collect_card_package_manifest_from_cdb(cdb_path: &Path) -> Result<CardPackageManifest, String> {
-    let cdb = YgoProCdb::from_path(cdb_path).map_err(|err| err.to_string())?;
-    let cards = cdb.find_all().map_err(|err| err.to_string())?;
+    let conn = Connection::open(cdb_path).map_err(|err| err.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, type FROM datas WHERE id > 0 ORDER BY id")
+        .map_err(|err| err.to_string())?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get::<_, u32>(0)?, row.get::<_, u32>(1)?)))
+        .map_err(|err| err.to_string())?;
 
     let mut manifest = CardPackageManifest::default();
-    for card in &cards {
-        if card.code > 0 {
-            manifest.card_ids.push(card.code);
-            if (card.type_ & TYPE_SPELL_BIT) != 0 && (card.type_ & SUBTYPE_FIELD_BIT) != 0 {
-                manifest.field_spell_ids.push(card.code);
+    for row in rows {
+        let (card_id, type_bits) = row.map_err(|err| err.to_string())?;
+        manifest.card_ids.push(card_id);
+        if (type_bits & TYPE_SPELL_BIT) != 0 && (type_bits & SUBTYPE_FIELD_BIT) != 0 {
+            manifest.field_spell_ids.push(card_id);
+        }
+    }
+
+    Ok(manifest)
+}
+
+fn parse_card_id_from_named_file(path: &Path, prefix: &str, extension: &str) -> Option<u32> {
+    let file_name = path.file_name()?.to_str()?;
+    let normalized_extension = extension.trim_start_matches('.');
+    let stem = file_name
+        .strip_suffix(&format!(".{normalized_extension}"))?
+        .strip_prefix(prefix)?;
+    stem.parse::<u32>().ok()
+}
+
+fn collect_package_resource_index(cdb_dir: &Path) -> Result<PackageResourceIndex, String> {
+    let mut index = PackageResourceIndex::default();
+
+    let pics_dir = cdb_dir.join("pics");
+    if pics_dir.is_dir() {
+        for entry in fs::read_dir(&pics_dir).map_err(|err| err.to_string())? {
+            let entry = entry.map_err(|err| err.to_string())?;
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+
+            if let Some(card_id) = parse_card_id_from_named_file(&path, "", "jpg") {
+                index.main_picture_paths.insert(card_id, path);
+            }
+        }
+
+        let field_pics_dir = pics_dir.join("field");
+        if field_pics_dir.is_dir() {
+            for entry in fs::read_dir(&field_pics_dir).map_err(|err| err.to_string())? {
+                let entry = entry.map_err(|err| err.to_string())?;
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+
+                if let Some(card_id) = parse_card_id_from_named_file(&path, "", "jpg") {
+                    index.field_picture_paths.insert(card_id, path);
+                }
             }
         }
     }
 
-    manifest.card_ids.sort_unstable();
-    manifest.card_ids.dedup();
-    manifest.field_spell_ids.sort_unstable();
-    manifest.field_spell_ids.dedup();
+    let script_dir = cdb_dir.join("script");
+    if script_dir.is_dir() {
+        for entry in fs::read_dir(&script_dir).map_err(|err| err.to_string())? {
+            let entry = entry.map_err(|err| err.to_string())?;
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
 
-    Ok(manifest)
+            if let Some(card_id) = parse_card_id_from_named_file(&path, "c", "lua") {
+                index.script_paths.insert(card_id, path);
+            }
+        }
+    }
+
+    for entry in fs::read_dir(cdb_dir).map_err(|err| err.to_string())? {
+        let entry = entry.map_err(|err| err.to_string())?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let is_conf = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .map(|extension| extension.eq_ignore_ascii_case("conf"))
+            .unwrap_or(false);
+        if is_conf {
+            index.conf_paths.push(path);
+        }
+    }
+
+    index.conf_paths.sort();
+    Ok(index)
 }
 
 pub(crate) fn resolve_script_dependency_path(
@@ -74,6 +159,7 @@ pub(crate) fn resolve_script_dependency_path(
 fn collect_script_paths_for_package(
     cdb_dir: &Path,
     card_ids: &[u32],
+    script_index: &HashMap<u32, PathBuf>,
 ) -> Result<Vec<PathBuf>, String> {
     let script_dir = cdb_dir.join("script");
     if !script_dir.exists() || !script_dir.is_dir() {
@@ -87,9 +173,8 @@ fn collect_script_paths_for_package(
     let mut collected = Vec::new();
 
     for &card_id in card_ids {
-        let script_path = script_dir.join(format!("c{card_id}.lua"));
-        if script_path.is_file() {
-            queued.push_back(script_path);
+        if let Some(script_path) = script_index.get(&card_id) {
+            queued.push_back(script_path.clone());
         }
     }
 
@@ -124,25 +209,22 @@ fn collect_script_paths_for_package(
 }
 
 fn collect_picture_paths_for_package(
-    cdb_dir: &Path,
     card_ids: &[u32],
     field_spell_ids: &[u32],
+    main_picture_index: &HashMap<u32, PathBuf>,
+    field_picture_index: &HashMap<u32, PathBuf>,
 ) -> Vec<PathBuf> {
-    let pics_dir = cdb_dir.join("pics");
-    let field_pics_dir = pics_dir.join("field");
     let mut paths = Vec::new();
 
     for &card_id in card_ids {
-        let pic_path = pics_dir.join(format!("{card_id}.jpg"));
-        if pic_path.is_file() {
-            paths.push(pic_path);
+        if let Some(pic_path) = main_picture_index.get(&card_id) {
+            paths.push(pic_path.clone());
         }
     }
 
     for &card_id in field_spell_ids {
-        let field_pic_path = field_pics_dir.join(format!("{card_id}.jpg"));
-        if field_pic_path.is_file() {
-            paths.push(field_pic_path);
+        if let Some(field_pic_path) = field_picture_index.get(&card_id) {
+            paths.push(field_pic_path.clone());
         }
     }
 
@@ -151,43 +233,25 @@ fn collect_picture_paths_for_package(
     paths
 }
 
-fn collect_conf_paths_for_package(cdb_dir: &Path) -> Result<Vec<PathBuf>, String> {
-    let mut paths = Vec::new();
-
-    for entry in fs::read_dir(cdb_dir).map_err(|err| err.to_string())? {
-        let entry = entry.map_err(|err| err.to_string())?;
-        let path = entry.path();
-        if !path.is_file() {
-            continue;
-        }
-
-        let is_conf = path
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .map(|extension| extension.eq_ignore_ascii_case("conf"))
-            .unwrap_or(false);
-        if is_conf {
-            paths.push(path);
-        }
-    }
-
-    paths.sort();
-    Ok(paths)
-}
-
 fn collect_package_source_paths(
     cdb_file_path: &Path,
     cdb_dir: &Path,
     manifest: &CardPackageManifest,
+    resource_index: &PackageResourceIndex,
 ) -> Result<Vec<PathBuf>, String> {
     let mut paths = vec![cdb_file_path.to_path_buf()];
     paths.extend(collect_picture_paths_for_package(
-        cdb_dir,
         &manifest.card_ids,
         &manifest.field_spell_ids,
+        &resource_index.main_picture_paths,
+        &resource_index.field_picture_paths,
     ));
-    paths.extend(collect_conf_paths_for_package(cdb_dir)?);
-    paths.extend(collect_script_paths_for_package(cdb_dir, &manifest.card_ids)?);
+    paths.extend(resource_index.conf_paths.iter().cloned());
+    paths.extend(collect_script_paths_for_package(
+        cdb_dir,
+        &manifest.card_ids,
+        &resource_index.script_paths,
+    )?);
     paths.sort();
     paths.dedup();
     Ok(paths)
@@ -302,16 +366,10 @@ pub fn package_cdb_assets_as_zip_with_progress(
         .ok_or_else(|| "Unable to resolve the database directory".to_string())?;
     let output_file_path = PathBuf::from(&output_path);
     let manifest = collect_card_package_manifest_from_cdb(&cdb_file_path)?;
-    let source_paths = collect_package_source_paths(&cdb_file_path, cdb_dir, &manifest)?;
-    let normalized_output = output_file_path
-        .canonicalize()
-        .unwrap_or_else(|_| output_file_path.clone());
+    let resource_index = collect_package_resource_index(cdb_dir)?;
+    let source_paths = collect_package_source_paths(&cdb_file_path, cdb_dir, &manifest, &resource_index)?;
 
-    if source_paths.iter().any(|path| {
-        path.canonicalize()
-            .unwrap_or_else(|_| path.clone())
-            == normalized_output
-    }) {
+    if source_paths.iter().any(|path| path == &output_file_path) {
         return Err("Output path conflicts with a source asset".to_string());
     }
 
