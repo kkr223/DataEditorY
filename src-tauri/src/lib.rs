@@ -799,4 +799,56 @@ mod tests {
 
         let _ = fs::remove_dir_all(&root);
     }
+
+    #[test]
+    fn packaging_keeps_source_assets_intact() {
+        let root = make_temp_dir("package-assets-preserve");
+        let cdb_path = root.join("cards.cdb");
+        let pics_dir = root.join("pics");
+        let script_dir = root.join("script");
+        let output_zip_path = root.join("cards.zip");
+
+        fs::create_dir_all(&pics_dir).unwrap();
+        fs::create_dir_all(&script_dir).unwrap();
+
+        create_test_cdb(&cdb_path, &[(111, 0x1)]);
+        fs::write(pics_dir.join("111.jpg"), [1u8, 2u8, 3u8]).unwrap();
+        fs::write(script_dir.join("c111.lua"), "print('hello')").unwrap();
+
+        services::package::package_cdb_assets_as_zip(
+            cdb_path.to_string_lossy().to_string(),
+            output_zip_path.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(fs::read(pics_dir.join("111.jpg")).unwrap(), vec![1u8, 2u8, 3u8]);
+        assert_eq!(
+            fs::read_to_string(script_dir.join("c111.lua")).unwrap(),
+            "print('hello')"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn packaging_rejects_output_path_that_matches_source_asset() {
+        let root = make_temp_dir("package-assets-conflict");
+        let cdb_path = root.join("cards.cdb");
+        let pics_dir = root.join("pics");
+
+        fs::create_dir_all(&pics_dir).unwrap();
+        create_test_cdb(&cdb_path, &[(111, 0x1)]);
+        fs::write(pics_dir.join("111.jpg"), [9u8, 8u8, 7u8]).unwrap();
+
+        let err = services::package::package_cdb_assets_as_zip(
+            cdb_path.to_string_lossy().to_string(),
+            pics_dir.join("111.jpg").to_string_lossy().to_string(),
+        )
+        .unwrap_err();
+
+        assert!(err.contains("conflicts with a source asset"));
+        assert_eq!(fs::read(pics_dir.join("111.jpg")).unwrap(), vec![9u8, 8u8, 7u8]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }

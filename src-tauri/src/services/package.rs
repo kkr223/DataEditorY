@@ -181,6 +181,33 @@ fn collect_conf_paths_for_package(cdb_dir: &Path) -> Result<Vec<PathBuf>, String
     Ok(paths)
 }
 
+fn collect_package_source_paths(
+    cdb_file_path: &Path,
+    cdb_dir: &Path,
+    manifest: &CardPackageManifest,
+) -> Result<Vec<PathBuf>, String> {
+    let mut paths = vec![cdb_file_path.to_path_buf()];
+    paths.extend(collect_picture_paths_for_package(
+        cdb_dir,
+        &manifest.card_ids,
+        &manifest.field_spell_ids,
+    ));
+    paths.extend(collect_conf_paths_for_package(cdb_dir)?);
+    paths.extend(collect_script_paths_for_package(cdb_dir, &manifest.card_ids)?);
+    paths.sort();
+    paths.dedup();
+    Ok(paths)
+}
+
+fn build_temp_output_path(output_file_path: &Path) -> PathBuf {
+    let extension = output_file_path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| format!("{value}.tmp"))
+        .unwrap_or_else(|| "tmp".to_string());
+    output_file_path.with_extension(extension)
+}
+
 pub(crate) fn path_to_zip_entry(path: &Path, base_dir: &Path) -> Result<String, String> {
     let relative = match path.strip_prefix(base_dir) {
         Ok(relative) => relative.to_path_buf(),
@@ -258,29 +285,42 @@ pub fn package_cdb_assets_as_zip(
         .ok_or_else(|| "Unable to resolve the database directory".to_string())?;
     let output_file_path = PathBuf::from(&output_path);
     let manifest = collect_card_package_manifest_from_cdb(&cdb_file_path)?;
+    let source_paths = collect_package_source_paths(&cdb_file_path, cdb_dir, &manifest)?;
+    let normalized_output = output_file_path
+        .canonicalize()
+        .unwrap_or_else(|_| output_file_path.clone());
+
+    if source_paths.iter().any(|path| {
+        path.canonicalize()
+            .unwrap_or_else(|_| path.clone())
+            == normalized_output
+    }) {
+        return Err("Output path conflicts with a source asset".to_string());
+    }
 
     if let Some(parent) = output_file_path.parent() {
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
 
-    let zip_file = fs::File::create(&output_file_path).map_err(|err| err.to_string())?;
+    let temp_output_file_path = build_temp_output_path(&output_file_path);
+    if temp_output_file_path.exists() {
+        fs::remove_file(&temp_output_file_path).map_err(|err| err.to_string())?;
+    }
+
+    let zip_file = fs::File::create(&temp_output_file_path).map_err(|err| err.to_string())?;
     let writer = BufWriter::new(zip_file);
     let mut zip = ZipWriter::new(writer);
 
-    add_path_to_zip(&mut zip, &cdb_file_path, cdb_dir)?;
-    for pic_path in
-        collect_picture_paths_for_package(cdb_dir, &manifest.card_ids, &manifest.field_spell_ids)
-    {
-        add_path_to_zip(&mut zip, &pic_path, cdb_dir)?;
-    }
-    for conf_path in collect_conf_paths_for_package(cdb_dir)? {
-        add_path_to_zip(&mut zip, &conf_path, cdb_dir)?;
-    }
-    for script_path in collect_script_paths_for_package(cdb_dir, &manifest.card_ids)? {
-        add_path_to_zip(&mut zip, &script_path, cdb_dir)?;
+    for source_path in &source_paths {
+        add_path_to_zip(&mut zip, source_path, cdb_dir)?;
     }
 
     zip.finish().map_err(|err| err.to_string())?;
+
+    if output_file_path.exists() {
+        fs::remove_file(&output_file_path).map_err(|err| err.to_string())?;
+    }
+    fs::rename(&temp_output_file_path, &output_file_path).map_err(|err| err.to_string())?;
 
     Ok(ZipPackageInfo {
         path: output_file_path.to_string_lossy().to_string(),
