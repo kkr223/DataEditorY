@@ -93,8 +93,8 @@ describe('card editor controller helpers', () => {
     }));
 
     expect(filters.name).toBe('Test Card');
-    expect(filters.atkMin).toBe('0');
-    expect(filters.atkMax).toBe('0');
+    expect(filters.atkMin).toBe('');
+    expect(filters.atkMax).toBe('');
     expect(filters.defMin).toBe('');
     expect(filters.defMax).toBe('');
     expect(filters.type).toBe('monster');

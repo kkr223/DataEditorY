@@ -33,7 +33,7 @@ export function normalizeCardStrings(strings: string[] | undefined) {
 }
 
 export function formatEditableStatValue(value: number) {
-  return value < 0 ? '?' : String(value);
+  return value === -2 ? '?' : String(value);
 }
 
 export function normalizeEditableStatValue(value: number) {
@@ -43,7 +43,7 @@ export function normalizeEditableStatValue(value: number) {
 export function parseEditableStatInput(input: string, fallback = 0) {
   const normalized = input.trim();
   if (!normalized) return 0;
-  if (normalized === '?' || normalized === '？' || normalized === '-1' || normalized === '-2') {
+  if (normalized === '?' || normalized === '？' || normalized === '-2') {
     return -2;
   }
 
@@ -52,6 +52,11 @@ export function parseEditableStatInput(input: string, fallback = 0) {
     return fallback;
   }
 
+  // Allow -1 to pass through for search logic
+  if (parsed === -1) {
+    return -1;
+  }
+  
   return normalizeEditableStatValue(parsed);
 }
 

@@ -147,7 +147,7 @@ export function createInitialParseManuscript(draftCard: CardDataEntry) {
 function statToFilterValue(value: number): string {
   if (value === -2) return '-2';
   if (value === -1) return '-1';
-  if (value >= 0) return String(value);
+  if (value > 0) return String(value);
   return '';
 }
 
