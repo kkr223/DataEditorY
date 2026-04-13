@@ -27,6 +27,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout local Rust dependency
+        shell: bash
+        run: |
+          DEP_DIR="$GITHUB_WORKSPACE/../ygopro-cdb-encode-rs"
+          rm -rf "$DEP_DIR"
+          git clone --depth 1 https://github.com/kkr223/ygopro-cdb-encode-rs.git "$DEP_DIR"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
