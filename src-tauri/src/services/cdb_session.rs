@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fs, path::Path, sync::{Arc, Mutex}};
 
 use tauri::AppHandle;
+use ygopro_cdb_encode_rs::YgoProCdb;
 
 use crate::{
     models::cdb::OpenCdbTabResponse,
@@ -34,9 +35,9 @@ pub fn create_cdb_tab(
 
 pub fn close_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), String> {
     if let Some(session) = remove_session(sessions, &tab_id)? {
-        // Drop the connection before deleting the file — on Windows the
+        // Drop the CDB instance before deleting the file — on Windows the
         // SQLite connection holds a file lock that prevents deletion.
-        drop(session.conn);
+        drop(session.cdb);
         cleanup_temp_path(&session.working_path);
     }
     Ok(())
@@ -46,11 +47,11 @@ pub fn save_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), St
     with_session_meta(sessions, &tab_id, |session| {
         let target_path = Path::new(&session.path);
         ensure_parent_dir(target_path)?;
-        // Lock the connection to ensure no write transaction is in flight
-        let _conn_guard = session
-            .conn
+        // Lock the CDB to ensure no write transaction is in flight
+        let _cdb_guard = session
+            .cdb
             .lock()
-            .map_err(|_| "Failed to acquire connection lock".to_string())?;
+            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
         fs::copy(&session.working_path, target_path).map_err(|err| err.to_string())?;
         Ok(())
     })
@@ -67,15 +68,15 @@ pub(crate) fn open_cdb_tab_in_dir(
     ensure_parent_dir(&temp_path)?;
     fs::copy(&original_path, &temp_path).map_err(|err| err.to_string())?;
 
-    let conn = cdb_repository::open_connection(&temp_path)?;
-    let response = build_open_response(&original_path, &conn)?;
+    let cdb = cdb_repository::open_cdb(&temp_path)?;
+    let response = build_open_response(&original_path, &cdb)?;
     register_session(
         sessions,
         tab_id,
         CdbSessionMeta {
             path: original_path,
             working_path: temp_path,
-            conn: Arc::new(Mutex::new(conn)),
+            cdb: Arc::new(Mutex::new(cdb)),
         },
     )?;
 
@@ -94,7 +95,7 @@ pub(crate) fn create_cdb_tab_in_dir(
     let temp_path = build_temp_path_in_dir(session_dir, &tab_id)?;
     ensure_parent_dir(&temp_path)?;
 
-    let conn = cdb_repository::open_connection(&temp_path)?;
+    let cdb = cdb_repository::create_cdb(&temp_path)?;
 
     fs::copy(&temp_path, &original_path).map_err(|err| err.to_string())?;
 
@@ -104,7 +105,7 @@ pub(crate) fn create_cdb_tab_in_dir(
         CdbSessionMeta {
             path: original_path.to_string_lossy().to_string(),
             working_path: temp_path,
-            conn: Arc::new(Mutex::new(conn)),
+            cdb: Arc::new(Mutex::new(cdb)),
         },
     )?;
 
@@ -117,16 +118,15 @@ pub(crate) fn create_cdb_tab_in_dir(
 
 fn build_open_response(
     original_path: &str,
-    conn: &rusqlite::Connection,
+    cdb: &YgoProCdb,
 ) -> Result<OpenCdbTabResponse, String> {
+    let (cached_cards, cached_total) = cdb
+        .query_raw_page("1=1", &HashMap::new(), 1, 50)
+        .map_err(|err| err.to_string())?;
     Ok(OpenCdbTabResponse {
         name: basename(original_path),
-        cached_cards: cdb_repository::query_cards(
-            conn,
-            "1=1 ORDER BY datas.id LIMIT 50 OFFSET 0",
-            &HashMap::new(),
-        )?,
-        cached_total: cdb_repository::count_cards(conn, "1=1", &HashMap::new())?,
+        cached_cards,
+        cached_total,
     })
 }
 
@@ -275,11 +275,12 @@ mod tests {
         .unwrap();
 
         with_session_meta(&sessions, "tab-save", |session| {
-            let mut conn = session
-                .conn
+            let mut cdb = session
+                .cdb
                 .lock()
-                .map_err(|_| "Failed to acquire connection lock".to_string())?;
-            cdb_repository::upsert_cards(&mut conn, &[sample_card(200, "Beta")])?;
+                .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+            cdb.add_cards(&[sample_card(200, "Beta")])
+                .map_err(|err| err.to_string())?;
             Ok(())
         })
         .unwrap();

@@ -44,6 +44,13 @@ export type ExecuteCdbMergeResponse = {
   outputPath: string;
 };
 
+export type BackgroundTaskProgressEvent = {
+  task: 'package' | 'merge';
+  stage: string;
+  current: number;
+  total: number;
+};
+
 export async function getCardScriptInfo(cdbPath: string, cardId: number) {
   return invokeCommand<CardScriptInfo>('get_card_script_info', { cdbPath, cardId });
 }

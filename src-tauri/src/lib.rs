@@ -26,12 +26,13 @@ const CUSTOM_COVER_FILE_NAME: &str = "cover.jpg";
 const LOGS_DIR_NAME: &str = "logs";
 const ERROR_LOG_FILE_NAME: &str = "error.log";
 const DEFAULT_SCRIPT_TEMPLATE: &str =
-    "-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n";
+    "-- {鍗″悕}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n";
 const DEFAULT_AI_MODEL: &str = "gpt-4o-mini";
 const DEFAULT_AI_TEMPERATURE: f64 = 1.0;
 const SECRET_VERSION_PREFIX: &str = "v1";
 const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
 const OPEN_CDB_PATHS_EVENT: &str = "open-cdb-paths";
+pub(crate) const BACKGROUND_TASK_PROGRESS_EVENT: &str = "background-task-progress";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -105,6 +106,15 @@ pub(crate) struct CardScriptDocument {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ZipPackageInfo {
     pub(crate) path: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TaskProgressPayload {
+    pub(crate) task: String,
+    pub(crate) stage: String,
+    pub(crate) current: u32,
+    pub(crate) total: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -224,7 +234,7 @@ pub(crate) fn get_or_create_cipher_key(app: &AppHandle) -> Result<[u8; 32], Stri
             key.copy_from_slice(&bytes);
             return Ok(key);
         }
-        // File is corrupt / wrong size — regenerate below.
+        // File is corrupt / wrong size 鈥?regenerate below.
     }
 
     let mut key = [0u8; 32];
@@ -313,7 +323,7 @@ pub(crate) fn decrypt_secret_key(
         return Ok(plaintext);
     }
 
-    // Legacy fallback — the secret was encrypted before the migration.
+    // Legacy fallback 鈥?the secret was encrypted before the migration.
     decrypt_with_key(&legacy_cipher_key(app), encrypted_secret_key)
 }
 
@@ -405,7 +415,7 @@ fn write_cdb(path: String, data: Vec<u8>) -> Result<(), String> {
     services::media::write_cdb(path, data)
 }
 
-/// Generic file-write command — identical to write_cdb but with a clearer
+/// Generic file-write command 鈥?identical to write_cdb but with a clearer
 /// name for non-database file writes (images, scripts, exports, etc.).
 #[tauri::command]
 fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
@@ -501,11 +511,23 @@ fn save_card_script(
 }
 
 #[tauri::command]
-fn package_cdb_assets_as_zip(
+async fn package_cdb_assets_as_zip(
+    app: AppHandle,
     cdb_path: String,
     output_path: String,
 ) -> Result<ZipPackageInfo, String> {
-    services::package::package_cdb_assets_as_zip(cdb_path, output_path)
+    tauri::async_runtime::spawn_blocking(move || {
+        let progress_app = app.clone();
+        services::package::package_cdb_assets_as_zip_with_progress(
+            cdb_path,
+            output_path,
+            &mut |payload| {
+                let _ = progress_app.emit(BACKGROUND_TASK_PROGRESS_EVENT, &payload);
+            },
+        )
+    })
+    .await
+    .map_err(|err| err.to_string())?
 }
 
 #[tauri::command]
@@ -622,20 +644,16 @@ mod tests {
     }
 
     fn create_test_cdb(path: &Path, rows: &[(u32, i64)]) {
-        let conn = rusqlite::Connection::open(path).unwrap();
-        conn.execute(
-            "CREATE TABLE datas (id INTEGER PRIMARY KEY, type INTEGER NOT NULL)",
-            [],
-        )
-        .unwrap();
-
-        let mut stmt = conn
-            .prepare("INSERT INTO datas (id, type) VALUES (?1, ?2)")
-            .unwrap();
-        for (id, card_type) in rows {
-            stmt.execute(rusqlite::params![i64::from(*id), *card_type])
-                .unwrap();
-        }
+        let mut cdb = ygopro_cdb_encode_rs::YgoProCdb::create_at_path(path).unwrap();
+        let cards: Vec<ygopro_cdb_encode_rs::CardDataEntry> = rows
+            .iter()
+            .map(|(id, card_type)| ygopro_cdb_encode_rs::CardDataEntry {
+                code: *id,
+                type_: *card_type as u32,
+                ..Default::default()
+            })
+            .collect();
+        cdb.add_cards(&cards).unwrap();
     }
 
     #[test]
@@ -796,6 +814,58 @@ mod tests {
         assert!(!entries.contains(&"pics/field/222.jpg".to_string()));
         assert!(!entries.contains(&"script/c333.lua".to_string()));
         assert!(!entries.contains(&"notes.txt".to_string()));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn packaging_keeps_source_assets_intact() {
+        let root = make_temp_dir("package-assets-preserve");
+        let cdb_path = root.join("cards.cdb");
+        let pics_dir = root.join("pics");
+        let script_dir = root.join("script");
+        let output_zip_path = root.join("cards.zip");
+
+        fs::create_dir_all(&pics_dir).unwrap();
+        fs::create_dir_all(&script_dir).unwrap();
+
+        create_test_cdb(&cdb_path, &[(111, 0x1)]);
+        fs::write(pics_dir.join("111.jpg"), [1u8, 2u8, 3u8]).unwrap();
+        fs::write(script_dir.join("c111.lua"), "print('hello')").unwrap();
+
+        services::package::package_cdb_assets_as_zip(
+            cdb_path.to_string_lossy().to_string(),
+            output_zip_path.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(fs::read(pics_dir.join("111.jpg")).unwrap(), vec![1u8, 2u8, 3u8]);
+        assert_eq!(
+            fs::read_to_string(script_dir.join("c111.lua")).unwrap(),
+            "print('hello')"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn packaging_rejects_output_path_that_matches_source_asset() {
+        let root = make_temp_dir("package-assets-conflict");
+        let cdb_path = root.join("cards.cdb");
+        let pics_dir = root.join("pics");
+
+        fs::create_dir_all(&pics_dir).unwrap();
+        create_test_cdb(&cdb_path, &[(111, 0x1)]);
+        fs::write(pics_dir.join("111.jpg"), [9u8, 8u8, 7u8]).unwrap();
+
+        let err = services::package::package_cdb_assets_as_zip(
+            cdb_path.to_string_lossy().to_string(),
+            pics_dir.join("111.jpg").to_string_lossy().to_string(),
+        )
+        .unwrap_err();
+
+        assert!(err.contains("conflicts with a source asset"));
+        assert_eq!(fs::read(pics_dir.join("111.jpg")).unwrap(), vec![9u8, 8u8, 7u8]);
 
         let _ = fs::remove_dir_all(&root);
     }

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { disableAutofill } from '$lib/actions/disableAutofill';
+
   export let title = '';
   export let description = '';
   export let externalEditorLabel = '';
@@ -13,7 +15,7 @@
   export let onSaveScriptImageToLocalChange: (value: boolean) => void = () => {};
 </script>
 
-<div class="sp-card sp-tpl">
+<div class="sp-card sp-tpl" use:disableAutofill>
   <div class="sp-tpl-head">
     <div class="sp-card-head">
       <h3>{title}</h3>

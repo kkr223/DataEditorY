@@ -1,9 +1,9 @@
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import type { CardDataEntry, SearchFilterState } from '$lib/types';
+import type { CardDataEntry, SearchFilters } from '$lib/types';
 import type { ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
 import { cloneEditableCard, createEmptyCard } from '$lib/utils/card';
 import { createCardSnapshot } from '$lib/domain/card/draft';
-import { ATTRIBUTE_MAP, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
+import { ATTRIBUTE_MAP, LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
 
 export const CARD_LIST_PAGE_SIZE = 50;
 
@@ -140,128 +140,182 @@ export function createInitialParseManuscript(draftCard: CardDataEntry) {
   return `${draftCard.name ?? ''}\n${draftCard.desc ?? ''}`.trim();
 }
 
-function findKeyByExactValue(source: Record<string, number>, value: number) {
-  if (!Number.isFinite(value) || value <= 0) {
-    return '';
-  }
+// ---------------------------------------------------------------------------
+// buildSearchFiltersFromDraft — Convert a draft CardDataEntry into SearchFilters
+// ---------------------------------------------------------------------------
 
-  return Object.entries(source).find(([, bit]) => bit === value)?.[0] ?? '';
-}
-
-function resolveSubtype(type: number) {
-  if ((type & TYPE_MAP.monster) !== 0) {
-    const monsterSubtypeOrder = [
-      'link',
-      'xyz',
-      'synchro',
-      'fusion',
-      'ritual',
-      'pendulum',
-      'toon',
-      'flip',
-      'tuner',
-      'gemini',
-      'union',
-      'spirit',
-      'spssummon',
-      'token',
-      'normal',
-      'effect',
-    ] as const;
-
-    return monsterSubtypeOrder.find((key) => (type & SUBTYPE_MAP[key]) !== 0) ?? '';
-  }
-
-  if ((type & TYPE_MAP.spell) !== 0) {
-    const spellSubtypeOrder = [
-      'quickplay',
-      'continuous_spell',
-      'equip',
-      'field',
-      'ritual_spell',
-    ] as const;
-
-    return spellSubtypeOrder.find((key) => (type & SUBTYPE_MAP[key]) !== 0) ?? 'normal';
-  }
-
-  if ((type & TYPE_MAP.trap) !== 0) {
-    const trapSubtypeOrder = [
-      'continuous_trap',
-      'counter',
-    ] as const;
-
-    return trapSubtypeOrder.find((key) => (type & SUBTYPE_MAP[key]) !== 0) ?? 'normal';
-  }
-
+function statToFilterValue(value: number): string {
+  if (value === -2) return '-2';
+  if (value === -1) return '-1';
+  if (value > 0) return String(value);
   return '';
 }
 
-export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFilterState {
-  const nextFilters: SearchFilterState = {
-    ...DEFAULT_SEARCH_FILTERS,
-  };
-
-  if (draftCard.code > 0) {
-    nextFilters.id = String(draftCard.code);
-  }
-
-  if (draftCard.name.trim()) {
-    nextFilters.name = draftCard.name.trim();
-  }
-
-  if (draftCard.desc.trim()) {
-    nextFilters.desc = draftCard.desc.trim();
-  }
-
-  if ((draftCard.type & TYPE_MAP.monster) !== 0) {
-    nextFilters.type = 'monster';
-  } else if ((draftCard.type & TYPE_MAP.spell) !== 0) {
-    nextFilters.type = 'spell';
-  } else if ((draftCard.type & TYPE_MAP.trap) !== 0) {
-    nextFilters.type = 'trap';
-  }
-
-  const subtype = resolveSubtype(draftCard.type);
-  if (subtype) {
-    nextFilters.subtype = subtype;
-  }
-
-  if (draftCard.attack !== 0) {
-    nextFilters.atkMin = String(draftCard.attack);
-    nextFilters.atkMax = String(draftCard.attack);
-  }
-
-  if (draftCard.defense !== 0) {
-    nextFilters.defMin = String(draftCard.defense);
-    nextFilters.defMax = String(draftCard.defense);
-  }
-
-  const attribute = findKeyByExactValue(ATTRIBUTE_MAP, draftCard.attribute);
-  if (attribute) {
-    nextFilters.attribute = attribute;
-  }
-
-  const race = findKeyByExactValue(RACE_MAP, draftCard.race);
-  if (race) {
-    nextFilters.race = race;
-  }
-
-  const setcodes = Array.isArray(draftCard.setcode) ? draftCard.setcode : [];
-  for (let index = 0; index < 4; index += 1) {
-    const rawValue = Number(setcodes[index] ?? 0);
-    if (!Number.isInteger(rawValue) || rawValue <= 0) {
-      continue;
-    }
-
-    const normalizedSetcode = rawValue.toString(16);
-    if (index === 0) nextFilters.setcode1 = normalizedSetcode;
-    else if (index === 1) nextFilters.setcode2 = normalizedSetcode;
-    else if (index === 2) nextFilters.setcode3 = normalizedSetcode;
-    else nextFilters.setcode4 = normalizedSetcode;
-  }
-
-  return nextFilters;
+function findKeyByValue(map: Record<string, number>, value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
+  return Object.entries(map).find(([, v]) => v === value)?.[0] ?? '';
 }
+
+function getNormalizedLevelValue(level: number): number {
+  return Number.isFinite(level) ? (level & 0xff) : 0;
+}
+
+function scaleToSearchRuleValue(value: number): number | null {
+  if (!Number.isFinite(value)) return null;
+  if (value === -1) return 0;
+  if (value > 0) return value;
+  return null;
+}
+
+// Subtypes that unambiguously imply a main type when no explicit type bit is set.
+// continuous_spell (0x20000) and ritual (0x80) are excluded because they are
+// shared between spell/trap or monster/spell contexts.
+const MONSTER_ONLY_BITS = [
+  SUBTYPE_MAP.normal, SUBTYPE_MAP.effect, SUBTYPE_MAP.fusion,
+  SUBTYPE_MAP.spirit, SUBTYPE_MAP.union, SUBTYPE_MAP.gemini,
+  SUBTYPE_MAP.tuner, SUBTYPE_MAP.synchro, SUBTYPE_MAP.token,
+  SUBTYPE_MAP.flip, SUBTYPE_MAP.toon, SUBTYPE_MAP.xyz,
+  SUBTYPE_MAP.pendulum, SUBTYPE_MAP.spssummon, SUBTYPE_MAP.link,
+];
+const SPELL_ONLY_BITS = [SUBTYPE_MAP.quickplay, SUBTYPE_MAP.equip, SUBTYPE_MAP.field];
+const TRAP_ONLY_BITS = [SUBTYPE_MAP.counter];
+
+// Non-ambiguous subtype keys and their bits
+const SUBTYPE_ENTRIES: [string, number][] = [
+  ['normal', SUBTYPE_MAP.normal], ['effect', SUBTYPE_MAP.effect],
+  ['fusion', SUBTYPE_MAP.fusion], ['spirit', SUBTYPE_MAP.spirit],
+  ['union', SUBTYPE_MAP.union], ['gemini', SUBTYPE_MAP.gemini],
+  ['tuner', SUBTYPE_MAP.tuner], ['synchro', SUBTYPE_MAP.synchro],
+  ['token', SUBTYPE_MAP.token], ['quickplay', SUBTYPE_MAP.quickplay],
+  ['equip', SUBTYPE_MAP.equip], ['field', SUBTYPE_MAP.field],
+  ['counter', SUBTYPE_MAP.counter], ['flip', SUBTYPE_MAP.flip],
+  ['toon', SUBTYPE_MAP.toon], ['xyz', SUBTYPE_MAP.xyz],
+  ['pendulum', SUBTYPE_MAP.pendulum], ['spssummon', SUBTYPE_MAP.spssummon],
+  ['link', SUBTYPE_MAP.link],
+];
+
+export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFilters {
+  const filters: SearchFilters = { ...DEFAULT_SEARCH_FILTERS };
+  const rules: string[] = [];
+  const type = draftCard.type;
+  const normalizedLevel = getNormalizedLevelValue(draftCard.level);
+  const leftScaleRuleValue = scaleToSearchRuleValue(draftCard.lscale);
+  const rightScaleRuleValue = scaleToSearchRuleValue(draftCard.rscale);
+
+  const hasMonsterBit = (type & TYPE_MAP.monster) !== 0;
+  const hasSpellBit = (type & TYPE_MAP.spell) !== 0;
+  const hasTrapBit = (type & TYPE_MAP.trap) !== 0;
+  const hasPendulumSignal = (type & SUBTYPE_MAP.pendulum) !== 0 || leftScaleRuleValue !== null || rightScaleRuleValue !== null;
+  const hasLinkSignal = (type & SUBTYPE_MAP.link) !== 0 || draftCard.linkMarker > 0;
+
+  // --- Determine main type ---
+  const hasMask = (bits: number[]) => bits.some((b) => (type & b) !== 0);
+  const hasMonsterSignals =
+    draftCard.attack !== 0 || draftCard.defense !== 0 || normalizedLevel > 0 ||
+    draftCard.attribute > 0 || draftCard.race > 0 || draftCard.linkMarker > 0 ||
+    draftCard.lscale > 0 || draftCard.rscale > 0;
+
+  let mainType = '';
+  if (hasMonsterBit || hasMask(MONSTER_ONLY_BITS) || hasPendulumSignal || hasLinkSignal) mainType = 'monster';
+  else if (hasSpellBit || hasMask(SPELL_ONLY_BITS)) mainType = 'spell';
+  else if (hasTrapBit || hasMask(TRAP_ONLY_BITS)) mainType = 'trap';
+  else if (!hasSpellBit && !hasTrapBit && hasMonsterSignals) mainType = 'monster';
+
+  filters.type = mainType;
+
+  // --- Collect matched subtypes and build type rules ---
+  const typeRuleKeys: string[] = [];
+  const matchedSubtypes: string[] = [];
+  if (mainType) typeRuleKeys.push(mainType);
+
+  for (const [key, bit] of SUBTYPE_ENTRIES) {
+    if ((type & bit) !== 0) {
+      matchedSubtypes.push(key);
+      if (!typeRuleKeys.includes(key)) typeRuleKeys.push(key);
+    }
+  }
+
+  if (hasPendulumSignal && !matchedSubtypes.includes('pendulum')) {
+    matchedSubtypes.push('pendulum');
+    if (!typeRuleKeys.includes('pendulum')) typeRuleKeys.push('pendulum');
+  }
+  if (hasLinkSignal && !matchedSubtypes.includes('link')) {
+    matchedSubtypes.push('link');
+    if (!typeRuleKeys.includes('link')) typeRuleKeys.push('link');
+  }
+
+  // Handle shared subtypes: ritual (0x80) and continuous (0x20000)
+  if ((type & SUBTYPE_MAP.ritual) !== 0) {
+    const key = hasSpellBit ? 'ritual_spell' : 'ritual';
+    if (!matchedSubtypes.includes(key)) matchedSubtypes.push(key);
+    if (!typeRuleKeys.includes(key)) typeRuleKeys.push(key);
+  }
+  if ((type & SUBTYPE_MAP.continuous_spell) !== 0) {
+    const key = hasSpellBit ? 'continuous_spell' : hasTrapBit ? 'continuous_trap' : 'continuous_spell';
+    if (!matchedSubtypes.includes(key)) matchedSubtypes.push(key);
+    if (!typeRuleKeys.includes(key)) typeRuleKeys.push(key);
+  }
+
+  // Single subtype goes to the dropdown (only when main type provides context);
+  // otherwise everything goes to rules only
+  if (matchedSubtypes.length === 1 && mainType) filters.subtype = matchedSubtypes[0];
+
+  for (const key of typeRuleKeys) rules.push(`type contains ${key}`);
+
+  // --- Text fields ---
+  if (draftCard.code > 0) filters.id = String(draftCard.code);
+  if (draftCard.name.trim()) filters.name = draftCard.name.trim();
+  if (draftCard.desc.trim()) filters.desc = draftCard.desc.trim();
+
+  // --- ATK / DEF ---
+  const isMonster = mainType === 'monster';
+  const isLink = hasLinkSignal;
+
+  if (isMonster) {
+    const atk = statToFilterValue(draftCard.attack);
+    if (atk) { filters.atkMin = atk; filters.atkMax = atk; }
+    if (!isLink) {
+      const def = statToFilterValue(draftCard.defense);
+      if (def) { filters.defMin = def; filters.defMax = def; }
+    }
+  }
+
+  // --- Numeric rule fields ---
+  if (draftCard.ot > 0) rules.push(`ot = ${draftCard.ot}`);
+  if (isMonster && normalizedLevel > 0) rules.push(`level = ${normalizedLevel}`);
+  if (leftScaleRuleValue !== null) rules.push(`scale = ${leftScaleRuleValue}`);
+  if (rightScaleRuleValue !== null) rules.push(`rscale = ${rightScaleRuleValue}`);
+  if (isLink && draftCard.linkMarker > 0) {
+    for (const [key, bit] of Object.entries(LINK_MARKER_NAME_TO_BIT)) {
+      if ((draftCard.linkMarker & bit) !== 0) rules.push(`linkmarker contains ${key}`);
+    }
+  }
+
+  // --- Attribute / Race ---
+  const attr = findKeyByValue(ATTRIBUTE_MAP, draftCard.attribute);
+  if (attr) filters.attribute = attr;
+  const race = findKeyByValue(RACE_MAP, draftCard.race);
+  if (race) filters.race = race;
+
+  // --- Setcodes ---
+  const setcodes = Array.isArray(draftCard.setcode) ? draftCard.setcode : [];
+  for (let i = 0; i < 4; i++) {
+    const raw = Number(setcodes[i] ?? 0);
+    if (!Number.isInteger(raw) || raw <= 0) continue;
+    const hex = raw.toString(16);
+    if (i === 0) filters.setcode1 = hex;
+    else if (i === 1) filters.setcode2 = hex;
+    else if (i === 2) filters.setcode3 = hex;
+    else filters.setcode4 = hex;
+  }
+
+  filters.rule = rules.join(' and ');
+  return filters;
+}
+
+// ---------------------------------------------------------------------------
+// Keyboard navigation & misc helpers
+// ---------------------------------------------------------------------------
 
 export function shouldIgnoreArrowNavigation(input: {
   event: KeyboardEvent;

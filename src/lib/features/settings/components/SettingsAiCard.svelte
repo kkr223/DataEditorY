@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { disableAutofill } from '$lib/actions/disableAutofill';
+
   export let title = '';
   export let description = '';
   export let badgeLabel = '';
@@ -30,7 +32,7 @@
   export let onClearSecretKey: () => void | Promise<void> = () => {};
 </script>
 
-<div class="sp-card sp-ai">
+<div class="sp-card sp-ai" use:disableAutofill>
   <div class="sp-ai-head">
     <div class="sp-card-head">
       <h3>{title}</h3>

@@ -18,30 +18,18 @@ pub fn search_cards_page(
     request: SearchCardsPageRequest,
 ) -> Result<SearchCardsPageResponse, String> {
     with_session_meta(sessions, &request.tab_id, |session| {
-        let conn = session
-            .conn
+        let cdb = session
+            .cdb
             .lock()
-            .map_err(|_| "Failed to acquire connection lock".to_string())?;
+            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
         let page = request.page.unwrap_or(1).max(1);
         let page_size = request
             .page_size
             .unwrap_or(PAGE_SIZE_DEFAULT)
             .clamp(1, PAGE_SIZE_MAX);
-        let offset = (page - 1) * page_size;
-        let where_clause = if request.where_clause.trim().is_empty() {
-            "1=1".to_string()
-        } else {
-            request.where_clause.trim().to_string()
-        };
-        let total = cdb_repository::count_cards(&conn, &request.where_clause, &request.params)?;
-        let cards = cdb_repository::query_cards(
-            &conn,
-            &format!(
-                "{} ORDER BY datas.id LIMIT {} OFFSET {}",
-                where_clause, page_size, offset
-            ),
-            &request.params,
-        )?;
+        let (cards, total) = cdb
+            .query_raw_page(&request.where_clause, &request.params, page, page_size)
+            .map_err(|err| err.to_string())?;
         Ok(SearchCardsPageResponse { cards, total })
     })
 }
@@ -51,11 +39,12 @@ pub fn query_cards_raw(
     request: QueryCardsRequest,
 ) -> Result<Vec<CardDto>, String> {
     with_session_meta(sessions, &request.tab_id, |session| {
-        let conn = session
-            .conn
+        let cdb = session
+            .cdb
             .lock()
-            .map_err(|_| "Failed to acquire connection lock".to_string())?;
-        cdb_repository::query_cards(&conn, &request.query_clause, &request.params)
+            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+        cdb.query_raw(&request.query_clause, &request.params)
+            .map_err(|err| err.to_string())
     })
 }
 
@@ -65,11 +54,11 @@ pub fn get_card_by_id(
     card_id: u32,
 ) -> Result<Option<CardDto>, String> {
     with_session_meta(sessions, &tab_id, |session| {
-        let conn = session
-            .conn
+        let cdb = session
+            .cdb
             .lock()
-            .map_err(|_| "Failed to acquire connection lock".to_string())?;
-        cdb_repository::get_card(&conn, card_id)
+            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+        cdb.find_by_id(card_id).map_err(|err| err.to_string())
     })
 }
 
@@ -78,31 +67,34 @@ pub fn get_cards_by_ids(
     request: GetCardsByIdsRequest,
 ) -> Result<Vec<CardDto>, String> {
     with_session_meta(sessions, &request.tab_id, |session| {
-        let conn = session
-            .conn
+        let cdb = session
+            .cdb
             .lock()
-            .map_err(|_| "Failed to acquire connection lock".to_string())?;
-        cdb_repository::get_cards_by_ids(&conn, &request.card_ids)
+            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+        cdb.find_by_ids(&request.card_ids)
+            .map_err(|err| err.to_string())
     })
 }
 
 pub fn modify_cards(sessions: &OpenCdbSessions, request: ModifyCardsRequest) -> Result<(), String> {
     with_session_meta(sessions, &request.tab_id, |session| {
-        let mut conn = session
-            .conn
+        let mut cdb = session
+            .cdb
             .lock()
-            .map_err(|_| "Failed to acquire connection lock".to_string())?;
-        cdb_repository::upsert_cards(&mut conn, &request.cards)
+            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+        cdb.add_cards(&request.cards)
+            .map_err(|err| err.to_string())
     })
 }
 
 pub fn delete_cards(sessions: &OpenCdbSessions, request: DeleteCardsRequest) -> Result<(), String> {
     with_session_meta(sessions, &request.tab_id, |session| {
-        let mut conn = session
-            .conn
+        let mut cdb = session
+            .cdb
             .lock()
-            .map_err(|_| "Failed to acquire connection lock".to_string())?;
-        cdb_repository::delete_cards_by_id(&mut conn, &request.card_ids)
+            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+        cdb.remove_cards(&request.card_ids)
+            .map_err(|err| err.to_string())
     })
 }
 
@@ -115,15 +107,12 @@ pub fn undo_modify_operation(
     request: UndoModifyOperationRequest,
 ) -> Result<(), String> {
     with_session_meta(sessions, &request.tab_id, |session| {
-        let mut conn = session
-            .conn
+        let mut cdb = session
+            .cdb
             .lock()
-            .map_err(|_| "Failed to acquire connection lock".to_string())?;
-        cdb_repository::undo_modify_operation(
-            &mut conn,
-            &request.cards_to_restore,
-            &request.ids_to_delete,
-        )
+            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+        cdb.undo_modify(&request.cards_to_restore, &request.ids_to_delete)
+            .map_err(|err| err.to_string())
     })
 }
 
@@ -231,6 +220,61 @@ mod tests {
         assert_eq!(response.total, 3);
         assert_eq!(response.cards.len(), 1);
         assert_eq!(response.cards[0].code, 200);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn filters_cards_by_atk_and_def_for_an_open_session() {
+        let root = make_temp_dir("search-stats");
+        let sessions = make_sessions();
+        let cards = vec![
+            sample_card(100, "Alpha"),
+            CardDto {
+                attack: 1500,
+                defense: 1200,
+                ..sample_card(200, "Beta")
+            },
+            CardDto {
+                attack: 0,
+                defense: 0,
+                ..sample_card(300, "Gamma")
+            },
+        ];
+        open_test_session(&root, &sessions, "tab-search-stats", &cards);
+
+        let atk_response = search_cards_page(
+            &sessions,
+            SearchCardsPageRequest {
+                tab_id: "tab-search-stats".to_string(),
+                where_clause: "datas.atk >= :atkMin AND datas.atk <= :atkMax".to_string(),
+                params: HashMap::from([
+                    ("atkMin".to_string(), json!(1500)),
+                    ("atkMax".to_string(), json!(1500)),
+                ]),
+                page: Some(1),
+                page_size: Some(10),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(atk_response.total, 1);
+        assert_eq!(atk_response.cards[0].code, 200);
+
+        let def_response = search_cards_page(
+            &sessions,
+            SearchCardsPageRequest {
+                tab_id: "tab-search-stats".to_string(),
+                where_clause: "datas.def = :defZero".to_string(),
+                params: HashMap::from([("defZero".to_string(), json!(0))]),
+                page: Some(1),
+                page_size: Some(10),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(def_response.total, 1);
+        assert_eq!(def_response.cards[0].code, 300);
 
         let _ = fs::remove_dir_all(&root);
     }

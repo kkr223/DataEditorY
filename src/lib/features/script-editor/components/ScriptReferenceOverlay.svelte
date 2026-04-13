@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { disableAutofill } from '$lib/actions/disableAutofill';
   import type { LuaReferenceManualItem, LuaReferenceManualKind } from '$lib/utils/luaReferenceManual';
 
   export let open = false;
@@ -64,7 +65,7 @@
     onclick={handleBackdropClick}
     onkeydown={handleBackdropKeydown}
   >
-    <section class="script-reference-panel">
+    <section class="script-reference-panel" use:disableAutofill>
       <header class="script-reference-header">
         {#if shortcutHint}
           <p class="script-reference-shortcut">{shortcutHint}</p>

@@ -9,201 +9,213 @@ import {
 } from '$lib/domain/card/taxonomy';
 import { parseRuleExpression } from '$lib/domain/search/ruleExpression';
 
-function toLikePattern(input: string) {
-  const normalized = input.trim();
-  if (!normalized) return '%';
-  const hasWildcard = normalized.includes('%') || normalized.includes('_');
-  return hasWildcard ? normalized : `%${normalized}%`;
+// ---------------------------------------------------------------------------
+// DEX-style SQL query builder
+//
+// Mirrors DataEditorX GetSelectSQL logic: iterate each filter field, append an
+// AND clause when the field is non-empty.  The rule expression parser provides
+// the "advanced search" capability that DEX does not have.
+// ---------------------------------------------------------------------------
+
+/** DEX name-pattern: `%%` is a user-supplied wildcard, otherwise auto-wrap. */
+function buildNamePattern(input: string): string {
+  const s = input.trim();
+  if (!s) return '%';
+
+  // User-supplied wildcards: %% → %
+  if (s.includes('%%')) return s.replaceAll('%%', '%');
+
+  // Auto-wrap with LIKE-safe escaping
+  return '%' + s.replaceAll('/', '//').replaceAll('%', '/%').replaceAll('_', '/_') + '%';
 }
 
-function splitSearchTerms(input: string) {
-  return input
-    .split(/(?:%%|\s+)/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+/** Parse a stat value with DEX special markers: `?/？` → -2, `.` → -1. */
+function parseStat(raw: string): number | null {
+  const s = raw.trim();
+  if (!s) return null;
+  if (s === '.' ) return -1;
+  if (s === '?' || s === '？') return -2;
+  const n = parseInt(s, 10);
+  return Number.isNaN(n) ? null : n;
 }
 
-const MAX_NUMERIC_ID_DIGITS = 10;
-const MAX_NUMERIC_ID_VALUE = 4_294_967_295;
-
-function buildNumericPrefixRanges(input: string) {
-  const normalized = input.trim();
-  if (!/^\d+$/.test(normalized)) return [];
-  if (normalized.length > 1 && normalized.startsWith('0')) return [];
-  if (normalized.length > MAX_NUMERIC_ID_DIGITS) return [];
-
-  const prefixValue = Number(normalized);
-  if (!Number.isSafeInteger(prefixValue) || prefixValue > MAX_NUMERIC_ID_VALUE) {
-    return [];
-  }
-
-  const ranges: Array<{ start: number; end: number }> = [];
-  for (let totalDigits = normalized.length; totalDigits <= MAX_NUMERIC_ID_DIGITS; totalDigits += 1) {
-    const multiplier = 10 ** (totalDigits - normalized.length);
-    const start = prefixValue * multiplier;
-    if (start > MAX_NUMERIC_ID_VALUE) break;
-
-    const end = Math.min((prefixValue + 1) * multiplier - 1, MAX_NUMERIC_ID_VALUE);
-    ranges.push({ start, end });
-  }
-
-  return ranges;
-}
-
+/** Parse a hex setcode string like "0x1af" or "12ab". */
 export function parseSetcodeFilter(input: string): number | null {
-  const normalized = input.trim();
-  if (!normalized) return null;
-
-  const hex = normalized.toLowerCase().startsWith('0x') ? normalized.slice(2) : normalized;
+  const s = input.trim();
+  if (!s) return null;
+  const hex = s.toLowerCase().startsWith('0x') ? s.slice(2) : s;
   if (!/^[\da-f]{1,4}$/i.test(hex)) return null;
-
   return parseInt(hex, 16) & 0xffff;
 }
 
-function pushNumericCondition(
-  conditions: string[],
-  params: Record<string, string | number>,
-  key: string,
-  value: number,
-  buildCondition: (placeholder: string) => string,
-) {
-  params[key] = value;
-  conditions.push(buildCondition(`:${key}`));
+// ID prefix search — expands "12" into ranges [12,12], [120,129], [1200,1299] …
+const MAX_ID_DIGITS = 10;
+const MAX_ID_VALUE = 4_294_967_295;
+
+function buildIdPrefixRanges(input: string) {
+  const s = input.trim();
+  if (!/^\d+$/.test(s)) return [];
+  if (s.length > 1 && s.startsWith('0')) return [];
+  if (s.length > MAX_ID_DIGITS) return [];
+
+  const prefix = Number(s);
+  if (!Number.isSafeInteger(prefix) || prefix > MAX_ID_VALUE) return [];
+
+  const ranges: { start: number; end: number }[] = [];
+  for (let digits = s.length; digits <= MAX_ID_DIGITS; digits++) {
+    const mul = 10 ** (digits - s.length);
+    const start = prefix * mul;
+    if (start > MAX_ID_VALUE) break;
+    ranges.push({ start, end: Math.min((prefix + 1) * mul - 1, MAX_ID_VALUE) });
+  }
+  return ranges;
 }
 
-export function buildSearchQuery(filters: SearchFilters = {}): CardSearchQuery {
-  const conditions: string[] = [];
+// Infer main type when user only selected a subtype
+function inferMainType(subtype: string): string {
+  if (!subtype) return '';
+  if (['quickplay', 'continuous_spell', 'equip', 'field', 'ritual_spell'].includes(subtype)) return 'spell';
+  if (['continuous_trap', 'counter'].includes(subtype)) return 'trap';
+  if (SUBTYPE_MAP[subtype] !== undefined) return 'monster';
+  return '';
+}
+
+// ---------------------------------------------------------------------------
+// Main entry point — mirrors DEX GetSelectSQL
+// ---------------------------------------------------------------------------
+
+export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
+  const conds: string[] = [];
   const params: Record<string, string | number> = {};
+  let paramIdx = 0;
 
-  if (filters.name) {
-    const keywords = splitSearchTerms(filters.name);
-    if (keywords.length > 0) {
-      const keywordConditions = keywords.map((keyword, index) => {
-        const key = `name${index}`;
-        params[key] = toLikePattern(keyword);
-        return `(texts.name LIKE :${key} OR texts.desc LIKE :${key})`;
-      });
-      conditions.push(`(${keywordConditions.join(' AND ')})`);
-    }
+  // Helper: bind a numeric value and push a condition
+  function bind(value: number): string {
+    const key = `p${paramIdx++}`;
+    params[key] = value;
+    return `:${key}`;
   }
 
-  if (filters.id) {
-    const normalizedId = filters.id.trim();
-    const prefixRanges = buildNumericPrefixRanges(normalizedId);
-    if (prefixRanges.length > 0) {
-      const rangeConditions = prefixRanges.map((range, index) => {
-        const startKey = `idPrefixStart${index}`;
-        const endKey = `idPrefixEnd${index}`;
-        params[startKey] = range.start;
-        params[endKey] = range.end;
-        return `(datas.id BETWEEN :${startKey} AND :${endKey} OR datas.alias BETWEEN :${startKey} AND :${endKey})`;
+  const mainType = filters.type || inferMainType(filters.subtype);
+
+  // --- name ---
+  if (filters.name.trim()) {
+    params.name = buildNamePattern(filters.name);
+    conds.push(`texts.name LIKE :name ESCAPE '/'`);
+  }
+
+  // --- id (prefix search) ---
+  if (filters.id.trim()) {
+    const ranges = buildIdPrefixRanges(filters.id);
+    if (ranges.length > 0) {
+      const parts = ranges.map((r) => {
+        const lo = bind(r.start);
+        const hi = bind(r.end);
+        return `(datas.id BETWEEN ${lo} AND ${hi} OR datas.alias BETWEEN ${lo} AND ${hi})`;
       });
-      conditions.push(`(${rangeConditions.join(' OR ')})`);
+      conds.push(`(${parts.join(' OR ')})`);
     } else {
-      conditions.push('1=0');
+      conds.push('1=0');
     }
   }
 
-  if (filters.desc) {
-    const keywords = splitSearchTerms(filters.desc);
-    if (keywords.length > 0) {
-      const keywordConditions = keywords.map((keyword, index) => {
-        const key = `desc${index}`;
-        params[key] = toLikePattern(keyword);
-        return `texts.desc LIKE :${key}`;
-      });
-      conditions.push(`(${keywordConditions.join(' AND ')})`);
+  // --- desc ---
+  if (filters.desc.trim()) {
+    params.desc = `%${filters.desc.trim()}%`;
+    conds.push('texts.desc LIKE :desc');
+  }
+
+  // --- atk / def (DEX style) ---
+  for (const field of ['atk', 'def'] as const) {
+    const minRaw = field === 'atk' ? filters.atkMin : filters.defMin;
+    const maxRaw = field === 'atk' ? filters.atkMax : filters.defMax;
+    const minVal = parseStat(minRaw);
+    const maxVal = parseStat(maxRaw);
+
+    // ? → exact unknown, . → exact zero (DEX semantics)
+    if (minVal === -2 || maxVal === -2) {
+      conds.push(`datas.${field} = ${bind(-2)}`);
+    } else if (minVal === -1 || maxVal === -1) {
+      conds.push(`datas.${field} = ${bind(0)}`);
+    } else {
+      if (minVal !== null) conds.push(`datas.${field} >= ${bind(minVal)}`);
+      if (maxVal !== null) conds.push(`datas.${field} <= ${bind(maxVal)}`);
     }
   }
 
-  if (filters.atkMin !== '' && filters.atkMin !== undefined) {
-    const value = parseInt(filters.atkMin.toString(), 10);
-    if (!isNaN(value)) {
-      pushNumericCondition(conditions, params, 'atkMin', value, (placeholder) => `datas.atk >= ${placeholder}`);
-    }
-  }
-  if (filters.atkMax !== '' && filters.atkMax !== undefined) {
-    const value = parseInt(filters.atkMax.toString(), 10);
-    if (!isNaN(value)) {
-      pushNumericCondition(conditions, params, 'atkMax', value, (placeholder) => `datas.atk <= ${placeholder}`);
-    }
-  }
-  if (filters.defMin !== '' && filters.defMin !== undefined) {
-    const value = parseInt(filters.defMin.toString(), 10);
-    if (!isNaN(value)) {
-      pushNumericCondition(conditions, params, 'defMin', value, (placeholder) => `datas.def >= ${placeholder}`);
-    }
-  }
-  if (filters.defMax !== '' && filters.defMax !== undefined) {
-    const value = parseInt(filters.defMax.toString(), 10);
-    if (!isNaN(value)) {
-      pushNumericCondition(conditions, params, 'defMax', value, (placeholder) => `datas.def <= ${placeholder}`);
-    }
+  // --- impossible monster-only filters on spell/trap ---
+  const hasMonsterFilter =
+    filters.atkMin.trim() !== '' ||
+    filters.atkMax.trim() !== '' ||
+    filters.defMin.trim() !== '' ||
+    filters.defMax.trim() !== '' ||
+    filters.attribute.trim() !== '' ||
+    filters.race.trim() !== '';
+  if (hasMonsterFilter && mainType && mainType !== 'monster') {
+    conds.push('1=0');
   }
 
-  const hasMonsterOnlyFilter =
-    (filters.atkMin !== '' && filters.atkMin !== undefined) ||
-    (filters.atkMax !== '' && filters.atkMax !== undefined) ||
-    (filters.defMin !== '' && filters.defMin !== undefined) ||
-    (filters.defMax !== '' && filters.defMax !== undefined) ||
-    (filters.attribute ?? '') !== '' ||
-    (filters.race ?? '') !== '';
-
-  if (hasMonsterOnlyFilter && filters.type && filters.type !== 'monster') {
-    conditions.push('1=0');
+  // --- type (bitmask contains) ---
+  if (mainType && TYPE_MAP[mainType] !== undefined) {
+    const p = bind(TYPE_MAP[mainType]);
+    conds.push(`(datas.type & ${p}) = ${p}`);
   }
 
-  if (filters.type && TYPE_MAP[filters.type] !== undefined) {
-    const typeBit = TYPE_MAP[filters.type];
-    pushNumericCondition(conditions, params, 'typeBit', typeBit, (placeholder) => `(datas.type & ${placeholder}) = ${placeholder}`);
-  }
-
+  // --- subtype ---
   if (filters.subtype) {
-    if (filters.subtype === 'normal' && filters.type === 'spell') {
-      pushNumericCondition(conditions, params, 'spellSubtypeMask', SPELL_SUBTYPE_MASK, (placeholder) => `(datas.type & ${placeholder}) = 0`);
-    } else if (filters.subtype === 'normal' && filters.type === 'trap') {
-      pushNumericCondition(conditions, params, 'trapSubtypeMask', TRAP_SUBTYPE_MASK, (placeholder) => `(datas.type & ${placeholder}) = 0`);
+    if (filters.subtype === 'normal' && mainType === 'spell') {
+      const p = bind(SPELL_SUBTYPE_MASK);
+      conds.push(`(datas.type & ${p}) = 0`);
+    } else if (filters.subtype === 'normal' && mainType === 'trap') {
+      const p = bind(TRAP_SUBTYPE_MASK);
+      conds.push(`(datas.type & ${p}) = 0`);
     } else {
-      let subtypeBit: number | undefined;
-      if (filters.subtype === 'continuous_spell' || filters.subtype === 'continuous_trap') subtypeBit = 0x20000;
-      else if (filters.subtype === 'ritual_spell') subtypeBit = 0x80;
-      else subtypeBit = SUBTYPE_MAP[filters.subtype];
-      if (subtypeBit !== undefined) {
-        pushNumericCondition(conditions, params, 'subtypeBit', subtypeBit, (placeholder) => `(datas.type & ${placeholder}) = ${placeholder}`);
+      let bit: number | undefined;
+      if (filters.subtype === 'continuous_spell' || filters.subtype === 'continuous_trap') bit = 0x20000;
+      else if (filters.subtype === 'ritual_spell') bit = 0x80;
+      else bit = SUBTYPE_MAP[filters.subtype];
+      if (bit !== undefined) {
+        const p = bind(bit);
+        conds.push(`(datas.type & ${p}) = ${p}`);
       }
     }
   }
 
+  // --- attribute ---
   if (filters.attribute && ATTRIBUTE_MAP[filters.attribute] !== undefined) {
-    pushNumericCondition(conditions, params, 'attribute', ATTRIBUTE_MAP[filters.attribute], (placeholder) => `datas.attribute = ${placeholder}`);
+    conds.push(`datas.attribute = ${bind(ATTRIBUTE_MAP[filters.attribute])}`);
   }
 
+  // --- race ---
   if (filters.race && RACE_MAP[filters.race] !== undefined) {
-    pushNumericCondition(conditions, params, 'race', RACE_MAP[filters.race], (placeholder) => `datas.race = ${placeholder}`);
+    conds.push(`datas.race = ${bind(RACE_MAP[filters.race])}`);
   }
 
-  for (const [index, rawValue] of [filters.setcode1, filters.setcode2, filters.setcode3, filters.setcode4].entries()) {
-    if (!rawValue) continue;
-    const parsedSetcode = parseSetcodeFilter(rawValue);
-    if (parsedSetcode === null) continue;
-    pushNumericCondition(conditions, params, `setcode${index}`, parsedSetcode, (placeholder) => `(
-      ((CAST(datas.setcode AS INTEGER) >> 0) & 65535) = ${placeholder}
-      OR ((CAST(datas.setcode AS INTEGER) >> 16) & 65535) = ${placeholder}
-      OR ((CAST(datas.setcode AS INTEGER) >> 32) & 65535) = ${placeholder}
-      OR ((CAST(datas.setcode AS INTEGER) >> 48) & 65535) = ${placeholder}
+  // --- setcodes (1‥4) ---
+  for (const raw of [filters.setcode1, filters.setcode2, filters.setcode3, filters.setcode4]) {
+    if (!raw) continue;
+    const sc = parseSetcodeFilter(raw);
+    if (sc === null) continue;
+    const p = bind(sc);
+    conds.push(`(
+      ((CAST(datas.setcode AS INTEGER) >> 0) & 65535) = ${p}
+      OR ((CAST(datas.setcode AS INTEGER) >> 16) & 65535) = ${p}
+      OR ((CAST(datas.setcode AS INTEGER) >> 32) & 65535) = ${p}
+      OR ((CAST(datas.setcode AS INTEGER) >> 48) & 65535) = ${p}
     )`);
   }
 
-  if (filters.rule) {
-    const parsedRule = parseRuleExpression(filters.rule);
-    if (parsedRule) {
-      conditions.push(parsedRule.clause);
-      Object.assign(params, parsedRule.params);
+  // --- rule expression (advanced search) ---
+  if (filters.rule.trim()) {
+    const parsed = parseRuleExpression(filters.rule);
+    if (parsed) {
+      conds.push(parsed.clause);
+      Object.assign(params, parsed.params);
     }
   }
 
   return {
-    whereClause: conditions.length > 0 ? conditions.join(' AND ') : '1=1',
+    whereClause: conds.length > 0 ? conds.join(' AND ') : '1=1',
     params,
   };
 }

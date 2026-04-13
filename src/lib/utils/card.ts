@@ -6,7 +6,15 @@ export {
   RACE_OPTIONS,
   TYPE_BITS,
 } from '$lib/domain/card/taxonomy';
-export { cloneEditableCard, createEmptyCard } from '$lib/domain/card/draft';
+export {
+  cloneEditableCard,
+  createEmptyCard,
+  formatEditableScaleValue,
+  formatEditableStatValue,
+  normalizeEditableScaleValue,
+  parseEditableScaleInput,
+  parseEditableStatInput,
+} from '$lib/domain/card/draft';
 
 export function getPackedLScale(level: number): number {
   return (level >> 24) & 0xff;

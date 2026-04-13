@@ -134,6 +134,7 @@ Lua 编辑器相关资源的维护方式：
 - 支持 DataEditorX 风格的快捷搜索：在右下角使用“重置搜索 / 清空为新卡 / 搜索”按钮，可把当前草稿中的名称、描述、攻守、类型、属性、种族、setcode 等基础信息直接带入检索
 - 顶部名称搜索与描述搜索默认使用模糊匹配，适合快速缩小结果范围
 - `ID / Alias` 输入框使用纯数字前缀匹配：输入 `473` 会匹配密码或同名卡以 `473` 开头的记录
+- DEX 风格快捷搜索中的数值字段遵循 YGOPro 常见约定：`-1` 用于匹配原始值为 `0` 的场景，因此像攻击力、守备力、灵摆刻度这类字段在需要搜索 `0` 时应输入 `-1`
 - 规则文本搜索适合做组合条件、数值比较和位掩码判断
 - 规则文本常用字段包括：`id`、`alias`、`atk`、`def`、`level`、`attribute`、`race`、`type`、`linkmarker`
 - 规则文本常用运算包括：`and`、`or`、`not`、`>`、`<`、`>=`、`<=`、`=`、`!=`、`contains`
@@ -224,6 +225,10 @@ src-tauri/          # Tauri/Rust 后端
 - Vite / SvelteKit
 - Rust / SQLite
 - `rusqlite`
+- `ygopro-cdb-encode-rs`
 - `yugioh-card`
 
-其中 `yugioh-card` 主要用于制卡器相关的卡图渲染。
+其中：
+
+- `ygopro-cdb-encode-rs` 用于 Rust 侧的 YGOPro CDB 读写、查询与字段语义处理，是当前数据库检索与后续 Rust 化能力的基础库
+- `yugioh-card` 主要用于制卡器相关的卡图渲染

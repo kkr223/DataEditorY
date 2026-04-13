@@ -185,6 +185,7 @@ function getRuleFieldMap() {
   const definitions: RuleFieldDefinition[] = [
     { key: 'id', kind: 'numeric', sql: 'datas.id', aliases: ['id', 'code', 'cardid', '密码', '卡号'] },
     { key: 'alias', kind: 'numeric', sql: 'datas.alias', aliases: ['alias', 'aliasid', '同名卡', '同名卡id', '别名', '别名id'] },
+    { key: 'ot', kind: 'numeric', sql: 'datas.ot', aliases: ['ot', 'license', '许可'] },
     { key: 'atk', kind: 'numeric', sql: 'datas.atk', aliases: ['atk', '攻击力'] },
     { key: 'def', kind: 'numeric', sql: 'datas.def', aliases: ['def', '守备力'] },
     { key: 'level', kind: 'numeric', sql: '(datas.level & 255)', aliases: ['level', 'lv', '等级', '星级', '阶级'] },

@@ -4,7 +4,13 @@ import {
   CARD_TEXT_SLOT_COUNT,
   createCardDraftState,
   createEmptyCard,
+  formatEditableScaleValue,
+  formatEditableStatValue,
+  normalizeEditableScaleValue,
+  normalizeEditableStatValue,
   normalizeCardStrings,
+  parseEditableScaleInput,
+  parseEditableStatInput,
   toPersistableCard,
 } from './draft';
 
@@ -25,6 +31,11 @@ describe('card draft helpers', () => {
       setcode: [1, 2, 3, 4],
       strings: ['alpha'],
       ruleCode: Number.NaN,
+      attack: -1,
+      defense: -2,
+      level: 8,
+      lscale: -1,
+      rscale: 15,
     };
 
     const persistable = toPersistableCard(card);
@@ -34,7 +45,39 @@ describe('card draft helpers', () => {
     expect(card.setcode[0]).toBe(1);
     expect(card.strings[0]).toBe('alpha');
     expect(persistable.ruleCode).toBe(0);
+    expect(persistable.attack).toBe(-2);
+    expect(persistable.defense).toBe(-2);
+    expect(persistable.lscale).toBe(0);
+    expect(persistable.rscale).toBe(13);
+    expect(persistable.level & 0xff).toBe(8);
+    expect((persistable.level >> 24) & 0xff).toBe(0);
+    expect((persistable.level >> 16) & 0xff).toBe(13);
     expect(persistable.strings).toHaveLength(CARD_TEXT_SLOT_COUNT);
+  });
+
+  test('formats and parses editable atk/def values with question-mark semantics', () => {
+    expect(formatEditableStatValue(1800)).toBe('1800');
+    expect(formatEditableStatValue(-1)).toBe('-1');
+    expect(formatEditableStatValue(-2)).toBe('?');
+
+    expect(parseEditableStatInput('?')).toBe(-2);
+    expect(parseEditableStatInput('？')).toBe(-2);
+    expect(parseEditableStatInput('-1')).toBe(-1);
+    expect(parseEditableStatInput('-2')).toBe(-2);
+    expect(parseEditableStatInput('2500')).toBe(2500);
+    expect(parseEditableStatInput('abc', 1500)).toBe(1500);
+    expect(normalizeEditableStatValue(-1)).toBe(-2);
+  });
+
+  test('formats and parses editable scale values with exact-zero search semantics', () => {
+    expect(formatEditableScaleValue(4)).toBe('4');
+    expect(formatEditableScaleValue(-1)).toBe('-1');
+
+    expect(parseEditableScaleInput('-1')).toBe(-1);
+    expect(parseEditableScaleInput('13')).toBe(13);
+    expect(parseEditableScaleInput('20')).toBe(13);
+    expect(parseEditableScaleInput('abc', 5)).toBe(5);
+    expect(normalizeEditableScaleValue(-1)).toBe(0);
   });
 
   test('builds draft state with snapshot for existing cards', () => {

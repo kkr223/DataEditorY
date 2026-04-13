@@ -9,6 +9,7 @@ use crate::services::assets::{
     cdb_dir_from_path, copy_if_exists, field_image_path, main_image_path, script_path,
 };
 use crate::{
+    TaskProgressPayload,
     models::cdb::{
         AnalyzeCdbMergeResponse, CardDto, ExecuteCdbMergeRequest, ExecuteCdbMergeResponse,
         MergeSourceItemDto, MergeSourcePlanDto,
@@ -245,6 +246,20 @@ fn validate_output_dir(output_dir: &Path, sources: &[MergeSourceContext]) -> Res
     Ok(())
 }
 
+fn emit_merge_progress(
+    progress: &mut dyn FnMut(TaskProgressPayload),
+    stage: &str,
+    current: usize,
+    total: usize,
+) {
+    progress(TaskProgressPayload {
+        task: "merge".to_string(),
+        stage: stage.to_string(),
+        current: current as u32,
+        total: total as u32,
+    });
+}
+
 pub fn collect_merge_sources_from_folder(
     directory_path: &str,
 ) -> Result<Vec<MergeSourceItemDto>, String> {
@@ -304,8 +319,16 @@ pub fn analyze_cdb_merge_paths(
     Ok(build_analysis_response(&plan))
 }
 
+#[allow(dead_code)]
 pub fn execute_cdb_merge(
     request: ExecuteCdbMergeRequest,
+) -> Result<ExecuteCdbMergeResponse, String> {
+    execute_cdb_merge_with_progress(request, &mut |_| {})
+}
+
+pub fn execute_cdb_merge_with_progress(
+    request: ExecuteCdbMergeRequest,
+    progress: &mut dyn FnMut(TaskProgressPayload),
 ) -> Result<ExecuteCdbMergeResponse, String> {
     let plan = build_merge_plan(
         &request.source_paths,
@@ -331,7 +354,34 @@ pub fn execute_cdb_merge(
     let staged_field_pics_dir = staged_pics_dir.join("field");
     let staged_script_dir = stage_dir.join("script");
 
+    let main_image_total = if request.include_images {
+        plan.winning_main_image_source_by_code.len()
+    } else {
+        0
+    };
+    let field_image_total = if request.include_images {
+        plan.merged_cards
+            .iter()
+            .filter(|card| {
+                card_has_field_subtype(card)
+                    && plan.winning_field_image_source_by_code.contains_key(&card.code)
+            })
+            .count()
+    } else {
+        0
+    };
+    let script_total = if request.include_scripts {
+        plan.winning_script_source_by_code.len()
+    } else {
+        0
+    };
+    let total_steps = 1 + main_image_total + field_image_total + script_total + 1;
+    let mut completed_steps = 0_usize;
+    emit_merge_progress(progress, "merging", completed_steps, total_steps);
+
     cdb_repository::recreate_cdb_with_cards(&staged_cdb_path, &plan.merged_cards)?;
+    completed_steps += 1;
+    emit_merge_progress(progress, "merging", completed_steps, total_steps);
 
     if request.include_images {
         for card in &plan.merged_cards {
@@ -341,6 +391,8 @@ pub fn execute_cdb_merge(
                     &main_image_path(winner_dir, card.code),
                     &staged_pics_dir.join(format!("{}.jpg", card.code)),
                 )?;
+                completed_steps += 1;
+                emit_merge_progress(progress, "merging", completed_steps, total_steps);
             }
 
             if card_has_field_subtype(card) {
@@ -351,6 +403,8 @@ pub fn execute_cdb_merge(
                         &field_image_path(winner_dir, card.code),
                         &staged_field_pics_dir.join(format!("{}.jpg", card.code)),
                     )?;
+                    completed_steps += 1;
+                    emit_merge_progress(progress, "merging", completed_steps, total_steps);
                 }
             }
         }
@@ -364,6 +418,8 @@ pub fn execute_cdb_merge(
                     &script_path(winner_dir, card.code),
                     &staged_script_dir.join(format!("c{}.lua", card.code)),
                 )?;
+                completed_steps += 1;
+                emit_merge_progress(progress, "merging", completed_steps, total_steps);
             }
         }
     }
@@ -438,6 +494,9 @@ pub fn execute_cdb_merge(
         let _ = fs::remove_dir_all(&stage_dir);
         return Err(error);
     }
+
+    completed_steps += 1;
+    emit_merge_progress(progress, "committing", completed_steps, total_steps);
 
     if backup_cdb_path.exists() {
         let _ = fs::remove_file(&backup_cdb_path);

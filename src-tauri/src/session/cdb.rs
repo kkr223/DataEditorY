@@ -1,5 +1,4 @@
 use rand::RngCore;
-use rusqlite::Connection;
 use std::{
     collections::HashMap,
     fs,
@@ -7,12 +6,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tauri::{AppHandle, Manager};
+use ygopro_cdb_encode_rs::YgoProCdb;
 
 #[derive(Clone)]
 pub(crate) struct CdbSessionMeta {
     pub(crate) path: String,
     pub(crate) working_path: PathBuf,
-    pub(crate) conn: Arc<Mutex<Connection>>,
+    pub(crate) cdb: Arc<Mutex<YgoProCdb>>,
 }
 
 pub struct OpenCdbSessions(pub Mutex<HashMap<String, CdbSessionMeta>>);

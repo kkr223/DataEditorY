@@ -1,10 +1,10 @@
 import { get } from 'svelte/store';
 import { locale } from 'svelte-i18n';
-import { cacheActiveTabSelection, searchCardsPage } from '$lib/stores/db';
+import { activeTabId, cacheActiveTabSelection, onCachedSearchRefreshed, searchCardsPage } from '$lib/stores/db';
 import { getRuleExpressionErrorMessage, RuleExpressionError } from '$lib/domain/search/ruleExpression';
 import { showToast } from '$lib/stores/toast.svelte';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import type { CardDataEntry, SearchFilterState } from '$lib/types';
+import type { CardDataEntry, SearchFilters } from '$lib/types';
 
 // allCards is a large array (potentially 10k+ items) that is only used for
 // read-only rendering in CardList. Using $state.raw avoids Svelte 5's deep
@@ -65,7 +65,7 @@ export const editorState = $state<{
   selectedIds: number[];
   selectionAnchorId: number | null;
   currentPage: number;
-  searchFilters: SearchFilterState;
+  searchFilters: SearchFilters;
   searchError: string;
   isFilterOpen: boolean;
 }>({
@@ -109,6 +109,41 @@ export function getTotalCards(): number {
 export function setTotalCards(total: number): void {
   _totalCards = total;
 }
+
+function syncActiveSearchSnapshot(input: {
+  tabId: string;
+  cards: CardDataEntry[];
+  total: number;
+  page: number;
+}) {
+  if (get(activeTabId) !== input.tabId) {
+    return;
+  }
+
+  const prevSelectedId = editorState.selectedId;
+  const prevSelectedIds = [...editorState.selectedIds];
+  const prevAnchorId = editorState.selectionAnchorId;
+
+  setAllCards(input.cards);
+  _totalCards = input.total;
+  editorState.currentPage = input.page;
+
+  const visibleSelectedIds = getVisibleSelectedIds(prevSelectedIds);
+  if (visibleSelectedIds.length > 0) {
+    applySelection(visibleSelectedIds, prevSelectedId, prevAnchorId);
+    return;
+  }
+
+  if (_allCards.length > 0) {
+    setSingleSelectedCard(_allCards[0].code);
+  } else {
+    clearSelection();
+  }
+}
+
+onCachedSearchRefreshed((snapshot) => {
+  syncActiveSearchSnapshot(snapshot);
+});
 
 export function getSelectedCard(): CardDataEntry | null {
   return _allCardsMap.get(editorState.selectedId ?? -1) ?? null;

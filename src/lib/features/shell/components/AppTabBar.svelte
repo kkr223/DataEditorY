@@ -69,7 +69,7 @@
 
 <style>
   .tab-bar {
-    --tab-radius: 12px;
+    --tab-radius: var(--border-radius-lg);
     --tab-surface: color-mix(in srgb, var(--bg-surface-hover) 72%, var(--bg-surface));
     --tab-surface-hover: color-mix(in srgb, var(--bg-surface-hover) 92%, var(--bg-surface));
     --tab-surface-active: color-mix(in srgb, var(--bg-base) 82%, var(--bg-surface));
@@ -95,7 +95,7 @@
     right: 0;
     bottom: 0;
     height: 1px;
-    background: color-mix(in srgb, var(--border-color) 82%, transparent);
+    background: var(--interactive-hover-border);
   }
 
   .tab-item,
@@ -144,7 +144,7 @@
   .tab-item.active {
     color: var(--text-primary);
     background: var(--tab-surface-active);
-    border-color: color-mix(in srgb, var(--border-color) 92%, rgba(255, 255, 255, 0.12));
+    border-color: var(--interactive-hover-border);
     transform: translateY(0);
     z-index: 2;
     box-shadow: none;
@@ -157,7 +157,7 @@
     right: 12px;
     bottom: -1px;
     height: 1px;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     background: color-mix(in srgb, var(--bg-base) 96%, white 4%);
   }
 
@@ -199,7 +199,7 @@
     justify-content: center;
     width: 17px;
     height: 17px;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     color: inherit;
     opacity: 0.68;
     position: relative;
@@ -208,7 +208,7 @@
   }
 
   .tab-close:hover {
-    background: color-mix(in srgb, var(--bg-surface-hover) 78%, transparent);
+    background: var(--interactive-soft-bg);
     opacity: 1;
     transform: none;
   }
@@ -224,18 +224,18 @@
     font-size: 1.08rem;
     font-weight: 600;
     line-height: 1;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     border: 1px solid transparent;
     background: transparent;
-    color: color-mix(in srgb, var(--text-secondary) 92%, white 8%);
+    color: var(--text-secondary);
     transform: translateY(2px);
     box-shadow: none;
   }
 
   .tab-add:hover {
     transform: translateY(0);
-    background: color-mix(in srgb, var(--bg-surface-hover) 88%, transparent);
-    border-color: color-mix(in srgb, var(--border-color) 72%, transparent);
+    background: var(--interactive-soft-bg);
+    border-color: var(--interactive-soft-border);
     color: var(--text-primary);
   }
 
@@ -246,6 +246,6 @@
   .tab-item:focus-visible,
   .tab-add:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 35%, transparent);
+    box-shadow: var(--focus-ring-strong);
   }
 </style>

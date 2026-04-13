@@ -14,7 +14,9 @@
     toggleCardSelection
   } from '$lib/stores/editor.svelte';
   import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
+  import { SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
   import { APP_SHORTCUT_EVENT } from '$lib/utils/shortcuts';
+  import { disableAutofill } from '$lib/actions/disableAutofill';
 
   const PAGE_SIZE = 50;
   const RACE_FILTER_OPTIONS = RACE_OPTIONS
@@ -77,6 +79,13 @@
     }
   }
 
+  async function handleResetAll() {
+    await handleReset();
+    window.dispatchEvent(new CustomEvent(APP_SHORTCUT_EVENT, {
+      detail: 'new-card',
+    }));
+  }
+
   function handleSearchKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
       void runSearch();
@@ -95,6 +104,24 @@
     }
 
     setSingleSelectedCard(code);
+  }
+
+  function getCardTypeTone(type: number) {
+    if (type & TYPE_MAP.monster) {
+      if (type & SUBTYPE_MAP.link) return 'type-link';
+      if (type & SUBTYPE_MAP.xyz) return 'type-xyz';
+      if (type & SUBTYPE_MAP.synchro) return 'type-synchro';
+      if (type & SUBTYPE_MAP.fusion) return 'type-fusion';
+      if (type & SUBTYPE_MAP.ritual) return 'type-ritual';
+      if (type & SUBTYPE_MAP.pendulum) return 'type-pendulum';
+      if (type & SUBTYPE_MAP.token) return 'type-token';
+      if (type & SUBTYPE_MAP.effect) return 'type-effect';
+      return 'type-monster';
+    }
+
+    if (type & TYPE_MAP.spell) return 'type-spell';
+    if (type & TYPE_MAP.trap) return 'type-trap';
+    return 'type-default';
   }
 
   let searchInput: HTMLInputElement | null = null;
@@ -116,7 +143,7 @@
 
 </script>
 
-<section class="pane list-pane">
+<section class="pane list-pane" use:disableAutofill>
   <div class="list-header-complex">
     <div class="search-row">
       <div class="search-input-wrapper">
@@ -125,7 +152,7 @@
       <button class="btn-primary" onclick={() => void runSearch()} disabled={!$isDbLoaded} title={$_('search.title')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       </button>
-      <button class="btn-secondary btn-icon" onclick={handleReset} disabled={!$isDbLoaded} title={$_('search.reset')}>
+      <button class="btn-secondary btn-icon" onclick={() => void handleResetAll()} disabled={!$isDbLoaded} title={$_('search.reset')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 3v6h6"></path></svg>
       </button>
       <button class="btn-secondary btn-icon" class:active={editorState.isFilterOpen} class:has-filters={hasActiveFilters} onclick={toggleFilter} title="Filters">
@@ -172,17 +199,17 @@
         <div class="form-group">
           <span class="group-label">{$_('search.atk')}</span>
           <div class="range-inputs">
-            <input type="number" placeholder={$_('search.atk_min')} bind:value={editorState.searchFilters.atkMin} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.atk_min')} bind:value={editorState.searchFilters.atkMin} />
             <span class="range-sep">~</span>
-            <input type="number" placeholder={$_('search.atk_max')} bind:value={editorState.searchFilters.atkMax} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.atk_max')} bind:value={editorState.searchFilters.atkMax} />
           </div>
         </div>
         <div class="form-group">
           <span class="group-label">{$_('search.def')}</span>
           <div class="range-inputs">
-            <input type="number" placeholder={$_('search.def_min')} bind:value={editorState.searchFilters.defMin} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.def_min')} bind:value={editorState.searchFilters.defMin} />
             <span class="range-sep">~</span>
-            <input type="number" placeholder={$_('search.def_max')} bind:value={editorState.searchFilters.defMax} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.def_max')} bind:value={editorState.searchFilters.defMax} />
           </div>
         </div>
       </div>
@@ -316,8 +343,8 @@
             onclick={(event) => handleRowClick(event, card.code)}
           >
             <td class="id-col">{card.code}</td>
-            <td class="name-col">{card.name}</td>
-            <td>{$_(getCardTypeKey(card.type))}</td>
+            <td class={`name-col ${getCardTypeTone(card.type)}`}>{card.name}</td>
+            <td class={`type-col ${getCardTypeTone(card.type)}`}>{$_(getCardTypeKey(card.type))}</td>
           </tr>
         {/each}
         {#if totalCards === 0}
@@ -360,7 +387,7 @@
   .list-header-complex { display: flex; flex-direction: column; border-bottom: 1px solid var(--border-color); position: relative; z-index: 20; }
   .search-row { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md); }
   .search-input-wrapper { flex: 1; }
-  .search-input-wrapper input { width: 100%; margin: 0; padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-base); color: var(--text-primary); }
+  .search-input-wrapper input { width: 100%; margin: 0; padding: 4px 8px; border: 1px solid var(--border-color); border-radius: var(--control-radius); background: var(--bg-base); color: var(--text-primary); }
   .search-input-wrapper input:focus { border-color: var(--accent-primary); outline: none; }
   
   .advanced-filters {
@@ -371,11 +398,11 @@
     padding: var(--spacing-md);
     background-color: var(--bg-elevated);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-md);
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+    border-radius: var(--control-radius-soft);
+    box-shadow: var(--shadow-popover);
   }
   .results-stats { padding: var(--spacing-xs) var(--spacing-md); background-color: var(--bg-surface-active); border-top: 1px solid var(--border-color); }
-  .badge { background: var(--bg-surface-active); color: var(--text-secondary); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 500; }
+  .badge { background: var(--bg-surface-active); color: var(--text-secondary); padding: 2px 8px; border-radius: var(--control-radius-pill); font-size: 0.8rem; font-weight: 500; }
 
   /* Form */
   .form-group { margin-bottom: var(--spacing-sm); display: flex; flex-direction: column; gap: 4px; }
@@ -383,22 +410,22 @@
   .form-row .form-group { flex: 1; }
   .flex-2 { flex: 2 !important; }
   label, .group-label { font-size: 0.86rem; color: var(--text-secondary); font-weight: 600; }
-  input, select { width: 100%; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 0.3rem 0.55rem; font-size: 0.92rem; transition: all 0.2s; }
-  input:focus, select:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 1px var(--accent-primary); outline: none; }
-  .input-error { border-color: #d14343; box-shadow: 0 0 0 1px rgba(209, 67, 67, 0.2); }
+  input, select { width: 100%; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 0.3rem 0.55rem; font-size: 0.92rem; transition: all 0.2s; }
+  input:focus, select:focus { border-color: var(--accent-primary); box-shadow: var(--focus-ring); outline: none; }
+  .input-error { border-color: var(--state-danger-fg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--state-danger-fg) 20%, transparent); }
   .input-error-bubble {
     margin-top: 0.2rem;
     padding: 0.45rem 0.6rem;
-    border-radius: var(--border-radius-sm);
-    background: color-mix(in srgb, #d14343 14%, var(--bg-base));
-    border: 1px solid color-mix(in srgb, #d14343 45%, var(--border-color));
-    color: #d14343;
+    border-radius: var(--control-radius);
+    background: var(--state-danger-soft-bg);
+    border: 1px solid var(--state-danger-soft-border);
+    color: var(--state-danger-fg);
     font-size: 0.82rem;
     line-height: 1.35;
   }
 
   /* Buttons */
-  button { font-size: 0.9rem; font-weight: 600; padding: 0.38rem 0.7rem; border-radius: var(--border-radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-sm); transition: all 0.2s; cursor: pointer; border: none; }
+  button { font-size: 0.9rem; font-weight: 600; padding: 0.38rem 0.7rem; border-radius: var(--control-radius); display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-sm); transition: all 0.2s; cursor: pointer; border: none; }
   .btn-primary { background-color: var(--accent-primary); color: white; }
   .btn-primary:hover { background-color: var(--accent-primary-hover); }
   .btn-secondary { background-color: var(--bg-surface-active); color: var(--text-primary); }
@@ -439,11 +466,31 @@
   .data-table tbody tr.selected td:first-child { padding-left: calc(var(--spacing-sm) - 2px); }
   .data-table tbody tr.primary-selected { background-color: rgba(59, 130, 246, 0.22); }
   .id-col { color: var(--text-secondary); font-variant-numeric: tabular-nums; font-size: 0.86rem; }
-  .name-col { font-weight: 500; }
+  .name-col {
+    font-weight: 500;
+    transition: color 0.12s ease;
+  }
+  .type-col {
+    font-size: 0.84rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .type-default { color: var(--card-list-type-default); }
+  .type-monster { color: var(--card-list-type-monster); }
+  .type-effect { color: var(--card-list-type-effect); }
+  .type-ritual { color: var(--card-list-type-ritual); }
+  .type-fusion { color: var(--card-list-type-fusion); }
+  .type-synchro { color: var(--card-list-type-synchro); }
+  .type-xyz { color: var(--card-list-type-xyz); }
+  .type-link { color: var(--card-list-type-link); }
+  .type-pendulum { color: var(--card-list-type-pendulum); }
+  .type-token { color: var(--card-list-type-token); }
+  .type-spell { color: var(--card-list-type-spell); }
+  .type-trap { color: var(--card-list-type-trap); }
 
   /* Pagination */
   .pagination-bar { display: flex; align-items: center; justify-content: center; gap: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-md); border-top: 1px solid var(--border-color); background-color: var(--bg-surface); flex-shrink: 0; }
-  .page-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0 !important; border-radius: var(--border-radius-sm); background: var(--bg-surface-active); color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.15s; }
+  .page-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0 !important; border-radius: var(--control-radius); background: var(--bg-surface-active); color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.15s; }
   .page-btn:hover:not(:disabled) { background: var(--bg-surface-hover); color: var(--text-primary); }
   .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
   .page-info { font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 60px; text-align: center; }
@@ -460,7 +507,7 @@
     -webkit-appearance: none;
     margin: 0;
   }
-  .range-inputs input[type='number'] {
+  .range-inputs input {
     -moz-appearance: textfield;
     appearance: textfield;
   }
@@ -471,12 +518,12 @@
     align-items: center;
     background: var(--bg-base);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-sm);
+    border-radius: var(--control-radius);
     overflow: hidden;
   }
   .setcode-search-input:focus-within {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 1px var(--accent-primary);
+    box-shadow: var(--focus-ring);
   }
   .setcode-prefix {
     padding: 0 0.45rem;

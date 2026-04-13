@@ -2,6 +2,9 @@
   export let isEditingExisting = false;
   export let editingHint = "";
   export let newCardHint = "";
+  export let backgroundTaskLabel = "";
+  export let backgroundTaskProgressText = "";
+  export let backgroundQueuedCount = 0;
   export let resetSearchLabel = "";
   export let newCardLabel = "";
   export let aiParseLabel = "";
@@ -31,11 +34,25 @@
   export let onDelete: () => void | Promise<void> = () => {};
 </script>
 
-<div class="editor-empty-hint">
-  {#if isEditingExisting}
-    {editingHint}
-  {:else}
-    {newCardHint}
+<div class="editor-meta-row">
+  <div class="editor-empty-hint">
+    {#if isEditingExisting}
+      {editingHint}
+    {:else}
+      {newCardHint}
+    {/if}
+  </div>
+  {#if backgroundTaskLabel}
+    <div class="background-task-status" aria-live="polite">
+      <span class="background-task-dot"></span>
+      <span class="background-task-label">{backgroundTaskLabel}</span>
+      {#if backgroundTaskProgressText}
+        <span class="background-task-progress">{backgroundTaskProgressText}</span>
+      {/if}
+      {#if backgroundQueuedCount > 0}
+        <span class="background-task-queue">+{backgroundQueuedCount}</span>
+      {/if}
+    </div>
   {/if}
 </div>
 
@@ -73,10 +90,57 @@
 </div>
 
 <style>
-  .editor-empty-hint {
+  .editor-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     padding: 0 10px 8px;
+  }
+
+  .editor-empty-hint {
+    min-width: 0;
+    flex: 1;
     color: var(--text-secondary);
     font-size: 0.85rem;
+  }
+
+  .background-task-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+    max-width: min(32rem, 100%);
+    padding: 0.36rem 0.72rem;
+    border-radius: var(--control-radius-pill);
+    border: 1px solid color-mix(in srgb, var(--accent-primary) 24%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface-active));
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .background-task-dot {
+    width: 0.46rem;
+    height: 0.46rem;
+    border-radius: var(--control-radius-pill);
+    background: var(--accent-primary);
+    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--accent-primary) 18%, transparent);
+    flex-shrink: 0;
+  }
+
+  .background-task-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .background-task-progress,
+  .background-task-queue {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
   }
 
   .editor-bottom {
@@ -117,7 +181,7 @@
     font-size: 0.9rem;
     font-weight: 600;
     padding: 4px 10px;
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -151,29 +215,46 @@
   }
 
   .btn-secondary-script {
-    background: color-mix(in srgb, #0ea5e9 18%, var(--bg-surface-active));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, #0ea5e9 24%, transparent);
+    background: var(--feature-script-bg);
+    box-shadow: inset 0 0 0 1px var(--feature-script-border);
   }
 
   .btn-secondary-script:hover {
-    background: color-mix(in srgb, #0ea5e9 26%, var(--bg-surface-hover));
+    background: var(--feature-script-bg-hover);
   }
 
   .btn-secondary-card-image {
-    background: color-mix(in srgb, #f59e0b 16%, var(--bg-surface-active));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, #f59e0b 24%, transparent);
+    background: var(--feature-image-bg);
+    box-shadow: inset 0 0 0 1px var(--feature-image-border);
   }
 
   .btn-secondary-card-image:hover {
-    background: color-mix(in srgb, #f59e0b 24%, var(--bg-surface-hover));
+    background: var(--feature-image-bg-hover);
   }
 
   .btn-danger {
-    background: #dc2626;
-    color: white;
+    background: var(--state-danger-bg);
+    color: var(--state-danger-text);
   }
 
   .btn-danger:hover {
-    background: #b91c1c;
+    background: var(--state-danger-bg-hover);
+  }
+
+  @media (max-width: 1180px) {
+    .editor-meta-row {
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .editor-empty-hint {
+      padding: 0;
+    }
+
+    .background-task-status {
+      width: 100%;
+      justify-content: flex-start;
+      max-width: none;
+    }
   }
 </style>

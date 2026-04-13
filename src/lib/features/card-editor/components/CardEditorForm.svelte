@@ -1,11 +1,16 @@
 <script lang="ts">
   import { _, locale } from "svelte-i18n";
   import SetcodeField from "$lib/components/SetcodeField.svelte";
+  import { disableAutofill } from "$lib/actions/disableAutofill";
   import type { CardDataEntry } from "$lib/types";
   import {
     ATTRIBUTE_OPTIONS,
+    formatEditableScaleValue,
+    formatEditableStatValue,
     getPackedLevel,
     LINK_MARKERS,
+    parseEditableScaleInput,
+    parseEditableStatInput,
     PERMISSION_OPTIONS,
     RACE_OPTIONS,
   } from "$lib/utils/card";
@@ -98,10 +103,44 @@
   ];
 
   let isEnglishLocale = false;
+  let attackInput = "";
+  let defenseInput = "";
+  let leftScaleInput = "";
+  let rightScaleInput = "";
   $: isEnglishLocale = ($locale ?? "").startsWith("en");
+  $: attackInput = formatEditableStatValue(draftCard.attack);
+  $: defenseInput = isLink ? "0" : formatEditableStatValue(draftCard.defense);
+  $: leftScaleInput = formatEditableScaleValue(draftCard.lscale);
+  $: rightScaleInput = formatEditableScaleValue(draftCard.rscale);
+
+  function handleAttackInput(event: Event) {
+    const target = event.currentTarget as HTMLInputElement;
+    attackInput = target.value;
+    draftCard.attack = parseEditableStatInput(target.value, draftCard.attack);
+  }
+
+  function handleDefenseInput(event: Event) {
+    const target = event.currentTarget as HTMLInputElement;
+    defenseInput = target.value;
+    if (isLink) {
+      draftCard.defense = 0;
+      return;
+    }
+    draftCard.defense = parseEditableStatInput(target.value, draftCard.defense);
+  }
+
+  function handleScaleInput(side: "left" | "right", event: Event) {
+    const target = event.currentTarget as HTMLInputElement;
+    if (side === "left") {
+      leftScaleInput = target.value;
+    } else {
+      rightScaleInput = target.value;
+    }
+    onUpdateDraftScale(side, parseEditableScaleInput(target.value, side === "left" ? draftCard.lscale : draftCard.rscale));
+  }
 </script>
 
-<div class="editor-columns">
+<div class="editor-columns" use:disableAutofill>
   <div class="editor-col">
     <div class="card-top-row">
       <button
@@ -170,7 +209,14 @@
           <span class="compact-panel-label compact-panel-title" title={linkMarkersLabel}></span>
           <label class="compact-panel-label compact-panel-main-label compact-panel-value-label" for="edit-def">{defLabel}</label>
 
-          <input class="compact-panel-input compact-panel-value-input" type="number" id="edit-atk" bind:value={draftCard.attack} />
+          <input
+            class="compact-panel-input compact-panel-value-input"
+            type="text"
+            inputmode="numeric"
+            id="edit-atk"
+            value={attackInput}
+            oninput={handleAttackInput}
+          />
 
           <div class="compact-link-section" class:disabled-opacity={!isLink}>
             <div class="link-marker-grid">
@@ -187,32 +233,38 @@
             </div>
           </div>
 
-          <input class="compact-panel-input compact-panel-value-input" type="number" id="edit-def" bind:value={draftCard.defense} disabled={isLink} />
+          <input
+            class="compact-panel-input compact-panel-value-input"
+            type="text"
+            inputmode="numeric"
+            id="edit-def"
+            value={defenseInput}
+            oninput={handleDefenseInput}
+            disabled={isLink}
+          />
 
           <div class="compact-scale-slot compact-scale-slot-left" class:disabled-opacity={!isPend} title={`${scaleLabel} ${scaleLeftLabel}`}>
             <label class="compact-panel-label compact-panel-scale-label compact-panel-label-center" for="edit-lscale" title={scaleLeftLabel}></label>
             <input
               class="compact-panel-input"
-              type="number"
+              type="text"
+              inputmode="numeric"
               id="edit-lscale"
-              min="0"
-              max="13"
               disabled={!isPend}
-              value={draftCard.lscale}
-              oninput={(event) => onUpdateDraftScale("left", Number((event.currentTarget as HTMLInputElement).value))}
+              value={leftScaleInput}
+              oninput={(event) => handleScaleInput("left", event)}
             />
           </div>
           <div class="compact-scale-slot compact-scale-slot-right" class:disabled-opacity={!isPend} title={`${scaleLabel} ${scaleRightLabel}`}>
             <label class="compact-panel-label compact-panel-scale-label compact-panel-label-center" for="edit-rscale" title={scaleRightLabel}></label>
             <input
               class="compact-panel-input"
-              type="number"
+              type="text"
+              inputmode="numeric"
               id="edit-rscale"
-              min="0"
-              max="13"
               disabled={!isPend}
-              value={draftCard.rscale}
-              oninput={(event) => onUpdateDraftScale("right", Number((event.currentTarget as HTMLInputElement).value))}
+              value={rightScaleInput}
+              oninput={(event) => handleScaleInput("right", event)}
             />
           </div>
         </div>
@@ -325,7 +377,7 @@
     aspect-ratio: 0.69;
     background: var(--bg-base);
     border: 1px dashed var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     padding: 2px;
     display: flex;
     align-items: center;
@@ -340,8 +392,8 @@
   }
 
   .image-picker:focus-visible {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: var(--focus-ring-strong);
   }
 
   .card-img {
@@ -436,7 +488,7 @@
     margin: 0;
   }
 
-  .compact-panel-value-input[type="number"] {
+  .compact-panel-value-input {
     -moz-appearance: textfield;
     appearance: textfield;
   }
@@ -517,7 +569,7 @@
     background: var(--bg-base);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     padding: 3px 6px;
     font-size: 0.9rem;
     transition: border-color 0.15s;
@@ -527,7 +579,7 @@
   select:focus,
   textarea:focus {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 1px var(--accent-primary);
+    box-shadow: var(--focus-ring);
     outline: none;
   }
 
@@ -542,7 +594,7 @@
     gap: 0.533rem;
     background: var(--bg-base);
     padding: 0.533rem 0.667rem;
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     border: 1px solid var(--border-color);
   }
 
@@ -594,7 +646,7 @@
     gap: 3px;
     background: var(--bg-base);
     padding: 0.4rem;
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     border: 1px solid var(--border-color);
   }
 
@@ -614,7 +666,7 @@
     border: 1px solid var(--border-color);
     background: var(--bg-base);
     color: var(--text-secondary);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     transition: all 0.15s;
   }
 
@@ -622,7 +674,7 @@
     background: var(--accent-primary);
     color: white;
     border-color: var(--accent-primary);
-    box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+    box-shadow: var(--accent-soft-glow);
   }
 
   .link-arrow:hover {
@@ -666,7 +718,7 @@
     min-height: 9rem;
     overflow-y: auto;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     background: var(--bg-base);
   }
 

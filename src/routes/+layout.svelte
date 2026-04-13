@@ -40,11 +40,14 @@
   }
 
   onMount(() => {
-    shellController.setup();
+    const cleanupShell = shellController.setup();
+    const cleanupDialogs = dialogsController.setup();
     syncUiScale();
     window.addEventListener('resize', syncUiScale);
 
     return () => {
+      cleanupShell?.();
+      cleanupDialogs?.();
       window.removeEventListener('resize', syncUiScale);
       document.documentElement.style.removeProperty('--ui-scale');
     };
@@ -63,6 +66,8 @@
       theme={shellController.state.theme}
       hasActiveCdb={Boolean($activeTab?.path)}
       hasPackageTarget={Boolean(dialogsController.getCurrentPackageCdbPath())}
+      isMergeBusy={dialogsController.isMergeTaskRunning()}
+      isPackageBusy={dialogsController.isPackageTaskRunning()}
       isOpenHistoryVisible={shellController.state.isOpenHistoryVisible}
       recentEntries={shellController.recentEntries.current}
       onOpen={shellController.handleOpen}

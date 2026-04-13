@@ -2,29 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CardDto {
-    pub code: u32,
-    pub alias: u32,
-    pub setcode: Vec<u16>,
-    #[serde(rename = "type")]
-    pub type_: u32,
-    pub attack: i32,
-    pub defense: i32,
-    pub level: u32,
-    pub race: u32,
-    pub attribute: u32,
-    pub category: u64,
-    pub ot: u32,
-    pub name: String,
-    pub desc: String,
-    pub strings: Vec<String>,
-    pub lscale: u32,
-    pub rscale: u32,
-    pub link_marker: u32,
-    pub rule_code: u32,
-}
+pub type CardDto = ygopro_cdb_encode_rs::CardDataEntry;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

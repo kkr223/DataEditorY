@@ -32,11 +32,75 @@ export function normalizeCardStrings(strings: string[] | undefined) {
   return Array.from({ length: CARD_TEXT_SLOT_COUNT }, (_, index) => strings?.[index] ?? '');
 }
 
+export function formatEditableStatValue(value: number) {
+  return value === -2 ? '?' : String(value);
+}
+
+export function normalizeEditableStatValue(value: number) {
+  return value < 0 ? -2 : value;
+}
+
+export function formatEditableScaleValue(value: number) {
+  return String(value);
+}
+
+export function normalizeEditableScaleValue(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  return Math.max(0, Math.min(13, value));
+}
+
+export function parseEditableStatInput(input: string, fallback = 0) {
+  const normalized = input.trim();
+  if (!normalized) return 0;
+  if (normalized === '?' || normalized === '？' || normalized === '-2') {
+    return -2;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (Number.isNaN(parsed)) {
+    return fallback;
+  }
+
+  // Allow -1 to pass through for search logic
+  if (parsed === -1) {
+    return -1;
+  }
+  
+  return normalizeEditableStatValue(parsed);
+}
+
+export function parseEditableScaleInput(input: string, fallback = 0) {
+  const normalized = input.trim();
+  if (!normalized) return 0;
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (Number.isNaN(parsed)) {
+    return fallback;
+  }
+
+  // Allow -1 to pass through for draft-search exact-zero semantics
+  if (parsed === -1) {
+    return -1;
+  }
+
+  return normalizeEditableScaleValue(parsed);
+}
+
 export function toPersistableCard(card: CardDataEntry): CardDataEntry {
+  const lscale = normalizeEditableScaleValue(card.lscale);
+  const rscale = normalizeEditableScaleValue(card.rscale);
+  const level = Number.isFinite(card.level) ? (card.level & 0xff) : 0;
+
   return {
     ...card,
+    attack: normalizeEditableStatValue(card.attack),
+    defense: normalizeEditableStatValue(card.defense),
+    level: (level & 0xff) | ((rscale & 0xff) << 16) | ((lscale & 0xff) << 24),
     setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
     strings: normalizeCardStrings(card.strings),
+    lscale,
+    rscale,
     ruleCode: normalizeRuleCode(card.ruleCode),
   };
 }

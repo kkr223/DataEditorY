@@ -1,20 +1,20 @@
 export interface SearchFilters {
-  name?: string;
-  id?: string;
-  desc?: string;
-  rule?: string;
-  atkMin?: string | number;
-  atkMax?: string | number;
-  defMin?: string | number;
-  defMax?: string | number;
-  type?: string;
-  subtype?: string;
-  attribute?: string;
-  race?: string;
-  setcode1?: string;
-  setcode2?: string;
-  setcode3?: string;
-  setcode4?: string;
+  id: string;
+  name: string;
+  desc: string;
+  rule: string;
+  atkMin: string;
+  atkMax: string;
+  defMin: string;
+  defMax: string;
+  type: string;
+  subtype: string;
+  attribute: string;
+  race: string;
+  setcode1: string;
+  setcode2: string;
+  setcode3: string;
+  setcode4: string;
 }
 
 export interface CardSearchQuery {
@@ -113,25 +113,6 @@ export interface LuaCatalog {
   keywords: string[];
 }
 
-export interface SearchFilterState {
-  id: string;
-  name: string;
-  desc: string;
-  rule: string;
-  atkMin: string;
-  atkMax: string;
-  defMin: string;
-  defMax: string;
-  type: string;
-  subtype: string;
-  attribute: string;
-  race: string;
-  setcode1: string;
-  setcode2: string;
-  setcode3: string;
-  setcode4: string;
-}
-
 export interface SelectOption<T = string | number> {
   value: T;
   label?: string;
@@ -150,7 +131,7 @@ export interface LinkMarkerOption {
   col: number;
 }
 
-export const DEFAULT_SEARCH_FILTERS: SearchFilterState = {
+export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
   id: '',
   name: '',
   desc: '',
