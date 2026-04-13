@@ -15,6 +15,7 @@
   } from '$lib/stores/editor.svelte';
   import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
   import { APP_SHORTCUT_EVENT } from '$lib/utils/shortcuts';
+  import { disableAutofill } from '$lib/actions/disableAutofill';
 
   const PAGE_SIZE = 50;
   const RACE_FILTER_OPTIONS = RACE_OPTIONS
@@ -116,7 +117,7 @@
 
 </script>
 
-<section class="pane list-pane">
+<section class="pane list-pane" use:disableAutofill>
   <div class="list-header-complex">
     <div class="search-row">
       <div class="search-input-wrapper">

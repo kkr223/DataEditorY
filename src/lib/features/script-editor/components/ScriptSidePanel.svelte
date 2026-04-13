@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { disableAutofill } from '$lib/actions/disableAutofill';
+
   export let descriptionTitle = '';
   export let stringsTitle = '';
   export let effectText = '';
@@ -10,7 +12,7 @@
   export let onStringBlur: (index: number) => void | Promise<void> = () => {};
 </script>
 
-<aside class="script-side-panel">
+<aside class="script-side-panel" use:disableAutofill>
   <section class="script-side-card">
     <h3>{descriptionTitle}</h3>
     <div class="effect-text">{effectText || effectEmptyText}</div>

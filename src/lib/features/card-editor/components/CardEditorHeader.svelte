@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CardDataEntry } from "$lib/types";
+  import { disableAutofill } from "$lib/actions/disableAutofill";
 
   export let draftCard: CardDataEntry;
   export let saveLabel = "";
@@ -11,7 +12,7 @@
   export let onNewCard: () => void = () => {};
 </script>
 
-<div class="top-strip">
+<div class="top-strip" use:disableAutofill>
   <div class="strip-field strip-field-id">
     <label for="edit-id">{idLabel}</label>
     <input type="number" id="edit-id" bind:value={draftCard.code} />

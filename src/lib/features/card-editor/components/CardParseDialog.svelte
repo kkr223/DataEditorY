@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { disableAutofill } from '$lib/actions/disableAutofill';
+
   export let open = false;
   export let mode: 'parse' | 'instruction' = 'parse';
   export let manuscriptInput = '';
@@ -32,6 +34,7 @@
   >
     <div
       class="ai-modal"
+      use:disableAutofill
       role="dialog"
       tabindex="-1"
       aria-modal="true"

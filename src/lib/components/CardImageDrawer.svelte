@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { _ } from "svelte-i18n";
+  import { disableAutofill } from "$lib/actions/disableAutofill";
   import type { CardDataEntry } from "$lib/types";
   import { HAS_AI_FEATURE, HAS_EXTRA_BUILD } from "$lib/config/build";
   import { showToast } from "$lib/stores/toast.svelte";
@@ -2186,7 +2187,7 @@
 
 {#if open}
   <div class="drawer-backdrop" role="presentation" onclick={handleBackdropClick}>
-    <div class="drawer-panel" role="dialog" aria-modal="true" aria-label={$_("editor.card_image_title")}>
+    <div class="drawer-panel" use:disableAutofill role="dialog" aria-modal="true" aria-label={$_("editor.card_image_title")}>
       <div class="drawer-header">
         <div>
           <h3>{$_("editor.card_image_title")}</h3>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { _, locale } from "svelte-i18n";
   import SetcodeField from "$lib/components/SetcodeField.svelte";
+  import { disableAutofill } from "$lib/actions/disableAutofill";
   import type { CardDataEntry } from "$lib/types";
   import {
     ATTRIBUTE_OPTIONS,
@@ -101,7 +102,7 @@
   $: isEnglishLocale = ($locale ?? "").startsWith("en");
 </script>
 
-<div class="editor-columns">
+<div class="editor-columns" use:disableAutofill>
   <div class="editor-col">
     <div class="card-top-row">
       <button
