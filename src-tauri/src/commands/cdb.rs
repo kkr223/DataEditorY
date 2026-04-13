@@ -1,6 +1,7 @@
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 
 use crate::{
+    BACKGROUND_TASK_PROGRESS_EVENT,
     models::cdb::{
         AnalyzeCdbMergeRequest, AnalyzeCdbMergeResponse, CardDto,
         CollectMergeSourcesFromFolderRequest, CopyCardAssetsRequest, CreateCdbFromCardsRequest,
@@ -124,10 +125,18 @@ pub fn collect_merge_sources_from_folder(
 }
 
 #[tauri::command]
-pub fn execute_cdb_merge(
+pub async fn execute_cdb_merge(
+    app: AppHandle,
     request: ExecuteCdbMergeRequest,
 ) -> Result<ExecuteCdbMergeResponse, String> {
-    cdb_merge_service::execute_cdb_merge(request)
+    tauri::async_runtime::spawn_blocking(move || {
+        let progress_app = app.clone();
+        cdb_merge_service::execute_cdb_merge_with_progress(request, &mut |payload| {
+            let _ = progress_app.emit(BACKGROUND_TASK_PROGRESS_EVENT, &payload);
+        })
+    })
+    .await
+    .map_err(|err| err.to_string())?
 }
 
 #[tauri::command]

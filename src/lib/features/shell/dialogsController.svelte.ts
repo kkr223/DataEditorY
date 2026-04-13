@@ -1,5 +1,6 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import {
   analyzeCdbMerge,
@@ -9,6 +10,7 @@ import {
   executeCdbMerge,
   packageCdbAssetsAsZip,
   type AnalyzeCdbMergeResponse,
+  type BackgroundTaskProgressEvent,
   type MergeSourceItem,
 } from '$lib/infrastructure/tauri/commands';
 import {
@@ -57,7 +59,97 @@ export function createShellDialogsController() {
     isPackageMenuVisible: false,
     mergeAnalysis: null as AnalyzeCdbMergeResponse | null,
     mergeAnalysisKey: '',
+    backgroundTask: {
+      task: null as 'package' | 'merge' | null,
+      format: null as 'zip' | 'ypk' | null,
+      stage: '',
+      current: 0,
+      total: 0,
+    },
   });
+
+  let baseWindowTitle = 'DataEditorY Extra';
+
+  function getTaskTitle() {
+    if (!state.backgroundTask.task) {
+      return baseWindowTitle;
+    }
+
+    const label = state.backgroundTask.task === 'merge'
+      ? t('editor.background_merge_running')
+      : t(
+          state.backgroundTask.format === 'ypk'
+            ? 'editor.background_package_ypk_running'
+            : 'editor.background_package_zip_running',
+        );
+    const { current, total } = state.backgroundTask;
+
+    if (total > 0) {
+      return `${baseWindowTitle}（${label}-${current}/${total}）`;
+    }
+
+    return `${baseWindowTitle}（${label}）`;
+  }
+
+  async function applyWindowTitle() {
+    const nextTitle = getTaskTitle();
+    document.title = nextTitle;
+
+    if (!tauriBridge.isTauri()) {
+      return;
+    }
+
+    try {
+      await getCurrentWindow().setTitle(nextTitle);
+    } catch (error) {
+      console.warn('Failed to set window title', error);
+    }
+  }
+
+  function setBackgroundTask(input: {
+    task: 'package' | 'merge';
+    format?: 'zip' | 'ypk';
+    stage?: string;
+    current?: number;
+    total?: number;
+  }) {
+    state.backgroundTask.task = input.task;
+    state.backgroundTask.format = input.format ?? null;
+    state.backgroundTask.stage = input.stage ?? '';
+    state.backgroundTask.current = input.current ?? 0;
+    state.backgroundTask.total = input.total ?? 0;
+    void applyWindowTitle();
+  }
+
+  function clearBackgroundTask() {
+    state.backgroundTask.task = null;
+    state.backgroundTask.format = null;
+    state.backgroundTask.stage = '';
+    state.backgroundTask.current = 0;
+    state.backgroundTask.total = 0;
+    void applyWindowTitle();
+  }
+
+  function hasRunningBackgroundTask() {
+    return state.backgroundTask.task !== null;
+  }
+
+  function isMergeTaskRunning() {
+    return state.backgroundTask.task === 'merge';
+  }
+
+  function isPackageTaskRunning() {
+    return state.backgroundTask.task === 'package';
+  }
+
+  function ensureNoRunningBackgroundTask() {
+    if (!hasRunningBackgroundTask()) {
+      return true;
+    }
+
+    showToast(t('editor.background_task_busy'), 'info');
+    return false;
+  }
 
   function getCurrentPackageCdbPath() {
     if (appShellState.mainView === 'script' && activeScriptTabState.current?.cdbPath) {
@@ -188,6 +280,9 @@ export function createShellDialogsController() {
   }
 
   function openMergeCdbDialog() {
+    if (!ensureNoRunningBackgroundTask()) {
+      return;
+    }
     resetMergeDialogState();
     state.isMergeCdbOpen = true;
   }
@@ -351,6 +446,10 @@ export function createShellDialogsController() {
   }
 
   async function handleExecuteMerge() {
+    if (!ensureNoRunningBackgroundTask()) {
+      return;
+    }
+
     const sourcePaths = state.mergeSources.map((item) => item.path);
     if (
       !state.mergeAnalysis
@@ -375,6 +474,11 @@ export function createShellDialogsController() {
     }
 
     state.isMergingCdb = true;
+    state.isMergeCdbOpen = false;
+    setBackgroundTask({
+      task: 'merge',
+      stage: 'queued',
+    });
     try {
       const result = await executeCdbMerge({
         sourcePaths,
@@ -383,7 +487,7 @@ export function createShellDialogsController() {
         includeScripts: state.mergeIncludeScripts,
       });
       if (!isNewOutputPath(result.outputPath, tabsState.current.map((tab) => tab.path))) {
-        showToast(t('editor.merge_cdb_success'), 'success');
+        showToast(t('editor.background_merge_completed'), 'success', 4200);
         state.isMergeCdbOpen = false;
         return;
       }
@@ -392,7 +496,7 @@ export function createShellDialogsController() {
         activateWorkspaceDocument(openedId);
       }
       state.isMergeCdbOpen = false;
-      showToast(t('editor.merge_cdb_success'), 'success');
+      showToast(t('editor.background_merge_completed'), 'success', 4200);
     } catch (error) {
       console.error('Failed to merge cdb', error);
       void writeErrorLog({
@@ -405,9 +509,10 @@ export function createShellDialogsController() {
           mergeIncludeScripts: state.mergeIncludeScripts,
         },
       });
-      showToast(t('editor.merge_cdb_failed'), 'error');
+      showToast(t('editor.background_merge_failed'), 'error', 4200);
     } finally {
       state.isMergingCdb = false;
+      clearBackgroundTask();
     }
   }
 
@@ -477,6 +582,10 @@ export function createShellDialogsController() {
   }
 
   async function handlePackageAs(format: 'zip' | 'ypk') {
+    if (!ensureNoRunningBackgroundTask()) {
+      return;
+    }
+
     const cdbPath = getCurrentPackageCdbPath();
     if (!cdbPath) {
       showToast(t('editor.package_zip_no_cdb'), 'info');
@@ -495,15 +604,20 @@ export function createShellDialogsController() {
       return;
     }
 
+    setBackgroundTask({
+      task: 'package',
+      format,
+      stage: 'queued',
+    });
     try {
       const result = await packageCdbAssetsAsZip(cdbPath, outputPath);
       showToast(
         t(
-          format === 'zip' ? 'editor.package_zip_success' : 'editor.package_ypk_success',
+          format === 'zip' ? 'editor.background_package_zip_completed' : 'editor.background_package_ypk_completed',
           { values: { path: result.path } },
         ),
         'success',
-        3200,
+        4200,
       );
     } catch (error) {
       console.error(`Failed to package cdb assets as ${format}`, error);
@@ -513,14 +627,64 @@ export function createShellDialogsController() {
         extra: { cdbPath, outputPath },
       });
       showToast(
-        t(format === 'zip' ? 'editor.package_zip_failed' : 'editor.package_ypk_failed'),
+        t(format === 'zip' ? 'editor.background_package_zip_failed' : 'editor.background_package_ypk_failed'),
         'error',
+        4200,
       );
+    } finally {
+      clearBackgroundTask();
     }
+  }
+
+  function setup() {
+    const unlisteners: Array<() => void> = [];
+    baseWindowTitle = document.title || baseWindowTitle;
+
+    if (tauriBridge.isTauri()) {
+      void getCurrentWindow().title()
+        .then((title) => {
+          if (title?.trim()) {
+            baseWindowTitle = title;
+            void applyWindowTitle();
+          }
+        })
+        .catch((error) => {
+          console.warn('Failed to read window title', error);
+        });
+
+      void tauriBridge.listen<BackgroundTaskProgressEvent>('background-task-progress', (event) => {
+        const payload = event.payload;
+        if (!payload) {
+          return;
+        }
+
+        setBackgroundTask({
+          task: payload.task,
+          format: state.backgroundTask.format ?? undefined,
+          stage: payload.stage,
+          current: payload.current,
+          total: payload.total,
+        });
+      }).then((unlisten) => {
+        unlisteners.push(unlisten);
+      });
+    } else {
+      void applyWindowTitle();
+    }
+
+    return () => {
+      for (const unlisten of unlisteners) {
+        unlisten();
+      }
+      clearBackgroundTask();
+    };
   }
 
   return {
     state,
+    setup,
+    isMergeTaskRunning,
+    isPackageTaskRunning,
     getCurrentPackageCdbPath,
     openCreateFilteredCdbDialog,
     closeCreateFilteredCdbDialog,

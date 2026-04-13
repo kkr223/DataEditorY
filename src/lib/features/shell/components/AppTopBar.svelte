@@ -7,6 +7,8 @@
     theme = 'dark',
     hasActiveCdb = false,
     hasPackageTarget = false,
+    isMergeBusy = false,
+    isPackageBusy = false,
     isOpenHistoryVisible = false,
     recentEntries = [],
     onOpen = async () => {},
@@ -30,6 +32,8 @@
     theme?: 'dark' | 'light';
     hasActiveCdb?: boolean;
     hasPackageTarget?: boolean;
+    isMergeBusy?: boolean;
+    isPackageBusy?: boolean;
     isOpenHistoryVisible?: boolean;
     recentEntries?: RecentCdbEntry[];
     onOpen?: () => void | Promise<void>;
@@ -87,7 +91,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M7 12h10"></path><path d="M10 18h4"></path></svg>
         {$_('nav.create_filtered_cdb')}
       </button>
-      <button class="nav-item" onclick={onMergeCdb}>
+      <button class="nav-item" onclick={onMergeCdb} disabled={isMergeBusy}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 4-4 4"></path><path d="m16 21-4-4 4-4"></path><path d="M12 7v10"></path></svg>
         {$_('nav.merge_cdb')}
       </button>
@@ -104,17 +108,17 @@
         onfocusin={onShowPackageMenu}
         onfocusout={onHidePackageMenu}
       >
-        <button class="nav-item" disabled={!hasPackageTarget} aria-haspopup="menu" aria-expanded={isPackageMenuVisible}>
+        <button class="nav-item" disabled={!hasPackageTarget || isPackageBusy} aria-haspopup="menu" aria-expanded={isPackageMenuVisible && !isPackageBusy}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"></path><path d="M1 3h22v5H1z"></path><path d="M10 12h4"></path><path d="M12 3v18"></path></svg>
           {$_('nav.package')}
           <svg xmlns="http://www.w3.org/2000/svg" class="nav-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
         </button>
-        {#if hasPackageTarget && isPackageMenuVisible}
+        {#if hasPackageTarget && isPackageMenuVisible && !isPackageBusy}
           <div class="package-popover" role="menu" aria-label={$_('nav.package')}>
-            <button class="package-item" role="menuitem" onclick={onPackageZip}>
+            <button class="package-item" role="menuitem" onclick={onPackageZip} disabled={isPackageBusy}>
               {$_('nav.package_zip')}
             </button>
-            <button class="package-item" role="menuitem" onclick={onPackageYpk}>
+            <button class="package-item" role="menuitem" onclick={onPackageYpk} disabled={isPackageBusy}>
               {$_('nav.package_ypk')}
             </button>
           </div>
@@ -279,5 +283,15 @@
   .package-item:hover {
     background: var(--bg-surface-hover);
     color: var(--text-primary);
+  }
+
+  .package-item:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .package-item:disabled:hover {
+    background: transparent;
+    color: var(--text-secondary);
   }
 </style>

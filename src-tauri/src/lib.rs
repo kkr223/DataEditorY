@@ -32,6 +32,7 @@ const DEFAULT_AI_TEMPERATURE: f64 = 1.0;
 const SECRET_VERSION_PREFIX: &str = "v1";
 const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
 const OPEN_CDB_PATHS_EVENT: &str = "open-cdb-paths";
+pub(crate) const BACKGROUND_TASK_PROGRESS_EVENT: &str = "background-task-progress";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -105,6 +106,15 @@ pub(crate) struct CardScriptDocument {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ZipPackageInfo {
     pub(crate) path: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TaskProgressPayload {
+    pub(crate) task: String,
+    pub(crate) stage: String,
+    pub(crate) current: u32,
+    pub(crate) total: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -501,11 +511,23 @@ fn save_card_script(
 }
 
 #[tauri::command]
-fn package_cdb_assets_as_zip(
+async fn package_cdb_assets_as_zip(
+    app: AppHandle,
     cdb_path: String,
     output_path: String,
 ) -> Result<ZipPackageInfo, String> {
-    services::package::package_cdb_assets_as_zip(cdb_path, output_path)
+    tauri::async_runtime::spawn_blocking(move || {
+        let progress_app = app.clone();
+        services::package::package_cdb_assets_as_zip_with_progress(
+            cdb_path,
+            output_path,
+            &mut |payload| {
+                let _ = progress_app.emit(BACKGROUND_TASK_PROGRESS_EVENT, &payload);
+            },
+        )
+    })
+    .await
+    .map_err(|err| err.to_string())?
 }
 
 #[tauri::command]

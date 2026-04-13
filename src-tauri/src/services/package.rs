@@ -7,7 +7,7 @@ use std::{
 };
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
-use crate::ZipPackageInfo;
+use crate::{TaskProgressPayload, ZipPackageInfo};
 
 const TYPE_SPELL_BIT: i64 = 0x2;
 const SUBTYPE_FIELD_BIT: i64 = 0x80000;
@@ -271,9 +271,32 @@ fn add_path_to_zip<W: Write + Seek>(
         .map_err(|err| err.to_string())
 }
 
+fn emit_package_progress(
+    progress: &mut dyn FnMut(TaskProgressPayload),
+    stage: &str,
+    current: usize,
+    total: usize,
+) {
+    progress(TaskProgressPayload {
+        task: "package".to_string(),
+        stage: stage.to_string(),
+        current: current as u32,
+        total: total as u32,
+    });
+}
+
+#[allow(dead_code)]
 pub fn package_cdb_assets_as_zip(
     cdb_path: String,
     output_path: String,
+) -> Result<ZipPackageInfo, String> {
+    package_cdb_assets_as_zip_with_progress(cdb_path, output_path, &mut |_| {})
+}
+
+pub fn package_cdb_assets_as_zip_with_progress(
+    cdb_path: String,
+    output_path: String,
+    progress: &mut dyn FnMut(TaskProgressPayload),
 ) -> Result<ZipPackageInfo, String> {
     let cdb_file_path = PathBuf::from(&cdb_path);
     if !cdb_file_path.exists() || !cdb_file_path.is_file() {
@@ -307,12 +330,16 @@ pub fn package_cdb_assets_as_zip(
         fs::remove_file(&temp_output_file_path).map_err(|err| err.to_string())?;
     }
 
+    let total_steps = source_paths.len() + 1;
+    emit_package_progress(progress, "packaging", 0, total_steps);
+
     let zip_file = fs::File::create(&temp_output_file_path).map_err(|err| err.to_string())?;
     let writer = BufWriter::new(zip_file);
     let mut zip = ZipWriter::new(writer);
 
-    for source_path in &source_paths {
+    for (index, source_path) in source_paths.iter().enumerate() {
         add_path_to_zip(&mut zip, source_path, cdb_dir)?;
+        emit_package_progress(progress, "packaging", index + 1, total_steps);
     }
 
     zip.finish().map_err(|err| err.to_string())?;
@@ -321,6 +348,7 @@ pub fn package_cdb_assets_as_zip(
         fs::remove_file(&output_file_path).map_err(|err| err.to_string())?;
     }
     fs::rename(&temp_output_file_path, &output_file_path).map_err(|err| err.to_string())?;
+    emit_package_progress(progress, "committing", total_steps, total_steps);
 
     Ok(ZipPackageInfo {
         path: output_file_path.to_string_lossy().to_string(),
