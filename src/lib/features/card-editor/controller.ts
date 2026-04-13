@@ -156,6 +156,17 @@ function findKeyByValue(map: Record<string, number>, value: number): string {
   return Object.entries(map).find(([, v]) => v === value)?.[0] ?? '';
 }
 
+function getNormalizedLevelValue(level: number): number {
+  return Number.isFinite(level) ? (level & 0xff) : 0;
+}
+
+function scaleToSearchRuleValue(value: number): number | null {
+  if (!Number.isFinite(value)) return null;
+  if (value === -1) return 0;
+  if (value > 0) return value;
+  return null;
+}
+
 // Subtypes that unambiguously imply a main type when no explicit type bit is set.
 // continuous_spell (0x20000) and ritual (0x80) are excluded because they are
 // shared between spell/trap or monster/spell contexts.
@@ -187,20 +198,25 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
   const filters: SearchFilters = { ...DEFAULT_SEARCH_FILTERS };
   const rules: string[] = [];
   const type = draftCard.type;
+  const normalizedLevel = getNormalizedLevelValue(draftCard.level);
+  const leftScaleRuleValue = scaleToSearchRuleValue(draftCard.lscale);
+  const rightScaleRuleValue = scaleToSearchRuleValue(draftCard.rscale);
 
   const hasMonsterBit = (type & TYPE_MAP.monster) !== 0;
   const hasSpellBit = (type & TYPE_MAP.spell) !== 0;
   const hasTrapBit = (type & TYPE_MAP.trap) !== 0;
+  const hasPendulumSignal = (type & SUBTYPE_MAP.pendulum) !== 0 || leftScaleRuleValue !== null || rightScaleRuleValue !== null;
+  const hasLinkSignal = (type & SUBTYPE_MAP.link) !== 0 || draftCard.linkMarker > 0;
 
   // --- Determine main type ---
   const hasMask = (bits: number[]) => bits.some((b) => (type & b) !== 0);
   const hasMonsterSignals =
-    draftCard.attack !== 0 || draftCard.defense !== 0 || draftCard.level > 0 ||
+    draftCard.attack !== 0 || draftCard.defense !== 0 || normalizedLevel > 0 ||
     draftCard.attribute > 0 || draftCard.race > 0 || draftCard.linkMarker > 0 ||
     draftCard.lscale > 0 || draftCard.rscale > 0;
 
   let mainType = '';
-  if (hasMonsterBit || hasMask(MONSTER_ONLY_BITS)) mainType = 'monster';
+  if (hasMonsterBit || hasMask(MONSTER_ONLY_BITS) || hasPendulumSignal || hasLinkSignal) mainType = 'monster';
   else if (hasSpellBit || hasMask(SPELL_ONLY_BITS)) mainType = 'spell';
   else if (hasTrapBit || hasMask(TRAP_ONLY_BITS)) mainType = 'trap';
   else if (!hasSpellBit && !hasTrapBit && hasMonsterSignals) mainType = 'monster';
@@ -217,6 +233,15 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
       matchedSubtypes.push(key);
       if (!typeRuleKeys.includes(key)) typeRuleKeys.push(key);
     }
+  }
+
+  if (hasPendulumSignal && !matchedSubtypes.includes('pendulum')) {
+    matchedSubtypes.push('pendulum');
+    if (!typeRuleKeys.includes('pendulum')) typeRuleKeys.push('pendulum');
+  }
+  if (hasLinkSignal && !matchedSubtypes.includes('link')) {
+    matchedSubtypes.push('link');
+    if (!typeRuleKeys.includes('link')) typeRuleKeys.push('link');
   }
 
   // Handle shared subtypes: ritual (0x80) and continuous (0x20000)
@@ -244,7 +269,7 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
 
   // --- ATK / DEF ---
   const isMonster = mainType === 'monster';
-  const isLink = (type & SUBTYPE_MAP.link) !== 0;
+  const isLink = hasLinkSignal;
 
   if (isMonster) {
     const atk = statToFilterValue(draftCard.attack);
@@ -257,11 +282,9 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
 
   // --- Numeric rule fields ---
   if (draftCard.ot > 0) rules.push(`ot = ${draftCard.ot}`);
-  if (isMonster && draftCard.level > 0) rules.push(`level = ${draftCard.level}`);
-  if ((type & SUBTYPE_MAP.pendulum) !== 0) {
-    rules.push(`scale = ${draftCard.lscale}`);
-    rules.push(`rscale = ${draftCard.rscale}`);
-  }
+  if (isMonster && normalizedLevel > 0) rules.push(`level = ${normalizedLevel}`);
+  if (leftScaleRuleValue !== null) rules.push(`scale = ${leftScaleRuleValue}`);
+  if (rightScaleRuleValue !== null) rules.push(`rscale = ${rightScaleRuleValue}`);
   if (isLink && draftCard.linkMarker > 0) {
     for (const [key, bit] of Object.entries(LINK_MARKER_NAME_TO_BIT)) {
       if ((draftCard.linkMarker & bit) !== 0) rules.push(`linkmarker contains ${key}`);

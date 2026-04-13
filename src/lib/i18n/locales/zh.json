@@ -472,6 +472,7 @@
     "merge_cdb_success": "CDB 已合并并打开",
     "merge_cdb_failed": "合并 CDB 失败",
     "background_task_busy": "已有后台任务正在执行，请等待当前任务完成",
+    "background_task_queued": "{label} 已加入后台队列",
     "background_merge_running": "正在合并数据",
     "background_package_zip_running": "正在导出数据",
     "background_package_ypk_running": "正在导出数据",

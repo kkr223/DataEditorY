@@ -472,6 +472,7 @@
     "merge_cdb_success": "The merged CDB has been created and opened",
     "merge_cdb_failed": "Failed to merge CDB",
     "background_task_busy": "A background task is already running. Please wait for it to finish.",
+    "background_task_queued": "{label} has been queued in the background",
     "background_merge_running": "Merging data",
     "background_package_zip_running": "Exporting data",
     "background_package_ypk_running": "Exporting data",

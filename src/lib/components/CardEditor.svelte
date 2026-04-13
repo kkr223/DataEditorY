@@ -21,11 +21,13 @@
   import {
     createEmptyCard,
     getPackedLevel,
+    normalizeEditableScaleValue,
     setPackedLevel,
   } from "$lib/utils/card";
   import { createCardSnapshot } from "$lib/domain/card/draft";
   import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
   import { isEditableTarget } from "$lib/features/shell/controller";
+  import { shellBackgroundTaskState } from "$lib/features/shell/dialogsController.svelte";
   import { isCapabilityEnabled } from "$lib/application/capabilities/registry";
   import {
     clearWorkspaceLifecycleMetadata,
@@ -124,6 +126,27 @@
   let isLink = $derived((draftCard.type & 0x4000000) !== 0);
   let isPend = $derived((draftCard.type & 0x1000000) !== 0);
   let popularSetcodeValues = $derived.by(() => new Set(popularSetcodes.map((option) => option.value)));
+  let backgroundTaskLabel = $derived.by(() => {
+    if (!shellBackgroundTaskState.task) {
+      return "";
+    }
+
+    return shellBackgroundTaskState.task === "merge"
+      ? $_("editor.background_merge_running")
+      : $_(
+          shellBackgroundTaskState.format === "ypk"
+            ? "editor.background_package_ypk_running"
+            : "editor.background_package_zip_running",
+        );
+  });
+  let backgroundTaskProgressText = $derived.by(() => {
+    if (shellBackgroundTaskState.total <= 0) {
+      return "";
+    }
+
+    return `${shellBackgroundTaskState.current}/${shellBackgroundTaskState.total}`;
+  });
+  let backgroundQueuedCount = $derived(shellBackgroundTaskState.queue.length);
 
   function getDefaultCoverSrc() {
     return appSettingsState.coverImageSrc || "/resources/cover.jpg";
@@ -190,7 +213,9 @@
   }
 
   function updateDraftScale(side: "left" | "right", nextScale: number) {
-    const safeScale = Math.max(0, Math.min(13, Number.isFinite(nextScale) ? nextScale : 0));
+    const safeScale = nextScale === -1
+      ? -1
+      : normalizeEditableScaleValue(nextScale);
     if (side === "left") {
       draftCard.lscale = safeScale;
     } else {
@@ -199,8 +224,8 @@
 
     draftCard.level = setPackedLevel(
       getPackedLevel(draftCard.level),
-      draftCard.lscale,
-      draftCard.rscale,
+      normalizeEditableScaleValue(draftCard.lscale),
+      normalizeEditableScaleValue(draftCard.rscale),
     );
   }
 
@@ -730,6 +755,9 @@
       {isEditingExisting}
       editingHint={$_("editor.editing_card", { values: { code: String(originalCardCode) } })}
       newCardHint={$_("editor.new_card_hint")}
+      backgroundTaskLabel={backgroundTaskLabel}
+      backgroundTaskProgressText={backgroundTaskProgressText}
+      backgroundQueuedCount={backgroundQueuedCount}
       resetSearchLabel={$_("editor.reset_search")}
       newCardLabel={$_("editor.new_card")}
       aiParseLabel={$_("editor.ai_parse_button")}

@@ -18,6 +18,14 @@ export interface RecentCdbEntry {
   name: string;
 }
 
+export interface CachedSearchSnapshot {
+  tabId: string;
+  cards: CardDataEntry[];
+  total: number;
+  page: number;
+  filters: SearchFilters;
+}
+
 type UndoOperation =
   | {
       kind: 'modify';
@@ -55,6 +63,9 @@ interface SearchCardsPageResponse {
   cards: CardDataEntry[];
   total: number;
 }
+
+const SEARCH_PAGE_SIZE = 50;
+const cachedSearchRefreshListeners = new Set<(snapshot: CachedSearchSnapshot) => void>();
 
 function canUseLocalStorage() {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -133,6 +144,108 @@ function cloneCard(card: CardDataEntry): CardDataEntry {
     setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
     strings: Array.isArray(card.strings) ? [...card.strings] : [],
     ruleCode: Number(card.ruleCode ?? 0),
+  };
+}
+
+function cloneCards(cards: CardDataEntry[]): CardDataEntry[] {
+  return cards.map((card) => cloneCard(card));
+}
+
+function parseCachedFiltersJson(serialized: string): SearchFilters {
+  try {
+    return { ...DEFAULT_SEARCH_FILTERS, ...JSON.parse(serialized) as Partial<SearchFilters> };
+  } catch {
+    return { ...DEFAULT_SEARCH_FILTERS };
+  }
+}
+
+function updateCachedSearchSnapshot(snapshot: CachedSearchSnapshot) {
+  const clonedCards = cloneCards(snapshot.cards);
+  tabs.update((currentTabs) =>
+    currentTabs.map((item) =>
+      item.id === snapshot.tabId
+        ? {
+            ...item,
+            cachedCards: clonedCards,
+            cachedTotal: snapshot.total,
+            cachedPage: snapshot.page,
+            cachedFilters: JSON.stringify(snapshot.filters),
+          }
+        : item
+    )
+  );
+
+  const listenerSnapshot: CachedSearchSnapshot = {
+    ...snapshot,
+    cards: clonedCards,
+  };
+  for (const listener of cachedSearchRefreshListeners) {
+    listener(listenerSnapshot);
+  }
+}
+
+async function searchCardsPageInTab(
+  tabId: string,
+  filters: SearchFilters,
+  page = 1,
+  pageSize = SEARCH_PAGE_SIZE,
+): Promise<{ cards: CardDataEntry[]; total: number }> {
+  const { whereClause, params } = buildSearchQuery(filters);
+  const safePage = Math.max(1, page);
+  const response = await invokeCommand<SearchCardsPageResponse>('search_cards_page', {
+    request: {
+      tabId,
+      whereClause,
+      params,
+      page: safePage,
+      pageSize,
+    },
+  });
+
+  return {
+    cards: cloneCards(response.cards),
+    total: response.total,
+  };
+}
+
+async function refreshCachedSearchForTab(tabId: string): Promise<boolean> {
+  const tab = get(tabs).find((item) => item.id === tabId);
+  if (!tab) return false;
+
+  const filters = parseCachedFiltersJson(tab.cachedFilters);
+  let page = Math.max(1, tab.cachedPage || 1);
+
+  try {
+    let { cards, total } = await searchCardsPageInTab(tab.id, filters, page);
+    if (cards.length === 0 && total > 0 && page > 1) {
+      const lastPage = Math.max(1, Math.ceil(total / SEARCH_PAGE_SIZE));
+      if (lastPage !== page) {
+        page = lastPage;
+        ({ cards, total } = await searchCardsPageInTab(tab.id, filters, page));
+      }
+    }
+
+    updateCachedSearchSnapshot({
+      tabId: tab.id,
+      cards,
+      total,
+      page,
+      filters,
+    });
+    return true;
+  } catch (err) {
+    if (err instanceof RuleExpressionError) {
+      throw err;
+    }
+    console.error('Failed to refresh cached search results:', err);
+    return false;
+  }
+}
+
+export function onCachedSearchRefreshed(listener: (snapshot: CachedSearchSnapshot) => void) {
+  cachedSearchRefreshListeners.add(listener);
+  return () => {
+    cachedSearchRefreshListeners.delete(listener);
   };
 }
 
@@ -321,12 +434,7 @@ export function getCachedPage(): number {
 export function getCachedFilters(): SearchFilters {
   const tab = get(activeTab);
   if (!tab) return { ...DEFAULT_SEARCH_FILTERS };
-
-  try {
-    return { ...DEFAULT_SEARCH_FILTERS, ...JSON.parse(tab.cachedFilters) as Partial<SearchFilters> };
-  } catch {
-    return { ...DEFAULT_SEARCH_FILTERS };
-  }
+  return parseCachedFiltersJson(tab.cachedFilters);
 }
 
 export function getCachedSelectedIds(): number[] {
@@ -439,6 +547,7 @@ export async function undoLastOperation(): Promise<boolean> {
       });
     }
 
+    await refreshCachedSearchForTab(tab.id);
     markActiveTabDirty(true);
     return true;
   } catch (err) {
@@ -514,7 +623,10 @@ export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): P
       affectedIds: cards.map((card) => card.code),
       previousCards: cards.map((card) => previousCardsByCode.get(card.code) ?? null),
     });
-    syncCachedCardsInTab(tab.id, cards);
+    const refreshed = await refreshCachedSearchForTab(tab.id);
+    if (!refreshed) {
+      syncCachedCardsInTab(tab.id, cards);
+    }
     markTabDirty(tab.id, true);
     return true;
   } catch (err) {
@@ -547,7 +659,10 @@ export async function modifyCardsWithSnapshotInTab(
         return previous && previous.code === card.code ? cloneCard(previous) : null;
       }),
     });
-    syncCachedCardsInTab(tab.id, cards);
+    const refreshed = await refreshCachedSearchForTab(tab.id);
+    if (!refreshed) {
+      syncCachedCardsInTab(tab.id, cards);
+    }
     markTabDirty(tab.id, true);
     return true;
   } catch (err) {
@@ -589,6 +704,7 @@ export async function deleteCards(cardIds: number[]): Promise<boolean> {
         deletedCards,
       });
     }
+    await refreshCachedSearchForTab(tab.id);
     markActiveTabDirty(true);
     return true;
   } catch (err) {
@@ -621,6 +737,7 @@ export async function deleteCardsWithSnapshotInTab(
         deletedCards: deletedCards.map((card) => cloneCard(card)),
       });
     }
+    await refreshCachedSearchForTab(tab.id);
     markTabDirty(tab.id, true);
     return true;
   } catch (err) {
@@ -650,32 +767,15 @@ export async function searchCardsPage(filters: SearchFilters = DEFAULT_SEARCH_FI
   if (!tab) return { cards: [], total: 0 };
 
   try {
-    const { whereClause, params } = buildSearchQuery(filters);
     const safePage = Math.max(1, page);
-    const response = await invokeCommand<SearchCardsPageResponse>('search_cards_page', {
-      request: {
-        tabId: tab.id,
-        whereClause,
-        params,
-        page: safePage,
-        pageSize,
-      },
+    const response = await searchCardsPageInTab(tab.id, filters, safePage, pageSize);
+    updateCachedSearchSnapshot({
+      tabId: tab.id,
+      cards: response.cards,
+      total: response.total,
+      page: safePage,
+      filters,
     });
-
-    tabs.update((currentTabs) =>
-      currentTabs.map((item) =>
-        item.id === tab.id
-          ? {
-              ...item,
-              cachedCards: response.cards,
-              cachedTotal: response.total,
-              cachedPage: safePage,
-              cachedFilters: JSON.stringify(filters),
-            }
-          : item
-      )
-    );
-
     return response;
   } catch (err) {
     if (err instanceof RuleExpressionError) {

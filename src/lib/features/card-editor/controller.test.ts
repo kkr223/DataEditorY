@@ -14,6 +14,7 @@ import {
 } from '$lib/features/card-editor/controller';
 import { createCardSnapshot } from '$lib/domain/card/draft';
 import { LINK_MARKER_NAME_TO_BIT, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
+import { setPackedLevel } from '$lib/utils/card';
 
 function createCard(overrides: Partial<CardDataEntry> = {}): CardDataEntry {
   return {
@@ -248,6 +249,88 @@ describe('card editor controller helpers', () => {
     expect(filters.subtype).toBe('pendulum');
     expect(filters.rule).toContain('type contains monster');
     expect(filters.rule).toContain('type contains pendulum');
+  });
+
+  test('uses the unpacked level when pendulum edits store a packed level value', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: SUBTYPE_MAP.pendulum,
+      level: setPackedLevel(8, 2, 3),
+      lscale: 2,
+      rscale: 3,
+      name: '',
+      desc: '',
+      code: 0,
+      attack: 0,
+      defense: 0,
+    }));
+
+    expect(filters.type).toBe('monster');
+    expect(filters.subtype).toBe('pendulum');
+    expect(filters.rule).toContain('level = 8');
+    expect(filters.rule).toContain('scale = 2');
+    expect(filters.rule).toContain('rscale = 3');
+    expect(filters.rule.includes(`level = ${setPackedLevel(8, 2, 3)}`)).toBe(false);
+  });
+
+  test('ignores default zero scales when pendulum search only fills one side', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: SUBTYPE_MAP.pendulum,
+      lscale: 4,
+      rscale: 0,
+      name: '',
+      desc: '',
+      code: 0,
+      attack: 0,
+      defense: 0,
+      level: 0,
+    }));
+
+    expect(filters.type).toBe('monster');
+    expect(filters.rule).toContain('type contains pendulum');
+    expect(filters.rule).toContain('scale = 4');
+    expect(filters.rule.includes('rscale = 0')).toBe(false);
+  });
+
+  test('treats -1 pendulum scales as exact zero searches and ignores untouched zero scales', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: SUBTYPE_MAP.pendulum,
+      lscale: -1,
+      rscale: 0,
+      name: '',
+      desc: '',
+      code: 0,
+      attack: 0,
+      defense: 0,
+      level: 0,
+    }));
+
+    expect(filters.type).toBe('monster');
+    expect(filters.rule).toContain('scale = 0');
+    expect(filters.rule.includes('rscale = 0')).toBe(false);
+  });
+
+  test('infers link and pendulum search signals from markers and scales even without explicit type bits', () => {
+    const filters = buildSearchFiltersFromDraft(createCard({
+      type: 0,
+      level: setPackedLevel(0, 4, 4),
+      lscale: 4,
+      rscale: 4,
+      linkMarker: LINK_MARKER_NAME_TO_BIT.up | LINK_MARKER_NAME_TO_BIT.right,
+      name: '',
+      desc: '',
+      code: 0,
+      attack: 0,
+      defense: 0,
+    }));
+
+    expect(filters.type).toBe('monster');
+    expect(filters.rule).toContain('type contains monster');
+    expect(filters.rule).toContain('type contains pendulum');
+    expect(filters.rule).toContain('type contains link');
+    expect(filters.rule).toContain('scale = 4');
+    expect(filters.rule).toContain('rscale = 4');
+    expect(filters.rule).toContain('linkmarker contains up');
+    expect(filters.rule).toContain('linkmarker contains right');
   });
 
   test('resolves selection navigation targets from the current list', () => {

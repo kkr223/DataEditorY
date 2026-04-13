@@ -9,7 +9,10 @@ export {
 export {
   cloneEditableCard,
   createEmptyCard,
+  formatEditableScaleValue,
   formatEditableStatValue,
+  normalizeEditableScaleValue,
+  parseEditableScaleInput,
   parseEditableStatInput,
 } from '$lib/domain/card/draft';
 

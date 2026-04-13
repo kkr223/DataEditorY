@@ -14,6 +14,7 @@
     toggleCardSelection
   } from '$lib/stores/editor.svelte';
   import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
+  import { SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
   import { APP_SHORTCUT_EVENT } from '$lib/utils/shortcuts';
   import { disableAutofill } from '$lib/actions/disableAutofill';
 
@@ -103,6 +104,24 @@
     }
 
     setSingleSelectedCard(code);
+  }
+
+  function getCardTypeTone(type: number) {
+    if (type & TYPE_MAP.monster) {
+      if (type & SUBTYPE_MAP.link) return 'type-link';
+      if (type & SUBTYPE_MAP.xyz) return 'type-xyz';
+      if (type & SUBTYPE_MAP.synchro) return 'type-synchro';
+      if (type & SUBTYPE_MAP.fusion) return 'type-fusion';
+      if (type & SUBTYPE_MAP.ritual) return 'type-ritual';
+      if (type & SUBTYPE_MAP.pendulum) return 'type-pendulum';
+      if (type & SUBTYPE_MAP.token) return 'type-token';
+      if (type & SUBTYPE_MAP.effect) return 'type-effect';
+      return 'type-monster';
+    }
+
+    if (type & TYPE_MAP.spell) return 'type-spell';
+    if (type & TYPE_MAP.trap) return 'type-trap';
+    return 'type-default';
   }
 
   let searchInput: HTMLInputElement | null = null;
@@ -324,8 +343,8 @@
             onclick={(event) => handleRowClick(event, card.code)}
           >
             <td class="id-col">{card.code}</td>
-            <td class="name-col">{card.name}</td>
-            <td>{$_(getCardTypeKey(card.type))}</td>
+            <td class={`name-col ${getCardTypeTone(card.type)}`}>{card.name}</td>
+            <td class={`type-col ${getCardTypeTone(card.type)}`}>{$_(getCardTypeKey(card.type))}</td>
           </tr>
         {/each}
         {#if totalCards === 0}
@@ -447,7 +466,27 @@
   .data-table tbody tr.selected td:first-child { padding-left: calc(var(--spacing-sm) - 2px); }
   .data-table tbody tr.primary-selected { background-color: rgba(59, 130, 246, 0.22); }
   .id-col { color: var(--text-secondary); font-variant-numeric: tabular-nums; font-size: 0.86rem; }
-  .name-col { font-weight: 500; }
+  .name-col {
+    font-weight: 500;
+    transition: color 0.12s ease;
+  }
+  .type-col {
+    font-size: 0.84rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .type-default { color: var(--card-list-type-default); }
+  .type-monster { color: var(--card-list-type-monster); }
+  .type-effect { color: var(--card-list-type-effect); }
+  .type-ritual { color: var(--card-list-type-ritual); }
+  .type-fusion { color: var(--card-list-type-fusion); }
+  .type-synchro { color: var(--card-list-type-synchro); }
+  .type-xyz { color: var(--card-list-type-xyz); }
+  .type-link { color: var(--card-list-type-link); }
+  .type-pendulum { color: var(--card-list-type-pendulum); }
+  .type-token { color: var(--card-list-type-token); }
+  .type-spell { color: var(--card-list-type-spell); }
+  .type-trap { color: var(--card-list-type-trap); }
 
   /* Pagination */
   .pagination-bar { display: flex; align-items: center; justify-content: center; gap: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-md); border-top: 1px solid var(--border-color); background-color: var(--bg-surface); flex-shrink: 0; }

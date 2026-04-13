@@ -5,9 +5,11 @@
   import type { CardDataEntry } from "$lib/types";
   import {
     ATTRIBUTE_OPTIONS,
+    formatEditableScaleValue,
     formatEditableStatValue,
     getPackedLevel,
     LINK_MARKERS,
+    parseEditableScaleInput,
     parseEditableStatInput,
     PERMISSION_OPTIONS,
     RACE_OPTIONS,
@@ -103,9 +105,13 @@
   let isEnglishLocale = false;
   let attackInput = "";
   let defenseInput = "";
+  let leftScaleInput = "";
+  let rightScaleInput = "";
   $: isEnglishLocale = ($locale ?? "").startsWith("en");
   $: attackInput = formatEditableStatValue(draftCard.attack);
   $: defenseInput = isLink ? "0" : formatEditableStatValue(draftCard.defense);
+  $: leftScaleInput = formatEditableScaleValue(draftCard.lscale);
+  $: rightScaleInput = formatEditableScaleValue(draftCard.rscale);
 
   function handleAttackInput(event: Event) {
     const target = event.currentTarget as HTMLInputElement;
@@ -121,6 +127,16 @@
       return;
     }
     draftCard.defense = parseEditableStatInput(target.value, draftCard.defense);
+  }
+
+  function handleScaleInput(side: "left" | "right", event: Event) {
+    const target = event.currentTarget as HTMLInputElement;
+    if (side === "left") {
+      leftScaleInput = target.value;
+    } else {
+      rightScaleInput = target.value;
+    }
+    onUpdateDraftScale(side, parseEditableScaleInput(target.value, side === "left" ? draftCard.lscale : draftCard.rscale));
   }
 </script>
 
@@ -231,26 +247,24 @@
             <label class="compact-panel-label compact-panel-scale-label compact-panel-label-center" for="edit-lscale" title={scaleLeftLabel}></label>
             <input
               class="compact-panel-input"
-              type="number"
+              type="text"
+              inputmode="numeric"
               id="edit-lscale"
-              min="0"
-              max="13"
               disabled={!isPend}
-              value={draftCard.lscale}
-              oninput={(event) => onUpdateDraftScale("left", Number((event.currentTarget as HTMLInputElement).value))}
+              value={leftScaleInput}
+              oninput={(event) => handleScaleInput("left", event)}
             />
           </div>
           <div class="compact-scale-slot compact-scale-slot-right" class:disabled-opacity={!isPend} title={`${scaleLabel} ${scaleRightLabel}`}>
             <label class="compact-panel-label compact-panel-scale-label compact-panel-label-center" for="edit-rscale" title={scaleRightLabel}></label>
             <input
               class="compact-panel-input"
-              type="number"
+              type="text"
+              inputmode="numeric"
               id="edit-rscale"
-              min="0"
-              max="13"
               disabled={!isPend}
-              value={draftCard.rscale}
-              oninput={(event) => onUpdateDraftScale("right", Number((event.currentTarget as HTMLInputElement).value))}
+              value={rightScaleInput}
+              oninput={(event) => handleScaleInput("right", event)}
             />
           </div>
         </div>
