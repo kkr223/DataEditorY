@@ -1,5 +1,6 @@
 import { writable, get, derived } from 'svelte/store';
 import type { CardDataEntry, DbWorkspaceState, SearchFilters } from '$lib/types';
+import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import { buildSearchQuery } from '$lib/domain/search/query';
 import {
   getRuleExpressionErrorMessage,
@@ -319,12 +320,12 @@ export function getCachedPage(): number {
 
 export function getCachedFilters(): SearchFilters {
   const tab = get(activeTab);
-  if (!tab) return {};
+  if (!tab) return { ...DEFAULT_SEARCH_FILTERS };
 
   try {
-    return JSON.parse(tab.cachedFilters) as SearchFilters;
+    return { ...DEFAULT_SEARCH_FILTERS, ...JSON.parse(tab.cachedFilters) as Partial<SearchFilters> };
   } catch {
-    return {};
+    return { ...DEFAULT_SEARCH_FILTERS };
   }
 }
 
@@ -644,7 +645,7 @@ export async function queryCardsRaw(tabId: string, queryClause: string, params: 
 }
 
 /** Search one page of cards in the active tab's CDB */
-export async function searchCardsPage(filters: SearchFilters = {}, page = 1, pageSize = 50): Promise<{ cards: CardDataEntry[]; total: number }> {
+export async function searchCardsPage(filters: SearchFilters = DEFAULT_SEARCH_FILTERS, page = 1, pageSize = 50): Promise<{ cards: CardDataEntry[]; total: number }> {
   const tab = get(activeTab);
   if (!tab) return { cards: [], total: 0 };
 

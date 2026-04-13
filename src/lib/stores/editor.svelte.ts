@@ -4,7 +4,7 @@ import { cacheActiveTabSelection, searchCardsPage } from '$lib/stores/db';
 import { getRuleExpressionErrorMessage, RuleExpressionError } from '$lib/domain/search/ruleExpression';
 import { showToast } from '$lib/stores/toast.svelte';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import type { CardDataEntry, SearchFilterState } from '$lib/types';
+import type { CardDataEntry, SearchFilters } from '$lib/types';
 
 // allCards is a large array (potentially 10k+ items) that is only used for
 // read-only rendering in CardList. Using $state.raw avoids Svelte 5's deep
@@ -65,7 +65,7 @@ export const editorState = $state<{
   selectedIds: number[];
   selectionAnchorId: number | null;
   currentPage: number;
-  searchFilters: SearchFilterState;
+  searchFilters: SearchFilters;
   searchError: string;
   isFilterOpen: boolean;
 }>({
