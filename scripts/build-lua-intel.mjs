@@ -14,6 +14,28 @@ function normalizeLine(raw) {
 }
 
 /**
+ * @param {string} line
+ */
+function parseConstantCategory(line) {
+  const decoratedCategoryMatch = line.match(/^--+\s*=+\s*(.+?)\s*=+\s*(?:--.*)?$/);
+  if (decoratedCategoryMatch) {
+    return decoratedCategoryMatch[1].trim();
+  }
+
+  const plainCategoryMatch = line.match(/^--+\s*(.+?)\s*$/);
+  if (!plainCategoryMatch) {
+    return null;
+  }
+
+  const nextCategory = plainCategoryMatch[1]
+    .replace(/[:：]\s*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return nextCategory || null;
+}
+
+/**
  * @param {string} text
  */
 function parseConstants(text) {
@@ -26,15 +48,9 @@ function parseConstants(text) {
     if (!line) continue;
 
     if (line.startsWith('--')) {
-      const categoryMatch = line.match(/^--+\s*([^-=][^=]*?)\s*$/);
-      if (categoryMatch) {
-        const nextCategory = categoryMatch[1]
-          .replace(/[:：]\s*$/, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-        if (nextCategory) {
-          currentCategory = nextCategory;
-        }
+      const nextCategory = parseConstantCategory(line);
+      if (nextCategory) {
+        currentCategory = nextCategory;
       }
       continue;
     }

@@ -23,7 +23,7 @@ describe('search query builder', () => {
     expect(query.whereClause).toContain('datas.alias BETWEEN');
     expect(query.whereClause).toContain('datas.attribute =');
     expect(query.whereClause).toContain('datas.type &');
-    expect(query.params.name).toBe('%blue eyes%');
+    expect(query.params.name).toBe('%blue%eyes%');
 
     // ID prefix ranges for "12": [12,12], [120,129], …
     const numericParams = Object.entries(query.params).filter(([, v]) => typeof v === 'number');
@@ -51,6 +51,15 @@ describe('search query builder', () => {
     }));
     expect(escapedQuery.params.name).toBe('%100/%/_safe%');
     expect(escapedQuery.whereClause).toContain("ESCAPE '/'");
+  });
+
+  test('splits plain whitespace-separated keywords for card names', () => {
+    const query = buildSearchQuery(filters({
+      name: '  blue   eyes  white  ',
+    }));
+
+    expect(query.params.name).toBe('%blue%eyes%white%');
+    expect(query.whereClause).toContain("texts.name LIKE :name ESCAPE '/'");
   });
 
   test('handles prefix-only numeric id filters and setcode filters', () => {

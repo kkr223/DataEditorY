@@ -51,7 +51,7 @@
   import ScriptReferenceOverlay from '$lib/features/script-editor/components/ScriptReferenceOverlay.svelte';
   import ScriptSidePanel from '$lib/features/script-editor/components/ScriptSidePanel.svelte';
   import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
-  import type { LuaReferenceManualItem } from '$lib/utils/luaReferenceManual';
+  import { resolveReferenceManualInsertText, type LuaReferenceManualItem } from '$lib/utils/luaReferenceManual';
   type ScriptEditorExtraUseCasesModule = typeof import('$lib/features/script-editor/extraUseCases');
   const hasAiCapability = isCapabilityEnabled('ai');
   const loadScriptEditorExtraUseCases = __APP_FEATURES__.ai
@@ -299,7 +299,19 @@
     }
     editorInstance.focus();
 
-    const inserted = monacoModule.insertSnippet(editorInstance, item.insertText);
+    const selection = editorInstance.getSelection();
+    const model = editorInstance.getModel();
+    const shouldUseMethodSyntax = Boolean(selection?.isEmpty() && model && selection && (() => {
+      const linePrefix = model.getLineContent(selection.startLineNumber).slice(0, selection.startColumn - 1);
+      const trimmedPrefix = linePrefix.replace(/\s+$/, '');
+      return trimmedPrefix.endsWith(':');
+    })());
+    const inserted = monacoModule.insertSnippet(
+      editorInstance,
+      resolveReferenceManualInsertText(item, {
+        useMethodSyntax: shouldUseMethodSyntax,
+      }),
+    );
     if (!inserted) return;
 
     referenceSelection = editorInstance.getSelection() ?? null;
@@ -853,6 +865,7 @@
 <style>
   .script-page {
     height: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     background:
@@ -866,6 +879,7 @@
     min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 272px;
+    overflow: hidden;
   }
 
   .script-editor-shell {

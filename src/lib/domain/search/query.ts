@@ -25,8 +25,16 @@ function buildNamePattern(input: string): string {
   // User-supplied wildcards: %% → %
   if (s.includes('%%')) return s.replaceAll('%%', '%');
 
-  // Auto-wrap with LIKE-safe escaping
-  return '%' + s.replaceAll('/', '//').replaceAll('%', '/%').replaceAll('_', '/_') + '%';
+  // DEX-style keyword search: split plain whitespace into independent terms.
+  // This keeps legacy "blue eyes" -> "%blue%eyes%" behavior even when the
+  // backend query engine no longer performs token splitting for us.
+  const escapedTerms = s
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .map((term) => term.replaceAll('/', '//').replaceAll('%', '/%').replaceAll('_', '/_'));
+
+  return `%${escapedTerms.join('%')}%`;
 }
 
 /** Parse a stat value with DEX special markers: `?/？` → -2, `.` → -1. */

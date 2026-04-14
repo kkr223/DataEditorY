@@ -42,6 +42,8 @@
 
 <style>
   .script-side-panel {
+    height: 100%;
+    min-height: 0;
     border-left: 1px solid var(--border-color);
     padding: 6px;
     overflow-y: auto;
@@ -139,13 +141,5 @@
     outline: none;
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 45%, transparent);
-  }
-
-  @media (max-width: 1180px) {
-    .script-side-panel {
-      border-left: none;
-      border-top: 1px solid var(--border-color);
-      max-height: 38vh;
-    }
   }
 </style>

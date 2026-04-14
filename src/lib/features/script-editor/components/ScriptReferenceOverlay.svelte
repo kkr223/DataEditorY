@@ -269,7 +269,8 @@
   .script-reference-item-bottom,
   .script-reference-function-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
     gap: 0.55rem;
     min-width: 0;
   }
@@ -331,15 +332,15 @@
   }
 
   .script-reference-item.functions .script-reference-item-title {
-    flex: none;
-    min-width: 11rem;
+    flex: 0 1 11rem;
+    min-width: 0;
   }
 
   .script-reference-item.functions .script-reference-item-category {
-    max-width: 14rem;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
   }
 
   .functions-description {

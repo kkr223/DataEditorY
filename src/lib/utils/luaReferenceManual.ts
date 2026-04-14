@@ -4,6 +4,7 @@ import type { LuaConstantItem, LuaFunctionItem } from '$lib/types';
 export type LuaReferenceManualKind = 'constants' | 'functions';
 export type LuaReferenceManualItem = {
   key: string;
+  kind: LuaReferenceManualKind;
   title: string;
   detail: string;
   description: string;
@@ -12,6 +13,9 @@ export type LuaReferenceManualItem = {
   insertText: string;
   insertAsSnippet: boolean;
   searchText: string;
+  namespace?: string;
+  shortName?: string;
+  parameters?: string[];
 };
 
 const LUA_KEYWORDS = [
@@ -77,8 +81,30 @@ function escapeSnippetPlaceholder(value: string) {
   return value.replace(/[$}\\]/g, '\\$&');
 }
 
-function buildFunctionInsertText(displayName: string, item: LuaFunctionItem) {
-  const parameters = item.parameters.map(stripParameterName).filter(Boolean);
+function getFunctionInsertParameters(item: Pick<LuaFunctionItem, 'parameters' | 'namespace'>, useMethodSyntax = false) {
+  if (!useMethodSyntax || item.parameters.length === 0) {
+    return item.parameters;
+  }
+
+  const [firstParameter, ...restParameters] = item.parameters;
+  const firstParameterName = stripParameterName(firstParameter);
+  if (
+    (item.namespace === 'Card' && (firstParameterName === 'c' || firstParameterName === 'self'))
+    || (item.namespace === 'Effect' && (firstParameterName === 'e' || firstParameterName === 'self'))
+    || (item.namespace === 'Group' && (firstParameterName === 'g' || firstParameterName === 'self'))
+  ) {
+    return restParameters;
+  }
+
+  return item.parameters;
+}
+
+function buildFunctionInsertText(
+  displayName: string,
+  item: Pick<LuaFunctionItem, 'parameters' | 'namespace'>,
+  useMethodSyntax = false,
+) {
+  const parameters = getFunctionInsertParameters(item, useMethodSyntax).map(stripParameterName).filter(Boolean);
   if (parameters.length === 0) {
     return `${displayName}()`;
   }
@@ -102,6 +128,7 @@ function buildConstantReferenceManualItem(item: LuaConstantItem): LuaReferenceMa
   const description = normalizeCompletionHint(item.description, `${item.name} = ${item.value}`) ?? '';
   return {
     key: `constant:${item.name}`,
+    kind: 'constants',
     title: item.name,
     detail: `${item.name} = ${item.value}`,
     description,
@@ -123,6 +150,7 @@ function buildFunctionReferenceManualItem(item: LuaFunctionItem): LuaReferenceMa
   const description = normalizeCompletionHint(item.description, item.signature) ?? '';
   return {
     key: `function:${item.name}`,
+    kind: 'functions',
     title: item.name,
     detail: toSignatureLabel(item),
     description,
@@ -130,6 +158,9 @@ function buildFunctionReferenceManualItem(item: LuaFunctionItem): LuaReferenceMa
     valueText: '',
     insertText: buildFunctionInsertText(item.name, item),
     insertAsSnippet: true,
+    namespace: item.namespace,
+    shortName: item.shortName,
+    parameters: item.parameters,
     searchText: buildReferenceSearchText([
       item.name,
       item.shortName,
@@ -139,6 +170,26 @@ function buildFunctionReferenceManualItem(item: LuaFunctionItem): LuaReferenceMa
       category,
     ]),
   };
+}
+
+export function resolveReferenceManualInsertText(
+  item: LuaReferenceManualItem,
+  options: {
+    useMethodSyntax?: boolean;
+  } = {},
+) {
+  if (item.kind !== 'functions' || !options.useMethodSyntax || !item.shortName || !item.parameters) {
+    return item.insertText;
+  }
+
+  return buildFunctionInsertText(
+    item.shortName,
+    {
+      namespace: item.namespace ?? 'global',
+      parameters: item.parameters,
+    },
+    true,
+  );
 }
 
 async function loadLuaCatalog() {

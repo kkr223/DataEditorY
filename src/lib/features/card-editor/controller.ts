@@ -6,6 +6,12 @@ import { createCardSnapshot } from '$lib/domain/card/draft';
 import { ATTRIBUTE_MAP, LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
 
 export const CARD_LIST_PAGE_SIZE = 50;
+const MAX_DRAFT_UNDO_HISTORY = 100;
+
+export type DraftUndoEntry = {
+  snapshot: string;
+  card: CardDataEntry;
+};
 
 export type CardScriptGenerationState = {
   isGenerating: boolean;
@@ -37,6 +43,47 @@ export function createCardScriptGenerationState(): CardScriptGenerationState {
     isGenerating: false,
     stage: '',
     abortController: null,
+  };
+}
+
+export function createDraftUndoHistory(card: CardDataEntry): DraftUndoEntry[] {
+  return [{
+    snapshot: createCardSnapshot(card),
+    card: cloneEditableCard(card),
+  }];
+}
+
+export function pushDraftUndoHistory(history: DraftUndoEntry[], card: CardDataEntry): DraftUndoEntry[] {
+  const snapshot = createCardSnapshot(card);
+  if (history[history.length - 1]?.snapshot === snapshot) {
+    return history;
+  }
+
+  const nextHistory = [
+    ...history,
+    {
+      snapshot,
+      card: cloneEditableCard(card),
+    },
+  ];
+
+  return nextHistory.length > MAX_DRAFT_UNDO_HISTORY
+    ? nextHistory.slice(nextHistory.length - MAX_DRAFT_UNDO_HISTORY)
+    : nextHistory;
+}
+
+export function stepBackDraftUndoHistory(history: DraftUndoEntry[]) {
+  if (history.length <= 1) {
+    return {
+      history,
+      card: null as CardDataEntry | null,
+    };
+  }
+
+  const nextHistory = history.slice(0, -1);
+  return {
+    history: nextHistory,
+    card: cloneEditableCard(nextHistory[nextHistory.length - 1].card),
   };
 }
 
