@@ -19,6 +19,7 @@
     updateSetcode,
   } from "$lib/utils/setcode";
   import {
+    cloneEditableCard,
     createEmptyCard,
     getPackedLevel,
     normalizeEditableScaleValue,
@@ -41,6 +42,7 @@
   import { resolveCardImageSrc } from "$lib/services/cardImageService";
   import {
     buildSearchFiltersFromDraft,
+    createDraftUndoHistory,
     buildEmptyDraftState,
     buildLoadedDraftState,
     CARD_LIST_PAGE_SIZE,
@@ -51,8 +53,11 @@
     handleCardEditorKeydown,
     handleParseModalBackdropDismiss,
     isDraftDirty as isDraftStateDirty,
+    pushDraftUndoHistory,
     resolvePageNavigationTarget,
     resolveSelectionNavigationTarget,
+    stepBackDraftUndoHistory,
+    type DraftUndoEntry,
   } from "$lib/features/card-editor/controller";
   import {
     deleteDraftCardFlow,
@@ -84,7 +89,9 @@
     : null;
 
 
-  let draftCard = $state<CardDataEntry>(createEmptyCard());
+  const initialDraftCard = createEmptyCard();
+  let editorRoot = $state<HTMLDivElement | null>(null);
+  let draftCard = $state<CardDataEntry>(initialDraftCard);
   let originalCardCode = $state<number | null>(null);
   let imageSrc = $state<string>("/resources/cover.jpg");
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
@@ -107,6 +114,9 @@
   let cardImageDrawerHostModulePromise = $state<Promise<CardImageDrawerHostModule> | null>(null);
   const scriptGeneration = $state(createCardScriptGenerationState());
   let isKeyboardNavigating = $state(false);
+  let draftUndoHistory = $state.raw<DraftUndoEntry[]>(createDraftUndoHistory(initialDraftCard));
+  let trackedDraftSnapshot = $state(createCardSnapshot(initialDraftCard));
+  let suspendDraftUndoTracking = 0;
 
   const imageInteractionController = createCardImageInteractionController({
     onPickImage: () => handleImagePick(),
@@ -182,6 +192,71 @@
     }
   }
 
+  function replaceDraftCardWithoutUndo(nextCard: CardDataEntry) {
+    suspendDraftUndoTracking += 1;
+    draftCard = cloneEditableCard(nextCard);
+    suspendDraftUndoTracking -= 1;
+    syncSetcodesFromCard(draftCard);
+    trackedDraftSnapshot = createCardSnapshot(draftCard);
+  }
+
+  function resetDraftUndoBaseline(nextCard: CardDataEntry = draftCard) {
+    draftUndoHistory = createDraftUndoHistory(nextCard);
+    trackedDraftSnapshot = createCardSnapshot(nextCard);
+  }
+
+  function toShortcutElement(target: EventTarget | null) {
+    if (target instanceof HTMLElement) return target;
+    if (target instanceof Node) {
+      return target.parentElement;
+    }
+    return null;
+  }
+
+  function isNativeTextUndoTarget(target: EventTarget | null) {
+    const candidate = toShortcutElement(target) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    if (!candidate) return false;
+
+    if (candidate.closest(".monaco-editor, .monaco-diff-editor")) {
+      return true;
+    }
+
+    if (candidate instanceof HTMLTextAreaElement || candidate.isContentEditable) {
+      return true;
+    }
+
+    if (candidate instanceof HTMLInputElement) {
+      const type = candidate.type.toLowerCase();
+      return !["button", "checkbox", "color", "file", "image", "radio", "range", "reset", "submit"].includes(type);
+    }
+
+    return Boolean(candidate.closest('[contenteditable="true"]'));
+  }
+
+  function isCardEditorShortcutTarget(target: EventTarget | null) {
+    if (!editorRoot) return false;
+    const candidate = toShortcutElement(target) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    return Boolean(candidate && editorRoot.contains(candidate));
+  }
+
+  function handleDraftUndo() {
+    const previousCode = Number(draftCard.code ?? 0);
+    const result = stepBackDraftUndoHistory(draftUndoHistory);
+    if (!result.card) {
+      return false;
+    }
+
+    draftUndoHistory = result.history;
+    replaceDraftCardWithoutUndo(result.card);
+
+    const nextCode = Number(draftCard.code ?? 0);
+    if (nextCode !== previousCode) {
+      void refreshDraftImage(nextCode);
+    }
+
+    return true;
+  }
+
   function handleSetcodeSelectChange(index: number, value: string) {
     if (value === "") {
       setcodeHexes[index] = "";
@@ -234,8 +309,8 @@
     lastSyncedSelectedId = nextState.lastSyncedSelectedId;
     lastLoadedCardSnapshot = nextState.lastLoadedCardSnapshot;
     originalCardCode = nextState.originalCardCode;
-    draftCard = nextState.draftCard;
-    syncSetcodesFromCard(draftCard);
+    replaceDraftCardWithoutUndo(nextState.draftCard);
+    resetDraftUndoBaseline(nextState.draftCard);
     imageRequestToken++;
     imageInteractionController.clearPendingClick();
     imageSrc = nextState.imageSrc;
@@ -273,6 +348,24 @@
   }
 
   async function handleEditorKeydown(event: KeyboardEvent) {
+    const isPrimary = event.ctrlKey || event.metaKey;
+    if (
+      isPrimary
+      && !event.altKey
+      && !event.shiftKey
+      && event.key.toLowerCase() === "z"
+      && !isParseModalOpen
+      && !imageInteraction.isDrawerOpen
+      && !imageInteraction.isPreviewOpen
+      && isCardEditorShortcutTarget(event.target)
+      && !isNativeTextUndoTarget(event.target)
+    ) {
+      if (handleDraftUndo()) {
+        event.preventDefault();
+      }
+      return;
+    }
+
     await handleCardEditorKeydown(event, {
       isDbLoaded: $isDbLoaded,
       isKeyboardNavigating,
@@ -311,8 +404,8 @@
     lastSyncedSelectedId = nextState.lastSyncedSelectedId;
     lastLoadedCardSnapshot = nextState.lastLoadedCardSnapshot;
     originalCardCode = nextState.originalCardCode;
-    draftCard = nextState.draftCard;
-    syncSetcodesFromCard(draftCard);
+    replaceDraftCardWithoutUndo(nextState.draftCard);
+    resetDraftUndoBaseline(nextState.draftCard);
   }
 
   function handleImageError(failedSrc: string) {
@@ -344,7 +437,8 @@
       removeOriginal,
       t: (key, options) => $_(key, options as never),
       setDraftCard: (card) => {
-        draftCard = card;
+        draftCard = cloneEditableCard(card);
+        syncSetcodesFromCard(draftCard);
       },
       setOriginalCardCode: (code) => {
         originalCardCode = code;
@@ -608,7 +702,8 @@
         isParseModalOpen = value;
       },
       setDraftCard: (card) => {
-        draftCard = card;
+        draftCard = cloneEditableCard(card);
+        syncSetcodesFromCard(draftCard);
       },
       syncSetcodesFromCard,
       afterDraftApplied: async () => {
@@ -624,6 +719,21 @@
     showToast($_(ok ? "editor.save_success" : "editor.save_failed"), ok ? "success" : "error");
   }
 
+
+  $effect(() => {
+    const snapshot = createCardSnapshot(draftCard);
+    if (suspendDraftUndoTracking > 0) {
+      trackedDraftSnapshot = snapshot;
+      return;
+    }
+
+    if (snapshot === trackedDraftSnapshot) {
+      return;
+    }
+
+    draftUndoHistory = pushDraftUndoHistory(draftUndoHistory, draftCard);
+    trackedDraftSnapshot = snapshot;
+  });
 
   $effect(() => {
     if (!$isDbLoaded) {
@@ -702,7 +812,7 @@
 </script>
 
 {#if $isDbLoaded}
-  <div class="editor-area">
+  <div class="editor-area" bind:this={editorRoot}>
       <CardEditorHeader
         {draftCard}
         saveLabel={$_("editor.save_db")}
@@ -717,8 +827,8 @@
     <CardEditorForm
       {draftCard}
       {imageSrc}
-      imageAriaLabel="Single click to select image, double click to preview"
-      imageTitle="单击更换图片，双击放大预览"
+      imageAriaLabel={$_("editor.card_image_picker_aria")}
+      imageTitle={$_("editor.card_image_picker_title")}
       noImageLabel="📷"
       {isLink}
       {isPend}
@@ -831,9 +941,9 @@
 <CardImagePreview
   open={imageInteraction.isPreviewOpen}
   {imageSrc}
-  closeAriaLabel="Close image preview"
-  dialogAriaLabel="Card image preview"
-  previewAlt="Card preview"
+  closeAriaLabel={$_("editor.card_image_preview_close")}
+  dialogAriaLabel={$_("editor.card_image_preview_dialog")}
+  previewAlt={$_("editor.card_image_preview_alt")}
   onClose={closeImagePreview}
 />
 

@@ -4,13 +4,16 @@ import {
   buildEmptyDraftState,
   buildSearchFiltersFromDraft,
   buildLoadedDraftState,
+  createDraftUndoHistory,
   createCardImageInteractionController,
   createInitialParseManuscript,
   createCardScriptGenerationController,
   createCardScriptGenerationState,
   isDraftDirty,
+  pushDraftUndoHistory,
   resolvePageNavigationTarget,
   resolveSelectionNavigationTarget,
+  stepBackDraftUndoHistory,
 } from '$lib/features/card-editor/controller';
 import { createCardSnapshot } from '$lib/domain/card/draft';
 import { LINK_MARKER_NAME_TO_BIT, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
@@ -74,6 +77,31 @@ describe('card editor controller helpers', () => {
       originalCardCode: card.code,
       lastLoadedCardSnapshot: createCardSnapshot(card),
     })).toBe(true);
+  });
+
+  test('records and steps back draft undo history without duplicating identical snapshots', () => {
+    const initial = createCard({ attack: 1500 });
+    const changed = createCard({ attack: 2000 });
+    const changedAgain = createCard({ attack: 2500 });
+
+    let history = createDraftUndoHistory(initial);
+    history = pushDraftUndoHistory(history, changed);
+    history = pushDraftUndoHistory(history, changed);
+    history = pushDraftUndoHistory(history, changedAgain);
+
+    expect(history).toHaveLength(3);
+
+    const firstUndo = stepBackDraftUndoHistory(history);
+    expect(firstUndo.card?.attack).toBe(2000);
+    expect(firstUndo.history).toHaveLength(2);
+
+    const secondUndo = stepBackDraftUndoHistory(firstUndo.history);
+    expect(secondUndo.card?.attack).toBe(1500);
+    expect(secondUndo.history).toHaveLength(1);
+
+    const exhaustedUndo = stepBackDraftUndoHistory(secondUndo.history);
+    expect(exhaustedUndo.card).toBeNull();
+    expect(exhaustedUndo.history).toHaveLength(1);
   });
 
   test('builds an initial parse manuscript from name and description', () => {
