@@ -26,7 +26,7 @@
     setPackedLevel,
   } from "$lib/utils/card";
   import { createCardSnapshot } from "$lib/domain/card/draft";
-  import { APP_SHORTCUT_EVENT } from "$lib/utils/shortcuts";
+  import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from "$lib/utils/shortcuts";
   import { isEditableTarget } from "$lib/features/shell/controller";
   import { shellBackgroundTaskState } from "$lib/features/shell/dialogsController.svelte";
   import { isCapabilityEnabled } from "$lib/application/capabilities/registry";
@@ -520,9 +520,16 @@
 
     const handleShortcut = (event: Event) => {
       const customEvent = event as CustomEvent<string>;
-      if (customEvent.detail !== "new-card" || !$isDbLoaded) return;
+      if (!$isDbLoaded) return;
 
-      handleNewCard();
+      if (customEvent.detail === "new-card") {
+        handleNewCard();
+        return;
+      }
+
+      if (customEvent.detail === "search-from-draft") {
+        void handleSearchFromDraft();
+      }
     };
 
     window.addEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
@@ -891,7 +898,7 @@
       onCancelGenerateScript={handleCancelGenerateScript}
       onOpenCardImageDrawer={openCardImageDrawer}
       onResetSearch={handleResetSearch}
-      onSearch={handleSearchFromDraft}
+      onSearch={() => dispatchAppShortcut("search-from-draft")}
       onSaveAs={handleSaveAs}
       onModify={handleModify}
       onDelete={handleDelete}
