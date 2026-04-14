@@ -113,6 +113,8 @@
   const EFFECT_BLOCK_FILL_INSET_RIGHT = 16;
   const EFFECT_BLOCK_FILL_INSET_BOTTOM = 20;
   const CROPPED_IMAGE_SIZE = 1024;
+  const MAX_CROP_PREVIEW_WIDTH = 900;
+  const MAX_CROP_PREVIEW_HEIGHT = 680;
   const FOREGROUND_OVERLAY_Z_INDEX = 21;
   const FOREGROUND_TOP_LAYER_Z_INDEX = 30;
   const FIELD_SPELL_ART_SIZE = 512;
@@ -164,18 +166,20 @@
   let foregroundPreviewShell = $state<HTMLDivElement | null>(null);
   let foregroundPreviewCard = $state<InstanceType<YugiohCardConstructor> | null>(null);
   let foregroundRenderableUrl = $state("");
-  let cropImageElement = $state<HTMLImageElement | null>(null);
   let croppedImageDataUrl = $state("");
   let sourceImageUrl = $state("");
   let sourceImageWidth = $state(0);
   let sourceImageHeight = $state(0);
   let cropModalOpen = $state(false);
+  let cropRotation = $state(0);
   let cropBox = $state<CropBox>({ x: 0, y: 0, size: 0 });
   let dragMode = $state<DragMode>(null);
   let dragPointerId = $state<number | null>(null);
   let dragStartX = $state(0);
   let dragStartY = $state(0);
   let dragStartBox = $state<CropBox>({ x: 0, y: 0, size: 0 });
+  let cropViewportWidth = $state(typeof window === "undefined" ? MAX_CROP_PREVIEW_WIDTH : window.innerWidth);
+  let cropViewportHeight = $state(typeof window === "undefined" ? MAX_CROP_PREVIEW_HEIGHT : window.innerHeight);
   let previewWidth = $state(360);
   let previewHeight = $state(640);
   let foregroundPreviewWidth = $state(420);
@@ -415,6 +419,7 @@
     sourceImageWidth = 0;
     sourceImageHeight = 0;
     cropModalOpen = false;
+    cropRotation = 0;
     cropBox = { x: 0, y: 0, size: 0 };
     dragMode = null;
     dragPointerId = null;
@@ -616,6 +621,7 @@
       sourceImageWidth = 0;
       sourceImageHeight = 0;
       cropModalOpen = false;
+      cropRotation = 0;
       cropBox = { x: 0, y: 0, size: 0 };
       dragMode = null;
       dragPointerId = null;
@@ -797,30 +803,126 @@
     }
   }
 
-  function clampCropBox(nextBox: CropBox): CropBox {
-    const imageWidth = cropImageElement?.clientWidth ?? 0;
-    const imageHeight = cropImageElement?.clientHeight ?? 0;
-    if (!imageWidth || !imageHeight) return nextBox;
+  function getCropRotationRadians() {
+    return (cropRotation * Math.PI) / 180;
+  }
 
-    const maxSize = Math.min(imageWidth, imageHeight);
+  function getCropStageMetrics() {
+    if (!sourceImageWidth || !sourceImageHeight) {
+      return {
+        stageWidth: 0,
+        stageHeight: 0,
+        imageWidth: 0,
+        imageHeight: 0,
+        imageOffsetX: 0,
+        imageOffsetY: 0,
+        renderWidth: 0,
+        renderHeight: 0,
+      };
+    }
+
+    const angle = getCropRotationRadians();
+    const cos = Math.abs(Math.cos(angle));
+    const sin = Math.abs(Math.sin(angle));
+    const rotatedWidth = sourceImageWidth * cos + sourceImageHeight * sin;
+    const rotatedHeight = sourceImageWidth * sin + sourceImageHeight * cos;
+    const maxWidth = Math.min(cropViewportWidth * 0.86, MAX_CROP_PREVIEW_WIDTH);
+    const maxHeight = Math.min(cropViewportHeight * 0.68, MAX_CROP_PREVIEW_HEIGHT);
+    const scale = Math.min(maxWidth / rotatedWidth, maxHeight / rotatedHeight, 1);
+    const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+    const stageWidth = rotatedWidth * safeScale;
+    const stageHeight = rotatedHeight * safeScale;
+    const imageWidth = sourceImageWidth * safeScale;
+    const imageHeight = sourceImageHeight * safeScale;
+
+    return {
+      stageWidth,
+      stageHeight,
+      imageWidth,
+      imageHeight,
+      imageOffsetX: (stageWidth - imageWidth) / 2,
+      imageOffsetY: (stageHeight - imageHeight) / 2,
+      renderWidth: Math.max(1, Math.round(rotatedWidth)),
+      renderHeight: Math.max(1, Math.round(rotatedHeight)),
+    };
+  }
+
+  function clampCropBox(nextBox: CropBox): CropBox {
+    const { stageWidth, stageHeight } = getCropStageMetrics();
+    if (!stageWidth || !stageHeight) return nextBox;
+
+    const maxSize = Math.min(stageWidth, stageHeight);
     const size = Math.min(Math.max(nextBox.size, MIN_CROP_SIZE), maxSize);
-    const x = Math.min(Math.max(nextBox.x, 0), Math.max(imageWidth - size, 0));
-    const y = Math.min(Math.max(nextBox.y, 0), Math.max(imageHeight - size, 0));
+    const x = Math.min(Math.max(nextBox.x, 0), Math.max(stageWidth - size, 0));
+    const y = Math.min(Math.max(nextBox.y, 0), Math.max(stageHeight - size, 0));
 
     return { x, y, size };
   }
 
   function initializeCropBox() {
-    const imageWidth = cropImageElement?.clientWidth ?? 0;
-    const imageHeight = cropImageElement?.clientHeight ?? 0;
-    if (!imageWidth || !imageHeight) return;
+    const { stageWidth, stageHeight } = getCropStageMetrics();
+    if (!stageWidth || !stageHeight) return;
 
-    const size = Math.max(MIN_CROP_SIZE, Math.min(imageWidth, imageHeight) * 0.72);
+    const size = Math.max(MIN_CROP_SIZE, Math.min(stageWidth, stageHeight) * 0.72);
     cropBox = {
-      x: (imageWidth - size) / 2,
-      y: (imageHeight - size) / 2,
+      x: (stageWidth - size) / 2,
+      y: (stageHeight - size) / 2,
       size,
     };
+  }
+
+  function normalizeCropRotation(nextRotation: number) {
+    const normalized = (((Math.round(nextRotation) + 180) % 360) + 360) % 360 - 180;
+    return normalized === -180 ? 180 : normalized;
+  }
+
+  function setCropRotation(nextRotation: number) {
+    const next = normalizeCropRotation(nextRotation);
+    if (next === cropRotation) return;
+
+    const centerX = cropBox.x + cropBox.size / 2;
+    const centerY = cropBox.y + cropBox.size / 2;
+    const size = cropBox.size;
+
+    cropRotation = next;
+    cropBox = size
+      ? clampCropBox({
+          x: centerX - size / 2,
+          y: centerY - size / 2,
+          size,
+        })
+      : cropBox;
+  }
+
+  function rotateCropPreview(delta: number) {
+    setCropRotation(cropRotation + delta);
+  }
+
+  function resetCropRotation() {
+    setCropRotation(0);
+  }
+
+  function handleCropRotationInput(event: Event) {
+    setCropRotation(Number((event.currentTarget as HTMLInputElement).value));
+  }
+
+  function handleCropViewportResize() {
+    if (typeof window === "undefined") return;
+    cropViewportWidth = window.innerWidth;
+    cropViewportHeight = window.innerHeight;
+    if (!cropModalOpen) return;
+    if (!cropBox.size) {
+      initializeCropBox();
+      return;
+    }
+
+    const centerX = cropBox.x + cropBox.size / 2;
+    const centerY = cropBox.y + cropBox.size / 2;
+    cropBox = clampCropBox({
+      x: centerX - cropBox.size / 2,
+      y: centerY - cropBox.size / 2,
+      size: cropBox.size,
+    });
   }
 
   async function handleImageUpload(event: Event) {
@@ -836,6 +938,7 @@
     await image.decode();
     sourceImageWidth = image.naturalWidth;
     sourceImageHeight = image.naturalHeight;
+    cropRotation = 0;
     cropModalOpen = true;
 
     await tick();
@@ -988,14 +1091,10 @@
   }
 
   async function applyCrop() {
-    if (!cropImageElement || !sourceImageUrl || !sourceImageWidth || !sourceImageHeight) return;
+    if (!sourceImageUrl || !sourceImageWidth || !sourceImageHeight) return;
 
-    const displayWidth = cropImageElement.clientWidth;
-    const displayHeight = cropImageElement.clientHeight;
-    if (!displayWidth || !displayHeight) return;
-
-    const scaleX = sourceImageWidth / displayWidth;
-    const scaleY = sourceImageHeight / displayHeight;
+    const metrics = getCropStageMetrics();
+    if (!metrics.stageWidth || !metrics.stageHeight) return;
 
     const canvas = document.createElement("canvas");
     canvas.width = CROPPED_IMAGE_SIZE;
@@ -1009,9 +1108,30 @@
     image.src = sourceImageUrl;
     await image.decode();
 
+    const stageCanvas = document.createElement("canvas");
+    stageCanvas.width = metrics.renderWidth;
+    stageCanvas.height = metrics.renderHeight;
+    const stageContext = stageCanvas.getContext("2d");
+    if (!stageContext) {
+      throw new Error("Stage canvas context unavailable");
+    }
+
+    stageContext.imageSmoothingEnabled = true;
+    stageContext.imageSmoothingQuality = "high";
+    stageContext.clearRect(0, 0, stageCanvas.width, stageCanvas.height);
+    stageContext.save();
+    stageContext.translate(stageCanvas.width / 2, stageCanvas.height / 2);
+    stageContext.rotate(getCropRotationRadians());
+    stageContext.drawImage(image, -sourceImageWidth / 2, -sourceImageHeight / 2, sourceImageWidth, sourceImageHeight);
+    stageContext.restore();
+
+    const scaleX = stageCanvas.width / metrics.stageWidth;
+    const scaleY = stageCanvas.height / metrics.stageHeight;
     context.clearRect(0, 0, CROPPED_IMAGE_SIZE, CROPPED_IMAGE_SIZE);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
     context.drawImage(
-      image,
+      stageCanvas,
       cropBox.x * scaleX,
       cropBox.y * scaleY,
       cropBox.size * scaleX,
@@ -1034,6 +1154,7 @@
       sourceImageHeight = 0;
     }
     cropModalOpen = false;
+    cropRotation = 0;
     dragMode = null;
     dragPointerId = null;
   }
@@ -2185,6 +2306,8 @@
   });
 </script>
 
+<svelte:window onresize={handleCropViewportResize} />
+
 {#if open}
   <div class="drawer-backdrop" role="presentation" onclick={handleBackdropClick}>
     <div class="drawer-panel" use:disableAutofill role="dialog" aria-modal="true" aria-label={$_("editor.card_image_title")}>
@@ -2606,6 +2729,7 @@
 {/if}
 
 {#if cropModalOpen}
+  {@const cropStageMetrics = getCropStageMetrics()}
   <div class="crop-backdrop" role="presentation">
     <div class="crop-dialog" role="dialog" aria-modal="true" aria-label={$_("editor.card_image_crop_title")}>
       <div class="crop-header">
@@ -2617,23 +2741,61 @@
 
       <div class="crop-body">
         {#if sourceImageUrl}
-          <div class="crop-canvas">
-            <img src={sourceImageUrl} alt="Crop source" class="crop-image" bind:this={cropImageElement} />
-            {#if cropBox.size > 0}
-              <div
-                class="crop-box"
-                role="presentation"
-                style={`left:${cropBox.x}px;top:${cropBox.y}px;width:${cropBox.size}px;height:${cropBox.size}px;`}
-                onpointerdown={handleCropPointerDown}
-                onpointermove={handleCropPointerMove}
-                onpointerup={handleCropPointerUp}
-                onpointercancel={handleCropPointerUp}
-                onwheel={handleCropWheel}
-              >
-                <div class="crop-box-grid"></div>
-                <button class="crop-resize-handle" type="button" aria-label={$_("editor.card_image_crop_resize")} onpointerdown={handleCropResizePointerDown}></button>
+          <div class="crop-layout">
+            <div class="crop-canvas-shell">
+              <div class="crop-canvas" style={`width:${cropStageMetrics.stageWidth}px;height:${cropStageMetrics.stageHeight}px;`}>
+                <div
+                  class="crop-image-frame"
+                  style={`left:${cropStageMetrics.imageOffsetX}px;top:${cropStageMetrics.imageOffsetY}px;width:${cropStageMetrics.imageWidth}px;height:${cropStageMetrics.imageHeight}px;transform:rotate(${cropRotation}deg);`}
+                >
+                  <img src={sourceImageUrl} alt={$_("editor.card_image_crop_source_alt")} class="crop-image" />
+                </div>
+                {#if cropBox.size > 0}
+                  <div
+                    class="crop-box"
+                    role="presentation"
+                    style={`left:${cropBox.x}px;top:${cropBox.y}px;width:${cropBox.size}px;height:${cropBox.size}px;`}
+                    onpointerdown={handleCropPointerDown}
+                    onpointermove={handleCropPointerMove}
+                    onpointerup={handleCropPointerUp}
+                    onpointercancel={handleCropPointerUp}
+                    onwheel={handleCropWheel}
+                  >
+                    <div class="crop-box-grid"></div>
+                    <button class="crop-resize-handle" type="button" aria-label={$_("editor.card_image_crop_resize")} onpointerdown={handleCropResizePointerDown}></button>
+                  </div>
+                {/if}
               </div>
-            {/if}
+            </div>
+
+            <aside class="crop-sidebar">
+              <div class="crop-toolbar">
+                <span class="crop-toolbar-label">{$_("editor.card_image_crop_rotation")}</span>
+                <div class="crop-toolbar-grid">
+                  <button class="btn-secondary btn-sm" type="button" onclick={() => rotateCropPreview(-90)}>
+                    {$_("editor.card_image_crop_rotate_left")}
+                  </button>
+                  <button class="btn-secondary btn-sm" type="button" onclick={() => rotateCropPreview(90)}>
+                    {$_("editor.card_image_crop_rotate_right")}
+                  </button>
+                  <label class="crop-rotation-slider">
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      step="1"
+                      value={cropRotation}
+                      aria-label={$_("editor.card_image_crop_rotation")}
+                      oninput={handleCropRotationInput}
+                    />
+                    <span>{cropRotation}°</span>
+                  </label>
+                  <button class="btn-secondary btn-sm crop-reset-btn" type="button" onclick={resetCropRotation}>
+                    {$_("editor.card_image_crop_reset")}
+                  </button>
+                </div>
+              </div>
+            </aside>
           </div>
         {/if}
       </div>
@@ -2746,10 +2908,29 @@
   .crop-backdrop { position: fixed; inset: 0; z-index: 1200; background: rgba(2, 6, 12, 0.7); display: flex; align-items: center; justify-content: center; padding: 24px; }
   .crop-dialog { width: min(980px, 96vw); max-height: 92vh; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
   .crop-header, .crop-footer { padding: 14px 18px; border-bottom: 1px solid var(--border-color); }
+  .crop-header { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
   .crop-footer { border-bottom: none; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; }
   .crop-body { padding: 18px; overflow: auto; }
-  .crop-canvas { position: relative; display: inline-block; max-width: 100%; line-height: 0; }
-  .crop-image { display: block; max-width: min(86vw, 900px); max-height: min(68vh, 680px); object-fit: contain; user-select: none; }
+  .crop-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; justify-content: center; gap: 18px; }
+  .crop-canvas-shell { min-width: 0; display: flex; justify-content: center; }
+  .crop-sidebar { display: flex; align-items: flex-start; }
+  .crop-toolbar { display: grid; grid-template-columns: 1fr; gap: 10px; width: 100%; padding: 14px; border: 1px solid var(--border-color); border-radius: 12px; background: linear-gradient(180deg, rgba(15, 23, 42, 0.14), rgba(15, 23, 42, 0.06)); }
+  .crop-toolbar-label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+  .crop-toolbar-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: stretch; width: 100%; }
+  .crop-rotation-slider { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 8px; min-width: 0; width: 100%; padding: 0.35rem 0.55rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-base); color: var(--text-primary); }
+  .crop-rotation-slider input { width: 100%; min-width: 0; accent-color: #2563eb; }
+  .crop-rotation-slider span { min-width: 3.25rem; text-align: right; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+  .crop-reset-btn { justify-self: stretch; }
+  .crop-canvas { position: relative; flex: 0 0 auto; line-height: 0; border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent); border-radius: 12px; background:
+      linear-gradient(45deg, rgba(148, 163, 184, 0.08) 25%, transparent 25%, transparent 75%, rgba(148, 163, 184, 0.08) 75%),
+      linear-gradient(45deg, rgba(148, 163, 184, 0.08) 25%, transparent 25%, transparent 75%, rgba(148, 163, 184, 0.08) 75%),
+      rgba(15, 23, 42, 0.2);
+    background-position: 0 0, 12px 12px, 0 0;
+    background-size: 24px 24px, 24px 24px, auto;
+    overflow: hidden;
+  }
+  .crop-image-frame { position: absolute; transform-origin: center; }
+  .crop-image { display: block; width: 100%; height: 100%; user-select: none; pointer-events: none; }
   .crop-box { position: absolute; border: 2px solid #f8fafc; background: rgba(255, 255, 255, 0.08); box-shadow: 0 0 0 9999px rgba(2, 6, 12, 0.45), 0 0 0 1px rgba(15, 23, 42, 0.7) inset; cursor: move; touch-action: none; }
   .crop-box-grid { position: absolute; inset: 0; background-image: linear-gradient(to right, rgba(255, 255, 255, 0.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 1px, transparent 1px); background-size: 33.333% 100%, 100% 33.333%; }
   .crop-resize-handle { position: absolute; right: -8px; bottom: -8px; width: 16px; height: 16px; border-radius: 999px; border: 2px solid #0f172a; background: #f8fafc; cursor: nwse-resize; padding: 0; }
@@ -2794,6 +2975,23 @@
     .foreground-preview-pane {
       border-left: none;
       border-top: 1px solid var(--border-color);
+    }
+
+    .crop-toolbar {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .crop-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .crop-canvas-shell {
+      justify-content: flex-start;
+    }
+
+    .crop-sidebar {
+      width: 100%;
     }
   }
 
