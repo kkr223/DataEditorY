@@ -17,22 +17,24 @@ import { parseRuleExpression } from '$lib/domain/search/ruleExpression';
 // the "advanced search" capability that DEX does not have.
 // ---------------------------------------------------------------------------
 
-/** DEX name-pattern: `%%` is a user-supplied wildcard, otherwise auto-wrap. */
-function buildNamePattern(input: string): string {
+function escapeLikeTerm(term: string): string {
+  return term.replaceAll('/', '//').replaceAll('%', '/%').replaceAll('_', '/_');
+}
+
+/**
+ * Treat plain whitespace and `%%` as ordered keyword separators.
+ * This keeps search order-sensitive, but makes `黑 法` and `黑%%法`
+ * follow the same "contains in order" matching semantics.
+ */
+function buildKeywordPattern(input: string): string {
   const s = input.trim();
   if (!s) return '%';
 
-  // User-supplied wildcards: %% → %
-  if (s.includes('%%')) return s.replaceAll('%%', '%');
-
-  // DEX-style keyword search: split plain whitespace into independent terms.
-  // This keeps legacy "blue eyes" -> "%blue%eyes%" behavior even when the
-  // backend query engine no longer performs token splitting for us.
   const escapedTerms = s
-    .split(/\s+/)
+    .split(/(?:%%|\s)+/)
     .map((term) => term.trim())
     .filter(Boolean)
-    .map((term) => term.replaceAll('/', '//').replaceAll('%', '/%').replaceAll('_', '/_'));
+    .map(escapeLikeTerm);
 
   return `%${escapedTerms.join('%')}%`;
 }
@@ -108,7 +110,7 @@ export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
 
   // --- name ---
   if (filters.name.trim()) {
-    params.name = buildNamePattern(filters.name);
+    params.name = buildKeywordPattern(filters.name);
     conds.push(`texts.name LIKE :name ESCAPE '/'`);
   }
 
@@ -129,8 +131,8 @@ export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
 
   // --- desc ---
   if (filters.desc.trim()) {
-    params.desc = `%${filters.desc.trim()}%`;
-    conds.push('texts.desc LIKE :desc');
+    params.desc = buildKeywordPattern(filters.desc);
+    conds.push(`texts.desc LIKE :desc ESCAPE '/'`);
   }
 
   // --- atk / def (DEX style) ---
