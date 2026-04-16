@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { locale } from 'svelte-i18n';
-import { activeTabId, cacheActiveTabSelection, onCachedSearchRefreshed, searchCardsPage } from '$lib/stores/db';
+import { activeTabId, cacheActiveTabSelection, clearSourceFilterCacheForTab, onCachedSearchRefreshed, searchCardsPage } from '$lib/stores/db';
 import { getRuleExpressionErrorMessage, RuleExpressionError } from '$lib/domain/search/ruleExpression';
 import { showToast } from '$lib/stores/toast.svelte';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
@@ -267,6 +267,8 @@ export async function handleSearch(preserveSelection = false, resetPage = false)
 }
 
 export function handleReset() {
+  const tab = get(activeTabId);
+  if (tab) clearSourceFilterCacheForTab(tab);
   editorState.searchFilters = { ...DEFAULT_SEARCH_FILTERS };
   clearSearchError();
   editorState.currentPage = 1;

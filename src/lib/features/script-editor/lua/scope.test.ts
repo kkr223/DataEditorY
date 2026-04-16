@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { collectLuaScopedIdentifiers } from './luaScriptScope';
+import { collectLuaScopedIdentifiers } from './scope';
 
 describe('lua script scope', () => {
   test('collects function parameters and previous locals at the cursor position', () => {
@@ -48,3 +48,4 @@ describe('lua script scope', () => {
     expect(identifiers.some((item) => item.name === 'after')).toBe(false);
   });
 });
+

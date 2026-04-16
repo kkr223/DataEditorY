@@ -1,6 +1,8 @@
+pub mod app_config;
 pub mod assets;
 pub mod cdb_cards;
 pub mod cdb_session;
+pub mod crypto;
 pub mod logging;
 pub mod media;
 pub mod merge;

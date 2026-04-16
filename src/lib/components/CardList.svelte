@@ -104,6 +104,7 @@
     }
 
     editorState.searchFilters.imageFolderPath = selected;
+    void runSearch();
   }
 
   async function importDeckText() {
@@ -118,6 +119,7 @@
     }
 
     editorState.searchFilters.deckText = await readTextFile(selected);
+    void runSearch();
   }
 
   function handleRowClick(event: MouseEvent, code: number) {
@@ -202,40 +204,6 @@
         <div class="form-group flex-2">
           <label for="search-desc">{$_('search.desc')}</label>
           <input type="text" id="search-desc" bind:value={editorState.searchFilters.desc} onkeydown={handleSearchKeydown} />
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group flex-2">
-          <label for="search-image-folder">{$_('search.image_folder')}</label>
-          <div class="source-input-row">
-            <input
-              type="text"
-              id="search-image-folder"
-              bind:value={editorState.searchFilters.imageFolderPath}
-              placeholder={$_('search.image_folder_placeholder')}
-            />
-            <button class="btn-secondary source-picker" type="button" onclick={() => void pickImageFolder()}>
-              {$_('search.pick_folder')}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group flex-2">
-          <label for="search-deck-text">{$_('search.deck_text')}</label>
-          <div class="source-textarea-actions">
-            <textarea
-              id="search-deck-text"
-              rows="5"
-              bind:value={editorState.searchFilters.deckText}
-              placeholder={$_('search.deck_text_placeholder')}
-            ></textarea>
-            <button class="btn-secondary source-picker" type="button" onclick={() => void importDeckText()}>
-              {$_('search.import_ydk')}
-            </button>
-          </div>
         </div>
       </div>
 
@@ -375,6 +343,40 @@
           {/each}
         </div>
       </div>
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="search-image-folder">{$_('search.image_folder')}</label>
+          <div class="source-input-row">
+            <input
+              type="text"
+              id="search-image-folder"
+              bind:value={editorState.searchFilters.imageFolderPath}
+              placeholder={$_('search.image_folder_placeholder')}
+            />
+            <button class="btn-secondary source-picker" type="button" onclick={() => void pickImageFolder()}>
+              {$_('search.pick_folder')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="search-deck-text">{$_('search.deck_text')}</label>
+          <div class="source-textarea-actions">
+            <textarea
+              id="search-deck-text"
+              rows="5"
+              bind:value={editorState.searchFilters.deckText}
+              placeholder={$_('search.deck_text_placeholder')}
+            ></textarea>
+            <button class="btn-secondary source-picker" type="button" onclick={() => void importDeckText()}>
+              {$_('search.import_ydk')}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="filter-actions">
         <button class="btn-secondary" onclick={closeFilter}>{$_('search.collapse')}</button>
       </div>
@@ -462,6 +464,9 @@
     border: 1px solid var(--border-color);
     border-radius: var(--control-radius-soft);
     box-shadow: var(--shadow-popover);
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    z-index: 100;
   }
   .results-stats { padding: var(--spacing-xs) var(--spacing-md); background-color: var(--bg-surface-active); border-top: 1px solid var(--border-color); }
   .badge { background: var(--bg-surface-active); color: var(--text-secondary); padding: 2px 8px; border-radius: var(--control-radius-pill); font-size: 0.8rem; font-weight: 500; }

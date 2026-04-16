@@ -1,6 +1,7 @@
 # Node.js
 node_modules/
 .npm/
+
 logs/
 *.log
 npm-debug.log*
@@ -37,6 +38,7 @@ src-tauri/gen/schemas/
 *.njsproj
 *.sln
 *.sw?
+.sisyphus/
 
 # Project Specific (Temporary/Generated Files/Test Data)
 # Only ignore files in the root or generic data folders, but allow src/lib/data

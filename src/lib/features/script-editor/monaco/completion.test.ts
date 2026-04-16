@@ -3,7 +3,7 @@ import {
   getCompletionInsertParameters,
   isFunctionReferenceParameter,
   shouldInsertFunctionReferenceOnly,
-} from './luaFunctionCompletion';
+} from './completion';
 
 describe('lua function completion helpers', () => {
   test('detects function-typed parameters', () => {
@@ -30,3 +30,4 @@ describe('lua function completion helpers', () => {
       .toEqual(['Card c', 'function|nil f', 'Card|Group ex|nil']);
   });
 });
+

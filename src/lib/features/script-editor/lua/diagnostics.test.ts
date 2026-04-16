@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { analyzeLuaScript } from './luaScriptDiagnostics';
+import { analyzeLuaScript } from './diagnostics';
 
 describe('lua script diagnostics', () => {
   test('accepts a minimal valid script shape', () => {
@@ -53,3 +53,4 @@ describe('lua script diagnostics', () => {
     expect(diagnostics.some((item) => item.message.includes('Undefined global variable: c12345678'))).toBe(false);
   });
 });
+

@@ -1,71 +1,36 @@
 <script lang="ts">
-  import { onMount, onDestroy, tick } from "svelte";
-  import { untrack } from "svelte";
+  import { onDestroy, onMount, tick, untrack } from "svelte";
   import { _ } from "svelte-i18n";
-  import {
-    activeTab,
-    activeTabId,
-    isDbLoaded,
-    saveCdbFile,
-  } from "$lib/stores/db";
+  import { activeTab, activeTabId, isDbLoaded, saveCdbFile } from "$lib/stores/db";
   import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleReset, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
-  import { tauriBridge } from "$lib/infrastructure/tauri";
   import type { CardDataEntry } from "$lib/types";
-  import {
-    getSetcode,
-    loadPopularSetcodes,
-    normalizeSetcodeHex,
-    updateSetcode,
-  } from "$lib/utils/setcode";
-  import {
-    cloneEditableCard,
-    createEmptyCard,
-    getPackedLevel,
-    normalizeEditableScaleValue,
-    setPackedLevel,
-  } from "$lib/utils/card";
+  import { normalizeSetcodeHex, updateSetcode } from "$lib/utils/setcode";
+  import { cloneEditableCard, createEmptyCard, getPackedLevel, normalizeEditableScaleValue, setPackedLevel } from "$lib/utils/card";
   import { createCardSnapshot } from "$lib/domain/card/draft";
-  import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from "$lib/utils/shortcuts";
+  import { dispatchAppShortcut } from "$lib/utils/shortcuts";
   import { isEditableTarget } from "$lib/features/shell/controller";
   import { shellBackgroundTaskState } from "$lib/features/shell/dialogsController.svelte";
   import { isCapabilityEnabled } from "$lib/application/capabilities/registry";
-  import {
-    clearWorkspaceLifecycleMetadata,
-    clearWorkspaceSaveHandler,
-    confirmDirtyPrompt,
-    setWorkspaceLifecycleMetadata,
-    setWorkspaceSaveHandler,
-  } from "$lib/application/workspace/lifecycle";
   import { appSettingsState } from "$lib/stores/appSettings.svelte";
-  import { getScriptGenerationStageLabel, type ScriptGenerationStage } from "$lib/services/scriptGenerationStages";
-  import { resolveCardImageSrc } from "$lib/services/cardImageService";
+  import { getScriptGenerationStageLabel } from "$lib/services/scriptGenerationStages";
   import {
-    buildSearchFiltersFromDraft,
-    createDraftUndoHistory,
-    buildEmptyDraftState,
-    buildLoadedDraftState,
     CARD_LIST_PAGE_SIZE,
     createCardImageInteractionController,
     createCardScriptGenerationController,
     createCardScriptGenerationState,
+    createDraftUndoHistory,
     createInitialParseManuscript,
     handleCardEditorKeydown,
     handleParseModalBackdropDismiss,
-    isDraftDirty as isDraftStateDirty,
-    pushDraftUndoHistory,
     resolvePageNavigationTarget,
     resolveSelectionNavigationTarget,
     stepBackDraftUndoHistory,
     type DraftUndoEntry,
   } from "$lib/features/card-editor/controller";
-  import {
-    deleteDraftCardFlow,
-    modifyDraftCardFlow,
-    openCardScriptFlow,
-    saveAsDraftCardFlow,
-    saveDraftCardFlow,
-  } from "$lib/features/card-editor/useCases";
+  import { deleteDraftCardFlow, modifyDraftCardFlow, openCardScriptFlow, saveAsDraftCardFlow, saveDraftCardFlow } from "$lib/features/card-editor/useCases";
+  import { createCardEditorLifecycleController, ensureCapabilityModuleEffect, setupCardEditorOnMount, syncDefaultCoverSourceEffect, syncLoadedDraftEffect, syncWorkspaceLifecycleEffect, teardownCardEditorOnDestroy, trackDraftUndoEffect } from "$lib/features/card-editor/lifecycle";
+  import { handleResetSearch, handleSearchFromDraft } from "$lib/features/card-editor/searchController";
   import CardEditorFooter from "$lib/features/card-editor/components/CardEditorFooter.svelte";
   import CardEditorForm from "$lib/features/card-editor/components/CardEditorForm.svelte";
   import CardEditorHeader from "$lib/features/card-editor/components/CardEditorHeader.svelte";
@@ -78,18 +43,11 @@
   const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
   const hasAiCapability = isCapabilityEnabled("ai");
   const hasCardImageCapability = isCapabilityEnabled("card-image");
-  const loadCardEditorExtraUseCases = __APP_FEATURES__.ai || __APP_FEATURES__.cardImage
-    ? () => import("$lib/features/card-editor/extraUseCases")
-    : null;
-  const loadCardParseDialogModule = __APP_FEATURES__.ai
-    ? () => import("$lib/features/card-editor/components/CardParseDialog.svelte")
-    : null;
-  const loadCardImageDrawerHostModule = __APP_FEATURES__.cardImage
-    ? () => import("$lib/features/card-editor/components/CardImageDrawerHost.svelte")
-    : null;
-
-
+  const loadCardEditorExtraUseCases = __APP_FEATURES__.ai || __APP_FEATURES__.cardImage ? () => import("$lib/features/card-editor/extraUseCases") : null;
+  const loadCardParseDialogModule = __APP_FEATURES__.ai ? () => import("$lib/features/card-editor/components/CardParseDialog.svelte") : null;
+  const loadCardImageDrawerHostModule = __APP_FEATURES__.cardImage ? () => import("$lib/features/card-editor/components/CardImageDrawerHost.svelte") : null;
   const initialDraftCard = createEmptyCard();
+
   let editorRoot = $state<HTMLDivElement | null>(null);
   let draftCard = $state<CardDataEntry>(initialDraftCard);
   let originalCardCode = $state<number | null>(null);
@@ -97,10 +55,7 @@
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
   let imageRequestToken = 0;
-  const imageInteraction = $state({
-    isPreviewOpen: false,
-    isDrawerOpen: false,
-  });
+  const imageInteraction = $state({ isPreviewOpen: false, isDrawerOpen: false });
   let lastSyncedSelectedId: number | null = null;
   let lastLoadedCardSnapshot = $state("");
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
@@ -131,105 +86,96 @@
   });
 
   const scriptGenerationController = createCardScriptGenerationController(scriptGeneration);
+  const lifecycleController = createCardEditorLifecycleController({
+    getCoverImageSrc: () => appSettingsState.coverImageSrc,
+    getDraftCard: () => draftCard,
+    setDraftCard: (card) => {
+      draftCard = card;
+    },
+    getOriginalCardCode: () => originalCardCode,
+    setOriginalCardCode: (code) => {
+      originalCardCode = code;
+    },
+    getLastLoadedCardSnapshot: () => lastLoadedCardSnapshot,
+    setLastLoadedCardSnapshot: (snapshot) => {
+      lastLoadedCardSnapshot = snapshot;
+    },
+    setLastSyncedSelectedId: (code) => {
+      lastSyncedSelectedId = code;
+    },
+    setSetcodeHexAt: (index, value) => {
+      setcodeHexes[index] = value;
+    },
+    setTrackedDraftSnapshot: (snapshot) => {
+      trackedDraftSnapshot = snapshot;
+    },
+    setDraftUndoHistory: (history) => {
+      draftUndoHistory = history;
+    },
+    mutateSuspendDraftUndoTracking: (delta) => {
+      suspendDraftUndoTracking += delta;
+    },
+    nextImageRequestToken: () => ++imageRequestToken,
+    isLatestImageRequestToken: (token) => token === imageRequestToken,
+    clearPendingImageClick: () => {
+      imageInteractionController.clearPendingClick();
+    },
+    getImageSrc: () => imageSrc,
+    setImageSrc: (src) => {
+      imageSrc = src;
+    },
+    getActiveCdbPath: () => $activeTab?.path,
+    isDbLoaded: () => $isDbLoaded,
+    saveCdbFile,
+    t: (key, options) => $_(key, options as never),
+  });
 
-  let isEditingExisting = $derived(originalCardCode !== null);
-  let isLink = $derived((draftCard.type & 0x4000000) !== 0);
-  let isPend = $derived((draftCard.type & 0x1000000) !== 0);
-  let popularSetcodeValues = $derived.by(() => new Set(popularSetcodes.map((option) => option.value)));
-  let backgroundTaskLabel = $derived.by(() => {
-    if (!shellBackgroundTaskState.task) {
-      return "";
-    }
-
+  const isEditingExisting = $derived(originalCardCode !== null);
+  const isLink = $derived((draftCard.type & 0x4000000) !== 0);
+  const isPend = $derived((draftCard.type & 0x1000000) !== 0);
+  const popularSetcodeValues = $derived.by(() => new Set(popularSetcodes.map((option) => option.value)));
+  const backgroundTaskLabel = $derived.by(() => {
+    if (!shellBackgroundTaskState.task) return "";
     return shellBackgroundTaskState.task === "merge"
       ? $_("editor.background_merge_running")
-      : $_(
-          shellBackgroundTaskState.format === "ypk"
-            ? "editor.background_package_ypk_running"
-            : "editor.background_package_zip_running",
-        );
+      : $_(shellBackgroundTaskState.format === "ypk" ? "editor.background_package_ypk_running" : "editor.background_package_zip_running");
   });
-  let backgroundTaskProgressText = $derived.by(() => {
-    if (shellBackgroundTaskState.total <= 0) {
-      return "";
-    }
-
-    return `${shellBackgroundTaskState.current}/${shellBackgroundTaskState.total}`;
-  });
-  let backgroundQueuedCount = $derived(shellBackgroundTaskState.queue.length);
-
-  function getDefaultCoverSrc() {
-    return appSettingsState.coverImageSrc || "/resources/cover.jpg";
-  }
+  const backgroundTaskProgressText = $derived.by(() => shellBackgroundTaskState.total <= 0 ? "" : `${shellBackgroundTaskState.current}/${shellBackgroundTaskState.total}`);
+  const backgroundQueuedCount = $derived(shellBackgroundTaskState.queue.length);
 
   function ensureCardEditorExtraUseCases() {
-    if (!loadCardEditorExtraUseCases || (!hasAiCapability && !hasCardImageCapability)) {
-      return null;
-    }
+    if (!loadCardEditorExtraUseCases || (!hasAiCapability && !hasCardImageCapability)) return null;
     cardEditorExtraUseCasesPromise ??= loadCardEditorExtraUseCases();
     return cardEditorExtraUseCasesPromise;
   }
 
   function ensureCardParseDialogModule() {
-    if (!loadCardParseDialogModule || !hasAiCapability) {
-      return null;
-    }
+    if (!loadCardParseDialogModule || !hasAiCapability) return null;
     cardParseDialogModulePromise ??= loadCardParseDialogModule();
     return cardParseDialogModulePromise;
   }
 
   function ensureCardImageDrawerHostModule() {
-    if (!loadCardImageDrawerHostModule || !hasCardImageCapability) {
-      return null;
-    }
+    if (!loadCardImageDrawerHostModule || !hasCardImageCapability) return null;
     cardImageDrawerHostModulePromise ??= loadCardImageDrawerHostModule();
     return cardImageDrawerHostModulePromise;
   }
 
-  function syncSetcodesFromCard(card: CardDataEntry) {
-    for (let i = 0; i < 4; i++) {
-      setcodeHexes[i] = getSetcode(card.setcode, i).replace(/^0x/i, "");
-    }
-  }
-
-  function replaceDraftCardWithoutUndo(nextCard: CardDataEntry) {
-    suspendDraftUndoTracking += 1;
-    draftCard = cloneEditableCard(nextCard);
-    suspendDraftUndoTracking -= 1;
-    syncSetcodesFromCard(draftCard);
-    trackedDraftSnapshot = createCardSnapshot(draftCard);
-  }
-
-  function resetDraftUndoBaseline(nextCard: CardDataEntry = draftCard) {
-    draftUndoHistory = createDraftUndoHistory(nextCard);
-    trackedDraftSnapshot = createCardSnapshot(nextCard);
-  }
-
   function toShortcutElement(target: EventTarget | null) {
     if (target instanceof HTMLElement) return target;
-    if (target instanceof Node) {
-      return target.parentElement;
-    }
+    if (target instanceof Node) return target.parentElement;
     return null;
   }
 
   function isNativeTextUndoTarget(target: EventTarget | null) {
     const candidate = toShortcutElement(target) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     if (!candidate) return false;
-
-    if (candidate.closest(".monaco-editor, .monaco-diff-editor")) {
-      return true;
-    }
-
-    if (candidate instanceof HTMLTextAreaElement || candidate.isContentEditable) {
-      return true;
-    }
-
+    if (candidate.closest(".monaco-editor, .monaco-diff-editor")) return true;
+    if (candidate instanceof HTMLTextAreaElement || candidate.isContentEditable) return true;
     if (candidate instanceof HTMLInputElement) {
       const type = candidate.type.toLowerCase();
       return !["button", "checkbox", "color", "file", "image", "radio", "range", "reset", "submit"].includes(type);
     }
-
     return Boolean(candidate.closest('[contenteditable="true"]'));
   }
 
@@ -242,18 +188,15 @@
   function handleDraftUndo() {
     const previousCode = Number(draftCard.code ?? 0);
     const result = stepBackDraftUndoHistory(draftUndoHistory);
-    if (!result.card) {
-      return false;
-    }
+    if (!result.card) return false;
 
     draftUndoHistory = result.history;
-    replaceDraftCardWithoutUndo(result.card);
+    lifecycleController.replaceDraftCardWithoutUndo(result.card);
 
     const nextCode = Number(draftCard.code ?? 0);
     if (nextCode !== previousCode) {
-      void refreshDraftImage(nextCode);
+      void lifecycleController.refreshDraftImage(nextCode);
     }
-
     return true;
   }
 
@@ -263,10 +206,7 @@
       draftCard.setcode = updateSetcode(draftCard.setcode, index, "");
       return;
     }
-
-    if (value === "__custom__") {
-      return;
-    }
+    if (value === "__custom__") return;
 
     setcodeHexes[index] = value.replace(/^0x/i, "");
     draftCard.setcode = updateSetcode(draftCard.setcode, index, value);
@@ -275,11 +215,7 @@
   function handleSetcodeHexChange(index: number, value: string) {
     const normalized = normalizeSetcodeHex(value);
     setcodeHexes[index] = normalized;
-    draftCard.setcode = updateSetcode(
-      draftCard.setcode,
-      index,
-      normalized ? `0x${normalized}` : "",
-    );
+    draftCard.setcode = updateSetcode(draftCard.setcode, index, normalized ? `0x${normalized}` : "");
   }
 
   function updateDraftLevel(nextLevel: number) {
@@ -288,81 +224,30 @@
   }
 
   function updateDraftScale(side: "left" | "right", nextScale: number) {
-    const safeScale = nextScale === -1
-      ? -1
-      : normalizeEditableScaleValue(nextScale);
-    if (side === "left") {
-      draftCard.lscale = safeScale;
-    } else {
-      draftCard.rscale = safeScale;
-    }
+    const safeScale = nextScale === -1 ? -1 : normalizeEditableScaleValue(nextScale);
+    if (side === "left") draftCard.lscale = safeScale;
+    else draftCard.rscale = safeScale;
 
-    draftCard.level = setPackedLevel(
-      getPackedLevel(draftCard.level),
-      normalizeEditableScaleValue(draftCard.lscale),
-      normalizeEditableScaleValue(draftCard.rscale),
-    );
-  }
-
-  function resetDraftCard() {
-    const nextState = buildEmptyDraftState(getDefaultCoverSrc());
-    lastSyncedSelectedId = nextState.lastSyncedSelectedId;
-    lastLoadedCardSnapshot = nextState.lastLoadedCardSnapshot;
-    originalCardCode = nextState.originalCardCode;
-    replaceDraftCardWithoutUndo(nextState.draftCard);
-    resetDraftUndoBaseline(nextState.draftCard);
-    imageRequestToken++;
-    imageInteractionController.clearPendingClick();
-    imageSrc = nextState.imageSrc;
+    draftCard.level = setPackedLevel(getPackedLevel(draftCard.level), normalizeEditableScaleValue(draftCard.lscale), normalizeEditableScaleValue(draftCard.rscale));
   }
 
   function isDraftDirty() {
-    return isDraftStateDirty({
-      draftCard,
-      originalCardCode,
-      lastLoadedCardSnapshot,
-    });
+    return lifecycleController.isDraftDirty();
   }
 
   async function confirmDiscardDraftForKeyboardNavigation() {
-    if (!isDraftDirty()) return true;
-
-    return confirmDirtyPrompt({
-      message: $_("editor.navigate_unsaved_confirm"),
-      title: $_("editor.navigate_unsaved_title"),
-      kind: "warning",
-    });
+    return lifecycleController.confirmDiscardDraftForKeyboardNavigation();
   }
 
   async function handleSaveWorkspace() {
-    if (!$isDbLoaded || !$activeTabId) return false;
-
-    if (isDraftDirty()) {
-      await handleModify();
-      if (isDraftDirty()) {
-        return false;
-      }
-    }
-
-    return saveCdbFile();
+    if (!$activeTabId) return false;
+    return lifecycleController.handleSaveWorkspace(handleModify);
   }
 
   async function handleEditorKeydown(event: KeyboardEvent) {
     const isPrimary = event.ctrlKey || event.metaKey;
-    if (
-      isPrimary
-      && !event.altKey
-      && !event.shiftKey
-      && event.key.toLowerCase() === "z"
-      && !isParseModalOpen
-      && !imageInteraction.isDrawerOpen
-      && !imageInteraction.isPreviewOpen
-      && isCardEditorShortcutTarget(event.target)
-      && !isNativeTextUndoTarget(event.target)
-    ) {
-      if (handleDraftUndo()) {
-        event.preventDefault();
-      }
+    if (isPrimary && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "z" && !isParseModalOpen && !imageInteraction.isDrawerOpen && !imageInteraction.isPreviewOpen && isCardEditorShortcutTarget(event.target) && !isNativeTextUndoTarget(event.target)) {
+      if (handleDraftUndo()) event.preventDefault();
       return;
     }
 
@@ -375,18 +260,9 @@
       isEditableTarget,
       confirmDiscardDraft: confirmDiscardDraftForKeyboardNavigation,
       onModify: handleModify,
-      getSelectionTarget: (delta) => resolveSelectionNavigationTarget({
-        cards: getAllCards(),
-        selectedId: editorState.selectedId,
-        delta,
-      }),
+      getSelectionTarget: (delta) => resolveSelectionNavigationTarget({ cards: getAllCards(), selectedId: editorState.selectedId, delta }),
       selectCard: setSingleSelectedCard,
-      getPageTarget: (delta) => resolvePageNavigationTarget({
-        totalCards: getTotalCards(),
-        currentPage: editorState.currentPage,
-        delta,
-        pageSize: CARD_LIST_PAGE_SIZE,
-      }),
+      getPageTarget: (delta) => resolvePageNavigationTarget({ totalCards: getTotalCards(), currentPage: editorState.currentPage, delta, pageSize: CARD_LIST_PAGE_SIZE }),
       setCurrentPage: (page) => {
         editorState.currentPage = page;
       },
@@ -399,36 +275,6 @@
     });
   }
 
-  function loadCardIntoDraft(card: CardDataEntry) {
-    const nextState = buildLoadedDraftState(card);
-    lastSyncedSelectedId = nextState.lastSyncedSelectedId;
-    lastLoadedCardSnapshot = nextState.lastLoadedCardSnapshot;
-    originalCardCode = nextState.originalCardCode;
-    replaceDraftCardWithoutUndo(nextState.draftCard);
-    resetDraftUndoBaseline(nextState.draftCard);
-  }
-
-  function handleImageError(failedSrc: string) {
-    if (imageSrc === failedSrc) {
-      imageSrc = getDefaultCoverSrc();
-    }
-  }
-
-  async function refreshDraftImage(code: number, bustCache = false) {
-    if (!$activeTab?.path || code <= 0) {
-      imageRequestToken++;
-      imageInteractionController.clearPendingClick();
-      imageSrc = getDefaultCoverSrc();
-      return;
-    }
-
-    const requestToken = ++imageRequestToken;
-    const src = await resolveCardImageSrc($activeTab.path, code, bustCache);
-    if (requestToken === imageRequestToken) {
-      imageSrc = src;
-    }
-  }
-
   async function saveDraftCard(targetCode: number, removeOriginal = false) {
     draftCard.code = targetCode;
     return saveDraftCardFlow({
@@ -438,7 +284,7 @@
       t: (key, options) => $_(key, options as never),
       setDraftCard: (card) => {
         draftCard = cloneEditableCard(card);
-        syncSetcodesFromCard(draftCard);
+        lifecycleController.syncSetcodesFromCard(draftCard);
       },
       setOriginalCardCode: (code) => {
         originalCardCode = code;
@@ -450,100 +296,64 @@
         lastLoadedCardSnapshot = snapshot;
       },
       handleSearch,
-      refreshDraftImage,
+      refreshDraftImage: lifecycleController.refreshDraftImage,
     });
   }
 
   async function handleModify() {
     if (!$isDbLoaded) return;
-    await modifyDraftCardFlow({
-      draftCard,
-      originalCardCode,
-      isEditingExisting,
-      t: (key, options) => $_(key, options as never),
-      saveDraftCard,
-    });
+    await modifyDraftCardFlow({ draftCard, originalCardCode, isEditingExisting, t: (key, options) => $_(key, options as never), saveDraftCard });
   }
 
   async function handleSaveAs() {
     if (!$isDbLoaded) return;
-    await saveAsDraftCardFlow({
-      draftCard,
-      originalCardCode,
-      t: (key, options) => $_(key, options as never),
-      saveDraftCard,
-    });
+    await saveAsDraftCardFlow({ draftCard, originalCardCode, t: (key, options) => $_(key, options as never), saveDraftCard });
   }
 
   async function handleDelete() {
     if (!$isDbLoaded || originalCardCode === null) return;
-    await deleteDraftCardFlow({
-      originalCardCode,
-      t: (key, options) => $_(key, options as never),
-      resetDraftCard,
-      clearSelection,
-      handleSearch,
-    });
-  }
-
-  async function handleSearchFromDraft() {
-    if (!$isDbLoaded) return;
-    editorState.searchFilters = buildSearchFiltersFromDraft(draftCard);
-    await handleSearch(false, true);
-  }
-
-  async function handleResetSearch() {
-    if (!$isDbLoaded) return;
-    await handleReset();
-    clearSelection();
-    resetDraftCard();
+    await deleteDraftCardFlow({ originalCardCode, t: (key, options) => $_(key, options as never), resetDraftCard: lifecycleController.resetDraftCard, clearSelection, handleSearch });
   }
 
   function handleNewCard() {
     clearSelection();
-    resetDraftCard();
+    lifecycleController.handleNewCard();
   }
 
-  onMount(() => {
-    loadPopularSetcodes().then(({ options, duplicateSetcodes }) => {
-      popularSetcodes = options;
-      for (const code of duplicateSetcodes.slice(0, 3)) {
-        showToast(
-          $_("editor.setcode_duplicates_detected", {
-            values: { code },
-          }),
-          "info",
-          4500,
-        );
-      }
+  async function runSearchFromDraft() {
+    await handleSearchFromDraft({
+      isDbLoaded: $isDbLoaded,
+      draftCard,
+      setSearchFilters: (filters) => {
+        editorState.searchFilters = filters;
+      },
+      runSearch: handleSearch,
     });
+  }
 
-    const handleShortcut = (event: Event) => {
-      const customEvent = event as CustomEvent<string>;
-      if (!$isDbLoaded) return;
+  async function runResetSearch() {
+    await handleResetSearch({ isDbLoaded: $isDbLoaded, runReset: handleReset, clearSelection, resetDraftCard: lifecycleController.resetDraftCard });
+  }
 
-      if (customEvent.detail === "new-card") {
-        handleNewCard();
-        return;
-      }
-
-      if (customEvent.detail === "search-from-draft") {
-        void handleSearchFromDraft();
-      }
-    };
-
-    window.addEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
-    window.addEventListener("keydown", handleEditorKeydown);
-    return () => {
+  onMount(() => setupCardEditorOnMount({
+    t: (key, options) => $_(key, options as never),
+    setPopularSetcodes: (options) => {
+      popularSetcodes = options;
+    },
+    isDbLoaded: () => $isDbLoaded,
+    handleNewCard,
+    handleSearchFromDraft: runSearchFromDraft,
+    handleEditorKeydown,
+    cancelScriptGeneration: () => {
       scriptGenerationController.cancel();
+    },
+    disposeImageInteraction: () => {
       imageInteractionController.dispose();
-      window.removeEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
-      window.removeEventListener("keydown", handleEditorKeydown);
-    };
-  });
+    },
+  }));
 
   onDestroy(() => {
-    window.removeEventListener("keydown", handleEditorKeydown);
+    teardownCardEditorOnDestroy({ handleEditorKeydown });
   });
 
   async function handleImagePick() {
@@ -583,16 +393,11 @@
   async function handleCardImageSaved() {
     const targetCode = Number(draftCard.code ?? 0);
     if (!Number.isInteger(targetCode) || targetCode <= 0) return;
-    await refreshDraftImage(targetCode, true);
+    await lifecycleController.refreshDraftImage(targetCode, true);
   }
 
   async function handleOpenScript() {
-    await openCardScriptFlow({
-      activeCdbPath: $activeTab?.path ?? null,
-      activeTabId: $activeTabId,
-      draftCard,
-      t: (key, options) => $_(key, options as never),
-    });
+    await openCardScriptFlow({ activeCdbPath: $activeTab?.path ?? null, activeTabId: $activeTabId, draftCard, t: (key, options) => $_(key, options as never) });
   }
 
   async function handleGenerateScript() {
@@ -621,9 +426,9 @@
     return (await extraModule).saveParsedCardsIndividuallyFlow({
       cards,
       t: (key, options) => $_(key, options as never),
-      loadCardIntoDraft,
+      loadCardIntoDraft: lifecycleController.loadCardIntoDraft,
       handleSearch,
-      refreshDraftImage,
+      refreshDraftImage: lifecycleController.refreshDraftImage,
     });
   }
 
@@ -710,9 +515,9 @@
       },
       setDraftCard: (card) => {
         draftCard = cloneEditableCard(card);
-        syncSetcodesFromCard(draftCard);
+        lifecycleController.syncSetcodesFromCard(draftCard);
       },
-      syncSetcodesFromCard,
+      syncSetcodesFromCard: lifecycleController.syncSetcodesFromCard,
       afterDraftApplied: async () => {
         await tick();
       },
@@ -726,110 +531,77 @@
     showToast($_(ok ? "editor.save_success" : "editor.save_failed"), ok ? "success" : "error");
   }
 
-
   $effect(() => {
-    const snapshot = createCardSnapshot(draftCard);
-    if (suspendDraftUndoTracking > 0) {
-      trackedDraftSnapshot = snapshot;
-      return;
-    }
-
-    if (snapshot === trackedDraftSnapshot) {
-      return;
-    }
-
-    draftUndoHistory = pushDraftUndoHistory(draftUndoHistory, draftCard);
-    trackedDraftSnapshot = snapshot;
+    trackDraftUndoEffect({
+      draftCard,
+      suspendDraftUndoTracking,
+      trackedDraftSnapshot,
+      draftUndoHistory,
+      setTrackedDraftSnapshot: (snapshot) => {
+        trackedDraftSnapshot = snapshot;
+      },
+      setDraftUndoHistory: (history) => {
+        draftUndoHistory = history;
+      },
+    });
   });
 
   $effect(() => {
-    if (!$isDbLoaded) {
-      untrack(() => {
-        resetDraftCard();
-      });
-      return;
-    }
-
-    const selectedId = editorState.selectedId;
-    const card = getAllCardsMap().get(selectedId ?? -1);
-    if (card) {
-      const nextSnapshot = createCardSnapshot(card);
-      if (lastSyncedSelectedId !== card.code || lastLoadedCardSnapshot !== nextSnapshot) {
+    syncLoadedDraftEffect({
+      isDbLoaded: $isDbLoaded,
+      selectedId: editorState.selectedId,
+      selectedCard: getAllCardsMap().get(editorState.selectedId ?? -1) ?? null,
+      lastSyncedSelectedId,
+      lastLoadedCardSnapshot,
+      originalCardCode,
+      loadCardIntoDraft: (card) => {
         untrack(() => {
-          loadCardIntoDraft(card);
+          lifecycleController.loadCardIntoDraft(card);
         });
-        void refreshDraftImage(card.code);
-      }
-      return;
-    }
-
-    if (selectedId !== null) {
-      return;
-    }
-
-    if (originalCardCode !== null) {
-      untrack(() => {
-        resetDraftCard();
-      });
-    }
+      },
+      resetDraftCard: () => {
+        untrack(() => {
+          lifecycleController.resetDraftCard();
+        });
+      },
+      refreshDraftImage: lifecycleController.refreshDraftImage,
+    });
   });
 
   $effect(() => {
-    const nextCoverSrc = getDefaultCoverSrc();
-    if (nextCoverSrc === lastDefaultCoverSrc) return;
-
-    const previousCoverSrc = lastDefaultCoverSrc;
-    lastDefaultCoverSrc = nextCoverSrc;
-    if (imageSrc === previousCoverSrc) {
-      imageSrc = nextCoverSrc;
-    }
+    syncDefaultCoverSourceEffect({
+      nextCoverSrc: lifecycleController.getDefaultCoverSrc(),
+      lastDefaultCoverSrc,
+      imageSrc,
+      setLastDefaultCoverSrc: (src) => {
+        lastDefaultCoverSrc = src;
+      },
+      setImageSrc: (src) => {
+        imageSrc = src;
+      },
+    });
   });
 
   $effect(() => {
-    if (hasAiCapability && isParseModalOpen) {
-      ensureCardParseDialogModule();
-    }
+    ensureCapabilityModuleEffect({ enabled: hasAiCapability, open: isParseModalOpen, ensureModule: ensureCardParseDialogModule });
   });
 
   $effect(() => {
-    if (hasCardImageCapability && imageInteraction.isDrawerOpen) {
-      ensureCardImageDrawerHostModule();
-    }
+    ensureCapabilityModuleEffect({ enabled: hasCardImageCapability, open: imageInteraction.isDrawerOpen, ensureModule: ensureCardImageDrawerHostModule });
   });
 
   $effect(() => {
-    const workspaceId = $activeTabId;
-    const workspaceDirty = ($activeTab?.isDirty ?? false) || isDraftDirty();
-
-    if (workspaceId) {
-      setWorkspaceLifecycleMetadata(workspaceId, {
-        dirty: workspaceDirty,
-        closeGuard: workspaceDirty ? "confirm-dirty" : "none",
-      });
-      setWorkspaceSaveHandler(workspaceId, handleSaveWorkspace);
-    }
-
-    return () => {
-      if (workspaceId) {
-        clearWorkspaceLifecycleMetadata(workspaceId);
-        clearWorkspaceSaveHandler(workspaceId);
-      }
-    };
+    return syncWorkspaceLifecycleEffect({
+      workspaceId: $activeTabId,
+      workspaceDirty: ($activeTab?.isDirty ?? false) || isDraftDirty(),
+      handleSaveWorkspace,
+    });
   });
 </script>
 
 {#if $isDbLoaded}
   <div class="editor-area" bind:this={editorRoot}>
-      <CardEditorHeader
-        {draftCard}
-        saveLabel={$_("editor.save_db")}
-        idLabel={$_("editor.id")}
-        aliasLabel={$_("editor.alias")}
-      nameLabel={$_("editor.name")}
-      newCardLabel={$_("editor.new_card")}
-      onSave={handleSave}
-      onNewCard={handleNewCard}
-    />
+    <CardEditorHeader {draftCard} saveLabel={$_("editor.save_db")} idLabel={$_("editor.id")} aliasLabel={$_("editor.alias")} nameLabel={$_("editor.name")} newCardLabel={$_("editor.new_card")} onSave={handleSave} onNewCard={handleNewCard} />
 
     <CardEditorForm
       {draftCard}
@@ -861,7 +633,7 @@
       hintsLabel={$_("editor.hints")}
       onImageClick={handleImageClick}
       onImageDoubleClick={handleImageDoubleClick}
-      onImageError={handleImageError}
+      onImageError={lifecycleController.handleImageError}
       onSetcodeSelectChange={handleSetcodeSelectChange}
       onSetcodeHexChange={handleSetcodeHexChange}
       onUpdateDraftLevel={updateDraftLevel}
@@ -897,7 +669,7 @@
       onGenerateScript={handleGenerateScript}
       onCancelGenerateScript={handleCancelGenerateScript}
       onOpenCardImageDrawer={openCardImageDrawer}
-      onResetSearch={handleResetSearch}
+      onResetSearch={runResetSearch}
       onSearch={() => dispatchAppShortcut("search-from-draft")}
       onSaveAs={handleSaveAs}
       onModify={handleModify}
@@ -908,13 +680,7 @@
 
 {#if hasCardImageCapability && cardImageDrawerHostModulePromise}
   {#await cardImageDrawerHostModulePromise then module}
-    <module.default
-      open={imageInteraction.isDrawerOpen}
-      card={draftCard}
-      cdbPath={$activeTab?.path ?? ""}
-      onSavedJpg={handleCardImageSaved}
-      onClose={closeCardImageDrawer}
-    />
+    <module.default open={imageInteraction.isDrawerOpen} card={draftCard} cdbPath={$activeTab?.path ?? ""} onSavedJpg={handleCardImageSaved} onClose={closeCardImageDrawer} />
   {/await}
 {/if}
 
@@ -945,14 +711,7 @@
   {/await}
 {/if}
 
-<CardImagePreview
-  open={imageInteraction.isPreviewOpen}
-  {imageSrc}
-  closeAriaLabel={$_("editor.card_image_preview_close")}
-  dialogAriaLabel={$_("editor.card_image_preview_dialog")}
-  previewAlt={$_("editor.card_image_preview_alt")}
-  onClose={closeImagePreview}
-/>
+<CardImagePreview open={imageInteraction.isPreviewOpen} {imageSrc} closeAriaLabel={$_("editor.card_image_preview_close")} dialogAriaLabel={$_("editor.card_image_preview_dialog")} previewAlt={$_("editor.card_image_preview_alt")} onClose={closeImagePreview} />
 
 <style>
   .editor-area {

@@ -1,4 +1,9 @@
-use std::{collections::HashMap, fs, path::Path, sync::{Arc, Mutex}};
+use std::{
+    collections::HashMap,
+    fs,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use tauri::AppHandle;
 use ygopro_cdb_encode_rs::YgoProCdb;
@@ -116,10 +121,7 @@ pub(crate) fn create_cdb_tab_in_dir(
     })
 }
 
-fn build_open_response(
-    original_path: &str,
-    cdb: &YgoProCdb,
-) -> Result<OpenCdbTabResponse, String> {
+fn build_open_response(original_path: &str, cdb: &YgoProCdb) -> Result<OpenCdbTabResponse, String> {
     let (cached_cards, cached_total) = cdb
         .query_raw_page("1=1", &HashMap::new(), 1, 50)
         .map_err(|err| err.to_string())?;

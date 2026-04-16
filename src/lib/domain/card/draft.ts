@@ -199,3 +199,8 @@ export function createCardDraftState(card: CardDataEntry = createEmptyCard(), or
     card: normalizedCard,
   };
 }
+
+export function getPackedLScale(level: number): number { return (level >> 24) & 0xff; }
+export function getPackedRScale(level: number): number { return (level >> 16) & 0xff; }
+export function getPackedLevel(level: number): number { return level & 0xff; }
+export function setPackedLevel(level: number, lscale: number, rscale: number): number { return (level & 0xff) | ((rscale & 0xff) << 16) | ((lscale & 0xff) << 24); }

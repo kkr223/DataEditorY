@@ -287,7 +287,11 @@ fn legacy_strings_file_candidates(app: &AppHandle) -> Vec<PathBuf> {
     let mut candidates: Vec<PathBuf> = Vec::new();
 
     if let Ok(resource_dir) = app.path().resource_dir() {
-        candidates.push(resource_dir.join("resources").join(LEGACY_STRINGS_FILE_NAME));
+        candidates.push(
+            resource_dir
+                .join("resources")
+                .join(LEGACY_STRINGS_FILE_NAME),
+        );
         candidates.push(resource_dir.join(LEGACY_STRINGS_FILE_NAME));
     }
 
@@ -382,7 +386,8 @@ fn read_strings_directory(dir: &Path) -> Result<Vec<String>, String> {
         if !canonical_path.starts_with(&canonical_dir) {
             continue;
         }
-        let Ok(file_type) = fs::metadata(&canonical_path).map(|metadata| metadata.file_type()) else {
+        let Ok(file_type) = fs::metadata(&canonical_path).map(|metadata| metadata.file_type())
+        else {
             continue;
         };
         if !file_type.is_file() {
@@ -568,21 +573,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn make_temp_dir(label: &str) -> PathBuf {
-        let unique = format!(
-            "dataeditory-media-{label}-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos()
-        );
-        let path = std::env::temp_dir().join(unique);
-        fs::create_dir_all(&path).unwrap();
-        path
-    }
+    use crate::test_helpers::make_temp_dir;
 
     #[test]
     fn reads_and_sorts_valid_text_files_from_strings_directory() {
@@ -591,7 +582,11 @@ mod tests {
         fs::write(root.join("a.txt"), "!setname 0x1 Alpha").unwrap();
         fs::write(root.join("binary.bin"), [0u8, 159, 146, 150]).unwrap();
         fs::create_dir_all(root.join("nested")).unwrap();
-        fs::write(root.join("nested").join("ignored.txt"), "!setname 0x3 Gamma").unwrap();
+        fs::write(
+            root.join("nested").join("ignored.txt"),
+            "!setname 0x3 Gamma",
+        )
+        .unwrap();
 
         let result = read_strings_directory(&root).unwrap();
 
@@ -606,7 +601,11 @@ mod tests {
     fn rejects_oversized_text_files() {
         let root = make_temp_dir("strings-size");
         let path = root.join("huge.conf");
-        fs::write(&path, vec![b'a'; (MAX_STRINGS_TEXT_FILE_BYTES as usize) + 1]).unwrap();
+        fs::write(
+            &path,
+            vec![b'a'; (MAX_STRINGS_TEXT_FILE_BYTES as usize) + 1],
+        )
+        .unwrap();
 
         let result = read_strings_text_file(&path);
 
@@ -624,6 +623,32 @@ mod tests {
 
         assert_eq!(result.len(), 1);
         assert_eq!(fs::canonicalize(&result[0]).unwrap(), canonical);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn collects_existing_cdb_paths_from_args() {
+        let root = make_temp_dir("collect-cdb");
+        let first = root.join("cards-a.cdb");
+        let second = root.join("cards-b.CDB");
+        let ignored = root.join("notes.txt");
+        fs::write(&first, []).unwrap();
+        fs::write(&second, []).unwrap();
+        fs::write(&ignored, []).unwrap();
+
+        let collected = collect_cdb_paths_from_args(vec![
+            first.as_os_str().to_os_string(),
+            second.as_os_str().to_os_string(),
+            ignored.as_os_str().to_os_string(),
+            first.as_os_str().to_os_string(),
+        ]);
+
+        assert_eq!(collected.len(), 2);
+        assert!(collected.iter().any(|path| path.ends_with("cards-a.cdb")));
+        assert!(collected
+            .iter()
+            .any(|path| path.to_ascii_lowercase().ends_with("cards-b.cdb")));
 
         let _ = fs::remove_dir_all(&root);
     }
