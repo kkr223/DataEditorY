@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { parseConstantCategory, parseConstants } from './luaIntelCatalog';
+import { parseConstantCategory, parseConstants } from './catalog';
 
 describe('lua intel constant parsing', () => {
   test('parses decorated section headers without swallowing explanatory comments', () => {
@@ -30,3 +30,4 @@ describe('lua intel constant parsing', () => {
     expect(constants.find((item) => item.name === 'EFFECT_IMMUNE_EFFECT')?.category).toBe('Codes');
   });
 });
+

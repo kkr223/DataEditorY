@@ -8,7 +8,7 @@ import {
   getLuaSemanticDocument,
   getVisibleSymbolsAt,
   type LuaSemanticTextModel,
-} from './luaSemantic';
+} from './semantic';
 
 function createModel(source: string, versionId = 1): LuaSemanticTextModel {
   const lines = source.split('\n');
@@ -109,3 +109,4 @@ describe('lua semantic document', () => {
     expect(currentFunction?.documentation).toBe('target helper');
   });
 });
+

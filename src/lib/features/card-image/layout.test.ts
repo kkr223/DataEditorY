@@ -4,7 +4,7 @@ import {
   normalizeCardImageFormData,
   parseCardImageConfigDocument,
   serializeCardImageConfigDocument,
-} from "./cardImage";
+} from "./layout";
 import type { CardDataEntry } from "$lib/types";
 
 describe("card image config document", () => {

@@ -38,6 +38,7 @@ import {
   type DragDropPayload,
   isCdbFilePath,
   isEditableTarget,
+  isNativeTextUndoTarget,
   normalizeExternalOpenPaths,
 } from '$lib/features/shell/controller';
 import {
@@ -307,6 +308,7 @@ export function createShellLayoutController() {
     const isPrimary = event.ctrlKey || event.metaKey;
     if (!isPrimary || event.altKey) return;
     const editable = isEditableTarget(event.target);
+    const nativeTextUndoTarget = isNativeTextUndoTarget(event.target);
 
     if (key === 'r' || key === 'p' || key === 'j') {
       event.preventDefault();
@@ -316,6 +318,16 @@ export function createShellLayoutController() {
     if (key === 'f' || key === 'g') {
       event.preventDefault();
       dispatchAppShortcut('focus-search');
+      return;
+    }
+
+    if (key === 'z' && !event.shiftKey) {
+      if (nativeTextUndoTarget) {
+        return;
+      }
+
+      event.preventDefault();
+      void handleUndoLastOperation();
       return;
     }
 
@@ -365,10 +377,6 @@ export function createShellLayoutController() {
       return;
     }
 
-    if (!editable && key === 'z' && !event.shiftKey) {
-      event.preventDefault();
-      void handleUndoLastOperation();
-    }
   }
 
   function setup() {

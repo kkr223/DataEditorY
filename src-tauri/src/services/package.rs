@@ -367,7 +367,8 @@ pub fn package_cdb_assets_as_zip_with_progress(
     let output_file_path = PathBuf::from(&output_path);
     let manifest = collect_card_package_manifest_from_cdb(&cdb_file_path)?;
     let resource_index = collect_package_resource_index(cdb_dir)?;
-    let source_paths = collect_package_source_paths(&cdb_file_path, cdb_dir, &manifest, &resource_index)?;
+    let source_paths =
+        collect_package_source_paths(&cdb_file_path, cdb_dir, &manifest, &resource_index)?;
 
     if source_paths.iter().any(|path| path == &output_file_path) {
         return Err("Output path conflicts with a source asset".to_string());
@@ -405,4 +406,172 @@ pub fn package_cdb_assets_as_zip_with_progress(
     Ok(ZipPackageInfo {
         path: output_file_path.to_string_lossy().to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::{create_test_cdb, make_temp_dir};
+    use std::path::Path;
+    use zip::ZipArchive;
+
+    #[test]
+    fn builds_zip_entries_with_forward_slashes() {
+        let base_dir = Path::new("workspace");
+        let nested_path = Path::new("workspace").join("script").join("c100.lua");
+
+        let entry = path_to_zip_entry(&nested_path, base_dir).unwrap();
+
+        assert_eq!(entry, "script/c100.lua");
+    }
+
+    #[test]
+    fn resolves_script_dependencies_inside_workspace_only() {
+        let cdb_dir = make_temp_dir("script-deps");
+        let script_dir = cdb_dir.join("script");
+        fs::create_dir_all(script_dir.join("shared")).unwrap();
+
+        let local_script = script_dir.join("utility.lua");
+        let nested_script = script_dir.join("shared").join("common.lua");
+        fs::write(&local_script, "-- local").unwrap();
+        fs::write(&nested_script, "-- nested").unwrap();
+
+        let escaped_path = cdb_dir.parent().unwrap().join("dataeditory-outside.lua");
+        fs::write(&escaped_path, "-- outside").unwrap();
+
+        let resolved_local =
+            resolve_script_dependency_path(&cdb_dir, &script_dir, "utility.lua").unwrap();
+        let resolved_prefixed =
+            resolve_script_dependency_path(&cdb_dir, &script_dir, "script/shared/common.lua")
+                .unwrap();
+        let escaped =
+            resolve_script_dependency_path(&cdb_dir, &script_dir, "../../dataeditory-outside.lua");
+
+        assert_eq!(resolved_local.file_name().unwrap(), "utility.lua");
+        assert_eq!(resolved_prefixed.file_name().unwrap(), "common.lua");
+        assert!(escaped.is_none());
+
+        let _ = fs::remove_file(&escaped_path);
+        let _ = fs::remove_dir_all(&cdb_dir);
+    }
+
+    #[test]
+    fn packages_only_current_cdb_card_assets() {
+        let root = make_temp_dir("package-assets");
+        let cdb_path = root.join("cards.cdb");
+        let pics_dir = root.join("pics");
+        let field_pics_dir = pics_dir.join("field");
+        let script_dir = root.join("script");
+        let output_zip_path = root.join("cards.zip");
+
+        fs::create_dir_all(&field_pics_dir).unwrap();
+        fs::create_dir_all(&script_dir).unwrap();
+
+        create_test_cdb(&cdb_path, &[(111, 0x2 | 0x80000), (222, 0x1)]);
+
+        fs::write(pics_dir.join("111.jpg"), [1u8]).unwrap();
+        fs::write(pics_dir.join("222.jpg"), [2u8]).unwrap();
+        fs::write(pics_dir.join("333.jpg"), [3u8]).unwrap();
+        fs::write(field_pics_dir.join("111.jpg"), [4u8]).unwrap();
+        fs::write(field_pics_dir.join("222.jpg"), [5u8]).unwrap();
+        fs::write(
+            script_dir.join("c111.lua"),
+            "Duel.LoadScript(\"utility.lua\")",
+        )
+        .unwrap();
+        fs::write(script_dir.join("c222.lua"), "-- direct").unwrap();
+        fs::write(script_dir.join("c333.lua"), "-- unrelated").unwrap();
+        fs::write(script_dir.join("utility.lua"), "-- shared").unwrap();
+        fs::write(root.join("strings.conf"), "# strings").unwrap();
+        fs::write(root.join("custom.CONF"), "# custom").unwrap();
+        fs::write(root.join("notes.txt"), "ignore").unwrap();
+
+        package_cdb_assets_as_zip(
+            cdb_path.to_string_lossy().to_string(),
+            output_zip_path.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        let zip_file = fs::File::open(&output_zip_path).unwrap();
+        let mut archive = ZipArchive::new(zip_file).unwrap();
+        let mut entries = Vec::new();
+        for index in 0..archive.len() {
+            entries.push(archive.by_index(index).unwrap().name().to_string());
+        }
+        entries.sort();
+
+        assert!(entries.contains(&"cards.cdb".to_string()));
+        assert!(entries.contains(&"pics/111.jpg".to_string()));
+        assert!(entries.contains(&"pics/222.jpg".to_string()));
+        assert!(entries.contains(&"pics/field/111.jpg".to_string()));
+        assert!(entries.contains(&"script/c111.lua".to_string()));
+        assert!(entries.contains(&"script/c222.lua".to_string()));
+        assert!(entries.contains(&"script/utility.lua".to_string()));
+        assert!(entries.contains(&"strings.conf".to_string()));
+        assert!(entries.contains(&"custom.CONF".to_string()));
+        assert!(!entries.contains(&"pics/333.jpg".to_string()));
+        assert!(!entries.contains(&"pics/field/222.jpg".to_string()));
+        assert!(!entries.contains(&"script/c333.lua".to_string()));
+        assert!(!entries.contains(&"notes.txt".to_string()));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn packaging_keeps_source_assets_intact() {
+        let root = make_temp_dir("package-assets-preserve");
+        let cdb_path = root.join("cards.cdb");
+        let pics_dir = root.join("pics");
+        let script_dir = root.join("script");
+        let output_zip_path = root.join("cards.zip");
+
+        fs::create_dir_all(&pics_dir).unwrap();
+        fs::create_dir_all(&script_dir).unwrap();
+
+        create_test_cdb(&cdb_path, &[(111, 0x1)]);
+        fs::write(pics_dir.join("111.jpg"), [1u8, 2u8, 3u8]).unwrap();
+        fs::write(script_dir.join("c111.lua"), "print('hello')").unwrap();
+
+        package_cdb_assets_as_zip(
+            cdb_path.to_string_lossy().to_string(),
+            output_zip_path.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            fs::read(pics_dir.join("111.jpg")).unwrap(),
+            vec![1u8, 2u8, 3u8]
+        );
+        assert_eq!(
+            fs::read_to_string(script_dir.join("c111.lua")).unwrap(),
+            "print('hello')"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn packaging_rejects_output_path_that_matches_source_asset() {
+        let root = make_temp_dir("package-assets-conflict");
+        let cdb_path = root.join("cards.cdb");
+        let pics_dir = root.join("pics");
+
+        fs::create_dir_all(&pics_dir).unwrap();
+        create_test_cdb(&cdb_path, &[(111, 0x1)]);
+        fs::write(pics_dir.join("111.jpg"), [9u8, 8u8, 7u8]).unwrap();
+
+        let err = package_cdb_assets_as_zip(
+            cdb_path.to_string_lossy().to_string(),
+            pics_dir.join("111.jpg").to_string_lossy().to_string(),
+        )
+        .unwrap_err();
+
+        assert!(err.contains("conflicts with a source asset"));
+        assert_eq!(
+            fs::read(pics_dir.join("111.jpg")).unwrap(),
+            vec![9u8, 8u8, 7u8]
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }

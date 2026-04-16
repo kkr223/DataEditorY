@@ -1,124 +1,90 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { activeScriptTab, getActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
+  import { editorState, getSelectedCard } from '$lib/stores/editor.svelte';
+  import {
+    activeScriptTab,
+    activeScriptTabId,
+    activateScriptTab,
+    closeScriptTab,
+    getScriptTabDisplayName,
+    scriptTabs,
+  } from '$lib/stores/scriptEditor.svelte';
   import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
-  import { collectLuaInlineHighlights } from '$lib/utils/luaScriptCalls';
   import type { CardDataEntry } from '$lib/types';
-  import type { editor as MonacoEditor } from 'monaco-editor';
-  import { normalizeCardStrings } from '$lib/domain/card/draft';
   import { buildScriptFileName } from '$lib/domain/script/workspace';
   import { getScriptGenerationStageLabel, type ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
   import {
-    buildCallHighlightDecorations,
-    buildScriptEditorContextKey,
-    extractFocusedSuggestLabel,
-    resolveHintAnchor,
-    resolveHoverAbove,
-    resolveScriptReferenceShortcut,
-    shouldHandleHintSuppressShortcut,
-    shouldCloseScriptReferenceOverlay,
-    type ScriptReferenceManualKind,
-  } from '$lib/features/script-editor/controller';
-  import {
-    ATTRIBUTE_OPTIONS,
-    getCardTypeKey,
-    getPackedLScale,
-    getPackedLevel,
-    getPackedRScale,
-    LINK_MARKERS,
-    RACE_OPTIONS,
-    TYPE_BITS,
-  } from '$lib/utils/card';
-  import {
-    loadScriptCardContextFlow,
     openScriptExternallyFlow,
     reloadScriptEditorFlow,
     saveScriptEditorFlow,
-    saveScriptStringFlow,
     shareScriptImageFlow,
-    type ScriptImageSelection,
   } from '$lib/features/script-editor/useCases';
-  import {
-    createScriptMonacoRuntime,
-    type ScriptMonacoApi as MonacoApi,
-    type ScriptMonacoModule as MonacoModule,
-    type ScriptMonacoRuntime,
-  } from '$lib/features/script-editor/runtime';
-  import ScriptToolbar from '$lib/features/script-editor/components/ScriptToolbar.svelte';
+  import { buildScriptImageRenderInfo } from '$lib/features/script-editor/view';
+  import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
   import ScriptHintOverlays from '$lib/features/script-editor/components/ScriptHintOverlays.svelte';
   import ScriptReferenceOverlay from '$lib/features/script-editor/components/ScriptReferenceOverlay.svelte';
   import ScriptSidePanel from '$lib/features/script-editor/components/ScriptSidePanel.svelte';
-  import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
-  import { resolveReferenceManualInsertText, type LuaReferenceManualItem } from '$lib/utils/luaReferenceManual';
+  import ScriptToolbar from '$lib/features/script-editor/components/ScriptToolbar.svelte';
+  import ScriptEditorCore, {
+    type ScriptEditorCoreHintState,
+    type ScriptEditorCoreReferenceState,
+  } from '$lib/features/script-editor/components/ScriptEditorCore.svelte';
+  import ScriptTabBar from '$lib/features/script-editor/components/ScriptTabBar.svelte';
+
   type ScriptEditorExtraUseCasesModule = typeof import('$lib/features/script-editor/extraUseCases');
+  type ScriptEditorCoreHandle = {
+    getScriptImageSelection: () => import('$lib/features/script-editor/useCases').ScriptImageSelection | null;
+    insertStringId: (index: number) => void;
+    updateStringInput: (index: number, value: string) => void;
+    persistString: (index: number) => Promise<void>;
+    closeReferenceOverlay: () => void;
+    insertReferenceItem: (item: import('$lib/utils/luaReferenceManual').LuaReferenceManualItem) => void;
+  };
+
   const hasAiCapability = isCapabilityEnabled('ai');
   const loadScriptEditorExtraUseCases = __APP_FEATURES__.ai
     ? () => import('$lib/features/script-editor/extraUseCases')
     : null;
 
-  let editorHost = $state<HTMLDivElement | null>(null);
-  let monacoModule = $state<MonacoModule | null>(null);
-  let monacoApi = $state<MonacoApi | null>(null);
-  let editorInstance = $state<MonacoEditor.IStandaloneCodeEditor | null>(null);
-  let callHighlightDecorations = $state<MonacoEditor.IEditorDecorationsCollection | null>(null);
-  let monacoRuntime = $state<ScriptMonacoRuntime | null>(null);
-  let currentBoundTabId = $state<string | null>(null);
-  let isApplyingModel = false;
+  let editorCore = $state<ScriptEditorCoreHandle | null>(null);
   let cardContext = $state<CardDataEntry | null>(null);
+  let hasSelectedCode = $state(false);
   let isReloading = $state(false);
   let isSaving = $state(false);
   let isSharingImage = $state(false);
   let isGeneratingScript = $state(false);
-  let isMonacoReady = $state(false);
-  let hasSelectedCode = $state(false);
-  let loadContextToken = 0;
-  let lastContextKey = $state('');
-  let savedScriptStrings = $state<string[]>(Array.from({ length: 16 }, () => ''));
   let scriptGenerationStage = $state<ScriptGenerationStage | ''>('');
   let scriptGenerationAbortController = $state<AbortController | null>(null);
   let scriptEditorExtraUseCasesPromise = $state<Promise<ScriptEditorExtraUseCasesModule> | null>(null);
-  let suggestHintText = $state('');
-  let suggestHintPlacement = $state<'top' | 'bottom'>('top');
-  let suggestHintAnchorTop = $state(12);
-  let currentFunctionHintTitle = $state('');
-  let currentFunctionHintDescription = $state('');
-  let isCurrentFunctionHintSuppressed = $state(false);
-  let currentFunctionHintPlacement = $state<'top' | 'bottom'>('top');
-  let currentFunctionHintAnchorTop = $state(12);
-  let referenceOverlayKind = $state<ScriptReferenceManualKind | null>(null);
-  let isReferenceManualLoading = $state(false);
-  let referenceManualItems = $state<Record<ScriptReferenceManualKind, LuaReferenceManualItem[]>>({
-    constants: [],
-    functions: [],
+  let hintState = $state<ScriptEditorCoreHintState>({
+    suggestHintText: '',
+    suggestHintPlacement: 'top',
+    suggestHintAnchorTop: 12,
+    currentFunctionHintTitle: '',
+    currentFunctionHintDescription: '',
+    isCurrentFunctionHintSuppressed: false,
+    currentFunctionHintPlacement: 'top',
+    currentFunctionHintAnchorTop: 12,
   });
-  let referenceSelection = $state<ReturnType<MonacoEditor.IStandaloneCodeEditor['getSelection']>>(null);
-  let hoverAbove = true;
-  let suggestHintTimer: ReturnType<typeof setTimeout> | null = null;
-  let validateTimer: ReturnType<typeof setTimeout> | null = null;
-  let lastHighlightSource = '';
-  let lastHighlightDecorations = $state<{
-    range: {
-      startLineNumber: number;
-      startColumn: number;
-      endLineNumber: number;
-      endColumn: number;
-    };
-    options: {
-      inlineClassName: string;
-    };
-  }[]>([]);
+  let referenceState = $state<ScriptEditorCoreReferenceState>({
+    kind: null,
+    isLoading: false,
+    items: {
+      constants: [],
+      functions: [],
+    },
+  });
 
-  let scriptStrings = $derived.by(() => {
-    const values = Array.from({ length: 16 }, (_, index) => cardContext?.strings[index] ?? '');
-    return values;
-  });
+  const scriptStrings = $derived.by(() => Array.from({ length: 16 }, (_, index) => cardContext?.strings[index] ?? ''));
+  const activeDbTab = $derived.by(() => $tabs.find((tab) => tab.id === $activeTabId) ?? null);
+  const canOpenNewScriptTab = $derived(Boolean(activeDbTab && editorState.selectedId !== null));
 
   function ensureScriptEditorExtraUseCases() {
     if (!loadScriptEditorExtraUseCases || !hasAiCapability) {
       return null;
     }
+
     scriptEditorExtraUseCasesPromise ??= loadScriptEditorExtraUseCases();
     return scriptEditorExtraUseCasesPromise;
   }
@@ -129,471 +95,24 @@
     return buildScriptFileName(tab.cardCode);
   }
 
-  function getCardMetaLines(card: CardDataEntry | null, fallbackCode: number) {
-    if (!card) {
-      return [`ID: ${fallbackCode}`];
-    }
-
-    const typeText = TYPE_BITS
-      .filter((item) => (card.type & item.bit) !== 0)
-      .map((item) => $_(item.key))
-      .join(' / ') || $_('search.na');
-    const attributeText = ATTRIBUTE_OPTIONS.find((item) => item.value === card.attribute)?.key
-      ? $_(ATTRIBUTE_OPTIONS.find((item) => item.value === card.attribute)?.key as string)
-      : $_('search.na');
-    const raceText = RACE_OPTIONS.find((item) => item.value === card.race)?.key
-      ? $_(RACE_OPTIONS.find((item) => item.value === card.race)?.key as string)
-      : $_('search.na');
-    const mainType = $_(getCardTypeKey(card.type));
-    const levelValue = getPackedLevel(card.level);
-    const leftScale = getPackedLScale(card.level);
-    const rightScale = getPackedRScale(card.level);
-    const isLink = (card.type & 0x4000000) !== 0;
-    const isPendulum = leftScale > 0 || rightScale > 0;
-    const statsLine = isLink
-      ? `ATK ${card.attack}  LINK ${levelValue || 0}`
-      : `ATK ${card.attack}  DEF ${card.defense}  ${mainType === $_('search.types.monster') ? `LV ${levelValue || 0}` : mainType}`;
-    const extras = [];
-    if (isPendulum) {
-      extras.push(`Scale ${leftScale}/${rightScale}`);
-    }
-    if (isLink) {
-      const markers = LINK_MARKERS.filter((item) => (card.linkMarker & item.bit) !== 0).map((item) => item.label).join(' ');
-      if (markers) {
-        extras.push(`Link ${markers}`);
-      }
-    }
-
-    return [
-      `ID: ${card.code}`,
-      `Type: ${typeText}`,
-      `Attribute / Race: ${attributeText} / ${raceText}`,
-      extras.length > 0 ? `${statsLine}  ${extras.join('  ')}` : statsLine,
-    ];
-  }
-
-  function getScriptImageRenderInfo() {
-    return {
-      title: cardContext?.name?.trim() || getScriptTabTitle(),
-      metaLines: getCardMetaLines(cardContext, $activeScriptTab?.cardCode ?? 0),
-      effectTitle: $_('editor.desc'),
-      effectText: cardContext?.desc?.trim() || $_('editor.script_effect_empty'),
-    };
-  }
-
-  function getScriptImageSelection() {
-    const selection = editorInstance?.getSelection();
-    const model = editorInstance?.getModel();
-    if (!selection || !model || selection.isEmpty()) {
-      hasSelectedCode = false;
-      return null;
-    }
-
-    const startLineNumber = selection.startLineNumber;
-    const inclusiveEndLineNumber = selection.endColumn === 1 && selection.endLineNumber > startLineNumber
-      ? selection.endLineNumber - 1
-      : selection.endLineNumber;
-    const endLineNumber = Math.max(startLineNumber, inclusiveEndLineNumber);
-    const lines = [];
-    for (let lineNumber = startLineNumber; lineNumber <= endLineNumber; lineNumber += 1) {
-      lines.push(model.getLineContent(lineNumber));
-    }
-
-    hasSelectedCode = lines.length > 0;
-    if (lines.length === 0) {
-      return null;
-    }
-
-    return {
-      content: lines.join('\n'),
-      startLineNumber,
-    } satisfies ScriptImageSelection;
-  }
-
-  async function loadCardContext() {
-    const tab = getActiveScriptTab();
-    if (!tab) {
-      cardContext = null;
-      savedScriptStrings = Array.from({ length: 16 }, () => '');
+  async function handleOpenSelectedScript() {
+    const dbTab = activeDbTab;
+    const selectedCard = getSelectedCard();
+    if (!dbTab || !selectedCard) {
       return;
     }
 
-    const currentToken = ++loadContextToken;
-    const result = await loadScriptCardContextFlow({
-      tab,
-      dbTabs: $tabs,
-      loadToken: currentToken,
+    const { openCardScriptWorkspace } = await import('$lib/services/cardScriptService');
+    await openCardScriptWorkspace({
+      cdbPath: dbTab.path,
+      sourceTabId: dbTab.id,
+      cardCode: selectedCard.code,
+      cardName: selectedCard.name ?? '',
     });
-    if (result.loadToken !== loadContextToken) return;
-    cardContext = result.cardContext;
-    savedScriptStrings = result.savedScriptStrings;
-  }
-
-  async function handleStringBlur(index: number) {
-    const result = await saveScriptStringFlow({
-      tab: getActiveScriptTab(),
-      cardContext,
-      savedScriptStrings,
-      index,
-      dbTabs: $tabs,
-      activeDbTabId: $activeTabId,
-      t: (key, options) => $_(key, options as never),
-    });
-    if (!result) return;
-    cardContext = result.cardContext;
-    savedScriptStrings = result.savedScriptStrings;
-  }
-
-  function handleStringInput(index: number, value: string) {
-    if (!cardContext) return;
-    const nextStrings = normalizeCardStrings(cardContext.strings);
-    nextStrings[index] = value;
-    cardContext = {
-      ...cardContext,
-      strings: nextStrings,
-    };
-  }
-
-  function handleInsertStringId(index: number) {
-    if (!editorInstance || !monacoModule) return;
-    const inserted = monacoModule.insertSnippet(editorInstance, `aux.Stringid(id,${index})`);
-    if (inserted) {
-      editorInstance.focus();
-      refreshCurrentFunctionHint();
-      refreshSuggestHint();
-    }
-  }
-
-  async function ensureReferenceManualItems(kind: ScriptReferenceManualKind) {
-    if (referenceManualItems[kind].length > 0) {
-      return;
-    }
-
-    isReferenceManualLoading = true;
-    try {
-      const module = await import('$lib/utils/luaReferenceManual');
-      referenceManualItems = {
-        ...referenceManualItems,
-        [kind]: await module.loadReferenceManualItems(kind),
-      };
-    } finally {
-      isReferenceManualLoading = false;
-    }
-  }
-
-  async function openReferenceOverlay(kind: ScriptReferenceManualKind) {
-    referenceSelection = editorInstance?.getSelection() ?? null;
-    referenceOverlayKind = kind;
-    await ensureReferenceManualItems(kind);
-  }
-
-  function closeReferenceOverlay() {
-    referenceOverlayKind = null;
-  }
-
-  function handleInsertReferenceItem(item: LuaReferenceManualItem) {
-    if (!editorInstance || !monacoModule) return;
-
-    if (referenceSelection) {
-      editorInstance.setSelection(referenceSelection);
-    }
-    editorInstance.focus();
-
-    const selection = editorInstance.getSelection();
-    const model = editorInstance.getModel();
-    const shouldUseMethodSyntax = Boolean(selection?.isEmpty() && model && selection && (() => {
-      const linePrefix = model.getLineContent(selection.startLineNumber).slice(0, selection.startColumn - 1);
-      const trimmedPrefix = linePrefix.replace(/\s+$/, '');
-      return trimmedPrefix.endsWith(':');
-    })());
-    const inserted = monacoModule.insertSnippet(
-      editorInstance,
-      resolveReferenceManualInsertText(item, {
-        useMethodSyntax: shouldUseMethodSyntax,
-      }),
-    );
-    if (!inserted) return;
-
-    referenceSelection = editorInstance.getSelection() ?? null;
-    closeReferenceOverlay();
-    refreshCurrentFunctionHint();
-    refreshSuggestHint();
-  }
-
-  async function syncEditorWithActiveTab() {
-    if (!editorInstance || !monacoModule || !monacoApi) return;
-
-    const tab = getActiveScriptTab();
-    if (!tab) {
-      currentBoundTabId = null;
-      closeReferenceOverlay();
-      editorInstance.setModel(null);
-      hasSelectedCode = false;
-      return;
-    }
-
-    if (currentBoundTabId && currentBoundTabId !== tab.id) {
-      setScriptTabViewState(currentBoundTabId, editorInstance.saveViewState());
-    }
-
-    const uri = monacoModule.createScriptModelUri(tab.id);
-    let model = monacoApi.editor.getModel(uri);
-    const currentModel = editorInstance.getModel();
-    const isSwitchingTab =
-      currentBoundTabId !== tab.id || currentModel?.uri.toString() !== uri.toString();
-
-    if (!model) {
-      model = monacoApi.editor.createModel(tab.content, 'lua', uri);
-    } else if (model.getValue() !== tab.content) {
-      isApplyingModel = true;
-      model.setValue(tab.content);
-      isApplyingModel = false;
-    }
-
-    monacoModule.setModelContext(model, {
-      cardCode: tab.cardCode,
-      cardName: tab.cardName,
-      strings: scriptStrings,
-      card: cardContext,
-    });
-    scheduleModelValidation();
-
-    if (isSwitchingTab) {
-      editorInstance.setModel(model);
-      if (tab.viewState) {
-        editorInstance.restoreViewState(tab.viewState as MonacoEditor.ICodeEditorViewState);
-      } else {
-        editorInstance.setScrollTop(0);
-        editorInstance.setPosition({ lineNumber: 1, column: 1 });
-      }
-      editorInstance.focus();
-    } else if (currentModel?.uri.toString() !== model.uri.toString()) {
-      editorInstance.setModel(model);
-    }
-
-    currentBoundTabId = tab.id;
-    syncSelectionState();
-  }
-
-  function clearSuggestHint() {
-    suggestHintText = '';
-    suggestHintPlacement = 'top';
-    suggestHintAnchorTop = 12;
-    if (suggestHintTimer) {
-      clearTimeout(suggestHintTimer);
-      suggestHintTimer = null;
-    }
-  }
-
-  function clearCurrentFunctionHint() {
-    currentFunctionHintTitle = '';
-    currentFunctionHintDescription = '';
-    isCurrentFunctionHintSuppressed = false;
-    currentFunctionHintPlacement = 'top';
-    currentFunctionHintAnchorTop = 12;
-  }
-
-  function handleHintSuppressKeydown(event: KeyboardEvent) {
-    if (!shouldHandleHintSuppressShortcut(event, Boolean(editorInstance?.hasTextFocus()))) return;
-    isCurrentFunctionHintSuppressed = true;
-  }
-
-  function handleHintSuppressKeyup(event: KeyboardEvent) {
-    if (event.key !== 'Alt') return;
-    isCurrentFunctionHintSuppressed = false;
-  }
-
-  function handleHintSuppressBlur() {
-    isCurrentFunctionHintSuppressed = false;
-  }
-
-  function syncSelectionState() {
-    hasSelectedCode = !editorInstance?.getSelection()?.isEmpty();
-  }
-
-  function handleWindowKeydown(event: KeyboardEvent) {
-    const isReferenceOverlayOpen = referenceOverlayKind !== null;
-    if (shouldCloseScriptReferenceOverlay(event, isReferenceOverlayOpen)) {
-      event.preventDefault();
-      event.stopPropagation();
-      closeReferenceOverlay();
-      editorInstance?.focus();
-      return;
-    }
-
-    const handbookShortcut = resolveScriptReferenceShortcut(
-      event,
-      Boolean(editorInstance?.hasTextFocus()),
-      isReferenceOverlayOpen,
-    );
-    if (handbookShortcut) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (referenceOverlayKind === handbookShortcut) {
-        closeReferenceOverlay();
-        editorInstance?.focus();
-      } else {
-        void openReferenceOverlay(handbookShortcut);
-      }
-      return;
-    }
-
-    handleHintSuppressKeydown(event);
-  }
-
-  function handleWindowKeyup(event: KeyboardEvent) {
-    if (referenceOverlayKind) return;
-    handleHintSuppressKeyup(event);
-  }
-
-  function getHintAnchor(position: { lineNumber: number; column: number } | null | undefined) {
-    if (!editorInstance || !editorHost || !position) {
-      return { top: 12, placement: 'top' as const };
-    }
-
-    const visiblePosition = editorInstance.getScrolledVisiblePosition(position);
-    return resolveHintAnchor(visiblePosition
-      ? {
-          hostOffsetTop: editorHost.offsetTop,
-          visibleTop: visiblePosition.top,
-          visibleHeight: visiblePosition.height,
-        }
-      : null);
-  }
-
-  function syncCallHighlights() {
-    if (!editorInstance) return;
-
-    const model = editorInstance.getModel();
-    if (!model) {
-      callHighlightDecorations?.clear();
-      lastHighlightSource = '';
-      lastHighlightDecorations = [];
-      return;
-    }
-
-    const source = model.getValue();
-    const nextHighlights = buildCallHighlightDecorations(
-      source,
-      lastHighlightSource,
-      lastHighlightDecorations,
-      collectLuaInlineHighlights,
-    );
-    lastHighlightSource = nextHighlights.source;
-    lastHighlightDecorations = nextHighlights.decorations;
-
-    callHighlightDecorations ??= editorInstance.createDecorationsCollection();
-    callHighlightDecorations.set(nextHighlights.decorations);
-  }
-
-  function scheduleModelValidation() {
-    if (!editorInstance || !monacoModule) return;
-
-    clearTimeout(validateTimer ?? undefined);
-    validateTimer = setTimeout(() => {
-      const model = editorInstance?.getModel();
-      if (!model || !monacoModule) return;
-      monacoModule.validateLuaModel(model);
-      syncCallHighlights();
-    }, 80);
-  }
-
-  function syncSuggestHintPlacement() {
-    if (!editorInstance) return;
-
-    const position = editorInstance.getPosition();
-    const anchor = getHintAnchor(position);
-    suggestHintAnchorTop = anchor.top;
-    suggestHintPlacement = anchor.placement;
-  }
-
-  function syncHoverPlacement(
-    position: { lineNumber: number; column: number } | null | undefined,
-  ) {
-    if (!editorInstance || !position) return;
-
-    const visiblePosition = editorInstance.getScrolledVisiblePosition(position);
-    const nextHoverAbove = resolveHoverAbove({
-      visibleTop: visiblePosition?.top,
-      visibleHeight: visiblePosition?.height,
-      previous: hoverAbove,
-    });
-    if (nextHoverAbove === hoverAbove) return;
-
-    hoverAbove = nextHoverAbove;
-    editorInstance.updateOptions({
-      hover: {
-        above: hoverAbove,
-      },
-    });
-  }
-
-  function syncSuggestHint() {
-    if (!monacoModule || !editorHost) return;
-
-    const suggestWidget = editorHost.querySelector('.suggest-widget');
-    const isSuggestVisible = suggestWidget instanceof HTMLElement
-      && suggestWidget.offsetParent !== null
-      && suggestWidget.querySelector('.monaco-list-row.focused');
-
-    if (!isSuggestVisible) {
-      clearSuggestHint();
-      return;
-    }
-
-    const label = extractFocusedSuggestLabel(editorHost);
-    const description = label ? monacoModule.lookupCompletionDescription(label) : null;
-    suggestHintText = description ?? '';
-    if (suggestHintText) {
-      syncSuggestHintPlacement();
-    }
-  }
-
-  function ensureSuggestHintPolling() {
-    if (suggestHintTimer) return;
-    suggestHintTimer = setTimeout(function pollSuggestHint() {
-      suggestHintTimer = null;
-      syncSuggestHint();
-      if (suggestHintText) {
-        ensureSuggestHintPolling();
-      } else {
-        clearSuggestHint();
-      }
-    }, 120);
-  }
-
-  function refreshSuggestHint() {
-    syncSuggestHint();
-    if (suggestHintText) {
-      ensureSuggestHintPolling();
-    } else if (suggestHintTimer) {
-      clearSuggestHint();
-    }
-  }
-
-  function refreshCurrentFunctionHint() {
-    if (!monacoModule || !editorInstance) {
-      clearCurrentFunctionHint();
-      return;
-    }
-
-    const model = editorInstance.getModel();
-    const position = editorInstance.getPosition();
-    if (!model || !position) {
-      clearCurrentFunctionHint();
-      return;
-    }
-
-    const hint = monacoModule.getCurrentFunctionHint(model, position);
-    currentFunctionHintTitle = hint?.title ?? '';
-    currentFunctionHintDescription = hint?.description ?? '';
-    const anchor = getHintAnchor(position);
-    currentFunctionHintAnchorTop = anchor.top;
-    currentFunctionHintPlacement = anchor.placement;
   }
 
   async function handleSave() {
-    const tab = getActiveScriptTab();
+    const tab = $activeScriptTab;
     if (!tab || isSaving) return;
 
     isSaving = true;
@@ -613,7 +132,7 @@
     if (!extraModule) return;
 
     await (await extraModule).generateScriptFromEditorFlow({
-      tab: getActiveScriptTab(),
+      tab: $activeScriptTab,
       isGeneratingScript,
       cardContext,
       dbTabs: $tabs,
@@ -635,20 +154,16 @@
   }
 
   async function handleReload() {
-    const tab = getActiveScriptTab();
+    const tab = $activeScriptTab;
     if (!tab || isReloading) return;
 
     isReloading = true;
     try {
-      const ok = await reloadScriptEditorFlow({
+      await reloadScriptEditorFlow({
         tab,
         isReloading: false,
         t: (key, options) => $_(key, options as never),
       });
-      if (ok) {
-        await loadCardContext();
-        await syncEditorWithActiveTab();
-      }
     } finally {
       isReloading = false;
     }
@@ -656,13 +171,13 @@
 
   async function handleOpenExternal() {
     await openScriptExternallyFlow({
-      tab: getActiveScriptTab(),
+      tab: $activeScriptTab,
       t: (key, options) => $_(key, options as never),
     });
   }
 
   async function handleShareImage() {
-    const tab = getActiveScriptTab();
+    const tab = $activeScriptTab;
     if (!tab || isSharingImage) return;
 
     isSharingImage = true;
@@ -670,116 +185,35 @@
       await shareScriptImageFlow({
         tab,
         isSharing: false,
-        renderInfo: getScriptImageRenderInfo(),
-        selection: getScriptImageSelection(),
+        renderInfo: buildScriptImageRenderInfo({
+          cardContext,
+          fallbackCode: $activeScriptTab?.cardCode ?? 0,
+          title: getScriptTabTitle(),
+          t: $_,
+        }),
+        selection: editorCore?.getScriptImageSelection() ?? null,
         t: (key, options) => $_(key, options as never),
       });
     } finally {
       isSharingImage = false;
     }
   }
-
-  onMount(async () => {
-    if (!editorHost) return;
-
-    monacoRuntime = await createScriptMonacoRuntime({
-      host: editorHost,
-      onDidChangeModelContent: () => {
-        if (isApplyingModel || !currentBoundTabId) return;
-        const model = editorInstance?.getModel();
-        if (!model || !monacoModule) return;
-
-        updateScriptTabContent(currentBoundTabId, model.getValue());
-        scheduleModelValidation();
-        refreshSuggestHint();
-        refreshCurrentFunctionHint();
-      },
-      onDidChangeCursorPosition: () => {
-        refreshSuggestHint();
-        refreshCurrentFunctionHint();
-      },
-      onDidChangeCursorSelection: () => {
-        syncSelectionState();
-      },
-      onKeyUp: () => {
-        refreshSuggestHint();
-        refreshCurrentFunctionHint();
-      },
-      onMouseMove: (position) => {
-        syncHoverPlacement(position);
-      },
-      onDidBlurEditorText: () => {
-        clearSuggestHint();
-        handleHintSuppressBlur();
-      },
-      onDidScrollChange: () => {
-        refreshSuggestHint();
-        refreshCurrentFunctionHint();
-      },
-      onWindowKeydown: handleWindowKeydown,
-      onWindowKeyup: handleWindowKeyup,
-      onWindowBlur: handleHintSuppressBlur,
-    });
-    monacoModule = monacoRuntime.module;
-    monacoApi = monacoRuntime.api;
-    editorInstance = monacoRuntime.editor;
-    callHighlightDecorations = monacoRuntime.callHighlightDecorations;
-    syncSelectionState();
-    isMonacoReady = true;
-    await loadCardContext();
-    await syncEditorWithActiveTab();
-  });
-
-  onDestroy(() => {
-    scriptGenerationAbortController?.abort();
-    clearSuggestHint();
-    clearCurrentFunctionHint();
-    if (editorInstance && currentBoundTabId) {
-      setScriptTabViewState(currentBoundTabId, editorInstance.saveViewState());
-    }
-    callHighlightDecorations?.clear();
-    callHighlightDecorations = null;
-    clearTimeout(validateTimer ?? undefined);
-    validateTimer = null;
-    monacoRuntime?.dispose();
-    monacoRuntime = null;
-  });
-
-  $effect(() => {
-    const contextKey = buildScriptEditorContextKey({
-      activeScriptTab: $activeScriptTab,
-      dbTabs: $tabs,
-    });
-
-    if (!isMonacoReady) return;
-    if (contextKey === lastContextKey) return;
-    lastContextKey = contextKey;
-
-    void (async () => {
-      await loadCardContext();
-      await syncEditorWithActiveTab();
-    })();
-  });
-
-  $effect(() => {
-    if (!isMonacoReady || !monacoModule || !editorInstance) return;
-    const model = editorInstance.getModel();
-    if (!model) return;
-
-    monacoModule.setModelContext(model, {
-      cardCode: $activeScriptTab?.cardCode ?? 0,
-      cardName: $activeScriptTab?.cardName ?? '',
-      strings: scriptStrings,
-      card: cardContext,
-    });
-    scheduleModelValidation();
-    refreshSuggestHint();
-    refreshCurrentFunctionHint();
-  });
 </script>
 
 {#if $activeScriptTab}
   <section class="script-page">
+    <ScriptTabBar
+      tabs={$scriptTabs}
+      activeTabId={$activeScriptTabId}
+      newTabTitle={$_('editor.script_button')}
+      closeTabTitle={$_('editor.script_reference_close')}
+      canCreate={canOpenNewScriptTab}
+      onActivate={activateScriptTab}
+      onClose={closeScriptTab}
+      onNew={() => void handleOpenSelectedScript()}
+      getTabTitle={getScriptTabDisplayName}
+    />
+
     <ScriptToolbar
       title={getScriptTabTitle()}
       cardCodeLabel={$_('editor.script_workspace_card', { values: { code: String($activeScriptTab.cardCode) } })}
@@ -810,37 +244,43 @@
     />
 
     <div class="script-layout">
-      <div class="script-editor-shell">
+      <ScriptEditorCore
+        bind:this={editorCore}
+        bind:cardContext
+        bind:hasSelectedCode
+        bind:hintState
+        bind:referenceState
+      >
         <ScriptHintOverlays
-          currentFunctionHintTitle={currentFunctionHintTitle}
-          currentFunctionHintDescription={currentFunctionHintDescription}
-          isCurrentFunctionHintSuppressed={isCurrentFunctionHintSuppressed}
-          currentFunctionHintPlacement={currentFunctionHintPlacement}
-          currentFunctionHintAnchorTop={currentFunctionHintAnchorTop}
-          suggestHintText={suggestHintText}
-          suggestHintPlacement={suggestHintPlacement}
-          suggestHintAnchorTop={suggestHintAnchorTop}
+          currentFunctionHintTitle={hintState.currentFunctionHintTitle}
+          currentFunctionHintDescription={hintState.currentFunctionHintDescription}
+          isCurrentFunctionHintSuppressed={hintState.isCurrentFunctionHintSuppressed}
+          currentFunctionHintPlacement={hintState.currentFunctionHintPlacement}
+          currentFunctionHintAnchorTop={hintState.currentFunctionHintAnchorTop}
+          suggestHintText={hintState.suggestHintText}
+          suggestHintPlacement={hintState.suggestHintPlacement}
+          suggestHintAnchorTop={hintState.suggestHintAnchorTop}
         />
+
         <ScriptReferenceOverlay
-          open={referenceOverlayKind !== null}
-          kind={referenceOverlayKind ?? 'constants'}
-          title={referenceOverlayKind === 'constants'
+          open={referenceState.kind !== null}
+          kind={referenceState.kind ?? 'constants'}
+          title={referenceState.kind === 'constants'
             ? $_('editor.script_reference_constants_title')
             : $_('editor.script_reference_functions_title')}
-          shortcutHint={referenceOverlayKind === 'constants'
+          shortcutHint={referenceState.kind === 'constants'
             ? $_('editor.script_reference_constants_shortcut')
             : $_('editor.script_reference_functions_shortcut')}
           searchPlaceholder={$_('editor.script_reference_search_placeholder')}
           emptyText={$_('editor.script_reference_empty')}
-          loading={isReferenceManualLoading}
+          loading={referenceState.isLoading}
           loadingText={$_('editor.script_reference_loading')}
           closeLabel={$_('editor.script_reference_close')}
-          items={referenceOverlayKind ? referenceManualItems[referenceOverlayKind] : []}
-          onClose={closeReferenceOverlay}
-          onInsert={handleInsertReferenceItem}
+          items={referenceState.kind ? referenceState.items[referenceState.kind] : []}
+          onClose={() => editorCore?.closeReferenceOverlay()}
+          onInsert={(item) => editorCore?.insertReferenceItem(item)}
         />
-        <div class="script-editor" bind:this={editorHost}></div>
-      </div>
+      </ScriptEditorCore>
 
       <ScriptSidePanel
         descriptionTitle={$_('editor.desc')}
@@ -849,9 +289,9 @@
         effectEmptyText={$_('editor.script_effect_empty')}
         stringPlaceholder={$_('editor.script_string_empty')}
         scriptStrings={scriptStrings}
-        onInsertStringId={handleInsertStringId}
-        onStringInput={handleStringInput}
-        onStringBlur={handleStringBlur}
+        onInsertStringId={(index) => editorCore?.insertStringId(index)}
+        onStringInput={(index, value) => editorCore?.updateStringInput(index, value)}
+        onStringBlur={(index) => editorCore?.persistString(index) ?? Promise.resolve()}
       />
     </div>
   </section>
@@ -881,189 +321,4 @@
     grid-template-columns: minmax(0, 1fr) 272px;
     overflow: hidden;
   }
-
-  .script-editor-shell {
-    min-width: 0;
-    min-height: 0;
-    padding: 6px 6px 6px 8px;
-    position: relative;
-  }
-
-  .script-editor {
-    height: 100%;
-    min-height: 0;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1);
-    background: #121714;
-  }
-
-  .script-editor :global(.monaco-editor),
-  .script-editor :global(.monaco-editor-background),
-  .script-editor :global(.monaco-editor .margin),
-  .script-editor :global(.monaco-editor .monaco-editor-background) {
-    background:
-      repeating-linear-gradient(
-        to bottom,
-        rgba(0, 0, 0, 0) 0,
-        rgba(0, 0, 0, 0) 21px,
-        rgba(186, 227, 198, 0.08) 21px,
-        rgba(186, 227, 198, 0.08) 22px
-      ),
-      #121714 !important;
-  }
-
-  .script-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(87, 166, 121, 0.28) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(87, 166, 121, 0.18) !important;
-    --vscode-editor-lineHighlightBackground: rgba(118, 184, 151, 0.12) !important;
-    --vscode-editorError-background: rgba(196, 122, 112, 0.12) !important;
-    --vscode-editorError-border: rgba(196, 122, 112, 0.28) !important;
-    --vscode-editorWarning-background: rgba(196, 168, 102, 0.1) !important;
-    --vscode-editorWarning-border: rgba(196, 168, 102, 0.22) !important;
-    --vscode-editorInfo-background: rgba(113, 162, 181, 0.08) !important;
-    --vscode-editorInfo-border: rgba(113, 162, 181, 0.2) !important;
-  }
-
-  .script-editor :global(.monaco-editor .focused .selected-text),
-  .script-editor :global(.monaco-editor .selected-text) {
-    background-color: rgba(87, 166, 121, 0.28) !important;
-  }
-
-  .script-editor :global(.monaco-editor .view-line .lua-call-highlight) {
-    color: #8ec5ff !important;
-    font-weight: 600;
-  }
-
-  .script-editor :global(.monaco-editor .view-line .lua-call-arg-highlight) {
-    color: #c792ff !important;
-    font-weight: 600;
-  }
-
-  .script-editor :global(.monaco-editor .view-line .lua-parameter-highlight) {
-    color: #d8b4fe !important;
-    font-weight: 600;
-  }
-
-  .script-editor :global(.monaco-editor .view-line .lua-constant-highlight) {
-    color: #5eead4 !important;
-    font-weight: 600;
-  }
-
-  .script-editor :global(.monaco-editor .view-overlays .current-line),
-  .script-editor :global(.monaco-editor .margin-view-overlays .current-line) {
-    background-color: rgba(118, 184, 151, 0.12) !important;
-    border: none !important;
-  }
-
-  .script-editor :global(.monaco-editor .squiggly-error:before) {
-    background: rgba(196, 122, 112, 0.12) !important;
-  }
-
-  .script-editor :global(.monaco-editor .squiggly-warning:before) {
-    background: rgba(196, 168, 102, 0.1) !important;
-  }
-
-  .script-editor :global(.monaco-editor .squiggly-info:before) {
-    background: rgba(113, 162, 181, 0.08) !important;
-  }
-
-  .script-editor :global(.monaco-editor .squiggly-error) {
-    border-bottom: 2px solid rgba(196, 122, 112, 0.34) !important;
-  }
-
-  .script-editor :global(.monaco-editor .squiggly-warning) {
-    border-bottom: 2px solid rgba(196, 168, 102, 0.28) !important;
-  }
-
-  .script-editor :global(.monaco-editor .squiggly-info) {
-    border-bottom: 2px solid rgba(113, 162, 181, 0.24) !important;
-  }
-
-  .script-editor :global(.suggest-widget .monaco-list-row.focused) {
-    background: #50675b !important;
-    color: #f2fbf5 !important;
-  }
-
-  .script-editor :global(.suggest-widget .monaco-list-row.focused .label-name),
-  .script-editor :global(.suggest-widget .monaco-list-row.focused .details-label),
-  .script-editor :global(.suggest-widget .monaco-list-row.focused .monaco-icon-label),
-  .script-editor :global(.suggest-widget .monaco-list-row.focused .suggest-icon) {
-    color: inherit !important;
-  }
-
-  .script-editor :global(.suggest-widget .monaco-list-row:hover) {
-    background: rgba(80, 103, 91, 0.24) !important;
-    color: #eef7f1 !important;
-  }
-
-  .script-editor :global(.suggest-widget .monaco-list-row:hover .label-name),
-  .script-editor :global(.suggest-widget .monaco-list-row:hover .details-label),
-  .script-editor :global(.suggest-widget .monaco-list-row:hover .monaco-icon-label),
-  .script-editor :global(.suggest-widget .monaco-list-row:hover .suggest-icon) {
-    color: inherit !important;
-  }
-
-  :global([data-theme='light']) .script-editor {
-    background: #f1f5ec;
-  }
-
-  :global([data-theme='light']) .script-editor :global(.monaco-editor),
-  :global([data-theme='light']) .script-editor :global(.monaco-editor-background),
-  :global([data-theme='light']) .script-editor :global(.monaco-editor .margin),
-  :global([data-theme='light']) .script-editor :global(.monaco-editor .monaco-editor-background) {
-    background:
-      repeating-linear-gradient(
-        to bottom,
-        rgba(0, 0, 0, 0) 0,
-        rgba(0, 0, 0, 0) 21px,
-        rgba(104, 145, 112, 0.1) 21px,
-        rgba(104, 145, 112, 0.1) 22px
-      ),
-      #f1f5ec !important;
-  }
-
-  :global([data-theme='light']) .script-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(97, 141, 106, 0.22) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(97, 141, 106, 0.14) !important;
-    --vscode-editor-lineHighlightBackground: rgba(74, 133, 91, 0.1) !important;
-    --vscode-editorError-background: rgba(198, 128, 117, 0.08) !important;
-    --vscode-editorError-border: rgba(198, 128, 117, 0.2) !important;
-    --vscode-editorWarning-background: rgba(189, 155, 86, 0.08) !important;
-    --vscode-editorWarning-border: rgba(189, 155, 86, 0.2) !important;
-    --vscode-editorInfo-background: rgba(94, 144, 166, 0.06) !important;
-    --vscode-editorInfo-border: rgba(94, 144, 166, 0.16) !important;
-  }
-
-  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-call-highlight) {
-    color: #1d5fd1 !important;
-    font-weight: 600;
-  }
-
-  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-call-arg-highlight) {
-    color: #7c3aed !important;
-    font-weight: 600;
-  }
-
-  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-parameter-highlight) {
-    color: #8b5cf6 !important;
-    font-weight: 600;
-  }
-
-  :global([data-theme='light']) .script-editor :global(.monaco-editor .view-line .lua-constant-highlight) {
-    color: #0f766e !important;
-    font-weight: 600;
-  }
-
-  :global([data-theme='light']) .script-editor :global(.suggest-widget .monaco-list-row.focused) {
-    background: #dbe8dc !important;
-    color: #16311e !important;
-  }
-
-  :global([data-theme='light']) .script-editor :global(.suggest-widget .monaco-list-row:hover) {
-    background: rgba(219, 232, 220, 0.42) !important;
-    color: #16311e !important;
-  }
-
 </style>

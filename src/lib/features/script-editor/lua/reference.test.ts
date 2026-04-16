@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { resolveReferenceManualInsertText, type LuaReferenceManualItem } from './luaReferenceManual';
+import { resolveReferenceManualInsertText, type LuaReferenceManualItem } from './reference';
 
 describe('lua reference manual insertion', () => {
   test('converts card namespace functions to method-style insertion when requested', () => {
@@ -23,3 +23,4 @@ describe('lua reference manual insertion', () => {
     expect(resolveReferenceManualInsertText(item, { useMethodSyntax: false })).toBe('Card.IsType(${1:c}, ${2:type})');
   });
 });
+

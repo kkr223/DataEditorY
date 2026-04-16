@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
+  import { readTextFile } from '$lib/infrastructure/tauri/commands';
+  import { tauriBridge } from '$lib/infrastructure/tauri';
   import {
     clearSearchError,
     editorState,
@@ -33,6 +35,8 @@
   let hasActiveFilters = $derived(
     editorState.searchFilters.id !== '' ||
     editorState.searchFilters.desc !== '' ||
+    editorState.searchFilters.imageFolderPath !== '' ||
+    editorState.searchFilters.deckText !== '' ||
     editorState.searchFilters.rule !== '' ||
     editorState.searchFilters.atkMin !== '' ||
     editorState.searchFilters.atkMax !== '' ||
@@ -88,6 +92,34 @@
     if (event.key === 'Enter') {
       void runSearch();
     }
+  }
+
+  async function pickImageFolder() {
+    const selected = await tauriBridge.open({
+      directory: true,
+      multiple: false,
+    });
+    if (!selected || typeof selected !== 'string') {
+      return;
+    }
+
+    editorState.searchFilters.imageFolderPath = selected;
+    void runSearch();
+  }
+
+  async function importDeckText() {
+    const selected = await tauriBridge.open({
+      multiple: false,
+      filters: [
+        { name: 'YDK / Text', extensions: ['ydk', 'txt'] },
+      ],
+    });
+    if (!selected || typeof selected !== 'string') {
+      return;
+    }
+
+    editorState.searchFilters.deckText = await readTextFile(selected);
+    void runSearch();
   }
 
   function handleRowClick(event: MouseEvent, code: number) {
@@ -147,7 +179,7 @@
       <div class="search-input-wrapper">
         <input bind:this={searchInput} type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.name} onkeydown={handleSearchKeydown} />
       </div>
-      <button class="btn-primary" onclick={() => dispatchAppShortcut('search-from-draft')} disabled={!$isDbLoaded} title={$_('search.title')}>
+      <button class="btn-primary" onclick={() => void runSearch()} disabled={!$isDbLoaded} title={$_('search.title')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       </button>
       <button class="btn-secondary btn-icon" onclick={() => void handleResetAll()} disabled={!$isDbLoaded} title={$_('search.reset')}>
@@ -311,6 +343,40 @@
           {/each}
         </div>
       </div>
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="search-image-folder">{$_('search.image_folder')}</label>
+          <div class="source-input-row">
+            <input
+              type="text"
+              id="search-image-folder"
+              bind:value={editorState.searchFilters.imageFolderPath}
+              placeholder={$_('search.image_folder_placeholder')}
+            />
+            <button class="btn-secondary source-picker" type="button" onclick={() => void pickImageFolder()}>
+              {$_('search.pick_folder')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="search-deck-text">{$_('search.deck_text')}</label>
+          <div class="source-textarea-actions">
+            <textarea
+              id="search-deck-text"
+              rows="5"
+              bind:value={editorState.searchFilters.deckText}
+              placeholder={$_('search.deck_text_placeholder')}
+            ></textarea>
+            <button class="btn-secondary source-picker" type="button" onclick={() => void importDeckText()}>
+              {$_('search.import_ydk')}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="filter-actions">
         <button class="btn-secondary" onclick={closeFilter}>{$_('search.collapse')}</button>
       </div>
@@ -398,6 +464,9 @@
     border: 1px solid var(--border-color);
     border-radius: var(--control-radius-soft);
     box-shadow: var(--shadow-popover);
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    z-index: 100;
   }
   .results-stats { padding: var(--spacing-xs) var(--spacing-md); background-color: var(--bg-surface-active); border-top: 1px solid var(--border-color); }
   .badge { background: var(--bg-surface-active); color: var(--text-secondary); padding: 2px 8px; border-radius: var(--control-radius-pill); font-size: 0.8rem; font-weight: 500; }
@@ -409,8 +478,13 @@
   .flex-2 { flex: 2 !important; }
   label, .group-label { font-size: 0.86rem; color: var(--text-secondary); font-weight: 600; }
   input, select { width: 100%; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 0.3rem 0.55rem; font-size: 0.92rem; transition: all 0.2s; }
+  textarea { width: 100%; min-height: 6.5rem; resize: vertical; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 0.45rem 0.55rem; font-size: 0.92rem; transition: all 0.2s; }
   input:focus, select:focus { border-color: var(--accent-primary); box-shadow: var(--focus-ring); outline: none; }
+  textarea:focus { border-color: var(--accent-primary); box-shadow: var(--focus-ring); outline: none; }
   .input-error { border-color: var(--state-danger-fg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--state-danger-fg) 20%, transparent); }
+  .source-input-row { display: flex; gap: var(--spacing-sm); }
+  .source-textarea-actions { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+  .source-picker { flex: 0 0 auto; align-self: flex-start; }
   .input-error-bubble {
     margin-top: 0.2rem;
     padding: 0.45rem 0.6rem;

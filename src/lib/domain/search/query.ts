@@ -17,24 +17,33 @@ import { parseRuleExpression } from '$lib/domain/search/ruleExpression';
 // the "advanced search" capability that DEX does not have.
 // ---------------------------------------------------------------------------
 
-/** DEX name-pattern: `%%` is a user-supplied wildcard, otherwise auto-wrap. */
-function buildNamePattern(input: string): string {
+function escapeLikeTerm(term: string): string {
+  return term.replaceAll('/', '//').replaceAll('%', '/%').replaceAll('_', '/_');
+}
+
+/**
+ * Treat `%%` as an ordered keyword separator.
+ */
+function buildOrderedKeywordPattern(input: string): string {
   const s = input.trim();
   if (!s) return '%';
 
-  // User-supplied wildcards: %% → %
-  if (s.includes('%%')) return s.replaceAll('%%', '%');
-
-  // DEX-style keyword search: split plain whitespace into independent terms.
-  // This keeps legacy "blue eyes" -> "%blue%eyes%" behavior even when the
-  // backend query engine no longer performs token splitting for us.
   const escapedTerms = s
+    .split(/(?:%%|\s)+/)
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .map(escapeLikeTerm);
+
+  return `%${escapedTerms.join('%')}%`;
+}
+
+function buildUnorderedKeywordTerms(input: string): string[] {
+  return input
+    .trim()
     .split(/\s+/)
     .map((term) => term.trim())
     .filter(Boolean)
-    .map((term) => term.replaceAll('/', '//').replaceAll('%', '/%').replaceAll('_', '/_'));
-
-  return `%${escapedTerms.join('%')}%`;
+    .map(escapeLikeTerm);
 }
 
 /** Parse a stat value with DEX special markers: `?/？` → -2, `.` → -1. */
@@ -59,6 +68,7 @@ export function parseSetcodeFilter(input: string): number | null {
 // ID prefix search — expands "12" into ranges [12,12], [120,129], [1200,1299] …
 const MAX_ID_DIGITS = 10;
 const MAX_ID_VALUE = 4_294_967_295;
+const SOURCE_ID_CHUNK_SIZE = 400;
 
 function buildIdPrefixRanges(input: string) {
   const s = input.trim();
@@ -92,7 +102,10 @@ function inferMainType(subtype: string): string {
 // Main entry point — mirrors DEX GetSelectSQL
 // ---------------------------------------------------------------------------
 
-export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
+export function buildSearchQuery(
+  filters: SearchFilters,
+  options: { sourceIds?: number[] } = {},
+): CardSearchQuery {
   const conds: string[] = [];
   const params: Record<string, string | number> = {};
   let paramIdx = 0;
@@ -104,13 +117,36 @@ export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
     return `:${key}`;
   }
 
+  function appendTextSearchClause(column: 'texts.name' | 'texts.desc', paramPrefix: 'name' | 'desc', input: string) {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+
+    if (trimmed.includes('%%')) {
+      params[paramPrefix] = buildOrderedKeywordPattern(trimmed);
+      conds.push(`${column} LIKE :${paramPrefix} ESCAPE '/'`);
+      return;
+    }
+
+    const terms = buildUnorderedKeywordTerms(trimmed);
+    if (terms.length === 0) return;
+
+    if (terms.length === 1) {
+      params[paramPrefix] = `%${terms[0]}%`;
+      conds.push(`${column} LIKE :${paramPrefix} ESCAPE '/'`);
+      return;
+    }
+
+    for (const [index, term] of terms.entries()) {
+      const key = index === 0 ? paramPrefix : `${paramPrefix}${index}`;
+      params[key] = `%${term}%`;
+      conds.push(`${column} LIKE :${key} ESCAPE '/'`);
+    }
+  }
+
   const mainType = filters.type || inferMainType(filters.subtype);
 
   // --- name ---
-  if (filters.name.trim()) {
-    params.name = buildNamePattern(filters.name);
-    conds.push(`texts.name LIKE :name ESCAPE '/'`);
-  }
+  appendTextSearchClause('texts.name', 'name', filters.name);
 
   // --- id (prefix search) ---
   if (filters.id.trim()) {
@@ -128,10 +164,7 @@ export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
   }
 
   // --- desc ---
-  if (filters.desc.trim()) {
-    params.desc = `%${filters.desc.trim()}%`;
-    conds.push('texts.desc LIKE :desc');
-  }
+  appendTextSearchClause('texts.desc', 'desc', filters.desc);
 
   // --- atk / def (DEX style) ---
   for (const field of ['atk', 'def'] as const) {
@@ -219,6 +252,21 @@ export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
     if (parsed) {
       conds.push(parsed.clause);
       Object.assign(params, parsed.params);
+    }
+  }
+
+  if (options.sourceIds) {
+    const sourceIds = [...new Set(options.sourceIds.filter((id) => Number.isInteger(id) && id > 0))];
+    if (sourceIds.length === 0) {
+      conds.push('1=0');
+    } else {
+      const parts: string[] = [];
+      for (let index = 0; index < sourceIds.length; index += SOURCE_ID_CHUNK_SIZE) {
+        const chunk = sourceIds.slice(index, index + SOURCE_ID_CHUNK_SIZE);
+        const placeholders = chunk.map((id) => bind(id));
+        parts.push(`datas.id IN (${placeholders.join(', ')})`);
+      }
+      conds.push(parts.length === 1 ? parts[0] : `(${parts.join(' OR ')})`);
     }
   }
 

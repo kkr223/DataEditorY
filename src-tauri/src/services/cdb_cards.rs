@@ -82,8 +82,7 @@ pub fn modify_cards(sessions: &OpenCdbSessions, request: ModifyCardsRequest) -> 
             .cdb
             .lock()
             .map_err(|_| "Failed to acquire CDB lock".to_string())?;
-        cdb.add_cards(&request.cards)
-            .map_err(|err| err.to_string())
+        cdb.add_cards(&request.cards).map_err(|err| err.to_string())
     })
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { collectLuaScriptFunctionSymbols } from './luaScriptSymbols';
+import { collectLuaScriptFunctionSymbols } from './symbols';
 
 describe('lua script symbols', () => {
   test('collects local, namespaced, and legacy card functions', () => {
@@ -24,3 +24,4 @@ describe('lua script symbols', () => {
     expect(symbols[2]?.namespace).toBe('c12345678');
   });
 });
+

@@ -9,12 +9,12 @@ use crate::services::assets::{
     cdb_dir_from_path, copy_if_exists, field_image_path, main_image_path, script_path,
 };
 use crate::{
-    TaskProgressPayload,
     models::cdb::{
         AnalyzeCdbMergeResponse, CardDto, ExecuteCdbMergeRequest, ExecuteCdbMergeResponse,
         MergeSourceItemDto, MergeSourcePlanDto,
     },
     repository::cdb as cdb_repository,
+    TaskProgressPayload,
 };
 
 const TYPE_SPELL: u32 = 0x2;
@@ -169,7 +169,10 @@ fn build_analysis_response(plan: &MergePlan) -> AnalyzeCdbMergeResponse {
         let mut winning_field_image_count = 0_u32;
         for card in &plan.merged_cards {
             if card_has_field_subtype(card)
-                && plan.winning_field_image_source_by_code.get(&card.code).copied()
+                && plan
+                    .winning_field_image_source_by_code
+                    .get(&card.code)
+                    .copied()
                     == Some(source_index)
             {
                 winning_field_image_count += 1;
@@ -209,7 +212,9 @@ fn build_analysis_response(plan: &MergePlan) -> AnalyzeCdbMergeResponse {
             .iter()
             .filter(|card| {
                 card_has_field_subtype(card)
-                    && plan.winning_field_image_source_by_code.contains_key(&card.code)
+                    && plan
+                        .winning_field_image_source_by_code
+                        .contains_key(&card.code)
             })
             .count() as u32,
         script_total: plan.winning_script_source_by_code.len() as u32,
@@ -364,7 +369,9 @@ pub fn execute_cdb_merge_with_progress(
             .iter()
             .filter(|card| {
                 card_has_field_subtype(card)
-                    && plan.winning_field_image_source_by_code.contains_key(&card.code)
+                    && plan
+                        .winning_field_image_source_by_code
+                        .contains_key(&card.code)
             })
             .count()
     } else {

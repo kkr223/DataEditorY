@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { collectLuaCallHighlights, collectLuaInlineHighlights } from './luaScriptCalls';
+import { collectLuaCallHighlights, collectLuaInlineHighlights } from './calls';
 
 describe('lua script call highlights', () => {
   test('collects plain and member call identifiers', () => {
@@ -31,3 +31,4 @@ describe('lua script call highlights', () => {
     expect(highlights.some((item) => item.className === 'lua-constant-highlight' && item.startLineNumber === 2)).toBe(true);
   });
 });
+

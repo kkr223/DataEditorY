@@ -107,6 +107,10 @@ export async function pathExists(path: string) {
   return invokeCommand<boolean>('path_exists', { path });
 }
 
+export async function listImageFolderEntries(path: string) {
+  return invokeCommand<string[]>('list_image_folder_entries', { path });
+}
+
 export async function packageCdbAssetsAsZip(cdbPath: string, outputPath: string) {
   return invokeCommand<ZipPackageInfo>('package_cdb_assets_as_zip', { cdbPath, outputPath });
 }

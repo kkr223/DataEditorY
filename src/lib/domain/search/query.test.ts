@@ -19,11 +19,13 @@ describe('search query builder', () => {
     }));
 
     expect(query.whereClause).toContain("texts.name LIKE :name ESCAPE '/'");
+    expect(query.whereClause).toContain("texts.name LIKE :name1 ESCAPE '/'");
     expect(query.whereClause).toContain('datas.id BETWEEN');
     expect(query.whereClause).toContain('datas.alias BETWEEN');
     expect(query.whereClause).toContain('datas.attribute =');
     expect(query.whereClause).toContain('datas.type &');
-    expect(query.params.name).toBe('%blue%eyes%');
+    expect(query.params.name).toBe('%blue%');
+    expect(query.params.name1).toBe('%eyes%');
 
     // ID prefix ranges for "12": [12,12], [120,129], …
     const numericParams = Object.entries(query.params).filter(([, v]) => typeof v === 'number');
@@ -35,31 +37,66 @@ describe('search query builder', () => {
     expect(query.whereClause).toContain('((datas.level & 255) >=');
   });
 
-  test('follows DEX wildcard semantics for card names', () => {
-    const wildcardQuery = buildSearchQuery(filters({
-      name: 'AOJ%%',
-    }));
-    expect(wildcardQuery.params.name).toBe('AOJ%');
-
-    const suffixQuery = buildSearchQuery(filters({
-      name: '%%Warrior',
-    }));
-    expect(suffixQuery.params.name).toBe('%Warrior');
-
-    const escapedQuery = buildSearchQuery(filters({
-      name: '100%_safe',
-    }));
-    expect(escapedQuery.params.name).toBe('%100/%/_safe%');
-    expect(escapedQuery.whereClause).toContain("ESCAPE '/'");
-  });
-
   test('splits plain whitespace-separated keywords for card names', () => {
     const query = buildSearchQuery(filters({
       name: '  blue   eyes  white  ',
     }));
 
-    expect(query.params.name).toBe('%blue%eyes%white%');
+    expect(query.params.name).toBe('%blue%');
+    expect(query.params.name1).toBe('%eyes%');
+    expect(query.params.name2).toBe('%white%');
     expect(query.whereClause).toContain("texts.name LIKE :name ESCAPE '/'");
+    expect(query.whereClause).toContain("texts.name LIKE :name1 ESCAPE '/'");
+    expect(query.whereClause).toContain("texts.name LIKE :name2 ESCAPE '/'");
+  });
+
+  test('treats %% as an ordered keyword separator for card names', () => {
+    const query = buildSearchQuery(filters({
+      name: '黑%%法',
+    }));
+
+    expect(query.params.name).toBe('%黑%法%');
+    expect(query.whereClause).toContain("texts.name LIKE :name ESCAPE '/'");
+  });
+
+  test('supports ordered multi-keyword matching for effect text with whitespace and %% separators', () => {
+    const whitespaceQuery = buildSearchQuery(filters({
+      desc: 'special summon draw',
+    }));
+    expect(whitespaceQuery.params.desc).toBe('%special%');
+    expect(whitespaceQuery.params.desc1).toBe('%summon%');
+    expect(whitespaceQuery.params.desc2).toBe('%draw%');
+    expect(whitespaceQuery.whereClause).toContain("texts.desc LIKE :desc ESCAPE '/'");
+    expect(whitespaceQuery.whereClause).toContain("texts.desc LIKE :desc1 ESCAPE '/'");
+    expect(whitespaceQuery.whereClause).toContain("texts.desc LIKE :desc2 ESCAPE '/'");
+
+    const percentSeparatorQuery = buildSearchQuery(filters({
+      desc: 'special%%summon%%draw',
+    }));
+    expect(percentSeparatorQuery.params.desc).toBe('%special%summon%draw%');
+  });
+
+  test('treats whitespace-separated keywords as order-insensitive for card names', () => {
+    const query = buildSearchQuery(filters({
+      name: '法 黑',
+    }));
+
+    expect(query.params.name).toBe('%法%');
+    expect(query.params.name1).toBe('%黑%');
+    expect(query.whereClause).toContain("texts.name LIKE :name ESCAPE '/'");
+    expect(query.whereClause).toContain("texts.name LIKE :name1 ESCAPE '/'");
+  });
+
+  test('escapes LIKE special characters in keyword searches', () => {
+    const query = buildSearchQuery(filters({
+      name: '100%_safe',
+      desc: '100%_safe',
+    }));
+
+    expect(query.params.name).toBe('%100/%/_safe%');
+    expect(query.params.desc).toBe('%100/%/_safe%');
+    expect(query.whereClause).toContain("texts.name LIKE :name ESCAPE '/'");
+    expect(query.whereClause).toContain("texts.desc LIKE :desc ESCAPE '/'");
   });
 
   test('handles prefix-only numeric id filters and setcode filters', () => {
@@ -178,5 +215,18 @@ describe('search query builder', () => {
     expect(vals).toContain(1000);
     expect(vals).toContain(2500);
     expect(vals).toContain(500);
+  });
+
+  test('appends source id filters and chunks large source-id sets', () => {
+    const query = buildSearchQuery(filters({
+      name: 'blue',
+    }), {
+      sourceIds: Array.from({ length: 405 }, (_, index) => index + 1),
+    });
+
+    expect(query.whereClause).toContain('texts.name LIKE :name ESCAPE \'/\'');
+    expect(query.whereClause).toContain('datas.id IN (');
+    expect(query.whereClause.match(/datas\.id IN \(/g)?.length).toBe(2);
+    expect(Object.values(query.params)).toContain(405);
   });
 });
