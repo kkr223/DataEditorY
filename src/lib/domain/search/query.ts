@@ -22,11 +22,9 @@ function escapeLikeTerm(term: string): string {
 }
 
 /**
- * Treat plain whitespace and `%%` as ordered keyword separators.
- * This keeps search order-sensitive, but makes `黑 法` and `黑%%法`
- * follow the same "contains in order" matching semantics.
+ * Treat `%%` as an ordered keyword separator.
  */
-function buildKeywordPattern(input: string): string {
+function buildOrderedKeywordPattern(input: string): string {
   const s = input.trim();
   if (!s) return '%';
 
@@ -37,6 +35,15 @@ function buildKeywordPattern(input: string): string {
     .map(escapeLikeTerm);
 
   return `%${escapedTerms.join('%')}%`;
+}
+
+function buildUnorderedKeywordTerms(input: string): string[] {
+  return input
+    .trim()
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .map(escapeLikeTerm);
 }
 
 /** Parse a stat value with DEX special markers: `?/？` → -2, `.` → -1. */
@@ -106,13 +113,36 @@ export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
     return `:${key}`;
   }
 
+  function appendTextSearchClause(column: 'texts.name' | 'texts.desc', paramPrefix: 'name' | 'desc', input: string) {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+
+    if (trimmed.includes('%%')) {
+      params[paramPrefix] = buildOrderedKeywordPattern(trimmed);
+      conds.push(`${column} LIKE :${paramPrefix} ESCAPE '/'`);
+      return;
+    }
+
+    const terms = buildUnorderedKeywordTerms(trimmed);
+    if (terms.length === 0) return;
+
+    if (terms.length === 1) {
+      params[paramPrefix] = `%${terms[0]}%`;
+      conds.push(`${column} LIKE :${paramPrefix} ESCAPE '/'`);
+      return;
+    }
+
+    for (const [index, term] of terms.entries()) {
+      const key = index === 0 ? paramPrefix : `${paramPrefix}${index}`;
+      params[key] = `%${term}%`;
+      conds.push(`${column} LIKE :${key} ESCAPE '/'`);
+    }
+  }
+
   const mainType = filters.type || inferMainType(filters.subtype);
 
   // --- name ---
-  if (filters.name.trim()) {
-    params.name = buildKeywordPattern(filters.name);
-    conds.push(`texts.name LIKE :name ESCAPE '/'`);
-  }
+  appendTextSearchClause('texts.name', 'name', filters.name);
 
   // --- id (prefix search) ---
   if (filters.id.trim()) {
@@ -130,10 +160,7 @@ export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
   }
 
   // --- desc ---
-  if (filters.desc.trim()) {
-    params.desc = buildKeywordPattern(filters.desc);
-    conds.push(`texts.desc LIKE :desc ESCAPE '/'`);
-  }
+  appendTextSearchClause('texts.desc', 'desc', filters.desc);
 
   // --- atk / def (DEX style) ---
   for (const field of ['atk', 'def'] as const) {
