@@ -119,6 +119,9 @@
   const FOREGROUND_TOP_LAYER_Z_INDEX = 30;
   const FIELD_SPELL_ART_SIZE = 512;
   const MIN_CROP_SIZE = 80;
+  const CROP_LAYOUT_BREAKPOINT = 980;
+  const CROP_LAYOUT_GAP = 18;
+  const CROP_SIDEBAR_FALLBACK_WIDTH = 320;
   const MIN_EXPORT_SCALE_PERCENT = 10;
   const MAX_EXPORT_SCALE_PERCENT = 100;
   const DEFAULT_EXPORT_SCALE_PERCENT = 43;
@@ -170,6 +173,8 @@
   let sourceImageUrl = $state("");
   let sourceImageWidth = $state(0);
   let sourceImageHeight = $state(0);
+  let cropBodyElement = $state<HTMLDivElement | null>(null);
+  let cropSidebarElement = $state<HTMLElement | null>(null);
   let cropModalOpen = $state(false);
   let cropRotation = $state(0);
   let cropBox = $state<CropBox>({ x: 0, y: 0, size: 0 });
@@ -826,7 +831,15 @@
     const sin = Math.abs(Math.sin(angle));
     const rotatedWidth = sourceImageWidth * cos + sourceImageHeight * sin;
     const rotatedHeight = sourceImageWidth * sin + sourceImageHeight * cos;
-    const maxWidth = Math.min(cropViewportWidth * 0.86, MAX_CROP_PREVIEW_WIDTH);
+    const isStackedLayout = cropViewportWidth <= CROP_LAYOUT_BREAKPOINT;
+    const bodyWidth = cropBodyElement?.clientWidth ?? 0;
+    const sidebarWidth = isStackedLayout ? 0 : (cropSidebarElement?.clientWidth ?? CROP_SIDEBAR_FALLBACK_WIDTH);
+    const maxWidth = Math.min(
+      bodyWidth > 0
+        ? Math.max(bodyWidth - sidebarWidth - (isStackedLayout ? 0 : CROP_LAYOUT_GAP), MIN_CROP_SIZE)
+        : cropViewportWidth * 0.86,
+      MAX_CROP_PREVIEW_WIDTH,
+    );
     const maxHeight = Math.min(cropViewportHeight * 0.68, MAX_CROP_PREVIEW_HEIGHT);
     const scale = Math.min(maxWidth / rotatedWidth, maxHeight / rotatedHeight, 1);
     const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
@@ -2739,7 +2752,7 @@
         </div>
       </div>
 
-      <div class="crop-body">
+      <div class="crop-body" bind:this={cropBodyElement}>
         {#if sourceImageUrl}
           <div class="crop-layout">
             <div class="crop-canvas-shell">
@@ -2768,7 +2781,7 @@
               </div>
             </div>
 
-            <aside class="crop-sidebar">
+            <aside class="crop-sidebar" bind:this={cropSidebarElement}>
               <div class="crop-toolbar">
                 <span class="crop-toolbar-label">{$_("editor.card_image_crop_rotation")}</span>
                 <div class="crop-toolbar-grid">
