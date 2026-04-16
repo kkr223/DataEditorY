@@ -2,11 +2,13 @@ import { writable, get, derived } from 'svelte/store';
 import type { CardDataEntry, DbWorkspaceState, SearchFilters } from '$lib/types';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import { buildSearchQuery } from '$lib/domain/search/query';
+import { parseDeckTextToCardIds, splitSourceTerms } from '$lib/domain/search/sourceFilters';
 import {
   getRuleExpressionErrorMessage,
   RuleExpressionError,
 } from '$lib/domain/search/ruleExpression';
 import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
+import { listImageFolderEntries } from '$lib/infrastructure/tauri/commands';
 
 export type CdbTab = DbWorkspaceState;
 
@@ -64,7 +66,13 @@ interface SearchCardsPageResponse {
   total: number;
 }
 
+interface ResolvedSourceFilterIds {
+  active: boolean;
+  ids: number[];
+}
+
 const SEARCH_PAGE_SIZE = 50;
+const EXACT_NAME_CHUNK_SIZE = 100;
 const cachedSearchRefreshListeners = new Set<(snapshot: CachedSearchSnapshot) => void>();
 
 function canUseLocalStorage() {
@@ -190,7 +198,10 @@ async function searchCardsPageInTab(
   page = 1,
   pageSize = SEARCH_PAGE_SIZE,
 ): Promise<{ cards: CardDataEntry[]; total: number }> {
-  const { whereClause, params } = buildSearchQuery(filters);
+  const resolvedSourceFilterIds = await resolveSourceFilterIds(tabId, filters);
+  const { whereClause, params } = buildSearchQuery(filters, {
+    sourceIds: resolvedSourceFilterIds.active ? resolvedSourceFilterIds.ids : undefined,
+  });
   const safePage = Math.max(1, page);
   const response = await invokeCommand<SearchCardsPageResponse>('search_cards_page', {
     request: {
@@ -205,6 +216,67 @@ async function searchCardsPageInTab(
   return {
     cards: cloneCards(response.cards),
     total: response.total,
+  };
+}
+
+async function resolveCardIdsByExactNames(tabId: string, names: string[]): Promise<number[]> {
+  const normalizedNames = [...new Set(names.map((name) => name.trim()).filter(Boolean))];
+  if (normalizedNames.length === 0) {
+    return [];
+  }
+
+  const ids = new Set<number>();
+  for (let index = 0; index < normalizedNames.length; index += EXACT_NAME_CHUNK_SIZE) {
+    const chunk = normalizedNames.slice(index, index + EXACT_NAME_CHUNK_SIZE);
+    const params: Record<string, string> = {};
+    const placeholders = chunk.map((name, chunkIndex) => {
+      const key = `name${index + chunkIndex}`;
+      params[key] = name;
+      return `:${key}`;
+    });
+    const cards = await queryCardsRaw(
+      tabId,
+      `texts.name IN (${placeholders.join(', ')}) ORDER BY datas.id`,
+      params,
+    );
+    for (const card of cards) {
+      ids.add(card.code);
+    }
+  }
+
+  return [...ids];
+}
+
+function intersectIdSets(left: number[], right: number[]): number[] {
+  const rightSet = new Set(right);
+  return left.filter((id) => rightSet.has(id));
+}
+
+async function resolveSourceFilterIds(tabId: string, filters: SearchFilters): Promise<ResolvedSourceFilterIds> {
+  const hasDeckText = filters.deckText.trim() !== '';
+  const hasImageFolderPath = filters.imageFolderPath.trim() !== '';
+
+  if (!hasDeckText && !hasImageFolderPath) {
+    return { active: false, ids: [] };
+  }
+
+  let currentIds: number[] | null = null;
+
+  if (hasDeckText) {
+    currentIds = parseDeckTextToCardIds(filters.deckText);
+  }
+
+  if (hasImageFolderPath) {
+    const entries = await listImageFolderEntries(filters.imageFolderPath.trim());
+    const split = splitSourceTerms(entries);
+    const exactNameIds = await resolveCardIdsByExactNames(tabId, split.names);
+    const imageIds = [...new Set([...split.ids, ...exactNameIds])];
+    currentIds = currentIds === null ? imageIds : intersectIdSets(currentIds, imageIds);
+  }
+
+  return {
+    active: true,
+    ids: currentIds ?? [],
   };
 }
 
@@ -759,6 +831,14 @@ export async function queryCardsRaw(tabId: string, queryClause: string, params: 
     console.error('Failed to query cards:', err);
     return [];
   }
+}
+
+export async function queryCardsByFiltersInTab(tabId: string, filters: SearchFilters): Promise<CardDataEntry[]> {
+  const resolvedSourceFilterIds = await resolveSourceFilterIds(tabId, filters);
+  const { whereClause, params } = buildSearchQuery(filters, {
+    sourceIds: resolvedSourceFilterIds.active ? resolvedSourceFilterIds.ids : undefined,
+  });
+  return queryCardsRaw(tabId, `${whereClause} ORDER BY datas.id`, params);
 }
 
 /** Search one page of cards in the active tab's CDB */

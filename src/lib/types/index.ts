@@ -2,6 +2,8 @@ export interface SearchFilters {
   id: string;
   name: string;
   desc: string;
+  imageFolderPath: string;
+  deckText: string;
   rule: string;
   atkMin: string;
   atkMax: string;
@@ -135,6 +137,8 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
   id: '',
   name: '',
   desc: '',
+  imageFolderPath: '',
+  deckText: '',
   rule: '',
   atkMin: '',
   atkMax: '',

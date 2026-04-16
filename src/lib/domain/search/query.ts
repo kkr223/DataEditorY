@@ -68,6 +68,7 @@ export function parseSetcodeFilter(input: string): number | null {
 // ID prefix search — expands "12" into ranges [12,12], [120,129], [1200,1299] …
 const MAX_ID_DIGITS = 10;
 const MAX_ID_VALUE = 4_294_967_295;
+const SOURCE_ID_CHUNK_SIZE = 400;
 
 function buildIdPrefixRanges(input: string) {
   const s = input.trim();
@@ -101,7 +102,10 @@ function inferMainType(subtype: string): string {
 // Main entry point — mirrors DEX GetSelectSQL
 // ---------------------------------------------------------------------------
 
-export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
+export function buildSearchQuery(
+  filters: SearchFilters,
+  options: { sourceIds?: number[] } = {},
+): CardSearchQuery {
   const conds: string[] = [];
   const params: Record<string, string | number> = {};
   let paramIdx = 0;
@@ -248,6 +252,21 @@ export function buildSearchQuery(filters: SearchFilters): CardSearchQuery {
     if (parsed) {
       conds.push(parsed.clause);
       Object.assign(params, parsed.params);
+    }
+  }
+
+  if (options.sourceIds) {
+    const sourceIds = [...new Set(options.sourceIds.filter((id) => Number.isInteger(id) && id > 0))];
+    if (sourceIds.length === 0) {
+      conds.push('1=0');
+    } else {
+      const parts: string[] = [];
+      for (let index = 0; index < sourceIds.length; index += SOURCE_ID_CHUNK_SIZE) {
+        const chunk = sourceIds.slice(index, index + SOURCE_ID_CHUNK_SIZE);
+        const placeholders = chunk.map((id) => bind(id));
+        parts.push(`datas.id IN (${placeholders.join(', ')})`);
+      }
+      conds.push(parts.length === 1 ? parts[0] : `(${parts.join(' OR ')})`);
     }
   }
 

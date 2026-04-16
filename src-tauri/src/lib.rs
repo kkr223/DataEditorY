@@ -428,6 +428,11 @@ fn path_exists(path: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+fn list_image_folder_entries(path: String) -> Result<Vec<String>, String> {
+    services::media::list_image_folder_entries(path)
+}
+
+#[tauri::command]
 fn copy_image(src: String, dest: String) -> Result<(), String> {
     services::media::copy_image(src, dest)
 }
@@ -600,6 +605,7 @@ pub fn run() {
             write_cdb,
             write_file,
             path_exists,
+            list_image_folder_entries,
             copy_image,
             read_image,
             import_card_image,

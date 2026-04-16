@@ -154,6 +154,48 @@ pub fn path_exists(path: String) -> Result<bool, String> {
     Ok(Path::new(&path).exists())
 }
 
+pub fn list_image_folder_entries(path: String) -> Result<Vec<String>, String> {
+    let dir = Path::new(&path);
+    if !dir.exists() {
+        return Err("Folder does not exist".to_string());
+    }
+    if !dir.is_dir() {
+        return Err("Path is not a folder".to_string());
+    }
+
+    let mut entries = Vec::new();
+    for item in fs::read_dir(dir).map_err(|err| err.to_string())? {
+        let item = item.map_err(|err| err.to_string())?;
+        let item_path = item.path();
+        if !item_path.is_file() {
+            continue;
+        }
+
+        let extension = item_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.to_ascii_lowercase());
+        let Some(extension) = extension else {
+            continue;
+        };
+
+        if !matches!(extension.as_str(), "jpg" | "jpeg" | "png" | "bmp" | "webp") {
+            continue;
+        }
+
+        if let Some(stem) = item_path.file_stem().and_then(|stem| stem.to_str()) {
+            let trimmed = stem.trim();
+            if !trimmed.is_empty() {
+                entries.push(trimmed.to_string());
+            }
+        }
+    }
+
+    entries.sort_unstable();
+    entries.dedup();
+    Ok(entries)
+}
+
 pub fn copy_image(src: String, dest: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&dest).parent() {
         let _ = fs::create_dir_all(parent);

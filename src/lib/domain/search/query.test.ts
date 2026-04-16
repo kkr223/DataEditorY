@@ -216,4 +216,17 @@ describe('search query builder', () => {
     expect(vals).toContain(2500);
     expect(vals).toContain(500);
   });
+
+  test('appends source id filters and chunks large source-id sets', () => {
+    const query = buildSearchQuery(filters({
+      name: 'blue',
+    }), {
+      sourceIds: Array.from({ length: 405 }, (_, index) => index + 1),
+    });
+
+    expect(query.whereClause).toContain('texts.name LIKE :name ESCAPE \'/\'');
+    expect(query.whereClause).toContain('datas.id IN (');
+    expect(query.whereClause.match(/datas\.id IN \(/g)?.length).toBe(2);
+    expect(Object.values(query.params)).toContain(405);
+  });
 });

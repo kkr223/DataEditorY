@@ -17,12 +17,11 @@ import {
   activeTab,
   getCachedFilters,
   openCdbPath,
-  queryCardsRaw,
+  queryCardsByFiltersInTab,
   tabs,
 } from '$lib/stores/db';
 import { activeScriptTab } from '$lib/stores/scriptEditor.svelte';
 import { appShellState } from '$lib/stores/appShell.svelte';
-import { buildSearchQuery } from '$lib/domain/search/query';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import type { CardDataEntry } from '$lib/types';
@@ -275,8 +274,7 @@ export function createShellDialogsController() {
       return [];
     }
 
-    const { whereClause, params } = buildSearchQuery(getCachedFilters());
-    return queryCardsRaw(activeTabState.current.id, `${whereClause} ORDER BY datas.id`, params);
+    return queryCardsByFiltersInTab(activeTabState.current.id, getCachedFilters());
   }
 
   async function handleCreateFilteredCdb() {

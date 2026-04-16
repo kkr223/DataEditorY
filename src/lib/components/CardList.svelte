@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
+  import { readTextFile } from '$lib/infrastructure/tauri/commands';
+  import { tauriBridge } from '$lib/infrastructure/tauri';
   import {
     clearSearchError,
     editorState,
@@ -33,6 +35,8 @@
   let hasActiveFilters = $derived(
     editorState.searchFilters.id !== '' ||
     editorState.searchFilters.desc !== '' ||
+    editorState.searchFilters.imageFolderPath !== '' ||
+    editorState.searchFilters.deckText !== '' ||
     editorState.searchFilters.rule !== '' ||
     editorState.searchFilters.atkMin !== '' ||
     editorState.searchFilters.atkMax !== '' ||
@@ -88,6 +92,32 @@
     if (event.key === 'Enter') {
       void runSearch();
     }
+  }
+
+  async function pickImageFolder() {
+    const selected = await tauriBridge.open({
+      directory: true,
+      multiple: false,
+    });
+    if (!selected || typeof selected !== 'string') {
+      return;
+    }
+
+    editorState.searchFilters.imageFolderPath = selected;
+  }
+
+  async function importDeckText() {
+    const selected = await tauriBridge.open({
+      multiple: false,
+      filters: [
+        { name: 'YDK / Text', extensions: ['ydk', 'txt'] },
+      ],
+    });
+    if (!selected || typeof selected !== 'string') {
+      return;
+    }
+
+    editorState.searchFilters.deckText = await readTextFile(selected);
   }
 
   function handleRowClick(event: MouseEvent, code: number) {
@@ -172,6 +202,40 @@
         <div class="form-group flex-2">
           <label for="search-desc">{$_('search.desc')}</label>
           <input type="text" id="search-desc" bind:value={editorState.searchFilters.desc} onkeydown={handleSearchKeydown} />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="search-image-folder">{$_('search.image_folder')}</label>
+          <div class="source-input-row">
+            <input
+              type="text"
+              id="search-image-folder"
+              bind:value={editorState.searchFilters.imageFolderPath}
+              placeholder={$_('search.image_folder_placeholder')}
+            />
+            <button class="btn-secondary source-picker" type="button" onclick={() => void pickImageFolder()}>
+              {$_('search.pick_folder')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="search-deck-text">{$_('search.deck_text')}</label>
+          <div class="source-textarea-actions">
+            <textarea
+              id="search-deck-text"
+              rows="5"
+              bind:value={editorState.searchFilters.deckText}
+              placeholder={$_('search.deck_text_placeholder')}
+            ></textarea>
+            <button class="btn-secondary source-picker" type="button" onclick={() => void importDeckText()}>
+              {$_('search.import_ydk')}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -409,8 +473,13 @@
   .flex-2 { flex: 2 !important; }
   label, .group-label { font-size: 0.86rem; color: var(--text-secondary); font-weight: 600; }
   input, select { width: 100%; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 0.3rem 0.55rem; font-size: 0.92rem; transition: all 0.2s; }
+  textarea { width: 100%; min-height: 6.5rem; resize: vertical; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 0.45rem 0.55rem; font-size: 0.92rem; transition: all 0.2s; }
   input:focus, select:focus { border-color: var(--accent-primary); box-shadow: var(--focus-ring); outline: none; }
+  textarea:focus { border-color: var(--accent-primary); box-shadow: var(--focus-ring); outline: none; }
   .input-error { border-color: var(--state-danger-fg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--state-danger-fg) 20%, transparent); }
+  .source-input-row { display: flex; gap: var(--spacing-sm); }
+  .source-textarea-actions { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+  .source-picker { flex: 0 0 auto; align-self: flex-start; }
   .input-error-bubble {
     margin-top: 0.2rem;
     padding: 0.45rem 0.6rem;
