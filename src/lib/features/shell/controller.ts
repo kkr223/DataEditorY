@@ -6,6 +6,14 @@ export type DragDropPayload = {
   paths?: string[];
 };
 
+type UndoTargetDescriptor = {
+  tagName: string;
+  inputType?: string;
+  isContentEditable: boolean;
+  insideMonaco: boolean;
+  insideContentEditable: boolean;
+};
+
 export function isCdbFilePath(path: string) {
   return path.trim().toLowerCase().endsWith('.cdb');
 }
@@ -26,6 +34,43 @@ function toElement(target: EventTarget | null): HTMLElement | null {
     return target.parentElement;
   }
   return null;
+}
+
+function describeUndoTarget(element: HTMLElement | null): UndoTargetDescriptor | null {
+  if (!element) return null;
+
+  return {
+    tagName: element.tagName.toLowerCase(),
+    inputType: element instanceof HTMLInputElement ? element.type.toLowerCase() : undefined,
+    isContentEditable: element.isContentEditable,
+    insideMonaco: Boolean(element.closest('.monaco-editor, .monaco-diff-editor')),
+    insideContentEditable: Boolean(element.closest('[contenteditable="true"]')),
+  };
+}
+
+export function isNativeTextUndoDescriptor(descriptor: UndoTargetDescriptor | null): boolean {
+  if (!descriptor) return false;
+
+  if (descriptor.insideMonaco || descriptor.isContentEditable || descriptor.insideContentEditable) {
+    return true;
+  }
+
+  if (descriptor.tagName === 'textarea') {
+    return true;
+  }
+
+  if (descriptor.tagName === 'input') {
+    const type = descriptor.inputType ?? 'text';
+    return !['button', 'checkbox', 'color', 'file', 'image', 'radio', 'range', 'reset', 'submit'].includes(type);
+  }
+
+  return false;
+}
+
+export function isNativeTextUndoTarget(target: EventTarget | null): boolean {
+  const candidates = [toElement(target), toElement(document.activeElement)];
+
+  return candidates.some((element) => isNativeTextUndoDescriptor(describeUndoTarget(element)));
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {
