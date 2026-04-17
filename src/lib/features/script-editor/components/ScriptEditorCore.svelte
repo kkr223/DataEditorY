@@ -557,7 +557,10 @@
   onMount(async () => {
     if (!editorHost) return;
 
-    monacoRuntime = await createScriptMonacoRuntime({
+    let destroyed = false;
+    onDestroy(() => { destroyed = true; });
+
+    const runtime = await createScriptMonacoRuntime({
       host: editorHost,
       onDidChangeModelContent: () => {
         if (isApplyingModel || !currentBoundTabId) return;
@@ -596,6 +599,13 @@
       onWindowBlur: handleHintSuppressBlur,
     });
 
+    // 组件在 Monaco 异步加载期间已被销毁，立即释放 runtime 并返回
+    if (destroyed) {
+      runtime.dispose();
+      return;
+    }
+
+    monacoRuntime = runtime;
     monacoModule = monacoRuntime.module;
     monacoApi = monacoRuntime.api;
     editorInstance = monacoRuntime.editor;
