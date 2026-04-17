@@ -4,11 +4,6 @@
   import { editorState, getSelectedCard } from '$lib/stores/editor.svelte';
   import {
     activeScriptTab,
-    activeScriptTabId,
-    activateScriptTab,
-    closeScriptTab,
-    getScriptTabDisplayName,
-    scriptTabs,
   } from '$lib/stores/scriptEditor.svelte';
   import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
   import type { CardDataEntry } from '$lib/types';
@@ -30,7 +25,6 @@
     type ScriptEditorCoreHintState,
     type ScriptEditorCoreReferenceState,
   } from '$lib/features/script-editor/components/ScriptEditorCore.svelte';
-  import ScriptTabBar from '$lib/features/script-editor/components/ScriptTabBar.svelte';
 
   type ScriptEditorExtraUseCasesModule = typeof import('$lib/features/script-editor/extraUseCases');
   type ScriptEditorCoreHandle = {
@@ -202,18 +196,6 @@
 
 {#if $activeScriptTab}
   <section class="script-page">
-    <ScriptTabBar
-      tabs={$scriptTabs}
-      activeTabId={$activeScriptTabId}
-      newTabTitle={$_('editor.script_button')}
-      closeTabTitle={$_('editor.script_reference_close')}
-      canCreate={canOpenNewScriptTab}
-      onActivate={activateScriptTab}
-      onClose={closeScriptTab}
-      onNew={() => void handleOpenSelectedScript()}
-      getTabTitle={getScriptTabDisplayName}
-    />
-
     <ScriptToolbar
       title={getScriptTabTitle()}
       cardCodeLabel={$_('editor.script_workspace_card', { values: { code: String($activeScriptTab.cardCode) } })}
