@@ -1,6 +1,6 @@
 [package]
 name = "dataeditory"
-version = "2.3.0"
+version = "2.3.1"
 description = "ygocore card database editor y"
 authors = ["kkr223"]
 edition = "2021"

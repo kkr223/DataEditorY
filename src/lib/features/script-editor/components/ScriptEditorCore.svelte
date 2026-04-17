@@ -22,7 +22,7 @@
 
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { activeScriptTab, getActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
   import { collectLuaInlineHighlights } from '$lib/utils/luaScriptCalls';
@@ -119,17 +119,45 @@
   const scriptStrings = $derived.by(() => Array.from({ length: 16 }, (_, index) => cardContext?.strings[index] ?? ''));
 
   function updateHintState(patch: Partial<ScriptEditorCoreHintState>) {
-    hintState = {
-      ...hintState,
+    const current = untrack(() => hintState);
+    const next = {
+      ...current,
       ...patch,
     };
+
+    if (
+      next.suggestHintText === current.suggestHintText
+      && next.suggestHintPlacement === current.suggestHintPlacement
+      && next.suggestHintAnchorTop === current.suggestHintAnchorTop
+      && next.currentFunctionHintTitle === current.currentFunctionHintTitle
+      && next.currentFunctionHintDescription === current.currentFunctionHintDescription
+      && next.isCurrentFunctionHintSuppressed === current.isCurrentFunctionHintSuppressed
+      && next.currentFunctionHintPlacement === current.currentFunctionHintPlacement
+      && next.currentFunctionHintAnchorTop === current.currentFunctionHintAnchorTop
+    ) {
+      return;
+    }
+
+    hintState = next;
   }
 
   function updateReferenceState(patch: Partial<ScriptEditorCoreReferenceState>) {
-    referenceState = {
-      ...referenceState,
+    const current = untrack(() => referenceState);
+    const next = {
+      ...current,
       ...patch,
     };
+
+    if (
+      next.kind === current.kind
+      && next.isLoading === current.isLoading
+      && next.items.constants === current.items.constants
+      && next.items.functions === current.items.functions
+    ) {
+      return;
+    }
+
+    referenceState = next;
   }
 
   function clearSuggestHint() {
@@ -496,7 +524,7 @@
 
     if (!isSuggestVisible) {
       clearSuggestHint();
-      return;
+      return false;
     }
 
     const label = extractFocusedSuggestLabel(editorHost);
@@ -507,14 +535,16 @@
     if (description) {
       syncSuggestHintPlacement();
     }
+
+    return Boolean(description);
   }
 
   function ensureSuggestHintPolling() {
     if (suggestHintTimer) return;
     suggestHintTimer = setTimeout(function pollSuggestHint() {
       suggestHintTimer = null;
-      syncSuggestHint();
-      if (hintState.suggestHintText) {
+      const hasSuggestHint = syncSuggestHint();
+      if (hasSuggestHint) {
         ensureSuggestHintPolling();
       } else {
         clearSuggestHint();
@@ -523,8 +553,8 @@
   }
 
   function refreshSuggestHint() {
-    syncSuggestHint();
-    if (hintState.suggestHintText) {
+    const hasSuggestHint = syncSuggestHint();
+    if (hasSuggestHint) {
       ensureSuggestHintPolling();
     } else if (suggestHintTimer) {
       clearSuggestHint();
@@ -557,7 +587,10 @@
   onMount(async () => {
     if (!editorHost) return;
 
-    monacoRuntime = await createScriptMonacoRuntime({
+    let destroyed = false;
+    onDestroy(() => { destroyed = true; });
+
+    const runtime = await createScriptMonacoRuntime({
       host: editorHost,
       onDidChangeModelContent: () => {
         if (isApplyingModel || !currentBoundTabId) return;
@@ -596,6 +629,13 @@
       onWindowBlur: handleHintSuppressBlur,
     });
 
+    // 组件在 Monaco 异步加载期间已被销毁，立即释放 runtime 并返回
+    if (destroyed) {
+      runtime.dispose();
+      return;
+    }
+
+    monacoRuntime = runtime;
     monacoModule = monacoRuntime.module;
     monacoApi = monacoRuntime.api;
     editorInstance = monacoRuntime.editor;
