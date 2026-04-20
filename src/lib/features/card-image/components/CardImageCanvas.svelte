@@ -49,6 +49,8 @@
     onRotateCropLeft = () => {},
     onRotateCropRight = () => {},
     onCropRotationInput = (_event: Event) => {},
+    onCropRotationNumberInput = (_value: string) => {},
+    onCropRotationNumberBlur = () => {},
     onResetCropRotation = () => {},
     onForegroundMovePointerDown = (_event: PointerEvent) => {},
     onForegroundRotatePointerDown = (_event: PointerEvent) => {},
@@ -80,11 +82,25 @@
     onRotateCropLeft?: () => void;
     onRotateCropRight?: () => void;
     onCropRotationInput?: (event: Event) => void;
+    onCropRotationNumberInput?: (value: string) => void;
+    onCropRotationNumberBlur?: () => void;
     onResetCropRotation?: () => void;
     onForegroundMovePointerDown?: (event: PointerEvent) => void;
     onForegroundRotatePointerDown?: (event: PointerEvent) => void;
     onForegroundScalePointerDown?: (event: PointerEvent) => void;
   } = $props();
+
+  let isEditingCropRotation = $state(false);
+  let cropRotationDraft = $state('');
+
+  function formatCropRotationValue(value: number) {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  }
+
+  $effect(() => {
+    if (isEditingCropRotation) return;
+    cropRotationDraft = formatCropRotationValue(cropRotation);
+  });
 </script>
 
 {#if mode === 'preview'}
@@ -149,8 +165,31 @@
               <button class="btn-secondary btn-sm" type="button" onclick={onRotateCropLeft}>{$_('editor.card_image_crop_rotate_left')}</button>
               <button class="btn-secondary btn-sm" type="button" onclick={onRotateCropRight}>{$_('editor.card_image_crop_rotate_right')}</button>
               <label class="crop-rotation-slider">
-                <input type="range" min="-180" max="180" step="1" value={cropRotation} aria-label={$_('editor.card_image_crop_rotation')} oninput={onCropRotationInput} />
-                <span>{cropRotation}°</span>
+                <input type="range" min="-180" max="180" step="0.1" value={cropRotation} aria-label={$_('editor.card_image_crop_rotation')} oninput={onCropRotationInput} />
+                <div class="crop-rotation-value">
+                  <input
+                    class="crop-rotation-number"
+                    type="number"
+                    min="-180"
+                    max="180"
+                    step="0.1"
+                    value={cropRotationDraft}
+                    aria-label={$_('editor.card_image_crop_rotation')}
+                    onfocus={() => {
+                      isEditingCropRotation = true;
+                    }}
+                    oninput={(event) => {
+                      const value = (event.currentTarget as HTMLInputElement).value;
+                      cropRotationDraft = value;
+                      onCropRotationNumberInput(value);
+                    }}
+                    onblur={() => {
+                      isEditingCropRotation = false;
+                      onCropRotationNumberBlur();
+                    }}
+                  />
+                  <span>°</span>
+                </div>
               </label>
               <button class="btn-secondary btn-sm crop-reset-btn" type="button" onclick={onResetCropRotation}>{$_('editor.card_image_crop_reset')}</button>
             </div>
@@ -187,7 +226,9 @@
   .crop-toolbar-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: stretch; width: 100%; }
   .crop-rotation-slider { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 8px; min-width: 0; width: 100%; padding: 0.35rem 0.55rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-base); color: var(--text-primary); }
   .crop-rotation-slider input { width: 100%; min-width: 0; accent-color: #2563eb; }
-  .crop-rotation-slider span { min-width: 3.25rem; text-align: right; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+  .crop-rotation-value { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+  .crop-rotation-number { width: 4.5rem !important; min-width: 4.5rem !important; text-align: right; font-variant-numeric: tabular-nums; }
+  .crop-rotation-value span { min-width: auto; text-align: right; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
   .crop-reset-btn { justify-self: stretch; }
   .crop-canvas { position: relative; flex: 0 0 auto; line-height: 0; border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent); border-radius: 12px; background: linear-gradient(45deg, rgba(148, 163, 184, 0.08) 25%, transparent 25%, transparent 75%, rgba(148, 163, 184, 0.08) 75%), linear-gradient(45deg, rgba(148, 163, 184, 0.08) 25%, transparent 25%, transparent 75%, rgba(148, 163, 184, 0.08) 75%), rgba(15, 23, 42, 0.2); background-position: 0 0, 12px 12px, 0 0; background-size: 24px 24px, 24px 24px, auto; overflow: hidden; }
   .crop-image-frame { position: absolute; transform-origin: center; }
