@@ -894,8 +894,10 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function normalizeCropRotation(nextRotation: number) {
-    const normalized = (((Math.round(nextRotation) + 180) % 360) + 360) % 360 - 180;
-    return normalized === -180 ? 180 : normalized;
+    const rounded = Math.round(nextRotation * 10) / 10;
+    const normalized = (((rounded + 180) % 360) + 360) % 360 - 180;
+    const fixed = Number(normalized.toFixed(1));
+    return fixed === -180 ? 180 : fixed;
   }
 
   function setCropRotation(nextRotation: number) {
@@ -926,6 +928,24 @@ export function createCardImageController(source: CardImageControllerSource) {
 
   function handleCropRotationInput(event: Event) {
     setCropRotation(Number((event.currentTarget as HTMLInputElement).value));
+  }
+
+  function handleCropRotationNumberInput(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === '-' || trimmed === '.' || trimmed === '-.') {
+      return;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      return;
+    }
+
+    setCropRotation(parsed);
+  }
+
+  function handleCropRotationNumberBlur() {
+    setCropRotation(state.cropRotation);
   }
 
   function handleCropViewportResize() {
@@ -2307,6 +2327,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     rotateCropPreview,
     resetCropRotation,
     handleCropRotationInput,
+    handleCropRotationNumberInput,
+    handleCropRotationNumberBlur,
     getCropStageMetrics,
     adjustPreviewZoom,
     handlePreviewWheel,

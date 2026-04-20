@@ -47,6 +47,13 @@ describe('rule expression parser', () => {
     expect(sql?.params.rule1).toBe(0);
   });
 
+  test('supports keyword values for ot comparisons', () => {
+    const sql = parseRuleExpression('ot = OCG');
+
+    expect(sql?.clause).toContain('(datas.ot = :rule0)');
+    expect(sql?.params.rule0).toBe(1);
+  });
+
   test('supports custom parameter prefixes to avoid collisions', () => {
     const sql = parseRuleExpression('atk >= 1500 and def <= 1200', { paramPrefix: 'filterRule' });
 

@@ -190,6 +190,8 @@
         onRotateCropLeft={() => controller.rotateCropPreview(-90)}
         onRotateCropRight={() => controller.rotateCropPreview(90)}
         onCropRotationInput={controller.handleCropRotationInput}
+        onCropRotationNumberInput={controller.handleCropRotationNumberInput}
+        onCropRotationNumberBlur={controller.handleCropRotationNumberBlur}
         onResetCropRotation={controller.resetCropRotation}
       />
 

@@ -505,6 +505,63 @@ function getPrimaryReturnType(item: LuaFunctionItem) {
   return item.returnType.split(/[|,\[]/, 1)[0]?.trim() || null;
 }
 
+function skipWhitespaceBackward(text: string, index: number) {
+  let current = index;
+  while (current >= 0 && /\s/.test(text[current] ?? '')) {
+    current -= 1;
+  }
+  return current;
+}
+
+function findMatchingOpenParen(text: string, closeIndex: number) {
+  let depth = 0;
+  for (let index = closeIndex; index >= 0; index -= 1) {
+    const char = text[index];
+    if (char === ')') {
+      depth += 1;
+      continue;
+    }
+    if (char === '(') {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+  return -1;
+}
+
+function splitTrailingMemberExpression(text: string) {
+  const trimmed = text.trimEnd();
+  let index = skipWhitespaceBackward(trimmed, trimmed.length - 1);
+  const memberEnd = index + 1;
+  while (index >= 0 && /\w/.test(trimmed[index] ?? '')) {
+    index -= 1;
+  }
+
+  const memberName = trimmed.slice(index + 1, memberEnd);
+  if (!memberName) {
+    return null;
+  }
+
+  index = skipWhitespaceBackward(trimmed, index);
+  const indexer = trimmed[index];
+  if (indexer !== ':' && indexer !== '.') {
+    return null;
+  }
+
+  const receiver = trimmed.slice(0, index).trimEnd();
+  if (!receiver) {
+    return null;
+  }
+
+  return {
+    receiver,
+    indexer,
+    memberName,
+  } as const;
+}
+
 function getInvocationParameters(item: LuaFunctionItem, usesMethodSyntax: boolean) {
   if (!usesMethodSyntax || item.parameters.length === 0) return item.parameters.slice();
   const first = item.parameters[0] ?? '';
@@ -577,6 +634,55 @@ function inferExpressionType(node: LuaNode | undefined, scopes: LuaRuntimeScope[
     }
   }
   return null;
+}
+
+function inferExpressionTypeFromText(
+  expressionText: string,
+  scopes: LuaRuntimeScope[],
+  analysis: LuaSemanticAnalysis,
+  depth = 0,
+): string | null {
+  const trimmed = expressionText.trim();
+  if (!trimmed || depth > 8) {
+    return null;
+  }
+
+  if (/^[A-Za-z_][\w]*$/.test(trimmed)) {
+    const scoped = lookupRuntimeBinding(scopes, trimmed);
+    if (scoped?.typeName) {
+      return scoped.typeName;
+    }
+    return GLOBAL_NAMESPACES.has(trimmed) ? trimmed : null;
+  }
+
+  if (trimmed.endsWith(')')) {
+    const openParenIndex = findMatchingOpenParen(trimmed, trimmed.length - 1);
+    if (openParenIndex > 0) {
+      const calleeExpression = trimmed.slice(0, openParenIndex).trimEnd();
+      const memberAccess = splitTrailingMemberExpression(calleeExpression);
+      if (memberAccess) {
+        const receiverNamespace = inferExpressionTypeFromText(memberAccess.receiver, scopes, analysis, depth + 1);
+        const functionItem = receiverNamespace
+          ? getFunctionFromNamespace(analysis.catalogIndexes, receiverNamespace, memberAccess.memberName)
+          : getCatalogFunction(analysis.catalogIndexes, memberAccess.memberName);
+        return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+      }
+
+      const functionItem = getCatalogFunction(analysis.catalogIndexes, calleeExpression);
+      return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+    }
+  }
+
+  const memberAccess = splitTrailingMemberExpression(trimmed);
+  if (!memberAccess) {
+    return null;
+  }
+
+  const receiverNamespace = inferExpressionTypeFromText(memberAccess.receiver, scopes, analysis, depth + 1);
+  const functionItem = receiverNamespace
+    ? getFunctionFromNamespace(analysis.catalogIndexes, receiverNamespace, memberAccess.memberName)
+    : null;
+  return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
 }
 
 function resolveCatalogCallFromNode(node: LuaNode, scopes: LuaRuntimeScope[], analysis: LuaSemanticAnalysis) {
@@ -938,15 +1044,15 @@ export function getHoverInfoAt(document: LuaSemanticDocument, position: LuaSeman
 
   const line = document.sourceLines[position.lineNumber - 1] ?? '';
   const scopes = collectScopesAt(analysis, position);
-  for (const match of line.matchAll(/([A-Za-z_][\w]*)\s*([:.])\s*([A-Za-z_]\w*)/g)) {
+  for (const match of line.matchAll(/([A-Za-z_][\w]*(?:\s*\([^()]*\))?(?:\s*[:.]\s*[A-Za-z_]\w*(?:\s*\([^()]*\))?)*)\s*([:.])\s*([A-Za-z_]\w*)/g)) {
     const start = (match.index ?? 0) + 1;
     const end = start + match[0].length;
     if (position.column < start || position.column > end) continue;
-    const receiverName = match[1] ?? '';
+    const receiverName = (match[1] ?? '').trim();
     const memberName = match[3] ?? '';
     const namespace = match[2] === ':'
-      ? (lookupRuntimeBinding(scopes, receiverName)?.typeName || (GLOBAL_NAMESPACES.has(receiverName) ? receiverName : null))
-      : receiverName;
+      ? inferExpressionTypeFromText(receiverName, scopes, analysis)
+      : inferExpressionTypeFromText(receiverName, scopes, analysis) || receiverName;
     const item = namespace ? getFunctionFromNamespace(analysis.catalogIndexes, namespace, memberName) : null;
     if (item) {
       const memberStart = start + match[0].lastIndexOf(memberName);

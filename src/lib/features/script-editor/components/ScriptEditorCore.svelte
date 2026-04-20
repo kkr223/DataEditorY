@@ -677,6 +677,15 @@
   });
 
   $effect(() => {
+    const activeContent = $activeScriptTab?.content ?? '';
+    if (!isMonacoReady || !editorInstance || !monacoModule || !monacoApi) return;
+    if (!$activeScriptTab || currentBoundTabId !== $activeScriptTab.id) return;
+
+    void activeContent;
+    void syncEditorWithActiveTab();
+  });
+
+  $effect(() => {
     if (!isMonacoReady || !monacoModule || !editorInstance) return;
     const model = editorInstance.getModel();
     if (!model) return;
