@@ -566,6 +566,7 @@
     "unsaved_badge": "Unsaved changes",
     "unsaved_close_title": "Unsaved Changes",
     "unsaved_close_confirm": "{name} has unsaved changes. Close this tab anyway?",
+    "unsaved_exit_confirm": "{count} item(s) have unsaved changes: {names}{remainingCount, select, 0 {} other { and {remainingCount} more}}. Close the app anyway?",
     "navigate_unsaved_title": "Unsaved Changes",
     "navigate_unsaved_confirm": "The current card has unsaved changes. Switching cards or pages will discard them. Continue?",
     "save_success": "Database saved!",
