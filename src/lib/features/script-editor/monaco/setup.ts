@@ -1208,16 +1208,14 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
 
   for (const item of scriptFunctions) {
     const displayName = namespaceContext ? item.shortName : item.name;
-    const completionParameters = getCompletionInsertParameters(item.parameters);
     pushSuggestion({
       label: {
         label: displayName,
         description: 'current script',
       },
       kind: monaco.languages.CompletionItemKind.Function,
-      insertText: insertFunctionReferenceOnly
-        ? displayName
-        : `${displayName}(${completionParameters.join(',')})`,
+      insertText: displayName,
+      insertTextRules: monaco.languages.CompletionItemInsertTextRule.None,
       detail: item.signature,
       documentation: buildScriptFunctionDocumentation(item),
       sortText: `2100-${displayName}`,
