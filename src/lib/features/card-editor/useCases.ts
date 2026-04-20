@@ -1,6 +1,6 @@
 import type { CardDataEntry } from '$lib/types';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { deleteCard, getCardById, modifyCard } from '$lib/stores/db';
+import { deleteCard, getCardById, modifyCard, saveCdbFile } from '$lib/stores/db';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import { setSingleSelectedCard, updateVisibleCards } from '$lib/stores/editor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
@@ -15,6 +15,14 @@ import {
 } from '$lib/services/cardScriptService';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+async function persistActiveCdbAfterMutation(t: Translate) {
+  const saved = await saveCdbFile();
+  if (!saved) {
+    showToast(t('editor.save_failed'), 'error');
+  }
+  return saved;
+}
 
 export function getValidatedCardCode(
   draftCard: CardDataEntry,
@@ -68,6 +76,7 @@ export async function saveDraftCardFlow(input: {
   setSingleSelectedCard(targetCode);
   await input.handleSearch(true);
   await input.refreshDraftImage(targetCode, true);
+  await persistActiveCdbAfterMutation(input.t);
   showToast(
     input.t('editor.card_modified', { values: { code: String(targetCode) } }),
     'success',
@@ -185,6 +194,7 @@ export async function deleteDraftCardFlow(input: {
   if (!confirmed) return;
 
   if (await deleteCard(input.originalCardCode)) {
+    await persistActiveCdbAfterMutation(input.t);
     showToast(
       input.t('editor.card_deleted', {
         values: { code: String(input.originalCardCode) },

@@ -295,10 +295,13 @@ export function createShellLayoutController() {
     if (!isDbLoadedState.current || !hasUndoableAction()) return;
 
     const lastUndoLabel = getLastUndoLabel();
+    const detail = lastUndoLabel
+      ? String(get(_)('editor.undo_last_action', { values: { action: lastUndoLabel } } as never))
+      : '';
     const confirmed = await tauriBridge.ask(
-      lastUndoLabel ? `Undo "${lastUndoLabel}"?` : 'Undo the last change?',
+      String(get(_)('editor.undo_confirm', { values: { detail: detail ? `\n${detail}` : '' } } as never)),
       {
-        title: 'Undo',
+        title: String(get(_)('editor.undo_title')),
         kind: 'warning',
       },
     );
@@ -307,12 +310,12 @@ export function createShellLayoutController() {
 
     const ok = await undoLastOperation();
     if (!ok) {
-      showToast('Undo failed', 'error');
+      showToast(String(get(_)('editor.undo_failed')), 'error');
       return;
     }
 
     await handleSearch(true);
-    showToast('Undo completed', 'success');
+    showToast(String(get(_)('editor.undo_success')), 'success');
   }
 
   function handleGlobalKeydown(event: KeyboardEvent) {
