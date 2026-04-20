@@ -517,7 +517,7 @@ export function createShellLayoutController() {
       }
 
       isForceClosingWindow = true;
-      await getCurrentWindow().destroy();
+      await getCurrentWindow().close();
     };
 
     const preloadRetryResetTimer = window.setTimeout(() => {
