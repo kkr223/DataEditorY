@@ -84,6 +84,46 @@ pub(crate) struct TaskProgressPayload {
     pub(crate) total: u32,
 }
 
+pub(crate) struct ThrottledProgressEmitter<'a> {
+    inner: &'a mut dyn FnMut(TaskProgressPayload),
+    task_name: &'a str,
+    last_emit: std::time::Instant,
+    last_stage: String,
+    interval: std::time::Duration,
+}
+
+impl<'a> ThrottledProgressEmitter<'a> {
+    pub(crate) fn new(
+        task_name: &'a str,
+        inner: &'a mut dyn FnMut(TaskProgressPayload),
+    ) -> Self {
+        Self {
+            inner,
+            task_name,
+            last_emit: std::time::Instant::now() - std::time::Duration::from_secs(1),
+            last_stage: String::new(),
+            interval: std::time::Duration::from_millis(100),
+        }
+    }
+
+    pub(crate) fn emit(&mut self, stage: &str, current: usize, total: usize) {
+        let is_final = current >= total;
+        let stage_changed = stage != self.last_stage;
+        let elapsed = self.last_emit.elapsed() >= self.interval;
+
+        if is_final || stage_changed || elapsed {
+            (self.inner)(TaskProgressPayload {
+                task: self.task_name.to_string(),
+                stage: stage.to_string(),
+                current: current as u32,
+                total: total as u32,
+            });
+            self.last_emit = std::time::Instant::now();
+            self.last_stage = stage.to_string();
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AppendErrorLogRequest {

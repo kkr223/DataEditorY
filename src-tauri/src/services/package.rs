@@ -8,7 +8,7 @@ use std::{
 };
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
-use crate::{TaskProgressPayload, ZipPackageInfo};
+use crate::{TaskProgressPayload, ThrottledProgressEmitter, ZipPackageInfo};
 
 const TYPE_SPELL_BIT: u32 = 0x2;
 const SUBTYPE_FIELD_BIT: u32 = 0x80000;
@@ -127,7 +127,7 @@ fn collect_package_resource_index(cdb_dir: &Path) -> Result<PackageResourceIndex
 }
 
 pub(crate) fn resolve_script_dependency_path(
-    cdb_dir: &Path,
+    canonical_workspace_root: &Path,
     script_dir: &Path,
     raw_path: &str,
 ) -> Option<PathBuf> {
@@ -140,16 +140,13 @@ pub(crate) fn resolve_script_dependency_path(
     let joined = if relative.is_absolute() {
         relative.to_path_buf()
     } else if trimmed.starts_with("script/") {
-        cdb_dir.join(relative)
+        canonical_workspace_root.join(relative)
     } else {
         script_dir.join(relative)
     };
 
-    let workspace_root = cdb_dir
-        .canonicalize()
-        .unwrap_or_else(|_| cdb_dir.to_path_buf());
     let normalized = joined.canonicalize().unwrap_or(joined);
-    if normalized.starts_with(&workspace_root) && normalized.is_file() {
+    if normalized.starts_with(canonical_workspace_root) && normalized.is_file() {
         Some(normalized)
     } else {
         None
@@ -165,6 +162,10 @@ fn collect_script_paths_for_package(
     if !script_dir.exists() || !script_dir.is_dir() {
         return Ok(Vec::new());
     }
+
+    let canonical_root = cdb_dir
+        .canonicalize()
+        .unwrap_or_else(|_| cdb_dir.to_path_buf());
 
     let load_script_pattern = Regex::new(r#"Duel\.LoadScript\s*\(\s*["']([^"']+)["']\s*\)"#)
         .map_err(|err| err.to_string())?;
@@ -197,7 +198,7 @@ fn collect_script_paths_for_package(
             };
 
             if let Some(dependency_path) =
-                resolve_script_dependency_path(cdb_dir, &script_dir, raw_dependency)
+                resolve_script_dependency_path(&canonical_root, &script_dir, raw_dependency)
             {
                 queued.push_back(dependency_path);
             }
@@ -329,19 +330,6 @@ fn add_path_to_zip<W: Write + Seek>(
         .map_err(|err| err.to_string())
 }
 
-fn emit_package_progress(
-    progress: &mut dyn FnMut(TaskProgressPayload),
-    stage: &str,
-    current: usize,
-    total: usize,
-) {
-    progress(TaskProgressPayload {
-        task: "package".to_string(),
-        stage: stage.to_string(),
-        current: current as u32,
-        total: total as u32,
-    });
-}
 
 #[allow(dead_code)]
 pub fn package_cdb_assets_as_zip(
@@ -384,7 +372,8 @@ pub fn package_cdb_assets_as_zip_with_progress(
     }
 
     let total_steps = source_paths.len() + 1;
-    emit_package_progress(progress, "packaging", 0, total_steps);
+    let mut throttled = ThrottledProgressEmitter::new("package", progress);
+    throttled.emit("packaging", 0, total_steps);
 
     let zip_file = fs::File::create(&temp_output_file_path).map_err(|err| err.to_string())?;
     let writer = BufWriter::new(zip_file);
@@ -392,7 +381,7 @@ pub fn package_cdb_assets_as_zip_with_progress(
 
     for (index, source_path) in source_paths.iter().enumerate() {
         add_path_to_zip(&mut zip, source_path, cdb_dir)?;
-        emit_package_progress(progress, "packaging", index + 1, total_steps);
+        throttled.emit("packaging", index + 1, total_steps);
     }
 
     zip.finish().map_err(|err| err.to_string())?;
@@ -401,7 +390,7 @@ pub fn package_cdb_assets_as_zip_with_progress(
         fs::remove_file(&output_file_path).map_err(|err| err.to_string())?;
     }
     fs::rename(&temp_output_file_path, &output_file_path).map_err(|err| err.to_string())?;
-    emit_package_progress(progress, "committing", total_steps, total_steps);
+    throttled.emit("committing", total_steps, total_steps);
 
     Ok(ZipPackageInfo {
         path: output_file_path.to_string_lossy().to_string(),
@@ -439,13 +428,18 @@ mod tests {
         let escaped_path = cdb_dir.parent().unwrap().join("dataeditory-outside.lua");
         fs::write(&escaped_path, "-- outside").unwrap();
 
+        let canonical_root = cdb_dir.canonicalize().unwrap();
+
         let resolved_local =
-            resolve_script_dependency_path(&cdb_dir, &script_dir, "utility.lua").unwrap();
+            resolve_script_dependency_path(&canonical_root, &script_dir, "utility.lua").unwrap();
         let resolved_prefixed =
-            resolve_script_dependency_path(&cdb_dir, &script_dir, "script/shared/common.lua")
+            resolve_script_dependency_path(&canonical_root, &script_dir, "script/shared/common.lua")
                 .unwrap();
-        let escaped =
-            resolve_script_dependency_path(&cdb_dir, &script_dir, "../../dataeditory-outside.lua");
+        let escaped = resolve_script_dependency_path(
+            &canonical_root,
+            &script_dir,
+            "../../dataeditory-outside.lua",
+        );
 
         assert_eq!(resolved_local.file_name().unwrap(), "utility.lua");
         assert_eq!(resolved_prefixed.file_name().unwrap(), "common.lua");
