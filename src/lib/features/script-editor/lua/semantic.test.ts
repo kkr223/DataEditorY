@@ -91,6 +91,21 @@ describe('lua semantic document', () => {
     expect(hoverInfo?.kind === 'catalog-function' ? hoverInfo.item.name : '').toBe('Effect.SetDescription');
   });
 
+  test('resolves hover information for chained method calls', () => {
+    const source = [
+      'function s.target(e,tp,eg,ep,ev,re,r,rp,chk)',
+      '  return e:GetHandler():IsLocation(LOCATION_MZONE)',
+      'end',
+      '',
+    ].join('\n');
+
+    const document = getLuaSemanticDocument(createModel(source, 5), luaCatalog);
+    const hoverInfo = getHoverInfoAt(document, { lineNumber: 2, column: 25 });
+
+    expect(hoverInfo?.kind).toBe('catalog-function');
+    expect(hoverInfo?.kind === 'catalog-function' ? hoverInfo.item.name : '').toBe('Card.IsLocation');
+  });
+
   test('finds the function currently being edited from cursor position', () => {
     const source = [
       '-- target helper',
