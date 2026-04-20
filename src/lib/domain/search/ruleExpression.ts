@@ -182,10 +182,19 @@ function getRuleFieldMap() {
   addAliases(linkMarkerValueMap, LINK_MARKER_NAME_TO_BIT.up, ['up', 'top', '上', '↑']);
   addAliases(linkMarkerValueMap, LINK_MARKER_NAME_TO_BIT.upright, ['upright', 'topright', '右上', '↗']);
 
+  const otValueMap: Record<string, number> = {};
+  addAliases(otValueMap, 0, ['na', 'n/a', 'none', '无']);
+  addAliases(otValueMap, 1, ['ocg']);
+  addAliases(otValueMap, 2, ['tcg']);
+  addAliases(otValueMap, 3, ['ocg/tcg', 'ocgtcg', 'md', 'masterduel']);
+  addAliases(otValueMap, 4, ['custom', '动漫', '动画']);
+  addAliases(otValueMap, 9, ['简体中文', 'sc', 'simplifiedchinese']);
+  addAliases(otValueMap, 11, ['简体中文/tcg', '简体中文tcg', 'sctcg']);
+
   const definitions: RuleFieldDefinition[] = [
     { key: 'id', kind: 'numeric', sql: 'datas.id', aliases: ['id', 'code', 'cardid', '密码', '卡号'] },
     { key: 'alias', kind: 'numeric', sql: 'datas.alias', aliases: ['alias', 'aliasid', '同名卡', '同名卡id', '别名', '别名id'] },
-    { key: 'ot', kind: 'numeric', sql: 'datas.ot', aliases: ['ot', 'license', '许可'] },
+    { key: 'ot', kind: 'numeric', sql: 'datas.ot', aliases: ['ot', 'license', '许可'], values: otValueMap },
     { key: 'atk', kind: 'numeric', sql: 'datas.atk', aliases: ['atk', '攻击力'] },
     { key: 'def', kind: 'numeric', sql: 'datas.def', aliases: ['def', '守备力'] },
     { key: 'level', kind: 'numeric', sql: '(datas.level & 255)', aliases: ['level', 'lv', '等级', '星级', '阶级'] },
