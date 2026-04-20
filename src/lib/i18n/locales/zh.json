@@ -566,6 +566,7 @@
     "unsaved_badge": "未保存修改",
     "unsaved_close_title": "存在未保存修改",
     "unsaved_close_confirm": "{name} 有未保存修改，仍要关闭此标签页吗？",
+    "unsaved_exit_confirm": "以下 {count} 个项目有未保存修改：{names}{remainingCount, select, 0 {} other { 等另外 {remainingCount} 个}}。仍要关闭软件吗？",
     "navigate_unsaved_title": "存在未保存修改",
     "navigate_unsaved_confirm": "当前卡片有未保存修改，切换卡片或翻页会丢失这些内容，仍要继续吗？",
     "save_success": "数据库已保存",

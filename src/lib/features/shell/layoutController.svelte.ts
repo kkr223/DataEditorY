@@ -1,5 +1,6 @@
 import { get, fromStore } from 'svelte/store';
 import { _, locale } from 'svelte-i18n';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { consumePendingOpenCdbPaths } from '$lib/infrastructure/tauri/commands';
 import {
@@ -58,6 +59,7 @@ import type { CardDataEntry } from '$lib/types';
 
 const PRELOAD_RETRY_KEY = 'dataeditory:preload-retry';
 const OPEN_HISTORY_HIDE_DELAY_MS = 180;
+const MAX_DIRTY_DOCUMENT_NAMES = 5;
 
 const recentHistoryState = fromStore(recentCdbHistory);
 const isDbLoadedState = fromStore(isDbLoaded);
@@ -72,6 +74,29 @@ export function createShellLayoutController() {
   });
 
   let openHistoryHideTimer: ReturnType<typeof setTimeout> | null = null;
+  let isForceClosingWindow = false;
+
+  function getDirtyWorkspaceDocuments() {
+    return workspaceState.documents.filter((document) => document.dirty);
+  }
+
+  function buildAppCloseConfirmationMessage() {
+    const dirtyDocuments = getDirtyWorkspaceDocuments();
+    if (dirtyDocuments.length === 0) {
+      return '';
+    }
+
+    const names = dirtyDocuments
+      .slice(0, MAX_DIRTY_DOCUMENT_NAMES)
+      .map((document) => document.title)
+      .join('、');
+    const remainingCount = Math.max(0, dirtyDocuments.length - MAX_DIRTY_DOCUMENT_NAMES);
+
+    return String(get(_)(
+      'editor.unsaved_exit_confirm',
+      { values: { count: String(dirtyDocuments.length), names, remainingCount: String(remainingCount) } } as never,
+    ));
+  }
 
   function applyTheme(next: 'dark' | 'light') {
     state.theme = next;
@@ -474,6 +499,23 @@ export function createShellLayoutController() {
       event.preventDefault();
       event.returnValue = get(_)('editor.unsaved_close_title') as string;
     };
+    const handleWindowCloseRequested = async (event: { preventDefault: () => void }) => {
+      if (isForceClosingWindow || !hasDirtyWorkspaceDocuments(workspaceState.documents)) {
+        return;
+      }
+
+      event.preventDefault();
+      const confirmed = await tauriBridge.ask(buildAppCloseConfirmationMessage(), {
+        title: String(get(_)('editor.unsaved_close_title')),
+        kind: 'warning',
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      isForceClosingWindow = true;
+      await getCurrentWindow().destroy();
+    };
 
     const preloadRetryResetTimer = window.setTimeout(() => {
       sessionStorage.removeItem(PRELOAD_RETRY_KEY);
@@ -485,6 +527,13 @@ export function createShellLayoutController() {
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('vite:preloadError', handlePreloadError as EventListener);
+    let closeRequestUnlisten: (() => void) | null = null;
+    if (tauriBridge.isTauri()) {
+      const appWindow = getCurrentWindow();
+      void appWindow.onCloseRequested(handleWindowCloseRequested).then((unlisten) => {
+        closeRequestUnlisten = unlisten;
+      });
+    }
 
     return () => {
       window.clearTimeout(preloadRetryResetTimer);
@@ -501,6 +550,7 @@ export function createShellLayoutController() {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('vite:preloadError', handlePreloadError as EventListener);
+      closeRequestUnlisten?.();
     };
   }
 
