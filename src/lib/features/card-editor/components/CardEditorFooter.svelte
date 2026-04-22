@@ -232,6 +232,15 @@
     background: var(--feature-image-bg-hover);
   }
 
+  .btn-save-as {
+    background: var(--accent-secondary);
+    color: white;
+  }
+
+  .btn-save-as:hover {
+    background: color-mix(in srgb, var(--accent-secondary) 88%, black);
+  }
+
   .btn-danger {
     background: var(--state-danger-bg);
     color: var(--state-danger-text);
