@@ -155,8 +155,14 @@ export function createCardEditorLifecycleController(input: CardEditorLifecycleCo
     if (isDraftDirty()) {
       await onDirtyDraft();
       if (isDraftDirty()) {
-        return false;
+        // Draft could not be committed (validation failure or user cancelled).
+        // Still attempt to flush the file so any earlier DB mutations are persisted.
+        return input.saveCdbFile();
       }
+      // onDirtyDraft already saved the file internally via persistActiveCdbAfterMutation.
+      // Calling saveCdbFile() a second time here is redundant and occasionally fails
+      // due to file-system contention, producing a spurious "Save failed" toast.
+      return true;
     }
 
     return input.saveCdbFile();
@@ -259,7 +265,11 @@ export function syncLoadedDraftEffect(input: {
   }
 
   if (input.selectedCard) {
-    const nextSnapshot = createCardSnapshot(input.selectedCard);
+    // Normalize before snapshot so the comparison is stable regardless of whether
+    // the DB backend returns cards with un-extracted lscale/rscale fields.  This
+    // must mirror the normalization performed in buildLoadedDraftState, which also
+    // stores a normalized snapshot in lastLoadedCardSnapshot.
+    const nextSnapshot = createCardSnapshot(cloneEditableCard(input.selectedCard));
     if (input.lastSyncedSelectedId !== input.selectedCard.code || input.lastLoadedCardSnapshot !== nextSnapshot) {
       input.loadCardIntoDraft(input.selectedCard);
       void input.refreshDraftImage(input.selectedCard.code);
