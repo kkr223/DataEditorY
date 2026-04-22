@@ -737,7 +737,7 @@ dependencies = [
 
 [[package]]
 name = "dataeditory"
-version = "2.3.2"
+version = "2.3.3"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",
