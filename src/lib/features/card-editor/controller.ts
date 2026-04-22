@@ -30,11 +30,17 @@ export function buildEmptyDraftState(defaultCoverSrc: string) {
 }
 
 export function buildLoadedDraftState(card: CardDataEntry) {
+  // Normalize the card first so that lastLoadedCardSnapshot is always computed
+  // from the same representation as draftCard. Without this, un-normalized fields
+  // returned by the DB backend (e.g. lscale/rscale not yet extracted from the
+  // packed level column) would make isDraftDirty() return true immediately after
+  // loading a card, causing a spurious "unsaved changes" prompt on navigation.
+  const normalizedCard = cloneEditableCard(card);
   return {
-    lastSyncedSelectedId: card.code,
-    lastLoadedCardSnapshot: createCardSnapshot(card),
-    originalCardCode: card.code,
-    draftCard: cloneEditableCard(card),
+    lastSyncedSelectedId: normalizedCard.code,
+    lastLoadedCardSnapshot: createCardSnapshot(normalizedCard),
+    originalCardCode: normalizedCard.code,
+    draftCard: normalizedCard,
   };
 }
 

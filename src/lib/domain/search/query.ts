@@ -148,6 +148,30 @@ export function buildSearchQuery(
   // --- name ---
   appendTextSearchClause('texts.name', 'name', filters.name);
 
+  // --- nameOrDesc (top-bar combined search: name OR desc) ---
+  if (filters.nameOrDesc.trim()) {
+    const trimmed = filters.nameOrDesc.trim();
+
+    if (trimmed.includes('%%')) {
+      const pattern = buildOrderedKeywordPattern(trimmed);
+      params['nameOrDesc_n'] = pattern;
+      params['nameOrDesc_d'] = pattern;
+      conds.push(`(texts.name LIKE :nameOrDesc_n ESCAPE '/' OR texts.desc LIKE :nameOrDesc_d ESCAPE '/')`);
+    } else {
+      const terms = buildUnorderedKeywordTerms(trimmed);
+      if (terms.length > 0) {
+        const termConds = terms.map((term, index) => {
+          const nKey = index === 0 ? 'nameOrDesc_n' : `nameOrDesc_n${index}`;
+          const dKey = index === 0 ? 'nameOrDesc_d' : `nameOrDesc_d${index}`;
+          params[nKey] = `%${term}%`;
+          params[dKey] = `%${term}%`;
+          return `(texts.name LIKE :${nKey} ESCAPE '/' OR texts.desc LIKE :${dKey} ESCAPE '/')`;
+        });
+        conds.push(termConds.join(' AND '));
+      }
+    }
+  }
+
   // --- id (prefix search) ---
   if (filters.id.trim()) {
     const ranges = buildIdPrefixRanges(filters.id);

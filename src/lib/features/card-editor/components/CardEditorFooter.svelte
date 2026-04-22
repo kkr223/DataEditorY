@@ -83,7 +83,7 @@
     <button class="btn-secondary btn-sm" onclick={onResetSearch}>{resetSearchLabel}</button>
     <button class="btn-secondary btn-sm" onclick={onNewCard}>{newCardLabel}</button>
     <button class="btn-secondary btn-sm" onclick={onSearch}>{searchLabel}</button>
-    <button class="btn-secondary btn-sm" onclick={onSaveAs}>{saveAsLabel}</button>
+    <button class="btn-save-as btn-sm" onclick={onSaveAs}>{saveAsLabel}</button>
     <button class="btn-primary btn-sm" onclick={onModify}>{modifyLabel}</button>
     <button class="btn-danger btn-sm" onclick={onDelete} disabled={!isEditingExisting}>{deleteLabel}</button>
   </div>
@@ -230,6 +230,15 @@
 
   .btn-secondary-card-image:hover {
     background: var(--feature-image-bg-hover);
+  }
+
+  .btn-save-as {
+    background: var(--accent-secondary);
+    color: white;
+  }
+
+  .btn-save-as:hover {
+    background: color-mix(in srgb, var(--accent-secondary) 88%, black);
   }
 
   .btn-danger {
