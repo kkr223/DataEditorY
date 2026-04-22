@@ -1,7 +1,8 @@
 export interface SearchFilters {
-  id: string;
-  name: string;
-  desc: string;
+id: string;
+name: string;
+desc: string;
+nameOrDesc: string;
   imageFolderPath: string;
   deckText: string;
   rule: string;
@@ -134,9 +135,10 @@ export interface LinkMarkerOption {
 }
 
 export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
-  id: '',
-  name: '',
-  desc: '',
+id: '',
+name: '',
+desc: '',
+nameOrDesc: '',
   imageFolderPath: '',
   deckText: '',
   rule: '',
