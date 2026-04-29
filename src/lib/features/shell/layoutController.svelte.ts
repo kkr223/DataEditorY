@@ -54,7 +54,7 @@ import {
   hasDirtyWorkspaceDocuments,
 } from '$lib/application/workspace/lifecycle';
 import { getEnabledCapabilities } from '$lib/application/capabilities/registry';
-import { workspaceState } from '$lib/core/workspace/store.svelte';
+import { SETTINGS_WORKSPACE_ID, workspaceState } from '$lib/core/workspace/store.svelte';
 import type { CardDataEntry } from '$lib/types';
 
 const PRELOAD_RETRY_KEY = 'dataeditory:preload-retry';
@@ -322,12 +322,19 @@ export function createShellLayoutController() {
     if (event.defaultPrevented || event.repeat || event.isComposing) return;
 
     const key = event.key.toLowerCase();
+    const activeWorkspace = workspaceState.documents.find((document) => document.id === workspaceState.activeWorkspaceId);
+    const isDbWorkspaceActive = activeWorkspace?.kind === 'db';
+    const isSettingsWorkspaceActive = workspaceState.activeWorkspaceId === SETTINGS_WORKSPACE_ID;
+
     if (key === 'f5' || key === 'f7') {
       event.preventDefault();
       return;
     }
 
     if (key === 'f3') {
+      if (!isDbWorkspaceActive) {
+        return;
+      }
       event.preventDefault();
       dispatchAppShortcut('focus-search');
       return;
@@ -344,6 +351,9 @@ export function createShellLayoutController() {
     }
 
     if (key === 'f' || key === 'g') {
+      if (!isDbWorkspaceActive) {
+        return;
+      }
       event.preventDefault();
       dispatchAppShortcut('focus-search');
       return;
@@ -351,6 +361,10 @@ export function createShellLayoutController() {
 
     if (key === 'z' && !event.shiftKey) {
       if (nativeTextUndoTarget) {
+        return;
+      }
+
+      if (!isDbWorkspaceActive) {
         return;
       }
 
@@ -376,6 +390,9 @@ export function createShellLayoutController() {
     }
 
     if (key === 'n' && event.shiftKey) {
+      if (!isDbWorkspaceActive) {
+        return;
+      }
       event.preventDefault();
       dispatchAppShortcut('new-card');
       return;
@@ -384,6 +401,10 @@ export function createShellLayoutController() {
     if (key === 's' && !event.shiftKey) {
       event.preventDefault();
       void handleSave();
+      return;
+    }
+
+    if (isSettingsWorkspaceActive || !isDbWorkspaceActive) {
       return;
     }
 
