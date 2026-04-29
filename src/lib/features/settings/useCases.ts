@@ -8,7 +8,7 @@ import {
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import type { SettingsFormState } from '$lib/features/settings/controller';
-import { getNormalizedSettingsTemperature } from '$lib/features/settings/controller';
+import { getNormalizedSettingsTemperature, parsePackageIncludePatternsText } from '$lib/features/settings/controller';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -62,6 +62,7 @@ export async function saveSettingsFlow(input: {
       scriptTemplate: input.form.scriptTemplate,
       useExternalScriptEditor: input.form.useExternalScriptEditor,
       saveScriptImageToLocal: input.form.saveScriptImageToLocal,
+      packageIncludePatterns: parsePackageIncludePatternsText(input.form.packageIncludePatternsText),
       secretKey: input.form.secretKey,
     });
     input.form.secretKey = '';

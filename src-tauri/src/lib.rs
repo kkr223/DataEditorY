@@ -1,6 +1,4 @@
-use std::{
-    sync::Mutex,
-};
+use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
 mod commands;
@@ -24,6 +22,13 @@ const DEFAULT_SCRIPT_TEMPLATE: &str =
     "-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n";
 const DEFAULT_AI_MODEL: &str = "gpt-4o-mini";
 const DEFAULT_AI_TEMPERATURE: f64 = 1.0;
+const DEFAULT_PACKAGE_INCLUDE_PATTERNS: &[&str] = &[
+    "pics/{code}.jpg",
+    "pics/field/{code}.jpg",
+    "script/{code}.lua",
+    "strings.conf",
+    "lflist.conf",
+];
 const SECRET_VERSION_PREFIX: &str = "v1";
 const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
 const OPEN_CDB_PATHS_EVENT: &str = "open-cdb-paths";
@@ -127,4 +132,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

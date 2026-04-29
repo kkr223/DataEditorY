@@ -22,6 +22,7 @@
   } from '$lib/features/settings/useCases';
   import SettingsCoverAndLog from '$lib/features/settings/components/SettingsCoverAndLog.svelte';
   import SettingsHeader from '$lib/features/settings/components/SettingsHeader.svelte';
+  import SettingsPackageCard from '$lib/features/settings/components/SettingsPackageCard.svelte';
   import SettingsTemplateCard from '$lib/features/settings/components/SettingsTemplateCard.svelte';
   import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
   import { SETTINGS_WORKSPACE_ID } from '$lib/core/workspace/store.svelte';
@@ -231,6 +232,16 @@
       saveScriptImageToLocal={form.saveScriptImageToLocal}
       onSaveScriptImageToLocalChange={(value) => {
         form.saveScriptImageToLocal = value;
+      }}
+    />
+
+    <SettingsPackageCard
+      title={$_('settings.package_include_title')}
+      description={$_('settings.package_include_description')}
+      hint={$_('settings.package_include_hint')}
+      patternsText={form.packageIncludePatternsText}
+      onPatternsInput={(value) => {
+        form.packageIncludePatternsText = value;
       }}
     />
 

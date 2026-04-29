@@ -8,6 +8,7 @@ export interface AppSettingsPayload {
   scriptTemplate: string;
   useExternalScriptEditor: boolean;
   saveScriptImageToLocal: boolean;
+  packageIncludePatterns: string[];
   hasSecretKey: boolean;
   coverImagePath: string | null;
   errorLogPath: string;
@@ -15,6 +16,13 @@ export interface AppSettingsPayload {
 
 const DEFAULT_COVER_SRC = '/resources/cover.jpg';
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
+export const DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
+  'pics/{code}.jpg',
+  'pics/field/{code}.jpg',
+  'script/{code}.lua',
+  'strings.conf',
+  'lflist.conf',
+];
 
 function createDefaultSettings(): AppSettingsPayload {
   return {
@@ -24,6 +32,7 @@ function createDefaultSettings(): AppSettingsPayload {
     scriptTemplate: '-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n',
     useExternalScriptEditor: false,
     saveScriptImageToLocal: false,
+    packageIncludePatterns: [...DEFAULT_PACKAGE_INCLUDE_PATTERNS],
     hasSecretKey: false,
     coverImagePath: null,
     errorLogPath: '',
@@ -36,6 +45,13 @@ function normalizeTemperature(value: number | null | undefined) {
   }
 
   return Math.min(2, Math.max(0, Number(value)));
+}
+
+function normalizePackageIncludePatterns(value: string[] | null | undefined) {
+  const patterns = (value ?? [])
+    .map((item) => String(item ?? '').trim().replace(/\\/g, '/'))
+    .filter((item) => item.length > 0);
+  return patterns.length > 0 ? Array.from(new Set(patterns)) : [...DEFAULT_PACKAGE_INCLUDE_PATTERNS];
 }
 
 function resolveCoverSrc(path: string | null, revision: number): string {
@@ -67,6 +83,7 @@ function applySettings(payload: AppSettingsPayload) {
     scriptTemplate: payload.scriptTemplate?.trim() ? payload.scriptTemplate : createDefaultSettings().scriptTemplate,
     useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
     saveScriptImageToLocal: Boolean(payload.saveScriptImageToLocal),
+    packageIncludePatterns: normalizePackageIncludePatterns(payload.packageIncludePatterns),
     hasSecretKey: Boolean(payload.hasSecretKey),
     coverImagePath: payload.coverImagePath ?? null,
     errorLogPath: payload.errorLogPath ?? '',
@@ -122,6 +139,7 @@ export async function saveAppSettings(input: {
   scriptTemplate: string;
   useExternalScriptEditor?: boolean;
   saveScriptImageToLocal?: boolean;
+  packageIncludePatterns?: string[];
   secretKey?: string;
   clearSecretKey?: boolean;
 }) {
@@ -135,6 +153,9 @@ export async function saveAppSettings(input: {
         scriptTemplate: input.scriptTemplate,
         useExternalScriptEditor: input.useExternalScriptEditor,
         saveScriptImageToLocal: input.saveScriptImageToLocal,
+        packageIncludePatterns: input.packageIncludePatterns
+          ? normalizePackageIncludePatterns(input.packageIncludePatterns)
+          : undefined,
         secretKey: input.secretKey,
         clearSecretKey: input.clearSecretKey,
       },

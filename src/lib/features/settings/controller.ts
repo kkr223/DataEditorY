@@ -7,6 +7,7 @@ export type SettingsFormState = {
   scriptTemplate: string;
   useExternalScriptEditor: boolean;
   saveScriptImageToLocal: boolean;
+  packageIncludePatternsText: string;
   secretKey: string;
 };
 
@@ -18,6 +19,7 @@ export function createSettingsFormState(): SettingsFormState {
     scriptTemplate: '',
     useExternalScriptEditor: false,
     saveScriptImageToLocal: false,
+    packageIncludePatternsText: '',
     secretKey: '',
   };
 }
@@ -29,6 +31,19 @@ export function getNormalizedSettingsTemperature(temperature: number) {
   }
 
   return Math.min(2, Math.max(0, value));
+}
+
+export function parsePackageIncludePatternsText(value: string) {
+  const patterns = value
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  return Array.from(new Set(patterns));
+}
+
+export function formatPackageIncludePatternsText(patterns: string[]) {
+  return patterns.join('\n');
 }
 
 export function hydrateSettingsForm(
@@ -44,6 +59,7 @@ export function hydrateSettingsForm(
   form.scriptTemplate = values.scriptTemplate;
   form.useExternalScriptEditor = values.useExternalScriptEditor;
   form.saveScriptImageToLocal = values.saveScriptImageToLocal;
+  form.packageIncludePatternsText = formatPackageIncludePatternsText(values.packageIncludePatterns);
 
   if (!input.isHydrated) {
     form.secretKey = '';
@@ -64,6 +80,7 @@ export function isSettingsFormDirty(
     || form.scriptTemplate !== values.scriptTemplate
     || form.useExternalScriptEditor !== values.useExternalScriptEditor
     || form.saveScriptImageToLocal !== values.saveScriptImageToLocal
+    || formatPackageIncludePatternsText(parsePackageIncludePatternsText(form.packageIncludePatternsText)) !== formatPackageIncludePatternsText(values.packageIncludePatterns)
     || form.secretKey.trim().length > 0;
 }
 

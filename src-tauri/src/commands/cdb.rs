@@ -1,20 +1,19 @@
 use tauri::{AppHandle, Emitter, State};
 
 use crate::{
-    BACKGROUND_TASK_PROGRESS_EVENT,
     models::cdb::{
         AnalyzeCdbMergeRequest, AnalyzeCdbMergeResponse, CardDto,
         CollectMergeSourcesFromFolderRequest, CopyCardAssetsRequest, CreateCdbFromCardsRequest,
-        DeleteCardsRequest, ExecuteCdbMergeRequest, ExecuteCdbMergeResponse,
-        GetCardsByIdsRequest, MergeSourceItemDto, ModifyCardsRequest, OpenCdbTabResponse,
-        QueryCardsRequest, SearchCardsPageRequest, SearchCardsPageResponse,
-        UndoModifyOperationRequest,
+        DeleteCardsRequest, ExecuteCdbMergeRequest, ExecuteCdbMergeResponse, GetCardsByIdsRequest,
+        MergeSourceItemDto, ModifyCardsRequest, OpenCdbTabResponse, QueryCardsRequest,
+        SearchCardsPageRequest, SearchCardsPageResponse, UndoModifyOperationRequest,
     },
     services::{
         assets as cdb_assets_service, cdb_cards as cdb_cards_service,
         cdb_session as cdb_session_service, merge as cdb_merge_service,
     },
     session::cdb::OpenCdbSessions,
+    BACKGROUND_TASK_PROGRESS_EVENT,
 };
 
 #[tauri::command]
