@@ -2,6 +2,7 @@
   import { _, locale } from "svelte-i18n";
   import SetcodeField from "$lib/components/SetcodeField.svelte";
   import { disableAutofill } from "$lib/actions/disableAutofill";
+  import CardCategoryPopover from "$lib/features/card-editor/components/CardCategoryPopover.svelte";
   import type { CardDataEntry } from "$lib/types";
   import {
     ATTRIBUTE_OPTIONS,
@@ -333,6 +334,14 @@
           </div>
         {/each}
       </div>
+      <CardCategoryPopover
+        value={draftCard.category}
+        title={$_('editor.category_title')}
+        buttonLabel={$_('editor.category_button')}
+        onChange={(value) => {
+          draftCard.category = value;
+        }}
+      />
     </div>
   </div>
 </div>
