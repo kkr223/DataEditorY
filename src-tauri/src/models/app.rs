@@ -1,4 +1,7 @@
-use crate::{DEFAULT_AI_MODEL, DEFAULT_AI_TEMPERATURE, DEFAULT_SCRIPT_TEMPLATE};
+use crate::{
+    DEFAULT_AI_MODEL, DEFAULT_AI_TEMPERATURE, DEFAULT_PACKAGE_INCLUDE_PATTERNS,
+    DEFAULT_SCRIPT_TEMPLATE,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,6 +13,7 @@ pub(crate) struct PersistedAppSettings {
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: bool,
     pub(crate) save_script_image_to_local: bool,
+    pub(crate) package_include_patterns: Vec<String>,
     pub(crate) encrypted_secret_key: Option<String>,
 }
 
@@ -22,6 +26,10 @@ impl Default for PersistedAppSettings {
             script_template: DEFAULT_SCRIPT_TEMPLATE.to_string(),
             use_external_script_editor: false,
             save_script_image_to_local: false,
+            package_include_patterns: DEFAULT_PACKAGE_INCLUDE_PATTERNS
+                .iter()
+                .map(|item| item.to_string())
+                .collect(),
             encrypted_secret_key: None,
         }
     }
@@ -36,6 +44,7 @@ pub(crate) struct AppSettingsPayload {
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: bool,
     pub(crate) save_script_image_to_local: bool,
+    pub(crate) package_include_patterns: Vec<String>,
     pub(crate) has_secret_key: bool,
     pub(crate) cover_image_path: Option<String>,
     pub(crate) error_log_path: String,
@@ -50,6 +59,7 @@ pub(crate) struct SaveAppSettingsRequest {
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: Option<bool>,
     pub(crate) save_script_image_to_local: Option<bool>,
+    pub(crate) package_include_patterns: Option<Vec<String>>,
     pub(crate) secret_key: Option<String>,
     pub(crate) clear_secret_key: Option<bool>,
 }
@@ -93,10 +103,7 @@ pub(crate) struct ThrottledProgressEmitter<'a> {
 }
 
 impl<'a> ThrottledProgressEmitter<'a> {
-    pub(crate) fn new(
-        task_name: &'a str,
-        inner: &'a mut dyn FnMut(TaskProgressPayload),
-    ) -> Self {
+    pub(crate) fn new(task_name: &'a str, inner: &'a mut dyn FnMut(TaskProgressPayload)) -> Self {
         Self {
             inner,
             task_name,

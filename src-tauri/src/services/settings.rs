@@ -3,8 +3,9 @@ use tauri::AppHandle;
 
 use crate::{
     custom_cover_path, decrypt_secret_key, encrypt_secret_key, load_persisted_settings,
-    normalize_base_url, normalize_model, normalize_script_template, normalize_temperature,
-    save_persisted_settings, to_settings_payload, AppSettingsPayload, SaveAppSettingsRequest,
+    normalize_base_url, normalize_model, normalize_package_include_patterns,
+    normalize_script_template, normalize_temperature, save_persisted_settings, to_settings_payload,
+    AppSettingsPayload, SaveAppSettingsRequest,
 };
 
 pub fn load_app_settings(app: &AppHandle) -> Result<AppSettingsPayload, String> {
@@ -28,6 +29,10 @@ pub fn save_app_settings(
     settings.save_script_image_to_local = request
         .save_script_image_to_local
         .unwrap_or(settings.save_script_image_to_local);
+    if let Some(package_include_patterns) = request.package_include_patterns {
+        settings.package_include_patterns =
+            normalize_package_include_patterns(Some(package_include_patterns));
+    }
 
     if request.clear_secret_key.unwrap_or(false) {
         settings.encrypted_secret_key = None;

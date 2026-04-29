@@ -300,7 +300,6 @@ fn validate_output_dir(output_dir: &Path, sources: &[MergeSourceContext]) -> Res
     Ok(())
 }
 
-
 pub fn collect_merge_sources_from_folder(
     directory_path: &str,
 ) -> Result<Vec<MergeSourceItemDto>, String> {
@@ -436,19 +435,19 @@ pub fn execute_cdb_merge_with_progress(
                     &staged_pics_dir.join(format!("{}.jpg", card.code)),
                 )?;
                 completed_steps += 1;
-                    throttled.emit("merging", completed_steps, total_steps);
-                }
+                throttled.emit("merging", completed_steps, total_steps);
+            }
 
-                if card_has_field_subtype(card) {
-                    if let Some(&winner_index) = plan.winning_field_image_source_by_code.get(&card.code)
-                    {
-                        let winner_dir = &plan.sources[winner_index].dir;
-                        let _ = copy_if_exists(
-                            &field_image_path(winner_dir, card.code),
-                            &staged_field_pics_dir.join(format!("{}.jpg", card.code)),
-                        )?;
-                        completed_steps += 1;
-                        throttled.emit("merging", completed_steps, total_steps);
+            if card_has_field_subtype(card) {
+                if let Some(&winner_index) = plan.winning_field_image_source_by_code.get(&card.code)
+                {
+                    let winner_dir = &plan.sources[winner_index].dir;
+                    let _ = copy_if_exists(
+                        &field_image_path(winner_dir, card.code),
+                        &staged_field_pics_dir.join(format!("{}.jpg", card.code)),
+                    )?;
+                    completed_steps += 1;
+                    throttled.emit("merging", completed_steps, total_steps);
                 }
             }
         }

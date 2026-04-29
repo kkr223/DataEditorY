@@ -1,11 +1,12 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
 use crate::{
     AppSettingsPayload, PersistedAppSettings, CUSTOM_COVER_FILE_NAME, DEFAULT_AI_MODEL,
-    DEFAULT_AI_TEMPERATURE, DEFAULT_SCRIPT_TEMPLATE, ERROR_LOG_FILE_NAME, LOGS_DIR_NAME,
-    SETTINGS_FILE_NAME,
+    DEFAULT_AI_TEMPERATURE, DEFAULT_PACKAGE_INCLUDE_PATTERNS, DEFAULT_SCRIPT_TEMPLATE,
+    ERROR_LOG_FILE_NAME, LOGS_DIR_NAME, SETTINGS_FILE_NAME,
 };
 
 pub(crate) fn ensure_app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -56,6 +57,8 @@ pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSet
     if settings.script_template.trim().is_empty() {
         settings.script_template = DEFAULT_SCRIPT_TEMPLATE.to_string();
     }
+    settings.package_include_patterns =
+        normalize_package_include_patterns(Some(settings.package_include_patterns));
     settings.temperature = normalize_temperature(Some(settings.temperature));
 
     Ok(settings)
@@ -101,6 +104,26 @@ pub(crate) fn normalize_temperature(value: Option<f64>) -> f64 {
     }
 }
 
+pub(crate) fn normalize_package_include_patterns(value: Option<Vec<String>>) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let patterns = value
+        .unwrap_or_default()
+        .into_iter()
+        .map(|item| item.trim().replace('\\', "/"))
+        .filter(|item| !item.is_empty())
+        .filter(|item| seen.insert(item.clone()))
+        .collect::<Vec<_>>();
+
+    if patterns.is_empty() {
+        DEFAULT_PACKAGE_INCLUDE_PATTERNS
+            .iter()
+            .map(|item| item.to_string())
+            .collect()
+    } else {
+        patterns
+    }
+}
+
 pub(crate) fn to_settings_payload(
     app: &AppHandle,
     settings: PersistedAppSettings,
@@ -121,6 +144,9 @@ pub(crate) fn to_settings_payload(
         },
         use_external_script_editor: settings.use_external_script_editor,
         save_script_image_to_local: settings.save_script_image_to_local,
+        package_include_patterns: normalize_package_include_patterns(Some(
+            settings.package_include_patterns,
+        )),
         has_secret_key: settings.encrypted_secret_key.is_some(),
         cover_image_path: if cover_path.exists() {
             Some(cover_path.to_string_lossy().to_string())
@@ -174,6 +200,21 @@ mod tests {
         assert_eq!(
             normalize_script_content("alpha\r\nbeta\r\n".to_string()),
             "alpha\nbeta\n"
+        );
+        assert_eq!(
+            normalize_package_include_patterns(Some(vec![
+                " pics/{code}.jpg ".to_string(),
+                "".to_string(),
+                "script\\*.lua".to_string(),
+            ])),
+            vec!["pics/{code}.jpg".to_string(), "script/*.lua".to_string()]
+        );
+        assert_eq!(
+            normalize_package_include_patterns(Some(Vec::new())),
+            DEFAULT_PACKAGE_INCLUDE_PATTERNS
+                .iter()
+                .map(|item| item.to_string())
+                .collect::<Vec<_>>()
         );
     }
 }
