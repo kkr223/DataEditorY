@@ -25,6 +25,7 @@
   import { onDestroy, onMount, untrack } from 'svelte';
   import { activeScriptTab, getActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
+  import { appSettingsState } from '$lib/stores/appSettings.svelte';
   import { collectLuaInlineHighlights } from '$lib/utils/luaScriptCalls';
   import type { CardDataEntry } from '$lib/types';
   import type { editor as MonacoEditor } from 'monaco-editor';
@@ -420,7 +421,7 @@
 
   function handleWindowKeydown(event: KeyboardEvent) {
     const isReferenceOverlayOpen = referenceState.kind !== null;
-    if (shouldCloseScriptReferenceOverlay(event, isReferenceOverlayOpen)) {
+    if (shouldCloseScriptReferenceOverlay(event, isReferenceOverlayOpen, appSettingsState.values.shortcutBindings)) {
       event.preventDefault();
       event.stopPropagation();
       closeReferenceOverlay();
@@ -432,6 +433,7 @@
       event,
       Boolean(editorInstance?.hasTextFocus()),
       isReferenceOverlayOpen,
+      appSettingsState.values.shortcutBindings,
     );
     if (handbookShortcut) {
       event.preventDefault();

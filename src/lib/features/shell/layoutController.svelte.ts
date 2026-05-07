@@ -22,7 +22,8 @@ import {
 import {
   scriptTabs,
 } from '$lib/stores/scriptEditor.svelte';
-import { loadAppSettings } from '$lib/stores/appSettings.svelte';
+import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
+import { isShortcutEvent } from '$lib/features/shortcuts/registry';
 import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
 import {
   clearSelection,
@@ -322,6 +323,7 @@ export function createShellLayoutController() {
     if (event.defaultPrevented || event.repeat || event.isComposing) return;
 
     const key = event.key.toLowerCase();
+    const shortcuts = appSettingsState.values.shortcutBindings;
     const activeWorkspace = workspaceState.documents.find((document) => document.id === workspaceState.activeWorkspaceId);
     const isDbWorkspaceActive = activeWorkspace?.kind === 'db';
     const isSettingsWorkspaceActive = workspaceState.activeWorkspaceId === SETTINGS_WORKSPACE_ID;
@@ -331,7 +333,7 @@ export function createShellLayoutController() {
       return;
     }
 
-    if (key === 'f3') {
+    if (isShortcutEvent('global.focusSearchF3', event, shortcuts)) {
       if (!isDbWorkspaceActive) {
         return;
       }
@@ -341,16 +343,18 @@ export function createShellLayoutController() {
     }
 
     const isPrimary = event.ctrlKey || event.metaKey;
-    if (!isPrimary || event.altKey) return;
     const editable = isEditableTarget(event.target);
     const nativeTextUndoTarget = isNativeTextUndoTarget(event.target);
 
-    if (key === 'r' || key === 'p' || key === 'j') {
+    if (isPrimary && !event.altKey && (key === 'r' || key === 'p' || key === 'j')) {
       event.preventDefault();
       return;
     }
 
-    if (key === 'f' || key === 'g') {
+    if (
+      isShortcutEvent('global.focusSearchPrimaryF', event, shortcuts)
+      || isShortcutEvent('global.focusSearchPrimaryG', event, shortcuts)
+    ) {
       if (!isDbWorkspaceActive) {
         return;
       }
@@ -359,7 +363,7 @@ export function createShellLayoutController() {
       return;
     }
 
-    if (key === 'z' && !event.shiftKey) {
+    if (isShortcutEvent('global.undoLastOperation', event, shortcuts)) {
       if (nativeTextUndoTarget) {
         return;
       }
@@ -373,23 +377,23 @@ export function createShellLayoutController() {
       return;
     }
 
-    if (editable && key !== 's') {
+    if (editable && !isShortcutEvent('global.saveWorkspace', event, shortcuts)) {
       return;
     }
 
-    if (key === 'o' && !event.shiftKey) {
+    if (isShortcutEvent('global.openDatabase', event, shortcuts)) {
       event.preventDefault();
       void handleOpen();
       return;
     }
 
-    if (key === 'n' && !event.shiftKey) {
+    if (isShortcutEvent('global.createDatabase', event, shortcuts)) {
       event.preventDefault();
       void handleCreate();
       return;
     }
 
-    if (key === 'n' && event.shiftKey) {
+    if (isShortcutEvent('global.newCard', event, shortcuts)) {
       if (!isDbWorkspaceActive) {
         return;
       }
@@ -398,7 +402,7 @@ export function createShellLayoutController() {
       return;
     }
 
-    if (key === 's' && !event.shiftKey) {
+    if (isShortcutEvent('global.saveWorkspace', event, shortcuts)) {
       event.preventDefault();
       void handleSave();
       return;
@@ -408,19 +412,19 @@ export function createShellLayoutController() {
       return;
     }
 
-    if (!editable && key === 'c' && !event.shiftKey) {
+    if (!editable && isShortcutEvent('global.copySelection', event, shortcuts)) {
       event.preventDefault();
       void handleCopySelection();
       return;
     }
 
-    if (!editable && key === 'v' && !event.shiftKey) {
+    if (!editable && isShortcutEvent('global.pasteSelection', event, shortcuts)) {
       event.preventDefault();
       void handlePasteSelection();
       return;
     }
 
-    if (!editable && key === 'd' && !event.shiftKey) {
+    if (!editable && isShortcutEvent('global.deleteSelection', event, shortcuts)) {
       event.preventDefault();
       void handleDeleteSelection();
       return;

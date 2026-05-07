@@ -2,6 +2,7 @@ import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
 import type { LuaInlineHighlight } from '$lib/utils/luaScriptCalls';
 import type { LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
 import { toPersistableCard } from '$lib/domain/card/draft';
+import { isShortcutEvent } from '$lib/features/shortcuts/registry';
 
 export type HintPlacement = 'top' | 'bottom';
 export type ScriptReferenceManualKind = 'constants' | 'functions';
@@ -86,21 +87,18 @@ export function resolveScriptReferenceShortcut(
   event: KeyboardEvent,
   hasEditorTextFocus: boolean,
   hasReferenceOverlayOpen: boolean,
+  shortcutBindings: Partial<Record<string, string>> = {},
 ) {
-  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
-    return null;
-  }
-
   const canHandle = hasEditorTextFocus || hasReferenceOverlayOpen;
   if (!canHandle) {
     return null;
   }
 
-  if (event.key === 'F9') {
+  if (isShortcutEvent('scriptEditor.openConstants', event, shortcutBindings)) {
     return 'constants' satisfies ScriptReferenceManualKind;
   }
 
-  if (event.key === 'F10') {
+  if (isShortcutEvent('scriptEditor.openFunctions', event, shortcutBindings)) {
     return 'functions' satisfies ScriptReferenceManualKind;
   }
 
@@ -110,8 +108,9 @@ export function resolveScriptReferenceShortcut(
 export function shouldCloseScriptReferenceOverlay(
   event: KeyboardEvent,
   hasReferenceOverlayOpen: boolean,
+  shortcutBindings: Partial<Record<string, string>> = {},
 ) {
-  return hasReferenceOverlayOpen && event.key === 'Escape';
+  return hasReferenceOverlayOpen && isShortcutEvent('scriptEditor.closeReference', event, shortcutBindings);
 }
 
 export function sortLuaDiagnosticsByLocation(diagnostics: LuaScriptDiagnostic[]) {

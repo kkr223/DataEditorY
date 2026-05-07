@@ -1,4 +1,5 @@
 import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
+import { normalizeShortcutBindingMap } from '$lib/features/shortcuts/registry';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 
 export interface AppSettingsPayload {
@@ -9,6 +10,7 @@ export interface AppSettingsPayload {
   useExternalScriptEditor: boolean;
   saveScriptImageToLocal: boolean;
   packageIncludePatterns: string[];
+  shortcutBindings: Record<string, string>;
   hasSecretKey: boolean;
   coverImagePath: string | null;
   errorLogPath: string;
@@ -46,6 +48,7 @@ function createDefaultSettings(): AppSettingsPayload {
     useExternalScriptEditor: false,
     saveScriptImageToLocal: false,
     packageIncludePatterns: [...DEFAULT_PACKAGE_INCLUDE_PATTERNS],
+    shortcutBindings: normalizeShortcutBindingMap(undefined),
     hasSecretKey: false,
     coverImagePath: null,
     errorLogPath: '',
@@ -109,6 +112,7 @@ function applySettings(payload: AppSettingsPayload) {
     useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
     saveScriptImageToLocal: Boolean(payload.saveScriptImageToLocal),
     packageIncludePatterns: normalizePackageIncludePatterns(payload.packageIncludePatterns),
+    shortcutBindings: normalizeShortcutBindingMap(payload.shortcutBindings),
     hasSecretKey: Boolean(payload.hasSecretKey),
     coverImagePath: payload.coverImagePath ?? null,
     errorLogPath: payload.errorLogPath ?? '',
@@ -165,6 +169,7 @@ export async function saveAppSettings(input: {
   useExternalScriptEditor?: boolean;
   saveScriptImageToLocal?: boolean;
   packageIncludePatterns?: string[];
+  shortcutBindings?: Record<string, string>;
   secretKey?: string;
   clearSecretKey?: boolean;
 }) {
@@ -180,6 +185,9 @@ export async function saveAppSettings(input: {
         saveScriptImageToLocal: input.saveScriptImageToLocal,
         packageIncludePatterns: input.packageIncludePatterns
           ? normalizePackageIncludePatterns(input.packageIncludePatterns)
+          : undefined,
+        shortcutBindings: input.shortcutBindings
+          ? normalizeShortcutBindingMap(input.shortcutBindings)
           : undefined,
         secretKey: input.secretKey,
         clearSecretKey: input.clearSecretKey,

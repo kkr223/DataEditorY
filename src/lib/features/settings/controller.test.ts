@@ -6,19 +6,23 @@ import {
   isSettingsFormDirty,
   shouldAutoConnectSettings,
 } from '$lib/features/settings/controller';
+import { createDefaultShortcutBindingMap } from '$lib/features/shortcuts/registry';
+
+const DEFAULT_SHORTCUT_BINDINGS = createDefaultShortcutBindingMap();
 
 describe('settings controller helpers', () => {
   test('creates the default settings form state', () => {
-    expect(createSettingsFormState()).toEqual({
-      apiBaseUrl: '',
-      model: 'gpt-4o-mini',
-      temperature: 1,
-      scriptTemplate: '',
-      useExternalScriptEditor: false,
-      saveScriptImageToLocal: false,
-      packageIncludePatternsText: '',
-      secretKey: '',
-    });
+    const state = createSettingsFormState();
+    expect(state.apiBaseUrl).toBe('');
+    expect(state.model).toBe('gpt-4o-mini');
+    expect(state.temperature).toBe(1);
+    expect(state.scriptTemplate).toBe('');
+    expect(state.useExternalScriptEditor).toBe(false);
+    expect(state.saveScriptImageToLocal).toBe(false);
+    expect(state.packageIncludePatternsText).toBe('');
+    expect(state.secretKey).toBe('');
+    expect(typeof state.shortcutBindings).toBe('object');
+    expect(Object.keys(state.shortcutBindings).length > 0).toBe(true);
   });
 
   test('normalizes temperature into the supported range', () => {
@@ -41,6 +45,7 @@ describe('settings controller helpers', () => {
         useExternalScriptEditor: true,
         saveScriptImageToLocal: true,
         packageIncludePatterns: ['pics/{code}.jpg', 'script/c{code}.lua'],
+        shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
         hasSecretKey: true,
         coverImagePath: null,
         errorLogPath: 'D:/logs/error.log',
@@ -73,6 +78,7 @@ describe('settings controller helpers', () => {
         useExternalScriptEditor: false,
         saveScriptImageToLocal: false,
         packageIncludePatterns: ['pics/{code}.jpg'],
+        shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
         hasSecretKey: true,
         coverImagePath: null,
         errorLogPath: '',
@@ -99,6 +105,7 @@ describe('settings controller helpers', () => {
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
       packageIncludePatterns: ['pics/{code}.jpg'],
+      shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: false,
       coverImagePath: null,
       errorLogPath: '',
@@ -113,6 +120,7 @@ describe('settings controller helpers', () => {
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
       packageIncludePatterns: ['pics/{code}.jpg'],
+      shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: false,
       coverImagePath: null,
       errorLogPath: '',
@@ -128,6 +136,7 @@ describe('settings controller helpers', () => {
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
       packageIncludePatterns: ['pics/{code}.jpg'],
+      shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: true,
       coverImagePath: null,
       errorLogPath: '',

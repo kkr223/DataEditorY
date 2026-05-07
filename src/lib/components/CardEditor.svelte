@@ -13,6 +13,7 @@
   import { shellBackgroundTaskState } from "$lib/features/shell/dialogsController.svelte";
   import { isCapabilityEnabled } from "$lib/application/capabilities/registry";
   import { appSettingsState } from "$lib/stores/appSettings.svelte";
+  import { isShortcutEvent } from "$lib/features/shortcuts/registry";
   import { getScriptGenerationStageLabel } from "$lib/services/scriptGenerationStages";
   import {
     CARD_LIST_PAGE_SIZE,
@@ -245,8 +246,7 @@
   }
 
   async function handleEditorKeydown(event: KeyboardEvent) {
-    const isPrimary = event.ctrlKey || event.metaKey;
-    if (isPrimary && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "z" && !isParseModalOpen && !imageInteraction.isDrawerOpen && !imageInteraction.isPreviewOpen && isCardEditorShortcutTarget(event.target) && !isNativeTextUndoTarget(event.target)) {
+    if (isShortcutEvent('cardEditor.undoDraft', event, appSettingsState.values.shortcutBindings) && !isParseModalOpen && !imageInteraction.isDrawerOpen && !imageInteraction.isPreviewOpen && isCardEditorShortcutTarget(event.target) && !isNativeTextUndoTarget(event.target)) {
       if (handleDraftUndo()) event.preventDefault();
       return;
     }
@@ -272,6 +272,7 @@
       setKeyboardNavigating: (value) => {
         isKeyboardNavigating = value;
       },
+      shortcutBindings: appSettingsState.values.shortcutBindings,
     });
   }
 
@@ -467,7 +468,7 @@
   }
 
   function handleParseModalBackdropKeydown(event: KeyboardEvent) {
-    handleParseModalBackdropDismiss(event, closeParseModal);
+    handleParseModalBackdropDismiss(event, closeParseModal, appSettingsState.values.shortcutBindings);
   }
 
   async function handleParseManuscriptConfirm() {

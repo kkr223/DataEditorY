@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
@@ -67,6 +67,7 @@ pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSet
     settings.script_template = normalize_script_template(settings.script_template);
     settings.package_include_patterns =
         normalize_package_include_patterns(Some(settings.package_include_patterns));
+    settings.shortcut_bindings = normalize_shortcut_bindings(Some(settings.shortcut_bindings));
     settings.temperature = normalize_temperature(Some(settings.temperature));
 
     Ok(settings)
@@ -137,6 +138,17 @@ pub(crate) fn normalize_package_include_patterns(value: Option<Vec<String>>) -> 
     }
 }
 
+pub(crate) fn normalize_shortcut_bindings(
+    value: Option<HashMap<String, String>>,
+) -> HashMap<String, String> {
+    value
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(key, binding)| (key.trim().to_string(), binding.trim().to_string()))
+        .filter(|(key, binding)| !key.is_empty() && !binding.is_empty())
+        .collect()
+}
+
 pub(crate) fn to_settings_payload(
     app: &AppHandle,
     settings: PersistedAppSettings,
@@ -156,6 +168,7 @@ pub(crate) fn to_settings_payload(
         package_include_patterns: normalize_package_include_patterns(Some(
             settings.package_include_patterns,
         )),
+        shortcut_bindings: normalize_shortcut_bindings(Some(settings.shortcut_bindings)),
         has_secret_key: settings.encrypted_secret_key.is_some(),
         cover_image_path: if cover_path.exists() {
             Some(cover_path.to_string_lossy().to_string())

@@ -23,6 +23,7 @@
   import SettingsCoverAndLog from '$lib/features/settings/components/SettingsCoverAndLog.svelte';
   import SettingsHeader from '$lib/features/settings/components/SettingsHeader.svelte';
   import SettingsPackageCard from '$lib/features/settings/components/SettingsPackageCard.svelte';
+  import SettingsShortcutsCard from '$lib/features/settings/components/SettingsShortcutsCard.svelte';
   import SettingsTemplateCard from '$lib/features/settings/components/SettingsTemplateCard.svelte';
   import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
   import { SETTINGS_WORKSPACE_ID } from '$lib/core/workspace/store.svelte';
@@ -242,6 +243,22 @@
       patternsText={form.packageIncludePatternsText}
       onPatternsInput={(value) => {
         form.packageIncludePatternsText = value;
+      }}
+    />
+
+    <SettingsShortcutsCard
+      title={$_('settings.shortcuts_title')}
+      description={$_('settings.shortcuts_description')}
+      recordLabel={$_('settings.shortcuts_record')}
+      recordingLabel={$_('settings.shortcuts_recording')}
+      resetLabel={$_('settings.shortcuts_reset')}
+      resetAllLabel={$_('settings.shortcuts_reset_all')}
+      defaultLabel={$_('settings.shortcuts_default')}
+      conflictLabel={$_('settings.shortcuts_conflict')}
+      pressHint={$_('settings.shortcuts_hint')}
+      shortcutBindings={form.shortcutBindings}
+      onShortcutBindingsChange={(bindings) => {
+        form.shortcutBindings = bindings;
       }}
     />
 

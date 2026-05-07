@@ -19,6 +19,8 @@
   import { SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
   import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from '$lib/utils/shortcuts';
   import { disableAutofill } from '$lib/actions/disableAutofill';
+  import { appSettingsState } from '$lib/stores/appSettings.svelte';
+  import { isShortcutEvent } from '$lib/features/shortcuts/registry';
 
   const PAGE_SIZE = 50;
   const RACE_FILTER_OPTIONS = RACE_OPTIONS
@@ -90,8 +92,16 @@
   }
 
   function handleSearchKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
+    if (isShortcutEvent('search.runSearch', event, appSettingsState.values.shortcutBindings)) {
+      event.preventDefault();
       void runSearch();
+    }
+  }
+
+  function handleJumpPageKeydown(event: KeyboardEvent) {
+    if (isShortcutEvent('pagination.jumpPage', event, appSettingsState.values.shortcutBindings)) {
+      event.preventDefault();
+      handleJumpPage();
     }
   }
 
@@ -440,7 +450,7 @@
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
     </button>
     <span class="page-divider"></span>
-    <input type="number" class="page-jump-input" bind:value={jumpPage} placeholder="#" min="1" max={totalPages} onkeydown={(e) => e.key === 'Enter' && handleJumpPage()} />
+    <input type="number" class="page-jump-input" bind:value={jumpPage} placeholder="#" min="1" max={totalPages} onkeydown={handleJumpPageKeydown} />
     <button class="page-btn page-go" onclick={handleJumpPage} aria-label="Go to page">{$_('search.go')}</button>
   </div>
   {/if}

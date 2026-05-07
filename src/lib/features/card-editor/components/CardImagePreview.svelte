@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { appSettingsState } from '$lib/stores/appSettings.svelte';
+  import { isShortcutEvent } from '$lib/features/shortcuts/registry';
+
   export let open = false;
   export let imageSrc = "";
   export let closeAriaLabel = "Close image preview";
@@ -7,7 +10,8 @@
   export let onClose: () => void = () => {};
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
+    if (isShortcutEvent('cardEditor.dismissOverlay', event, appSettingsState.values.shortcutBindings)) {
+      event.preventDefault();
       onClose();
     }
   }

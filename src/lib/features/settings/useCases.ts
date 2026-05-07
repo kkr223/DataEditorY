@@ -8,7 +8,7 @@ import {
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import type { SettingsFormState } from '$lib/features/settings/controller';
-import { getNormalizedSettingsTemperature, parsePackageIncludePatternsText } from '$lib/features/settings/controller';
+import { getNormalizedSettingsTemperature, parsePackageIncludePatternsText, validateSettingsForm } from '$lib/features/settings/controller';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -54,6 +54,12 @@ export async function saveSettingsFlow(input: {
   form: SettingsFormState;
   t: Translate;
 }) {
+  const validationError = validateSettingsForm(input.form);
+  if (validationError === 'shortcut-conflict') {
+    showToast(input.t('settings.shortcuts_conflict_toast'), 'error');
+    return false;
+  }
+
   try {
     await saveAppSettings({
       apiBaseUrl: input.form.apiBaseUrl,
@@ -63,6 +69,7 @@ export async function saveSettingsFlow(input: {
       useExternalScriptEditor: input.form.useExternalScriptEditor,
       saveScriptImageToLocal: input.form.saveScriptImageToLocal,
       packageIncludePatterns: parsePackageIncludePatternsText(input.form.packageIncludePatternsText),
+      shortcutBindings: input.form.shortcutBindings,
       secretKey: input.form.secretKey,
     });
     input.form.secretKey = '';
