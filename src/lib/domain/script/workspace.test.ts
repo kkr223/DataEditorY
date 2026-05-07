@@ -9,7 +9,8 @@ describe('script workspace helpers', () => {
 
   test('builds script file names and template fallback names', () => {
     expect(buildScriptFileName(12345)).toBe('c12345.lua');
-    expect(applyScriptTemplate('-- {卡名}', '', 7)).toBe('-- Card 7');
+    expect(applyScriptTemplate('-- {name} {code}', '', 7)).toBe('-- Card 7 7');
+    expect(applyScriptTemplate('-- {name} {code}', 'Blue-Eyes', 7)).toBe('-- Blue-Eyes 7');
     expect(applyScriptTemplate('-- {卡名}', 'Blue-Eyes', 7)).toBe('-- Blue-Eyes');
   });
 });

@@ -16,6 +16,8 @@ const LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS: &[&str] = &[
     "strings.conf",
     "lflist.conf",
 ];
+const LEGACY_DEFAULT_SCRIPT_TEMPLATE: &str =
+    "-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n";
 
 pub(crate) fn ensure_app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
@@ -62,9 +64,7 @@ pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSet
     if settings.model.trim().is_empty() {
         settings.model = DEFAULT_AI_MODEL.to_string();
     }
-    if settings.script_template.trim().is_empty() {
-        settings.script_template = DEFAULT_SCRIPT_TEMPLATE.to_string();
-    }
+    settings.script_template = normalize_script_template(settings.script_template);
     settings.package_include_patterns =
         normalize_package_include_patterns(Some(settings.package_include_patterns));
     settings.temperature = normalize_temperature(Some(settings.temperature));
@@ -94,7 +94,7 @@ pub(crate) fn normalize_model(value: Option<String>) -> String {
 
 pub(crate) fn normalize_script_template(value: String) -> String {
     let trimmed = value.trim();
-    if trimmed.is_empty() {
+    if trimmed.is_empty() || value == LEGACY_DEFAULT_SCRIPT_TEMPLATE {
         DEFAULT_SCRIPT_TEMPLATE.to_string()
     } else {
         value.replace("\r\n", "\n")
@@ -150,11 +150,7 @@ pub(crate) fn to_settings_payload(
             settings.model
         },
         temperature: normalize_temperature(Some(settings.temperature)),
-        script_template: if settings.script_template.trim().is_empty() {
-            DEFAULT_SCRIPT_TEMPLATE.to_string()
-        } else {
-            settings.script_template
-        },
+        script_template: normalize_script_template(settings.script_template),
         use_external_script_editor: settings.use_external_script_editor,
         save_script_image_to_local: settings.save_script_image_to_local,
         package_include_patterns: normalize_package_include_patterns(Some(
@@ -208,6 +204,10 @@ mod tests {
         );
         assert_eq!(
             normalize_script_template("   ".to_string()),
+            DEFAULT_SCRIPT_TEMPLATE
+        );
+        assert_eq!(
+            normalize_script_template(LEGACY_DEFAULT_SCRIPT_TEMPLATE.to_string()),
             DEFAULT_SCRIPT_TEMPLATE
         );
         assert_eq!(

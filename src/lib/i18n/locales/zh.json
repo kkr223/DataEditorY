@@ -184,7 +184,7 @@
     "secret_clear": "清除 Secret Key",
     "secret_cleared": "Secret Key 已清除",
     "script_template_title": "新建脚本模板",
-    "script_template_description": "点击“脚本”且脚本不存在时，会用这里的模板创建文件。支持占位符 {卡名}。",
+    "script_template_description": "点击“脚本”且脚本不存在时，会用这里的模板创建文件。支持占位符 {code} 和 {name}。",
     "script_template": "脚本模板",
     "use_external_script_editor": "使用外部编辑器打开脚本",
     "use_external_script_editor_hint": "勾选后，点击“脚本”会使用系统默认的 .lua 打开方式，而不是内置脚本编辑器。",
