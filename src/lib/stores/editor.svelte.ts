@@ -222,6 +222,9 @@ export async function handleSearch(preserveSelection = false, resetPage = false)
   const prevSelectedIds = [...editorState.selectedIds];
   const prevAnchorId = editorState.selectionAnchorId;
   const prevPage = editorState.currentPage;
+  const currentTabId = get(activeTabId);
+
+  if (!currentTabId) return false;
 
   if (resetPage) {
     editorState.currentPage = 1;
@@ -245,6 +248,9 @@ export async function handleSearch(preserveSelection = false, resetPage = false)
     console.error('Failed to update search results:', err);
     return false;
   }
+
+  // If the active tab changed while the search was in flight, discard the results.
+  if (get(activeTabId) !== currentTabId) return false;
 
   setAllCards(cards);
   _totalCards = total;

@@ -35,8 +35,20 @@ const cachedSearchRefreshListeners = new Set<(snapshot: CachedSearchSnapshot) =>
 // Source-filter resolution caches (module-level, in-memory)
 // Key for deckTextCache:       trimmed deckText string
 // Key for imageFolderCache:    `${tabId}|${normalizedPath}`
+const CACHE_MAX_SIZE = 200;
 const deckTextCache = new Map<string, number[]>();
 const imageFolderCache = new Map<string, number[]>();
+
+/** Insert into a bounded Map (FIFO eviction when over capacity). */
+function boundedSet<K, V>(map: Map<K, V>, key: K, value: V): void {
+  if (map.size >= CACHE_MAX_SIZE) {
+    const oldestKey = map.keys().next().value;
+    if (oldestKey !== undefined) {
+      map.delete(oldestKey);
+    }
+  }
+  map.set(key, value);
+}
 
 /** Clear the image-folder cache entries for a specific tab (call on reset / data mutation / tab close). */
 export function clearSourceFilterCacheForTab(tabId: string): void {
@@ -64,8 +76,9 @@ export function parseCachedFiltersJson(serialized: string): SearchFilters {
 
 function updateCachedSearchSnapshot(snapshot: CachedSearchSnapshot) {
   const clonedCards = cloneCards(snapshot.cards);
-  tabs.update((currentTabs) =>
-    currentTabs.map((item) =>
+  let tabExists = false;
+  tabs.update((currentTabs) => {
+    const result = currentTabs.map((item) =>
       item.id === snapshot.tabId
         ? {
             ...item,
@@ -75,8 +88,14 @@ function updateCachedSearchSnapshot(snapshot: CachedSearchSnapshot) {
             cachedFilters: JSON.stringify(snapshot.filters),
           }
         : item
-    )
-  );
+    );
+    tabExists = result.some((item) => item.id === snapshot.tabId);
+    return result;
+  });
+
+  // If the tab was closed between the search request and this response,
+  // do not notify listeners with stale data.
+  if (!tabExists) return;
 
   const listenerSnapshot: CachedSearchSnapshot = {
     ...snapshot,
@@ -164,7 +183,7 @@ async function resolveSourceFilterIds(tabId: string, filters: SearchFilters): Pr
       currentIds = cached;
     } else {
       const resolved = parseDeckTextToCardIds(filters.deckText);
-      deckTextCache.set(deckKey, resolved);
+      boundedSet(deckTextCache, deckKey, resolved);
       currentIds = resolved;
     }
   }
@@ -181,7 +200,7 @@ async function resolveSourceFilterIds(tabId: string, filters: SearchFilters): Pr
       const split = splitSourceTerms(entries);
       const exactNameIds = await resolveCardIdsByExactNames(tabId, split.names);
       imageIds = [...new Set([...split.ids, ...exactNameIds])];
-      imageFolderCache.set(imageKey, imageIds);
+      boundedSet(imageFolderCache, imageKey, imageIds);
     }
     currentIds = currentIds === null ? imageIds : intersectIdSets(currentIds, imageIds);
   }

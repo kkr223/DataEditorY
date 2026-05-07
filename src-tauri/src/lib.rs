@@ -49,11 +49,11 @@ fn queue_open_cdb_paths(app: &AppHandle, paths: Vec<String>) {
         return;
     }
 
-    if let Ok(mut pending) = app.state::<PendingOpenCdbPaths>().0.lock() {
-        for path in &paths {
-            if !pending.contains(path) {
-                pending.push(path.clone());
-            }
+    let pending_state = app.state::<PendingOpenCdbPaths>();
+    let mut pending = pending_state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    for path in &paths {
+        if !pending.contains(path) {
+            pending.push(path.clone());
         }
     }
 

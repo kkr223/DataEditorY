@@ -20,6 +20,16 @@ use crate::{
 const TYPE_SPELL: u32 = 0x2;
 const SUBTYPE_FIELD: u32 = 0x80000;
 
+/// Lightweight card representation used during the merge planning phase
+/// to avoid loading 15+ fields per card into memory for every source CDB.
+type CardSummary = (u32, u32); // (code, type)
+
+/// Returns true for spell cards that have the Field subtype bit set.
+fn summary_has_field_subtype(summary: &CardSummary) -> bool {
+    let card_type = summary.1;
+    (card_type & TYPE_SPELL) != 0 && (card_type & SUBTYPE_FIELD) != 0
+}
+
 #[derive(Debug, Clone)]
 struct MergeSourceAssetIndex {
     main_image_codes: HashSet<u32>,
@@ -32,14 +42,14 @@ struct MergeSourceContext {
     path: String,
     name: String,
     dir: PathBuf,
-    cards: Vec<CardDto>,
+    cards: Vec<CardSummary>,
     assets: MergeSourceAssetIndex,
 }
 
 #[derive(Debug, Clone)]
 struct MergePlan {
     sources: Vec<MergeSourceContext>,
-    merged_cards: Vec<CardDto>,
+    merged_cards: Vec<CardSummary>,
     duplicate_card_total: u32,
     winning_card_source_by_code: HashMap<u32, usize>,
     winning_main_image_source_by_code: HashMap<u32, usize>,
@@ -76,10 +86,6 @@ fn build_stage_dir(output_path: &Path, label: &str) -> Result<PathBuf, String> {
         ".__dataeditory-{label}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
         nonce[0], nonce[1], nonce[2], nonce[3], nonce[4], nonce[5], nonce[6], nonce[7]
     )))
-}
-
-fn card_has_field_subtype(card: &CardDto) -> bool {
-    (card.type_ & TYPE_SPELL) != 0 && (card.type_ & SUBTYPE_FIELD) != 0
 }
 
 fn is_cdb_file(path: &Path) -> bool {
@@ -142,7 +148,7 @@ fn load_merge_sources(source_paths: &[String]) -> Result<Vec<MergeSourceContext>
         }
 
         let source_dir = cdb_dir_from_path(trimmed)?;
-        let cards = cdb_repository::load_all_cards_from_path(Path::new(trimmed))?;
+        let cards = cdb_repository::load_card_summaries_from_path(Path::new(trimmed))?;
         let assets = build_source_asset_index(&source_dir);
         sources.push(MergeSourceContext {
             path: trimmed.to_string(),
@@ -166,7 +172,7 @@ fn build_merge_plan(
     include_scripts: bool,
 ) -> Result<MergePlan, String> {
     let sources = load_merge_sources(source_paths)?;
-    let mut merged_cards_by_code = HashMap::<u32, CardDto>::new();
+    let mut merged_cards_by_code = HashMap::<u32, CardSummary>::new();
     let mut duplicate_codes = HashSet::<u32>::new();
     let mut winning_card_source_by_code = HashMap::<u32, usize>::new();
     let mut winning_main_image_source_by_code = HashMap::<u32, usize>::new();
@@ -175,30 +181,31 @@ fn build_merge_plan(
 
     for (source_index, source) in sources.iter().enumerate() {
         for card in &source.cards {
-            if merged_cards_by_code.contains_key(&card.code) {
-                duplicate_codes.insert(card.code);
+            let code = card.0;
+            if merged_cards_by_code.contains_key(&code) {
+                duplicate_codes.insert(code);
             }
 
-            merged_cards_by_code.insert(card.code, card.clone());
-            winning_card_source_by_code.insert(card.code, source_index);
+            merged_cards_by_code.insert(code, *card);
+            winning_card_source_by_code.insert(code, source_index);
 
             if include_images {
-                if source.assets.main_image_codes.contains(&card.code) {
-                    winning_main_image_source_by_code.insert(card.code, source_index);
+                if source.assets.main_image_codes.contains(&code) {
+                    winning_main_image_source_by_code.insert(code, source_index);
                 }
-                if source.assets.field_image_codes.contains(&card.code) {
-                    winning_field_image_source_by_code.insert(card.code, source_index);
+                if source.assets.field_image_codes.contains(&code) {
+                    winning_field_image_source_by_code.insert(code, source_index);
                 }
             }
 
-            if include_scripts && source.assets.script_codes.contains(&card.code) {
-                winning_script_source_by_code.insert(card.code, source_index);
+            if include_scripts && source.assets.script_codes.contains(&code) {
+                winning_script_source_by_code.insert(code, source_index);
             }
         }
     }
 
     let mut merged_cards = merged_cards_by_code.into_values().collect::<Vec<_>>();
-    merged_cards.sort_by_key(|card| card.code);
+    merged_cards.sort_by_key(|card| card.0);
 
     Ok(MergePlan {
         sources,
@@ -217,10 +224,10 @@ fn build_analysis_response(plan: &MergePlan) -> AnalyzeCdbMergeResponse {
     for (source_index, source) in plan.sources.iter().enumerate() {
         let mut winning_field_image_count = 0_u32;
         for card in &plan.merged_cards {
-            if card_has_field_subtype(card)
+            if summary_has_field_subtype(card)
                 && plan
                     .winning_field_image_source_by_code
-                    .get(&card.code)
+                    .get(&card.0)
                     .copied()
                     == Some(source_index)
             {
@@ -260,10 +267,10 @@ fn build_analysis_response(plan: &MergePlan) -> AnalyzeCdbMergeResponse {
             .merged_cards
             .iter()
             .filter(|card| {
-                card_has_field_subtype(card)
+                summary_has_field_subtype(card)
                     && plan
                         .winning_field_image_source_by_code
-                        .contains_key(&card.code)
+                        .contains_key(&card.0)
             })
             .count() as u32,
         script_total: plan.winning_script_source_by_code.len() as u32,
@@ -379,6 +386,30 @@ pub fn execute_cdb_merge_with_progress(
     ensure_dir(&output_dir)?;
     validate_output_dir(&output_dir, &plan.sources)?;
 
+    // Load full CardDto from source CDBs only for the execution phase
+    // (the planning phase used lightweight summaries to avoid OOM).
+    let mut source_cards_by_path: HashMap<String, HashMap<u32, CardDto>> = HashMap::new();
+    for source_path in &request.source_paths {
+        let trimmed = source_path.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let cards = cdb_repository::load_all_cards_from_path(Path::new(trimmed))?;
+        let by_code: HashMap<u32, CardDto> =
+            cards.into_iter().map(|card| (card.code, card)).collect();
+        source_cards_by_path.insert(trimmed.to_string(), by_code);
+    }
+
+    let merged_cards: Vec<CardDto> = plan
+        .merged_cards
+        .iter()
+        .filter_map(|summary| {
+            let winner_index = plan.winning_card_source_by_code.get(&summary.0)?;
+            let source_path = plan.sources[*winner_index].path.as_str();
+            source_cards_by_path.get(source_path)?.get(&summary.0).cloned()
+        })
+        .collect();
+
     let output_cdb_path = derive_output_cdb_path(&output_dir);
     ensure_parent_dir(&output_cdb_path)?;
 
@@ -403,10 +434,10 @@ pub fn execute_cdb_merge_with_progress(
         plan.merged_cards
             .iter()
             .filter(|card| {
-                card_has_field_subtype(card)
+                summary_has_field_subtype(card)
                     && plan
                         .winning_field_image_source_by_code
-                        .contains_key(&card.code)
+                        .contains_key(&card.0)
             })
             .count()
     } else {
@@ -422,29 +453,30 @@ pub fn execute_cdb_merge_with_progress(
     let mut throttled = ThrottledProgressEmitter::new("merge", progress);
     throttled.emit("merging", completed_steps, total_steps);
 
-    cdb_repository::recreate_cdb_with_cards(&staged_cdb_path, &plan.merged_cards)?;
+    cdb_repository::recreate_cdb_with_cards(&staged_cdb_path, &merged_cards)?;
     completed_steps += 1;
     throttled.emit("merging", completed_steps, total_steps);
 
     if request.include_images {
         for card in &plan.merged_cards {
-            if let Some(&winner_index) = plan.winning_main_image_source_by_code.get(&card.code) {
+            let code = card.0;
+            if let Some(&winner_index) = plan.winning_main_image_source_by_code.get(&code) {
                 let winner_dir = &plan.sources[winner_index].dir;
                 let _ = copy_if_exists(
-                    &main_image_path(winner_dir, card.code),
-                    &staged_pics_dir.join(format!("{}.jpg", card.code)),
+                    &main_image_path(winner_dir, code),
+                    &staged_pics_dir.join(format!("{code}.jpg")),
                 )?;
                 completed_steps += 1;
                 throttled.emit("merging", completed_steps, total_steps);
             }
 
-            if card_has_field_subtype(card) {
-                if let Some(&winner_index) = plan.winning_field_image_source_by_code.get(&card.code)
+            if summary_has_field_subtype(card) {
+                if let Some(&winner_index) = plan.winning_field_image_source_by_code.get(&code)
                 {
                     let winner_dir = &plan.sources[winner_index].dir;
                     let _ = copy_if_exists(
-                        &field_image_path(winner_dir, card.code),
-                        &staged_field_pics_dir.join(format!("{}.jpg", card.code)),
+                        &field_image_path(winner_dir, code),
+                        &staged_field_pics_dir.join(format!("{code}.jpg")),
                     )?;
                     completed_steps += 1;
                     throttled.emit("merging", completed_steps, total_steps);
@@ -455,11 +487,12 @@ pub fn execute_cdb_merge_with_progress(
 
     if request.include_scripts {
         for card in &plan.merged_cards {
-            if let Some(&winner_index) = plan.winning_script_source_by_code.get(&card.code) {
+            let code = card.0;
+            if let Some(&winner_index) = plan.winning_script_source_by_code.get(&code) {
                 let winner_dir = &plan.sources[winner_index].dir;
                 let _ = copy_if_exists(
-                    &script_path(winner_dir, card.code),
-                    &staged_script_dir.join(format!("c{}.lua", card.code)),
+                    &script_path(winner_dir, code),
+                    &staged_script_dir.join(format!("c{code}.lua")),
                 )?;
                 completed_steps += 1;
                 throttled.emit("merging", completed_steps, total_steps);
