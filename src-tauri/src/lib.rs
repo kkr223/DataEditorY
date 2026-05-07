@@ -25,7 +25,7 @@ const DEFAULT_AI_TEMPERATURE: f64 = 1.0;
 const DEFAULT_PACKAGE_INCLUDE_PATTERNS: &[&str] = &[
     "pics/{code}.jpg",
     "pics/field/{code}.jpg",
-    "script/{code}.lua",
+    "script/c{code}.lua",
     "strings.conf",
     "lflist.conf",
 ];

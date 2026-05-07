@@ -40,7 +40,7 @@ describe('settings controller helpers', () => {
         scriptTemplate: '-- template',
         useExternalScriptEditor: true,
         saveScriptImageToLocal: true,
-        packageIncludePatterns: ['pics/{code}.jpg', 'script/{code}.lua'],
+        packageIncludePatterns: ['pics/{code}.jpg', 'script/c{code}.lua'],
         hasSecretKey: true,
         coverImagePath: null,
         errorLogPath: 'D:/logs/error.log',
@@ -54,7 +54,7 @@ describe('settings controller helpers', () => {
     expect(form.scriptTemplate).toBe('-- template');
     expect(form.useExternalScriptEditor).toBe(true);
     expect(form.saveScriptImageToLocal).toBe(true);
-    expect(form.packageIncludePatternsText).toBe('pics/{code}.jpg\nscript/{code}.lua');
+    expect(form.packageIncludePatternsText).toBe('pics/{code}.jpg\nscript/c{code}.lua');
     expect(form.secretKey).toBe('');
     expect(result.isHydrated).toBe(true);
   });
@@ -104,7 +104,7 @@ describe('settings controller helpers', () => {
       errorLogPath: '',
     })).toBe(false);
 
-    form.packageIncludePatternsText = 'pics/{code}.jpg\nscript/{code}.lua';
+    form.packageIncludePatternsText = 'pics/{code}.jpg\nscript/c{code}.lua';
     expect(isSettingsFormDirty(form, {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',

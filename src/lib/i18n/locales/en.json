@@ -192,7 +192,7 @@
     "save_script_image_to_local_hint": "When enabled, the script image button copies the PNG to the clipboard and also saves it beside the current cdb. When disabled, it only copies to the clipboard.",
     "package_include_title": "Package Includes",
     "package_include_description": "One file or folder pattern per line, relative to the current CDB folder. * wildcards and the {code} / {name} placeholders are supported.",
-    "package_include_hint": "Defaults include pics/{code}.jpg, pics/field/{code}.jpg, script/{code}.lua, strings.conf, and lflist.conf. The CDB file itself is always packaged.",
+    "package_include_hint": "Defaults include pics/{code}.jpg, pics/field/{code}.jpg, script/c{code}.lua, strings.conf, and lflist.conf. The CDB file itself is always packaged.",
     "error_log_title": "Error Log",
     "error_log_description": "When the app hits an error, detailed information is written to a local log file for troubleshooting.",
     "error_log_open": "Open Log",

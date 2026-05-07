@@ -192,7 +192,7 @@
     "save_script_image_to_local_hint": "勾选后，脚本里的图片按钮会先写入剪贴板，再额外保存一份 PNG 到当前 cdb 所在目录；不勾选时只写入剪贴板。",
     "package_include_title": "打包包含项",
     "package_include_description": "每行一个相对当前 CDB 所在目录的文件或文件夹模式。支持 * 通配符和 {code}、{name} 占位符。",
-    "package_include_hint": "默认会包含 pics/{code}.jpg、pics/field/{code}.jpg、script/{code}.lua、strings.conf 和 lflist.conf；CDB 文件本身始终会打包。",
+    "package_include_hint": "默认会包含 pics/{code}.jpg、pics/field/{code}.jpg、script/c{code}.lua、strings.conf 和 lflist.conf；CDB 文件本身始终会打包。",
     "error_log_title": "错误日志",
     "error_log_description": "程序出错时会把详细信息写入本地日志，便于排查问题。",
     "error_log_open": "打开日志",

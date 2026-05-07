@@ -9,6 +9,14 @@ use crate::{
     ERROR_LOG_FILE_NAME, LOGS_DIR_NAME, SETTINGS_FILE_NAME,
 };
 
+const LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS: &[&str] = &[
+    "pics/{code}.jpg",
+    "pics/field/{code}.jpg",
+    "script/{code}.lua",
+    "strings.conf",
+    "lflist.conf",
+];
+
 pub(crate) fn ensure_app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
     fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
@@ -114,7 +122,12 @@ pub(crate) fn normalize_package_include_patterns(value: Option<Vec<String>>) -> 
         .filter(|item| seen.insert(item.clone()))
         .collect::<Vec<_>>();
 
-    if patterns.is_empty() {
+    if patterns.is_empty()
+        || patterns
+            .iter()
+            .map(String::as_str)
+            .eq(LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS.iter().copied())
+    {
         DEFAULT_PACKAGE_INCLUDE_PATTERNS
             .iter()
             .map(|item| item.to_string())
@@ -211,6 +224,19 @@ mod tests {
         );
         assert_eq!(
             normalize_package_include_patterns(Some(Vec::new())),
+            DEFAULT_PACKAGE_INCLUDE_PATTERNS
+                .iter()
+                .map(|item| item.to_string())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            normalize_package_include_patterns(Some(vec![
+                "pics/{code}.jpg".to_string(),
+                "pics/field/{code}.jpg".to_string(),
+                "script/{code}.lua".to_string(),
+                "strings.conf".to_string(),
+                "lflist.conf".to_string(),
+            ])),
             DEFAULT_PACKAGE_INCLUDE_PATTERNS
                 .iter()
                 .map(|item| item.to_string())

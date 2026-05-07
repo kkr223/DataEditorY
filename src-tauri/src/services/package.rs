@@ -506,12 +506,12 @@ mod tests {
         fs::write(field_pics_dir.join("111.jpg"), [4u8]).unwrap();
         fs::write(field_pics_dir.join("222.jpg"), [5u8]).unwrap();
         fs::write(
-            script_dir.join("111.lua"),
+            script_dir.join("c111.lua"),
             "Duel.LoadScript(\"utility.lua\")",
         )
         .unwrap();
-        fs::write(script_dir.join("222.lua"), "-- direct").unwrap();
-        fs::write(script_dir.join("333.lua"), "-- unrelated").unwrap();
+        fs::write(script_dir.join("c222.lua"), "-- direct").unwrap();
+        fs::write(script_dir.join("c333.lua"), "-- unrelated").unwrap();
         fs::write(script_dir.join("utility.lua"), "-- shared").unwrap();
         fs::write(root.join("strings.conf"), "# strings").unwrap();
         fs::write(root.join("lflist.conf"), "# lf").unwrap();
@@ -537,14 +537,14 @@ mod tests {
         assert!(entries.contains(&"pics/222.jpg".to_string()));
         assert!(entries.contains(&"pics/field/111.jpg".to_string()));
         assert!(entries.contains(&"pics/field/222.jpg".to_string()));
-        assert!(entries.contains(&"script/111.lua".to_string()));
-        assert!(entries.contains(&"script/222.lua".to_string()));
+        assert!(entries.contains(&"script/c111.lua".to_string()));
+        assert!(entries.contains(&"script/c222.lua".to_string()));
         assert!(entries.contains(&"script/utility.lua".to_string()));
         assert!(entries.contains(&"strings.conf".to_string()));
         assert!(entries.contains(&"lflist.conf".to_string()));
         assert!(!entries.contains(&"custom.CONF".to_string()));
         assert!(!entries.contains(&"pics/333.jpg".to_string()));
-        assert!(!entries.contains(&"script/333.lua".to_string()));
+        assert!(!entries.contains(&"script/c333.lua".to_string()));
         assert!(!entries.contains(&"notes.txt".to_string()));
 
         let _ = fs::remove_dir_all(&root);
@@ -563,7 +563,7 @@ mod tests {
 
         create_test_cdb(&cdb_path, &[(111, 0x1)]);
         fs::write(pics_dir.join("111.jpg"), [1u8, 2u8, 3u8]).unwrap();
-        fs::write(script_dir.join("111.lua"), "print('hello')").unwrap();
+        fs::write(script_dir.join("c111.lua"), "print('hello')").unwrap();
 
         package_cdb_assets_as_zip(
             cdb_path.to_string_lossy().to_string(),
@@ -576,7 +576,7 @@ mod tests {
             vec![1u8, 2u8, 3u8]
         );
         assert_eq!(
-            fs::read_to_string(script_dir.join("111.lua")).unwrap(),
+            fs::read_to_string(script_dir.join("c111.lua")).unwrap(),
             "print('hello')"
         );
 

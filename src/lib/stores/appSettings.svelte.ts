@@ -19,10 +19,21 @@ const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 export const DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
   'pics/{code}.jpg',
   'pics/field/{code}.jpg',
+  'script/c{code}.lua',
+  'strings.conf',
+  'lflist.conf',
+];
+const LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
+  'pics/{code}.jpg',
+  'pics/field/{code}.jpg',
   'script/{code}.lua',
   'strings.conf',
   'lflist.conf',
 ];
+
+function isSamePatternList(left: string[], right: string[]) {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
+}
 
 function createDefaultSettings(): AppSettingsPayload {
   return {
@@ -51,7 +62,11 @@ function normalizePackageIncludePatterns(value: string[] | null | undefined) {
   const patterns = (value ?? [])
     .map((item) => String(item ?? '').trim().replace(/\\/g, '/'))
     .filter((item) => item.length > 0);
-  return patterns.length > 0 ? Array.from(new Set(patterns)) : [...DEFAULT_PACKAGE_INCLUDE_PATTERNS];
+  const uniquePatterns = Array.from(new Set(patterns));
+  if (uniquePatterns.length === 0 || isSamePatternList(uniquePatterns, LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS)) {
+    return [...DEFAULT_PACKAGE_INCLUDE_PATTERNS];
+  }
+  return uniquePatterns;
 }
 
 function resolveCoverSrc(path: string | null, revision: number): string {
