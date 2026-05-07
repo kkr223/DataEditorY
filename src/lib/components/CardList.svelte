@@ -562,15 +562,15 @@
   .type-trap { color: var(--card-list-type-trap); }
 
   /* Pagination */
-  .pagination-bar { display: flex; align-items: center; justify-content: center; gap: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-md); border-top: 1px solid var(--border-color); background-color: var(--bg-surface); flex-shrink: 0; }
-  .page-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0 !important; border-radius: var(--control-radius); background: var(--bg-surface-active); color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.15s; }
+  .pagination-bar { display: flex; align-items: center; justify-content: center; gap: 4px; padding: var(--spacing-xs) 8px; border-top: 1px solid var(--border-color); background-color: var(--bg-surface); flex-shrink: 0; }
+  .page-btn { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0 !important; border-radius: var(--control-radius); background: var(--bg-surface-active); color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.15s; }
   .page-btn:hover:not(:disabled) { background: var(--bg-surface-hover); color: var(--text-primary); }
   .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-  .page-info { font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 60px; text-align: center; }
-  .page-divider { width: 1px; height: 20px; background: var(--border-color); margin: 0 var(--spacing-xs); }
-  .page-jump-input { width: 3.4rem !important; height: 1.9rem; text-align: center; font-size: 0.9rem !important; padding: 0.15rem 0.25rem !important; }
+  .page-info { flex: 0 0 auto; font-size: 0.84rem; color: var(--text-secondary); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 52px; text-align: center; }
+  .page-divider { flex: 0 0 auto; width: 1px; height: 18px; background: var(--border-color); margin: 0 2px; }
+  .page-jump-input { flex: 0 0 auto; width: 3rem !important; height: 1.7rem; text-align: center; font-size: 0.84rem !important; padding: 0.1rem 0.2rem !important; }
   .page-jump-input::-webkit-inner-spin-button, .page-jump-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-  .page-go { width: auto !important; padding: 0 0.6rem !important; font-size: 0.88rem; font-weight: 600; }
+  .page-go { width: auto !important; min-width: 2.45rem; padding: 0 0.45rem !important; font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
 
   /* Range Inputs */
   .range-inputs { display: flex; align-items: center; gap: 4px; }
