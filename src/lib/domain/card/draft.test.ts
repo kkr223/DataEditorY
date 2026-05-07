@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   areCardsEquivalent,
   CARD_TEXT_SLOT_COUNT,
+  cloneLoadedCardForEditing,
   createCardDraftState,
   createEmptyCard,
   formatEditableScaleValue,
@@ -12,6 +13,7 @@ import {
   parseEditableScaleInput,
   parseEditableStatInput,
   toPersistableCard,
+  toPersistableDraftCard,
 } from './draft';
 
 describe('card draft helpers', () => {
@@ -53,6 +55,51 @@ describe('card draft helpers', () => {
     expect((persistable.level >> 24) & 0xff).toBe(0);
     expect((persistable.level >> 16) & 0xff).toBe(13);
     expect(persistable.strings).toHaveLength(CARD_TEXT_SLOT_COUNT);
+  });
+
+  test('uses normalized ruleCode as editable alias when loading cards', () => {
+    const loadedCard = {
+      ...createEmptyCard(),
+      code: 100_000_002,
+      alias: 0,
+      ruleCode: 100_000_900,
+    };
+
+    const editable = cloneLoadedCardForEditing(loadedCard);
+
+    expect(editable.alias).toBe(100_000_900);
+    expect(editable.ruleCode).toBe(100_000_900);
+  });
+
+  test('preserves alias chains when preparing loaded cards for editing', () => {
+    const loadedCard = {
+      ...createEmptyCard(),
+      code: 20_001,
+      alias: 20_000,
+      ruleCode: 10_000,
+    };
+
+    const editable = cloneLoadedCardForEditing(loadedCard);
+    const persistable = toPersistableDraftCard(editable);
+
+    expect(editable.alias).toBe(20_000);
+    expect(editable.ruleCode).toBe(10_000);
+    expect(persistable.alias).toBe(20_000);
+    expect(persistable.ruleCode).toBe(10_000);
+  });
+
+  test('clears derived ruleCode when editable draft alias is cleared', () => {
+    const card = {
+      ...createEmptyCard(),
+      code: 100_000_002,
+      alias: 0,
+      ruleCode: 100_000_900,
+    };
+
+    const persistable = toPersistableDraftCard(card);
+
+    expect(persistable.alias).toBe(0);
+    expect(persistable.ruleCode).toBe(0);
   });
 
   test('formats and parses editable atk/def values with question-mark semantics', () => {

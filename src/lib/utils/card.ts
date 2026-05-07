@@ -8,6 +8,7 @@ export {
 } from '$lib/domain/card/taxonomy';
 export {
   cloneEditableCard,
+  cloneLoadedCardForEditing,
   createEmptyCard,
   formatEditableScaleValue,
   formatEditableStatValue,

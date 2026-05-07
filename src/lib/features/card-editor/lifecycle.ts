@@ -1,6 +1,6 @@
 import { showToast } from '$lib/stores/toast.svelte';
 import { loadPopularSetcodes, getSetcode } from '$lib/utils/setcode';
-import { cloneEditableCard } from '$lib/utils/card';
+import { cloneEditableCard, cloneLoadedCardForEditing } from '$lib/utils/card';
 import { createCardSnapshot } from '$lib/domain/card/draft';
 import { APP_SHORTCUT_EVENT } from '$lib/utils/shortcuts';
 import { resolveCardImageSrc } from '$lib/services/cardImageService';
@@ -269,7 +269,7 @@ export function syncLoadedDraftEffect(input: {
     // the DB backend returns cards with un-extracted lscale/rscale fields.  This
     // must mirror the normalization performed in buildLoadedDraftState, which also
     // stores a normalized snapshot in lastLoadedCardSnapshot.
-    const nextSnapshot = createCardSnapshot(cloneEditableCard(input.selectedCard));
+    const nextSnapshot = createCardSnapshot(cloneLoadedCardForEditing(input.selectedCard));
     if (input.lastSyncedSelectedId !== input.selectedCard.code || input.lastLoadedCardSnapshot !== nextSnapshot) {
       input.loadCardIntoDraft(input.selectedCard);
       void input.refreshDraftImage(input.selectedCard.code);

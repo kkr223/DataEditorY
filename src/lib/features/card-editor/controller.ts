@@ -1,7 +1,7 @@
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import type { CardDataEntry, SearchFilters } from '$lib/types';
 import type { ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
-import { cloneEditableCard, createEmptyCard } from '$lib/utils/card';
+import { cloneEditableCard, cloneLoadedCardForEditing, createEmptyCard } from '$lib/utils/card';
 import { createCardSnapshot } from '$lib/domain/card/draft';
 import { ATTRIBUTE_MAP, LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
 
@@ -35,7 +35,7 @@ export function buildLoadedDraftState(card: CardDataEntry) {
   // returned by the DB backend (e.g. lscale/rscale not yet extracted from the
   // packed level column) would make isDraftDirty() return true immediately after
   // loading a card, causing a spurious "unsaved changes" prompt on navigation.
-  const normalizedCard = cloneEditableCard(card);
+  const normalizedCard = cloneLoadedCardForEditing(card);
   return {
     lastSyncedSelectedId: normalizedCard.code,
     lastLoadedCardSnapshot: createCardSnapshot(normalizedCard),
