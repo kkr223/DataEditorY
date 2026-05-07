@@ -1,4 +1,5 @@
 import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
+import { normalizeShortcutBindingMap } from '$lib/features/shortcuts/registry';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 
 export interface AppSettingsPayload {
@@ -9,6 +10,7 @@ export interface AppSettingsPayload {
   useExternalScriptEditor: boolean;
   saveScriptImageToLocal: boolean;
   packageIncludePatterns: string[];
+  shortcutBindings: Record<string, string>;
   hasSecretKey: boolean;
   coverImagePath: string | null;
   errorLogPath: string;
@@ -16,7 +18,16 @@ export interface AppSettingsPayload {
 
 const DEFAULT_COVER_SRC = '/resources/cover.jpg';
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
+const DEFAULT_SCRIPT_TEMPLATE = '-- {name}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n';
+const LEGACY_DEFAULT_SCRIPT_TEMPLATE = '-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n';
 export const DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
+  'pics/{code}.jpg',
+  'pics/field/{code}.jpg',
+  'script/c{code}.lua',
+  'strings.conf',
+  'lflist.conf',
+];
+const LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
   'pics/{code}.jpg',
   'pics/field/{code}.jpg',
   'script/{code}.lua',
@@ -24,15 +35,20 @@ export const DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
   'lflist.conf',
 ];
 
+function isSamePatternList(left: string[], right: string[]) {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
 function createDefaultSettings(): AppSettingsPayload {
   return {
     apiBaseUrl: '',
     model: 'gpt-4o-mini',
     temperature: 1,
-    scriptTemplate: '-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n',
+    scriptTemplate: DEFAULT_SCRIPT_TEMPLATE,
     useExternalScriptEditor: false,
     saveScriptImageToLocal: false,
     packageIncludePatterns: [...DEFAULT_PACKAGE_INCLUDE_PATTERNS],
+    shortcutBindings: normalizeShortcutBindingMap(undefined),
     hasSecretKey: false,
     coverImagePath: null,
     errorLogPath: '',
@@ -51,7 +67,19 @@ function normalizePackageIncludePatterns(value: string[] | null | undefined) {
   const patterns = (value ?? [])
     .map((item) => String(item ?? '').trim().replace(/\\/g, '/'))
     .filter((item) => item.length > 0);
-  return patterns.length > 0 ? Array.from(new Set(patterns)) : [...DEFAULT_PACKAGE_INCLUDE_PATTERNS];
+  const uniquePatterns = Array.from(new Set(patterns));
+  if (uniquePatterns.length === 0 || isSamePatternList(uniquePatterns, LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS)) {
+    return [...DEFAULT_PACKAGE_INCLUDE_PATTERNS];
+  }
+  return uniquePatterns;
+}
+
+function normalizeScriptTemplate(value: string | null | undefined) {
+  const template = value ?? '';
+  if (!template.trim() || template === LEGACY_DEFAULT_SCRIPT_TEMPLATE) {
+    return DEFAULT_SCRIPT_TEMPLATE;
+  }
+  return template;
 }
 
 function resolveCoverSrc(path: string | null, revision: number): string {
@@ -80,10 +108,11 @@ function applySettings(payload: AppSettingsPayload) {
     apiBaseUrl: payload.apiBaseUrl ?? '',
     model: payload.model?.trim() || 'gpt-4o-mini',
     temperature: normalizeTemperature(payload.temperature),
-    scriptTemplate: payload.scriptTemplate?.trim() ? payload.scriptTemplate : createDefaultSettings().scriptTemplate,
+    scriptTemplate: normalizeScriptTemplate(payload.scriptTemplate),
     useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
     saveScriptImageToLocal: Boolean(payload.saveScriptImageToLocal),
     packageIncludePatterns: normalizePackageIncludePatterns(payload.packageIncludePatterns),
+    shortcutBindings: normalizeShortcutBindingMap(payload.shortcutBindings),
     hasSecretKey: Boolean(payload.hasSecretKey),
     coverImagePath: payload.coverImagePath ?? null,
     errorLogPath: payload.errorLogPath ?? '',
@@ -140,6 +169,7 @@ export async function saveAppSettings(input: {
   useExternalScriptEditor?: boolean;
   saveScriptImageToLocal?: boolean;
   packageIncludePatterns?: string[];
+  shortcutBindings?: Record<string, string>;
   secretKey?: string;
   clearSecretKey?: boolean;
 }) {
@@ -155,6 +185,9 @@ export async function saveAppSettings(input: {
         saveScriptImageToLocal: input.saveScriptImageToLocal,
         packageIncludePatterns: input.packageIncludePatterns
           ? normalizePackageIncludePatterns(input.packageIncludePatterns)
+          : undefined,
+        shortcutBindings: input.shortcutBindings
+          ? normalizeShortcutBindingMap(input.shortcutBindings)
           : undefined,
         secretKey: input.secretKey,
         clearSecretKey: input.clearSecretKey,

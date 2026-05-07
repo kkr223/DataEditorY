@@ -91,9 +91,11 @@ export function toPersistableCard(card: CardDataEntry): CardDataEntry {
   const lscale = normalizeEditableScaleValue(card.lscale);
   const rscale = normalizeEditableScaleValue(card.rscale);
   const level = Number.isFinite(card.level) ? (card.level & 0xff) : 0;
+  const alias = normalizeRuleCode(card.alias);
 
   return {
     ...card,
+    alias,
     attack: normalizeEditableStatValue(card.attack),
     defense: normalizeEditableStatValue(card.defense),
     level: (level & 0xff) | ((rscale & 0xff) << 16) | ((lscale & 0xff) << 24),
@@ -105,8 +107,23 @@ export function toPersistableCard(card: CardDataEntry): CardDataEntry {
   };
 }
 
+export function toPersistableDraftCard(card: CardDataEntry): CardDataEntry {
+  const persistable = toPersistableCard(card);
+  return persistable.alias === 0
+    ? { ...persistable, ruleCode: 0 }
+    : persistable;
+}
+
 export function cloneEditableCard(card: CardDataEntry): CardDataEntry {
   return toPersistableCard(card);
+}
+
+export function cloneLoadedCardForEditing(card: CardDataEntry): CardDataEntry {
+  const storedAlias = normalizeRuleCode(card.alias) || normalizeRuleCode(card.ruleCode);
+  return toPersistableCard({
+    ...card,
+    alias: storedAlias,
+  });
 }
 
 export function createEmptyCard(): CardDataEntry {

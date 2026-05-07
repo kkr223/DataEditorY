@@ -6,7 +6,7 @@ import { setSingleSelectedCard, updateVisibleCards } from '$lib/stores/editor.sv
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { cloneEditableCard } from '$lib/utils/card';
-import { createCardSnapshot, toPersistableCard } from '$lib/domain/card/draft';
+import { createCardSnapshot, toPersistableDraftCard } from '$lib/domain/card/draft';
 import {
   ensureCardScriptFile,
   getExistingCardScriptInfo,
@@ -52,7 +52,7 @@ export async function saveDraftCardFlow(input: {
   const targetCode = Number(input.draftCard.code ?? 0);
   const nextCard = cloneEditableCard(input.draftCard);
   nextCard.code = targetCode;
-  const dbCard = toPersistableCard(nextCard);
+  const dbCard = toPersistableDraftCard(nextCard);
 
   const ok = await modifyCard(dbCard);
   if (!ok) {

@@ -21,7 +21,7 @@ pub fn search_cards_page(
         let cdb = session
             .cdb
             .lock()
-            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let page = request.page.unwrap_or(1).max(1);
         let page_size = request
             .page_size
@@ -42,7 +42,7 @@ pub fn query_cards_raw(
         let cdb = session
             .cdb
             .lock()
-            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         cdb.query_raw(&request.query_clause, &request.params)
             .map_err(|err| err.to_string())
     })
@@ -57,7 +57,7 @@ pub fn get_card_by_id(
         let cdb = session
             .cdb
             .lock()
-            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         cdb.find_by_id(card_id).map_err(|err| err.to_string())
     })
 }
@@ -70,7 +70,7 @@ pub fn get_cards_by_ids(
         let cdb = session
             .cdb
             .lock()
-            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         cdb.find_by_ids(&request.card_ids)
             .map_err(|err| err.to_string())
     })
@@ -81,7 +81,7 @@ pub fn modify_cards(sessions: &OpenCdbSessions, request: ModifyCardsRequest) -> 
         let mut cdb = session
             .cdb
             .lock()
-            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         cdb.add_cards(&request.cards).map_err(|err| err.to_string())
     })
 }
@@ -91,7 +91,7 @@ pub fn delete_cards(sessions: &OpenCdbSessions, request: DeleteCardsRequest) -> 
         let mut cdb = session
             .cdb
             .lock()
-            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         cdb.remove_cards(&request.card_ids)
             .map_err(|err| err.to_string())
     })
@@ -109,7 +109,7 @@ pub fn undo_modify_operation(
         let mut cdb = session
             .cdb
             .lock()
-            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         cdb.undo_modify(&request.cards_to_restore, &request.ids_to_delete)
             .map_err(|err| err.to_string())
     })

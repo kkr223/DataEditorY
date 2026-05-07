@@ -13,6 +13,7 @@
   export let cancelLabel = '';
   export let reloadLabel = '';
   export let reloadingLabel = '';
+  export let checkDiagnosticsLabel = '';
   export let openExternalLabel = '';
   export let imageActionLabel = '';
   export let saveLabel = '';
@@ -22,6 +23,7 @@
   export let onGenerate: () => void | Promise<void> = () => {};
   export let onCancelGenerate: () => void = () => {};
   export let onReload: () => void | Promise<void> = () => {};
+  export let onCheckDiagnostics: () => void | Promise<void> = () => {};
   export let onOpenExternal: () => void | Promise<void> = () => {};
   export let onShareImage: () => void | Promise<void> = () => {};
   export let onSave: () => void | Promise<void> = () => {};
@@ -49,6 +51,9 @@
     {/if}
     <button class="btn-secondary" type="button" onclick={onReload} disabled={isReloading}>
       {isReloading ? reloadingLabel : reloadLabel}
+    </button>
+    <button class="btn-secondary" type="button" onclick={onCheckDiagnostics}>
+      {checkDiagnosticsLabel}
     </button>
     <button class="btn-secondary" type="button" onclick={onOpenExternal}>
       {openExternalLabel}

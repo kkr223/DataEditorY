@@ -24,6 +24,9 @@ export type OpenScriptTabResult = {
   createdFromTemplate: boolean;
 };
 
+/** Prevents duplicate tab creation for the same cdb+card while a request is in flight. */
+const inflightOpenRequests = new Map<string, Promise<OpenScriptTabResult>>();
+
 function getScriptKey(cdbPath: string, cardCode: number) {
   return `${cdbPath}::${cardCode}`;
 }
@@ -121,6 +124,12 @@ export async function openOrCreateScriptTab(input: {
   cardName: string;
   templateContent: string;
 }): Promise<OpenScriptTabResult> {
+  const key = getScriptKey(input.cdbPath, input.cardCode);
+
+  // Reuse an inflight request to avoid duplicate tabs for the same cdb+card.
+  const inflight = inflightOpenRequests.get(key);
+  if (inflight) return inflight;
+
   const existing = getScriptTabByKey(input.cdbPath, input.cardCode);
   if (existing) {
     activateScriptTab(existing.id);
@@ -130,61 +139,70 @@ export async function openOrCreateScriptTab(input: {
     };
   }
 
-  const loaded = await readScriptDocument(input.cdbPath, input.cardCode);
-  let content = normalizeScriptContent(loaded.content);
-  let savedContent = content;
-  let createdFromTemplate = false;
+  const promise = (async () => {
+    try {
+      const loaded = await readScriptDocument(input.cdbPath, input.cardCode);
+      let content = normalizeScriptContent(loaded.content);
+      let savedContent = content;
+      let createdFromTemplate = false;
 
-  if (!loaded.exists) {
-    content = normalizeScriptContent(input.templateContent);
-    const saved = await saveCardScriptDocument(input.cdbPath, input.cardCode, content);
-    savedContent = content;
-    createdFromTemplate = true;
+      if (!loaded.exists) {
+        content = normalizeScriptContent(input.templateContent);
+        const saved = await saveCardScriptDocument(input.cdbPath, input.cardCode, content);
+        savedContent = content;
+        createdFromTemplate = true;
 
-    const nextTab: ScriptWorkspaceState = {
-      id: crypto.randomUUID(),
-      cdbPath: input.cdbPath,
-      sourceTabId: input.sourceTabId,
-      cardCode: input.cardCode,
-      cardName: input.cardName,
-      scriptPath: saved.path,
-      content,
-      savedContent,
-      isDirty: false,
-      viewState: null,
-      createdFromTemplate,
-    };
+        const nextTab: ScriptWorkspaceState = {
+          id: crypto.randomUUID(),
+          cdbPath: input.cdbPath,
+          sourceTabId: input.sourceTabId,
+          cardCode: input.cardCode,
+          cardName: input.cardName,
+          scriptPath: saved.path,
+          content,
+          savedContent,
+          isDirty: false,
+          viewState: null,
+          createdFromTemplate,
+        };
 
-    scriptTabs.update((currentTabs) => [...currentTabs, nextTab]);
-    activeScriptTabId.set(nextTab.id);
-    activateScriptView();
-    return {
-      tabId: nextTab.id,
-      createdFromTemplate: true,
-    };
-  }
+        scriptTabs.update((currentTabs) => [...currentTabs, nextTab]);
+        activeScriptTabId.set(nextTab.id);
+        activateScriptView();
+        return {
+          tabId: nextTab.id,
+          createdFromTemplate: true,
+        };
+      }
 
-  const nextTab: ScriptWorkspaceState = {
-    id: crypto.randomUUID(),
-    cdbPath: input.cdbPath,
-    sourceTabId: input.sourceTabId,
-    cardCode: input.cardCode,
-    cardName: input.cardName,
-    scriptPath: loaded.path,
-    content,
-    savedContent,
-    isDirty: false,
-    viewState: null,
-    createdFromTemplate,
-  };
+      const nextTab: ScriptWorkspaceState = {
+        id: crypto.randomUUID(),
+        cdbPath: input.cdbPath,
+        sourceTabId: input.sourceTabId,
+        cardCode: input.cardCode,
+        cardName: input.cardName,
+        scriptPath: loaded.path,
+        content,
+        savedContent,
+        isDirty: false,
+        viewState: null,
+        createdFromTemplate,
+      };
 
-  scriptTabs.update((currentTabs) => [...currentTabs, nextTab]);
-  activeScriptTabId.set(nextTab.id);
-  activateScriptView();
-  return {
-    tabId: nextTab.id,
-    createdFromTemplate: false,
-  };
+      scriptTabs.update((currentTabs) => [...currentTabs, nextTab]);
+      activeScriptTabId.set(nextTab.id);
+      activateScriptView();
+      return {
+        tabId: nextTab.id,
+        createdFromTemplate: false,
+      };
+    } finally {
+      inflightOpenRequests.delete(key);
+    }
+  })();
+
+  inflightOpenRequests.set(key, promise);
+  return promise;
 }
 
 export function updateScriptTabContent(tabId: string, content: string) {

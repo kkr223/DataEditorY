@@ -1,6 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { disableAutofill } from '$lib/actions/disableAutofill';
+  import { appSettingsState } from '$lib/stores/appSettings.svelte';
+  import { isShortcutEvent } from '$lib/features/shortcuts/registry';
   import type { LuaReferenceManualItem, LuaReferenceManualKind } from '$lib/utils/luaReferenceManual';
 
   export let open = false;
@@ -44,7 +46,7 @@
   }
 
   function handleBackdropKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
+    if (isShortcutEvent('scriptEditor.closeReference', event, appSettingsState.values.shortcutBindings)) {
       event.preventDefault();
       onClose();
     }

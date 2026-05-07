@@ -16,7 +16,9 @@
     shareScriptImageFlow,
   } from '$lib/features/script-editor/useCases';
   import { buildScriptImageRenderInfo } from '$lib/features/script-editor/view';
+  import { sortLuaDiagnosticsByLocation } from '$lib/features/script-editor/controller';
   import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
+  import ScriptDiagnosticsOverlay from '$lib/features/script-editor/components/ScriptDiagnosticsOverlay.svelte';
   import ScriptHintOverlays from '$lib/features/script-editor/components/ScriptHintOverlays.svelte';
   import ScriptReferenceOverlay from '$lib/features/script-editor/components/ScriptReferenceOverlay.svelte';
   import ScriptSidePanel from '$lib/features/script-editor/components/ScriptSidePanel.svelte';
@@ -25,6 +27,7 @@
     type ScriptEditorCoreHintState,
     type ScriptEditorCoreReferenceState,
   } from '$lib/features/script-editor/components/ScriptEditorCore.svelte';
+  import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded, type LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
 
   type ScriptEditorExtraUseCasesModule = typeof import('$lib/features/script-editor/extraUseCases');
   type ScriptEditorCoreHandle = {
@@ -34,6 +37,7 @@
     persistString: (index: number) => Promise<void>;
     closeReferenceOverlay: () => void;
     insertReferenceItem: (item: import('$lib/utils/luaReferenceManual').LuaReferenceManualItem) => void;
+    revealDiagnosticLocation: (diagnostic: Pick<LuaScriptDiagnostic, 'startLineNumber' | 'startColumn' | 'endLineNumber' | 'endColumn'>) => void;
   };
 
   const hasAiCapability = isCapabilityEnabled('ai');
@@ -51,6 +55,8 @@
   let scriptGenerationStage = $state<ScriptGenerationStage | ''>('');
   let scriptGenerationAbortController = $state<AbortController | null>(null);
   let scriptEditorExtraUseCasesPromise = $state<Promise<ScriptEditorExtraUseCasesModule> | null>(null);
+  let diagnosticsOverlayOpen = $state(false);
+  let scriptDiagnostics = $state<LuaScriptDiagnostic[]>([]);
   let hintState = $state<ScriptEditorCoreHintState>({
     suggestHintText: '',
     suggestHintPlacement: 'top',
@@ -163,6 +169,24 @@
     }
   }
 
+  async function handleCheckDiagnostics() {
+    const tab = $activeScriptTab;
+    if (!tab) return;
+
+    await ensureLuaDiagnosticsCatalogLoaded();
+    const diagnostics = sortLuaDiagnosticsByLocation(analyzeLuaScript(tab.content));
+    scriptDiagnostics = diagnostics;
+    diagnosticsOverlayOpen = true;
+    editorCore?.closeReferenceOverlay();
+    if (diagnostics.length > 0) {
+      editorCore?.revealDiagnosticLocation(diagnostics[0]);
+    }
+  }
+
+  function handleSelectDiagnostic(diagnostic: LuaScriptDiagnostic) {
+    editorCore?.revealDiagnosticLocation(diagnostic);
+  }
+
   async function handleOpenExternal() {
     await openScriptExternallyFlow({
       tab: $activeScriptTab,
@@ -211,6 +235,7 @@
       cancelLabel={$_('editor.script_cancel_button')}
       reloadLabel={$_('editor.script_reload')}
       reloadingLabel={$_('editor.script_reloading')}
+      checkDiagnosticsLabel={$_('editor.script_check_diagnostics')}
       openExternalLabel={$_('editor.script_open_external')}
       imageActionLabel={$_(hasSelectedCode ? 'editor.script_export_selected_image' : 'editor.script_export_image')}
       saveLabel={$_('editor.script_save')}
@@ -220,6 +245,7 @@
       onGenerate={handleGenerateScript}
       onCancelGenerate={handleCancelGenerateScript}
       onReload={handleReload}
+      onCheckDiagnostics={handleCheckDiagnostics}
       onOpenExternal={handleOpenExternal}
       onShareImage={handleShareImage}
       onSave={handleSave}
@@ -261,6 +287,22 @@
           items={referenceState.kind ? referenceState.items[referenceState.kind] : []}
           onClose={() => editorCore?.closeReferenceOverlay()}
           onInsert={(item) => editorCore?.insertReferenceItem(item)}
+        />
+
+        <ScriptDiagnosticsOverlay
+          open={diagnosticsOverlayOpen}
+          title={$_('editor.script_diagnostics_title')}
+          summaryText={scriptDiagnostics.length > 0
+            ? $_('editor.script_diagnostics_found', { values: { count: String(scriptDiagnostics.length) } })
+            : $_('editor.script_diagnostics_none')}
+          emptyText={$_('editor.script_diagnostics_none')}
+          closeLabel={$_('editor.script_reference_close')}
+          lineColumnLabel={$_('editor.script_diagnostics_line_column')}
+          errorLabel={$_('editor.script_diagnostics_error')}
+          warningLabel={$_('editor.script_diagnostics_warning')}
+          diagnostics={scriptDiagnostics}
+          onClose={() => { diagnosticsOverlayOpen = false; }}
+          onSelect={handleSelectDiagnostic}
         />
       </ScriptEditorCore>
 

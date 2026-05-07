@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { appSettingsState } from '$lib/stores/appSettings.svelte';
+  import { isShortcutEvent } from '$lib/features/shortcuts/registry';
   import type { ScriptWorkspaceState } from '$lib/types';
 
   let {
@@ -29,7 +31,7 @@
   }
 
   function handleTabKeydown(event: KeyboardEvent, tabId: string) {
-    if (event.key !== 'Delete' || !(event.ctrlKey || event.metaKey)) {
+    if (!isShortcutEvent('scriptEditor.closeTab', event, appSettingsState.values.shortcutBindings)) {
       return;
     }
 

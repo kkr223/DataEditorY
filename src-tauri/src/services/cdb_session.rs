@@ -56,8 +56,14 @@ pub fn save_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), St
         let _cdb_guard = session
             .cdb
             .lock()
-            .map_err(|_| "Failed to acquire CDB lock".to_string())?;
-        fs::copy(&session.working_path, target_path).map_err(|err| err.to_string())?;
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        // Write to a temporary file then rename atomically to prevent
+        // corruption if the copy is interrupted (power loss, disk full).
+        let tmp_path = target_path.with_extension("cdb.tmp");
+        fs::copy(&session.working_path, &tmp_path).map_err(|err| err.to_string())?;
+        fs::rename(&tmp_path, target_path).map_err(|err| err.to_string())?;
+        // Best-effort cleanup of stale tmp file from a previous crash
+        let _ = fs::remove_file(target_path.with_extension("cdb.tmp"));
         Ok(())
     })
 }

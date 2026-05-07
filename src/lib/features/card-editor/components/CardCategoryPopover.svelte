@@ -18,8 +18,8 @@
   } = $props();
 
   let isOpen = $state(false);
-  let popoverEl: HTMLElement | null = null;
-  let hostEl: HTMLElement | null = null;
+  let popoverEl = $state<HTMLElement | null>(null);
+  let hostEl = $state<HTMLElement | null>(null);
 
   const CATEGORY_OPTIONS: CategoryOption[] = [
     { bit: 0x1 },

@@ -23,7 +23,10 @@ export function normalizeGeneratedScript(script: string) {
 
 export function applyScriptTemplate(template: string, cardName: string, cardCode: number) {
   const safeName = cardName?.trim() || `Card ${cardCode}`;
-  return (template || '').replaceAll('{卡名}', safeName);
+  return (template || '')
+    .replaceAll('{name}', safeName)
+    .replaceAll('{code}', String(cardCode))
+    .replaceAll('{卡名}', safeName);
 }
 
 export function isAbortError(error: unknown) {

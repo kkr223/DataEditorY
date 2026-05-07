@@ -1,9 +1,10 @@
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import type { CardDataEntry, SearchFilters } from '$lib/types';
 import type { ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
-import { cloneEditableCard, createEmptyCard } from '$lib/utils/card';
+import { cloneEditableCard, cloneLoadedCardForEditing, createEmptyCard } from '$lib/utils/card';
 import { createCardSnapshot } from '$lib/domain/card/draft';
 import { ATTRIBUTE_MAP, LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
+import { isShortcutEvent } from '$lib/features/shortcuts/registry';
 
 export const CARD_LIST_PAGE_SIZE = 50;
 const MAX_DRAFT_UNDO_HISTORY = 100;
@@ -35,7 +36,7 @@ export function buildLoadedDraftState(card: CardDataEntry) {
   // returned by the DB backend (e.g. lscale/rscale not yet extracted from the
   // packed level column) would make isDraftDirty() return true immediately after
   // loading a card, causing a spurious "unsaved changes" prompt on navigation.
-  const normalizedCard = cloneEditableCard(card);
+  const normalizedCard = cloneLoadedCardForEditing(card);
   return {
     lastSyncedSelectedId: normalizedCard.code,
     lastLoadedCardSnapshot: createCardSnapshot(normalizedCard),
@@ -382,10 +383,6 @@ export function shouldIgnoreArrowNavigation(input: {
     input.event.defaultPrevented
     || input.event.repeat
     || input.event.isComposing
-    || input.event.ctrlKey
-    || input.event.metaKey
-    || input.event.altKey
-    || input.event.shiftKey
     || input.isEditableTarget(input.event.target)
     || input.isKeyboardNavigating
     || input.isParseModalOpen
@@ -450,18 +447,15 @@ export async function handleCardEditorKeydown(
     setCurrentPage: (page: number) => void;
     runSearch: () => Promise<void>;
     setKeyboardNavigating: (value: boolean) => void;
+    shortcutBindings: Partial<Record<string, string>>;
   },
 ) {
   if (event.defaultPrevented || event.repeat || event.isComposing || !input.isDbLoaded) {
     return;
   }
 
-  const isPrimary = event.ctrlKey || event.metaKey;
   if (
-    isPrimary
-    && !event.altKey
-    && !event.shiftKey
-    && event.key === 'Enter'
+    isShortcutEvent('cardEditor.modify', event, input.shortcutBindings)
     && !input.isKeyboardNavigating
     && !input.isParseModalOpen
     && !input.isCardImageDrawerOpen
@@ -488,7 +482,17 @@ export async function handleCardEditorKeydown(
     return;
   }
 
-  if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+  const navigationAction = isShortcutEvent('cardEditor.selectPrevious', event, input.shortcutBindings)
+    ? 'selectPrevious'
+    : isShortcutEvent('cardEditor.selectNext', event, input.shortcutBindings)
+      ? 'selectNext'
+      : isShortcutEvent('cardEditor.pagePrevious', event, input.shortcutBindings)
+        ? 'pagePrevious'
+        : isShortcutEvent('cardEditor.pageNext', event, input.shortcutBindings)
+          ? 'pageNext'
+          : null;
+
+  if (!navigationAction) {
     return;
   }
 
@@ -496,7 +500,7 @@ export async function handleCardEditorKeydown(
   input.setKeyboardNavigating(true);
 
   try {
-    if (event.key === 'ArrowUp') {
+    if (navigationAction === 'selectPrevious') {
       const nextCardCode = input.getSelectionTarget(-1);
       if (nextCardCode === null) {
         return;
@@ -508,7 +512,7 @@ export async function handleCardEditorKeydown(
       return;
     }
 
-    if (event.key === 'ArrowDown') {
+    if (navigationAction === 'selectNext') {
       const nextCardCode = input.getSelectionTarget(1);
       if (nextCardCode === null) {
         return;
@@ -520,7 +524,7 @@ export async function handleCardEditorKeydown(
       return;
     }
 
-    if (event.key === 'ArrowLeft') {
+    if (navigationAction === 'pagePrevious') {
       const nextPage = input.getPageTarget(-1);
       if (nextPage === null) {
         return;
@@ -533,7 +537,7 @@ export async function handleCardEditorKeydown(
       return;
     }
 
-    if (event.key === 'ArrowRight') {
+    if (navigationAction === 'pageNext') {
       const nextPage = input.getPageTarget(1);
       if (nextPage === null) {
         return;
@@ -552,8 +556,9 @@ export async function handleCardEditorKeydown(
 export function handleParseModalBackdropDismiss(
   event: KeyboardEvent,
   close: () => void,
+  shortcutBindings: Partial<Record<string, string>> = {},
 ) {
-  if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+  if (isShortcutEvent('cardEditor.dismissOverlay', event, shortcutBindings) || event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
     close();
   }

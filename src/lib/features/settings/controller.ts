@@ -1,4 +1,5 @@
 import type { AppSettingsPayload } from '$lib/stores/appSettings.svelte';
+import { hasShortcutConflicts, normalizeShortcutBindingMap } from '$lib/features/shortcuts/registry';
 
 export type SettingsFormState = {
   apiBaseUrl: string;
@@ -8,6 +9,7 @@ export type SettingsFormState = {
   useExternalScriptEditor: boolean;
   saveScriptImageToLocal: boolean;
   packageIncludePatternsText: string;
+  shortcutBindings: Record<string, string>;
   secretKey: string;
 };
 
@@ -20,6 +22,7 @@ export function createSettingsFormState(): SettingsFormState {
     useExternalScriptEditor: false,
     saveScriptImageToLocal: false,
     packageIncludePatternsText: '',
+    shortcutBindings: normalizeShortcutBindingMap(undefined),
     secretKey: '',
   };
 }
@@ -46,6 +49,10 @@ export function formatPackageIncludePatternsText(patterns: string[]) {
   return patterns.join('\n');
 }
 
+function formatShortcutBindings(bindings: Partial<Record<string, string>>) {
+  return JSON.stringify(normalizeShortcutBindingMap(bindings));
+}
+
 export function hydrateSettingsForm(
   form: SettingsFormState,
   values: AppSettingsPayload,
@@ -60,6 +67,7 @@ export function hydrateSettingsForm(
   form.useExternalScriptEditor = values.useExternalScriptEditor;
   form.saveScriptImageToLocal = values.saveScriptImageToLocal;
   form.packageIncludePatternsText = formatPackageIncludePatternsText(values.packageIncludePatterns);
+  form.shortcutBindings = normalizeShortcutBindingMap(values.shortcutBindings);
 
   if (!input.isHydrated) {
     form.secretKey = '';
@@ -81,7 +89,16 @@ export function isSettingsFormDirty(
     || form.useExternalScriptEditor !== values.useExternalScriptEditor
     || form.saveScriptImageToLocal !== values.saveScriptImageToLocal
     || formatPackageIncludePatternsText(parsePackageIncludePatternsText(form.packageIncludePatternsText)) !== formatPackageIncludePatternsText(values.packageIncludePatterns)
+    || formatShortcutBindings(form.shortcutBindings) !== formatShortcutBindings(values.shortcutBindings)
     || form.secretKey.trim().length > 0;
+}
+
+export function validateSettingsForm(form: SettingsFormState) {
+  if (hasShortcutConflicts(form.shortcutBindings)) {
+    return 'shortcut-conflict' as const;
+  }
+
+  return null;
 }
 
 export function shouldAutoConnectSettings(input: {

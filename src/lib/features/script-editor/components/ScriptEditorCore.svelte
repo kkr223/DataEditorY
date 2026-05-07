@@ -25,6 +25,7 @@
   import { onDestroy, onMount, untrack } from 'svelte';
   import { activeScriptTab, getActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
+  import { appSettingsState } from '$lib/stores/appSettings.svelte';
   import { collectLuaInlineHighlights } from '$lib/utils/luaScriptCalls';
   import type { CardDataEntry } from '$lib/types';
   import type { editor as MonacoEditor } from 'monaco-editor';
@@ -41,6 +42,7 @@
     type ScriptReferenceManualKind,
   } from '$lib/features/script-editor/controller';
   import { loadScriptCardContextFlow, saveScriptStringFlow, type ScriptImageSelection } from '$lib/features/script-editor/useCases';
+  import type { LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
   import {
     createScriptMonacoRuntime,
     type ScriptMonacoApi as MonacoApi,
@@ -325,6 +327,26 @@
     } satisfies ScriptImageSelection;
   }
 
+  export function revealDiagnosticLocation(diagnostic: Pick<LuaScriptDiagnostic, 'startLineNumber' | 'startColumn' | 'endLineNumber' | 'endColumn'>) {
+    if (!editorInstance) return;
+
+    const startLineNumber = Math.max(1, diagnostic.startLineNumber);
+    const startColumn = Math.max(1, diagnostic.startColumn);
+    const endLineNumber = Math.max(startLineNumber, diagnostic.endLineNumber || startLineNumber);
+    const endColumn = endLineNumber === startLineNumber
+      ? Math.max(startColumn + 1, diagnostic.endColumn || startColumn + 1)
+      : Math.max(1, diagnostic.endColumn || 1);
+
+    editorInstance.setSelection({
+      startLineNumber,
+      startColumn,
+      endLineNumber,
+      endColumn,
+    });
+    editorInstance.revealPositionInCenter({ lineNumber: startLineNumber, column: startColumn });
+    editorInstance.focus();
+  }
+
   async function syncEditorWithActiveTab() {
     if (!editorInstance || !monacoModule || !monacoApi) return;
 
@@ -399,7 +421,7 @@
 
   function handleWindowKeydown(event: KeyboardEvent) {
     const isReferenceOverlayOpen = referenceState.kind !== null;
-    if (shouldCloseScriptReferenceOverlay(event, isReferenceOverlayOpen)) {
+    if (shouldCloseScriptReferenceOverlay(event, isReferenceOverlayOpen, appSettingsState.values.shortcutBindings)) {
       event.preventDefault();
       event.stopPropagation();
       closeReferenceOverlay();
@@ -411,6 +433,7 @@
       event,
       Boolean(editorInstance?.hasTextFocus()),
       isReferenceOverlayOpen,
+      appSettingsState.values.shortcutBindings,
     );
     if (handbookShortcut) {
       event.preventDefault();

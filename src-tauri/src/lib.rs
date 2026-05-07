@@ -19,13 +19,13 @@ const CUSTOM_COVER_FILE_NAME: &str = "cover.jpg";
 const LOGS_DIR_NAME: &str = "logs";
 const ERROR_LOG_FILE_NAME: &str = "error.log";
 const DEFAULT_SCRIPT_TEMPLATE: &str =
-    "-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n";
+    "-- {name}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n";
 const DEFAULT_AI_MODEL: &str = "gpt-4o-mini";
 const DEFAULT_AI_TEMPERATURE: f64 = 1.0;
 const DEFAULT_PACKAGE_INCLUDE_PATTERNS: &[&str] = &[
     "pics/{code}.jpg",
     "pics/field/{code}.jpg",
-    "script/{code}.lua",
+    "script/c{code}.lua",
     "strings.conf",
     "lflist.conf",
 ];
@@ -49,11 +49,11 @@ fn queue_open_cdb_paths(app: &AppHandle, paths: Vec<String>) {
         return;
     }
 
-    if let Ok(mut pending) = app.state::<PendingOpenCdbPaths>().0.lock() {
-        for path in &paths {
-            if !pending.contains(path) {
-                pending.push(path.clone());
-            }
+    let pending_state = app.state::<PendingOpenCdbPaths>();
+    let mut pending = pending_state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    for path in &paths {
+        if !pending.contains(path) {
+            pending.push(path.clone());
         }
     }
 
