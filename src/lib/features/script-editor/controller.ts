@@ -1,5 +1,6 @@
 import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
 import type { LuaInlineHighlight } from '$lib/utils/luaScriptCalls';
+import type { LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
 import { toPersistableCard } from '$lib/domain/card/draft';
 
 export type HintPlacement = 'top' | 'bottom';
@@ -111,6 +112,15 @@ export function shouldCloseScriptReferenceOverlay(
   hasReferenceOverlayOpen: boolean,
 ) {
   return hasReferenceOverlayOpen && event.key === 'Escape';
+}
+
+export function sortLuaDiagnosticsByLocation(diagnostics: LuaScriptDiagnostic[]) {
+  return [...diagnostics].sort((left, right) => (
+    left.startLineNumber - right.startLineNumber
+    || left.startColumn - right.startColumn
+    || left.endLineNumber - right.endLineNumber
+    || left.endColumn - right.endColumn
+  ));
 }
 
 export function extractFocusedSuggestLabel(editorHost: ParentNode | null) {

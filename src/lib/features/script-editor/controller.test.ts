@@ -7,6 +7,7 @@ import {
   resolveHintAnchor,
   resolveHoverAbove,
   shouldCloseScriptReferenceOverlay,
+  sortLuaDiagnosticsByLocation,
 } from '$lib/features/script-editor/controller';
 
 function createKeyboardEventLike(
@@ -171,5 +172,15 @@ describe('script editor controller helpers', () => {
       createKeyboardEventLike({ key: 'Escape' }),
       false,
     )).toBe(false);
+  });
+
+  test('sorts Lua diagnostics by source position', () => {
+    const diagnostics = sortLuaDiagnosticsByLocation([
+      { severity: 'warning', message: 'third', startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 2 },
+      { severity: 'error', message: 'second', startLineNumber: 2, startColumn: 8, endLineNumber: 2, endColumn: 9 },
+      { severity: 'error', message: 'first', startLineNumber: 2, startColumn: 3, endLineNumber: 2, endColumn: 4 },
+    ]);
+
+    expect(diagnostics.map((item) => item.message)).toEqual(['first', 'second', 'third']);
   });
 });

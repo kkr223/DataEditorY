@@ -41,6 +41,7 @@
     type ScriptReferenceManualKind,
   } from '$lib/features/script-editor/controller';
   import { loadScriptCardContextFlow, saveScriptStringFlow, type ScriptImageSelection } from '$lib/features/script-editor/useCases';
+  import type { LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
   import {
     createScriptMonacoRuntime,
     type ScriptMonacoApi as MonacoApi,
@@ -323,6 +324,26 @@
       content: lines.join('\n'),
       startLineNumber,
     } satisfies ScriptImageSelection;
+  }
+
+  export function revealDiagnosticLocation(diagnostic: Pick<LuaScriptDiagnostic, 'startLineNumber' | 'startColumn' | 'endLineNumber' | 'endColumn'>) {
+    if (!editorInstance) return;
+
+    const startLineNumber = Math.max(1, diagnostic.startLineNumber);
+    const startColumn = Math.max(1, diagnostic.startColumn);
+    const endLineNumber = Math.max(startLineNumber, diagnostic.endLineNumber || startLineNumber);
+    const endColumn = endLineNumber === startLineNumber
+      ? Math.max(startColumn + 1, diagnostic.endColumn || startColumn + 1)
+      : Math.max(1, diagnostic.endColumn || 1);
+
+    editorInstance.setSelection({
+      startLineNumber,
+      startColumn,
+      endLineNumber,
+      endColumn,
+    });
+    editorInstance.revealPositionInCenter({ lineNumber: startLineNumber, column: startColumn });
+    editorInstance.focus();
   }
 
   async function syncEditorWithActiveTab() {
