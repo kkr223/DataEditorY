@@ -1,5 +1,6 @@
 pub mod app_config;
 pub mod assets;
+pub mod card_render;
 pub mod cdb_cards;
 pub mod cdb_session;
 pub mod crypto;

@@ -89,10 +89,6 @@ export default defineConfig(async () => ({
             return "vendor-monaco";
           }
 
-          if (normalizedId.includes("/node_modules/yugioh-card/")) {
-            return "vendor-yugioh-card";
-          }
-
           if (normalizedId.includes("/node_modules/@tauri-apps/")) {
             return "vendor-tauri";
           }

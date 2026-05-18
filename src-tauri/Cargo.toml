@@ -37,6 +37,7 @@ zip = { version = "2.2", default-features = false, features = ["deflate"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 regex = "1"
 rusqlite = { version = "0.39.0", features = ["bundled"] }
+ygo-card-renderer-rs = { path = "../../ygo-card-renderer-rs" }
 
 [profile.release]
 # Faster linking with thin LTO

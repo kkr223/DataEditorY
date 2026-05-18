@@ -126,6 +126,7 @@ pub fn run() {
             commands::scripts::write_card_script,
             commands::scripts::save_card_script,
             commands::package::package_cdb_assets_as_zip,
+            commands::render_card::render_card,
             commands::app::append_error_log,
             commands::app::consume_pending_open_cdb_paths
         ])

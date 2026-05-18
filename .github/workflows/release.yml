@@ -27,12 +27,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Checkout local Rust dependency
+      - name: Checkout ygopro-cdb-encode-rs dependency
         shell: bash
         run: |
           DEP_DIR="$GITHUB_WORKSPACE/../ygopro-cdb-encode-rs"
           rm -rf "$DEP_DIR"
           git clone --depth 1 https://github.com/kkr223/ygopro-cdb-encode-rs.git "$DEP_DIR"
+
+      - name: Checkout ygo-card-renderer-rs dependency
+        shell: bash
+        run: |
+          DEP_DIR="$GITHUB_WORKSPACE/../ygo-card-renderer-rs"
+          rm -rf "$DEP_DIR"
+          git clone --depth 1 https://github.com/kkr223/ygo-card-renderer-rs.git "$DEP_DIR"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -88,6 +95,7 @@ jobs:
           $portableResourceDir = "$portableDir/resources"
           $zipPath = "src-tauri/target/release/DataEditorY-$($variantLabel)-windows-portable.zip"
           $sourceResourceDir = "static/resources"
+          $rendererResourceDir = "../ygo-card-renderer-rs/resources"
 
           Remove-Item $portableDir -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
@@ -123,7 +131,7 @@ jobs:
           )
 
           if ("${{ matrix.variant }}" -eq "extra") {
-            $requiredResources += @{ RelativePath = "yugioh-card"; SourcePath = "$sourceResourceDir/yugioh-card" }
+            $requiredResources += @{ RelativePath = "yugioh_bundle.bin"; SourcePath = "$rendererResourceDir/yugioh_bundle.bin" }
           }
 
           foreach ($resource in $requiredResources) {

@@ -19,6 +19,8 @@
     previewHost = $bindable<HTMLDivElement | null>(null),
     foregroundPreviewShell = $bindable<HTMLDivElement | null>(null),
     foregroundPreviewHost = $bindable<HTMLDivElement | null>(null),
+    previewImageUrl = '',
+    foregroundPreviewImageUrl = '',
     cropBodyElement = $bindable<HTMLDivElement | null>(null),
     cropSidebarElement = $bindable<HTMLElement | null>(null),
     errorMessage = '',
@@ -61,6 +63,8 @@
     previewHost?: HTMLDivElement | null;
     foregroundPreviewShell?: HTMLDivElement | null;
     foregroundPreviewHost?: HTMLDivElement | null;
+    previewImageUrl?: string;
+    foregroundPreviewImageUrl?: string;
     cropBodyElement?: HTMLDivElement | null;
     cropSidebarElement?: HTMLElement | null;
     errorMessage?: string;
@@ -111,7 +115,11 @@
   </div>
 
   <div class="preview-card-shell" bind:this={previewShell} onwheel={onPreviewWheel}>
-    <div class="preview-stage" bind:this={previewHost}></div>
+    <div class="preview-stage" bind:this={previewHost}>
+      {#if previewImageUrl}
+        <img class="preview-image" src={previewImageUrl} alt={$_('editor.card_image_preview')} draggable="false" />
+      {/if}
+    </div>
   </div>
 
   {#if errorMessage}
@@ -121,7 +129,11 @@
   <div class="foreground-preview-shell" bind:this={foregroundPreviewShell}>
     <div class="foreground-preview-layout" style={`width:${FOREGROUND_EDITOR_CARD_WIDTH * foregroundEditorScale}px;height:${FOREGROUND_EDITOR_CARD_HEIGHT * foregroundEditorScale}px;`}>
       <div class="foreground-preview-canvas" style={`width:${FOREGROUND_EDITOR_CARD_WIDTH}px;height:${FOREGROUND_EDITOR_CARD_HEIGHT}px;transform:scale(${foregroundEditorScale});--foreground-handle-scale:${1 / Math.max(foregroundEditorScale, 0.01)};`}>
-        <div class="preview-stage foreground-preview-stage" bind:this={foregroundPreviewHost}></div>
+        <div class="preview-stage foreground-preview-stage" bind:this={foregroundPreviewHost}>
+          {#if foregroundPreviewImageUrl}
+            <img class="foreground-preview-image" src={foregroundPreviewImageUrl} alt={$_('editor.card_image_foreground_preview')} draggable="false" />
+          {/if}
+        </div>
         {#if hasForegroundImage}
           <div role="presentation" class="foreground-selection" style={foregroundSelectionStyle} onpointerdown={onForegroundMovePointerDown}>
             <button class="foreground-handle foreground-handle-rotate" type="button" aria-label={$_('editor.card_image_foreground_rotate_handle')} onpointerdown={onForegroundRotatePointerDown}></button>
@@ -207,11 +219,13 @@
   .zoom-indicator { min-width: 4rem; text-align: center; font-size: 0.84rem; font-weight: 700; color: var(--text-secondary); }
   .preview-card-shell { position: relative; flex: 1; min-height: clamp(620px, 74vh, 940px); border: 1px solid var(--border-color); border-radius: 12px; background: radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 35%), linear-gradient(180deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.02)); overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 16px 8px 24px; overscroll-behavior: contain; }
   .preview-stage { display: flex; justify-content: center; align-items: flex-start; min-width: 100%; min-height: 100%; }
+  .preview-image { display: block; flex: 0 0 auto; max-width: none; height: auto; user-select: none; pointer-events: none; }
   .preview-error { display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; font-size: 0.84rem; color: #dc2626; }
   .foreground-preview-shell { position: relative; flex: 1; min-height: min(72vh, 780px); border: 1px solid var(--border-color); border-radius: 14px; background: linear-gradient(180deg, rgba(15, 23, 42, 0.04), rgba(15, 23, 42, 0.01)); overflow: auto; display: flex; align-items: center; justify-content: center; padding: 18px; }
   .foreground-preview-layout { position: relative; flex: 0 0 auto; }
   .foreground-preview-canvas { position: relative; transform-origin: top left; }
   .foreground-preview-stage { position: absolute; inset: 0; min-width: 0; min-height: 0; display: block; }
+  .foreground-preview-image { display: block; width: 100%; height: 100%; object-fit: fill; user-select: none; pointer-events: none; }
   .foreground-selection { position: absolute; border: 3px solid rgba(37, 99, 235, 0.92); border-radius: 16px; background: rgba(37, 99, 235, 0.06); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.94) inset, 0 14px 30px rgba(37, 99, 235, 0.18); cursor: move; z-index: 4; touch-action: none; }
   .foreground-selection::before { content: ''; position: absolute; inset: 14px; border: 2px dashed rgba(255, 255, 255, 0.84); border-radius: 12px; }
   .foreground-handle { position: absolute; width: 28px; height: 28px; border-radius: 999px; border: 3px solid #eff6ff; background: #2563eb; padding: 0; box-shadow: 0 6px 16px rgba(15, 23, 42, 0.34); transform-origin: center; }

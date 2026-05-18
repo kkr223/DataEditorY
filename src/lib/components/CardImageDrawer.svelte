@@ -100,6 +100,7 @@
             mode="preview"
             bind:previewShell={controller.state.previewShell}
             bind:previewHost={controller.state.previewHost}
+            previewImageUrl={controller.state.previewImageUrl}
             previewZoomPercent={controller.state.previewZoomPercent}
             errorMessage={controller.state.errorMessage}
             onPreviewWheel={controller.handlePreviewWheel}
@@ -151,6 +152,7 @@
             mode="foreground"
             bind:foregroundPreviewShell={controller.state.foregroundPreviewShell}
             bind:foregroundPreviewHost={controller.state.foregroundPreviewHost}
+            foregroundPreviewImageUrl={controller.state.foregroundPreviewImageUrl}
             foregroundEditorScale={controller.getForegroundEditorScale()}
             foregroundSelectionStyle={controller.getForegroundSelectionStyle()}
             hasForegroundImage={controller.hasForegroundImage()}

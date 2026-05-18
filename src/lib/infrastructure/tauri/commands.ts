@@ -51,6 +51,13 @@ export type BackgroundTaskProgressEvent = {
   total: number;
 };
 
+export type RenderCardPayload = {
+  request: unknown;
+  artImageDataUrl?: string;
+  foregroundImageDataUrl?: string;
+  passwordText?: string;
+};
+
 export async function getCardScriptInfo(cdbPath: string, cardId: number) {
   return invokeCommand<CardScriptInfo>('get_card_script_info', { cdbPath, cardId });
 }
@@ -158,4 +165,8 @@ export async function consumePendingOpenCdbPaths() {
 
 export async function loadStringsConfContent() {
   return invokeCommand<string>('load_strings_conf');
+}
+
+export async function renderCardImage(payload: RenderCardPayload) {
+  return invokeCommand<number[]>('render_card', { payload });
 }
