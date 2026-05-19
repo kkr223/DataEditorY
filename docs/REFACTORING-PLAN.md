@@ -20,11 +20,15 @@
 | 优先级 | 范围 | 说明 |
 | --- | --- | --- |
 | P0 | 卡图渲染完全重构 | 从 JS `yugioh-card` 迁移到 Rust `ygo-card-renderer-rs` 后，当前适配层应废弃重写，仅保留功能一致 |
-| P1 | IPC 类型契约 | 前端 Tauri commands 与 Rust DTO 类型统一，消除 `unknown` |
+| P1 | IPC 类型契约 | 前端 Tauri commands 与 Rust DTO 类型统一，消除 `unknown`；建立跨端类型同步机制 |
 | P1 | 制卡器状态拆分 | 拆分巨型 `controller.svelte.ts`，降低 UI 状态、裁剪、前景、渲染耦合 |
-| P2 | 前端模块边界清理 | 清理兼容重导出、减少 utils 与 features 双向依赖 |
+| P2 | 前端模块边界清理 | 清理兼容重导出、减少 utils 与 features 双向依赖、统一共享类型位置 |
 | P2 | Rust 错误模型统一 | 改善 `Result<_, String>` 的可维护性和错误定位 |
-| P3 | 测试补齐 | 增加渲染契约、适配器、IPC DTO、关键业务流测试 |
+| P2 | Rust 服务模块细化 | 拆分 `media.rs`（职责过载）、`card_render.rs`（渲染重构同步） |
+| P2 | capability 系统深化 | 让 capability registry 成为 base/extra 差异的唯一决策点，简化 build stubs |
+| P3 | stores/editor 拆分 | 搜索状态与编辑状态解耦，降低响应式触发面 |
+| P3 | 测试补齐 | 增加渲染契约、适配器、IPC DTO、CDB 合并计划、打包依赖解析测试 |
+| P3 | Tauri event 异步模式 | 对耗时渲染任务考虑异步 event 推送，避免阻塞 UI |
 
 ## 3. 卡图渲染完全重构
 
@@ -238,24 +242,33 @@ export type RenderCardPayload = {
 
 该类型无法表达真实字段，也无法在 Rust renderer API 变化时提供编译期反馈。
 
+不只卡图渲染一条命令——`modify_cards`、`query_cards_raw` 等命令同样依赖前端手写字段名去匹配 Rust `serde` 输出，拼写漂移只能在运行时发现。
+
+另外，前后端字段命名风格不一致：前端 camelCase，Rust snake_case，依赖 `#[serde(rename_all)]` 隐式转换。
+
 ### 5.2 目标方向
 
-1. 为所有跨 IPC 的复杂 DTO 建立明确类型。
+1. 为所有跨 IPC 的复杂 DTO 建立明确 TypeScript 类型。
 2. 卡图渲染 DTO 以 DataEditorY 自有模型为准，而不是直接暴露 renderer crate 内部类型。
-3. 后续可考虑从 Rust `serde` DTO 生成 TypeScript 类型，避免双端手写漂移。
-4. 对关键命令增加契约测试或 JSON fixture。
+3. 考虑从 Rust `serde` DTO 自动生成 TypeScript 类型（如 `ts-rs`、`typeshare`），消除双端手写漂移。
+4. 统一命名约定：Rust DTO 一律显式标注 `#[serde(rename_all = "camelCase")]`，不依赖默认行为。
+5. 对关键命令增加契约测试（JSON fixture：前端序列化 ⇔ Rust 反序列化）。
 
 ## 6. Rust 后端重构方向
 
 ### 6.1 错误处理
 
-当前多数服务返回 `Result<T, String>`，优点是简单，缺点是错误分类与定位能力不足。
+当前多数服务返回 `Result<T, String>`，优点是简单，缺点是：
+
+- 调用方无法区分"文件不存在"和"权限不足"和"数据损坏"，只能匹配字符串
+- 错误日志定位差，调试困难
+- `card_render.rs` 的 `render_card` 签名是 `Result<Vec<u8>, String>`，渲染失败只有一条字符串
 
 建议方向：
 
-- 为 services 引入统一错误类型或局部错误 enum。
-- 命令层统一转换为前端可读错误字符串或结构化错误。
-- 对文件不存在、权限、CDB 损坏、渲染失败、资源缺失等错误进行分类。
+- 为关键服务引入局部错误枚举（如 `CdbError`、`RenderError`、`MediaError`）
+- 仅在命令层统一转换为前端可读字符串或结构化错误
+- 对文件不存在、权限、CDB 损坏、渲染失败、资源缺失等错误进行分类
 
 ### 6.2 服务模块拆分
 
@@ -266,9 +279,10 @@ export type RenderCardPayload = {
 | `card_render.rs` | 按 bundle/resources/dto/adapter/output 拆分 |
 | `merge.rs` | 保持现状优先；如继续增长可拆分 plan/assets/execute |
 | `package.rs` | 保持现状优先；可按 manifest/dependency/zip 拆分 |
-| `media.rs` | 自定义 protocol 与文件工具可适度拆分 |
+| `media.rs` | 职责过载：custom protocol、文件读写、图片 I/O、strings 加载、路径检查、系统打开共 600+ 行。建议拆为 `media/protocol.rs`、`media/io.rs`、`media/image.rs`、`media/strings.rs` |
+| `services` 模块重组 | 建议按 domain 分组为 `services/cdb/`、`services/card_render/`、`services/media/`、`services/package/`、`services/merge/`、`services/settings/`，每个子目录包含独立错误类型和 DTO |
 
-### 6.3 会话与临时文件
+### 6.4 会话与临时文件
 
 当前 CDB 编辑采用临时工作副本，这是合理设计。后续渲染资源缓存也应遵循类似原则：
 
@@ -298,9 +312,57 @@ export type RenderCardPayload = {
 | 无副作用纯规则 | `domain/` |
 | 外部系统调用 | `infrastructure/` 或 Rust commands |
 
-## 8. 测试补齐方向
+## 8. 状态与类型重构
 
-### 8.1 卡图渲染重构必须补齐
+### 8.1 stores 搜索/编辑状态拆分
+
+当前 `stores/editor.svelte.ts` 同时持有搜索结果、当前页、选中卡片、草稿状态。搜索翻页逻辑与编辑状态变更共享同一响应式上下文，触发面过大。
+
+建议方向：
+
+- 拆分 `searchStore`（结果、分页、filter）与 `editorStore`（草稿、选择、dirty）
+- 两者通过事件/action 协调，而非共享同一个 reactive state
+- 注意：此项目风险较低，建议在其他重构稳定后再进行，避免引入排列爆炸的 regression
+
+### 8.2 共享类型位置统一
+
+当前跨模块使用的核心类型散落各处：
+
+| 类型 | 当前位置 | 使用方 |
+| --- | --- | --- |
+| `CardDataEntry` | `types/index.ts` | 全局 |
+| `CardImageFormData` | `features/card-image/layout.ts` | 制卡器、utils 重导出 |
+| `CardScriptInfo` / `CardScriptDocument` | `infrastructure/tauri/commands.ts` | 脚本编辑器、services |
+
+建议方向：
+
+- 为跨模块使用的核心类型建立单一来源：`types/card.ts`、`types/script.ts`、`types/render.ts`
+- 功能模块内部使用的 UI 专属类型保持原地
+- 新的卡图渲染 DTO 应直接放入 `types/render.ts`，避免走 `features/card-image` 间接引用
+
+### 8.3 build stubs 与 capability 系统改进
+
+当前状态：
+
+- `src/lib/build-stubs/base/` 通过文件系统级替换提供 `extra` 功能的占位
+- `application/capabilities` 已定义了 capability 模型但使用有限
+- `config/build.ts` 提供 `HAS_EXTRA_BUILD`、`HAS_AI_FEATURE` 等条件变量
+
+问题：
+
+- 文件替换方式对 IDE 不友好，本地开发和 CI 行为可能不一致
+- capability registry 抽象正确但未充分发挥
+
+建议方向：
+
+- 让 capability registry 成为 `base/extra` 差异的**唯一**决策点
+- build stubs 退化为简单的"返回 null / 禁用"占位，不承载功能逻辑
+- 制卡器入口、AI 入口等是否渲染通过 capability 控制，而非替换整个组件文件
+- 逐步减少对文件系统替换的依赖，更多利用条件 import 和动态组件加载
+
+## 9. 测试补齐方向
+
+### 9.1 卡图渲染重构必须补齐
 
 | 测试类型 | 目标 |
 | --- | --- |
@@ -310,7 +372,7 @@ export type RenderCardPayload = {
 | 渲染 smoke test | 确认典型 monster/spell/trap/pendulum/link 能输出 PNG |
 | 回归 fixture | 用固定输入比较关键渲染元数据或输出尺寸 |
 
-### 8.2 其他测试方向
+### 9.2 其他测试方向
 
 - Shell dirty-close guard
 - CDB merge 冲突计划
@@ -318,7 +380,7 @@ export type RenderCardPayload = {
 - settings 密钥保存/清除
 - script editor semantic diagnostics
 
-## 9. 风险与控制
+## 10. 风险与控制
 
 | 风险 | 控制方式 |
 | --- | --- |
@@ -326,42 +388,66 @@ export type RenderCardPayload = {
 | Rust renderer API 变化 | 只在 Rust adapter 层接触 renderer 内部类型 |
 | 大图传输性能问题 | 使用资源 token/path/cache，避免 data URL 主通道 |
 | 前端 controller 拆分引发状态不同步 | 先定义状态所有权，再迁移 |
-| base/extra 构建差异破坏 | 重构时保持 capability/build stub 边界 |
+| base/extra 构建差异破坏 | 重构时保持 capability/build stub 边界，逐步简化而非激进删除 |
 | Windows 临时文件占用 | Rust 资源管理显式 drop/cleanup，避免长时间持有文件句柄 |
+| IPC 类型生成工具引入成本 | 如引入 `ts-rs` 等方案，先在渲染 DTO 上试点，验证构建流程不变后再推广 |
 
-## 10. 推荐重构顺序（高层）
+## 11. 推荐重构顺序（高层）
 
 不展开具体步骤，仅建议阶段顺序：
 
-1. **建立卡图渲染新 DTO 与目标边界**：先确定 DataEditorY 自有渲染请求模型。
-2. **重写 Rust card_render 服务结构**：bundle、resource、adapter、output 分离。
-3. **替换前端 renderRequestMapper**：改为生成应用级 DTO，不再构造 renderer 内部请求。
-4. **替换图片传输方式**：从 data URL 过渡到资源引用/缓存。
-5. **拆分制卡器 controller**：在渲染边界稳定后再拆状态，降低同时变更风险。
-6. **补测试与回归样例**：确保功能一致性。
-7. **清理旧兼容代码**：删除不再需要的 mapper、unknown 类型、旧工具重导出。
+**第一阶段：卡图渲染核心（P0-P1）**
+1. **建立卡图渲染新 DTO 与目标边界**：先确定 DataEditorY 自有渲染请求模型，放入 `types/render.ts`。
+2. **建立 IPC 类型同步机制**：为渲染 DTO 建立 Rust ⇔ TypeScript 类型对应关系，消除 `unknown`。
+3. **重写 Rust card_render 服务结构**：bundle、resource、adapter、output 分离。
+4. **替换前端 renderRequestMapper**：改为生成应用级 DTO，不再构造 renderer 内部请求。
+5. **替换图片传输方式**：从 data URL 过渡到资源引用/缓存。
+6. **拆分制卡器 controller**：在渲染边界稳定后拆状态（form、crop、foreground、render 分离），降低同时变更风险。
 
-## 11. 完成标准
+**第二阶段：跨层优化（P1-P2）**
+7. **清理前端模块边界**：删除兼容重导出（`utils/cardImage.ts` 等）、统一共享类型位置。
+8. **Rust 错误模型升级**：为 `card_render`、`cdb_cards`、`media` 引入局部错误枚举。
+9. **拆分 `services/media.rs`**：protocol、io、image、strings 分离。
+10. **深化 capability 系统**：让 capability registry 成为 base/extra 差异的唯一决策点，简化 build stubs。
+
+**第三阶段：后续优化（P3）**
+11. **补测试与回归样例**：渲染 DTO 契约、CDB merge 冲突、package 依赖解析。
+12. **拆分 stores/editor**：搜索与编辑状态解耦。
+13. **清理旧兼容代码**：删除不再需要的 mapper、unknown 类型。
+14. **评估 Tauri event 异步渲染**：根据性能表现决定是否引入。
+
+## 12. 完成标准
 
 卡图渲染完全重构完成时，应满足：
 
+**渲染核心**
 - 前端没有 `RenderCardPayload.request: unknown`。
 - 前端不直接构造 `ygo-card-renderer-rs` 内部 `RenderRequest`。
 - `renderRequestMapper.ts` 被替换或显著缩减为应用级 DTO 转换。
 - 前景、效果框、密码、稀有度、文字样式等功能通过统一 DTO 表达。
 - 渲染资源不再主要依赖 base64 data URL 往返。
 - Rust `card_render` 模块具备清晰子模块边界。
+
+**类型与边界**
+- 卡图渲染 DTO 在 `types/render.ts` 有单一来源定义。
+- Rust DTO 与 TypeScript 类型对应关系明确，有契约测试或自动生成。
+- `utils/cardImage.ts`、`utils/cardImageAdapter.ts` 兼容重导出已清理。
+
+**功能回归**
 - 有基本渲染契约测试与 smoke test。
 - 典型卡片预览、PNG 下载、JPG 保存、场地魔法场地图导出功能可用。
+- 所有语言（sc/tc/jp/kr/en/astral）的卡图渲染输出可接受。
 
-## 12. 非目标
+## 13. 非目标
 
 本轮重构不建议同时处理：
 
 - 更换 UI 框架或状态管理框架。
-- 重写 CDB 编辑主流程。
-- 重写 Lua 语义分析系统。
-- 改变 base/extra 产品形态。
+- 重写 CDB 编辑主流程（打开/搜索/保存核心逻辑）。
+- 重写 Lua 语义分析系统（parser、scope、diagnostics）。
+- 改变 base/extra 产品形态（两个构建变体的定位不变）。
 - 大规模修改 AI prompt/工具协议。
+- stores/editor 拆分——属于重构范围但不是本轮优先项。
+- Tauri event 异步渲染——性能优化而非功能修复，延后处理。
 
 这些内容与卡图渲染重构耦合度低，若同时推进会显著放大风险。

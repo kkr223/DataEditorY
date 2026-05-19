@@ -13,7 +13,7 @@
     CARD_IMAGE_TYPE_OPTIONS,
     normalizeCardImageFormData,
     type CardImageFormData,
-  } from '$lib/utils/cardImage';
+  } from '$lib/features/card-image/layout';
   import type { ColorPreset } from '$lib/features/card-image/controller';
   import {
     MAX_EXPORT_SCALE_PERCENT,

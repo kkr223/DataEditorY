@@ -134,6 +134,8 @@ export interface LinkMarkerOption {
   col: number;
 }
 
+export type * from './render';
+
 export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
 id: '',
 name: '',

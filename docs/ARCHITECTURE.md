@@ -450,15 +450,93 @@ Card Editor 打开脚本
 
 当前不足：卡图渲染适配层缺少契约测试、快照测试、Rust IPC DTO 测试和真实渲染回归样例。
 
-## 9. 架构风险点
+## 9. 架构风险与优化点
 
-| 风险 | 影响 | 备注 |
+### 9.1 IPC 类型契约：前端与 Rust 之间存在隐式约定
+
+| 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| 制卡器 controller 过大 | 难以维护、难以测试 | `controller.svelte.ts` 接近 1800 行 |
-| 渲染 IPC 类型弱 | 前端/后端字段不匹配时无法提前发现 | `RenderCardPayload.request: unknown` |
-| 渲染管道临时性强 | 性能、内存、错误处理风险 | data URL / temp file / 手写 mapper |
-| 部分 utils 是兼容重导出 | 模块边界不清晰 | 后续可逐步清理 |
-| Shell 编排职责较重 | 全局行为耦合 | 需要保持 controller/useCases 边界 |
+| `RenderCardPayload.request: unknown` (commands.ts:54) | 字段拼写漂移只能在运行时发现，是最严重的一例 | 从 Rust `serde` DTO 自动生成 TypeScript 类型（`ts-rs` / `typeshare`），或为关键 DTO 建立 JSON fixture 契约测试 |
+| 其他命令（modify_cards、query_cards_raw）也依赖手写字段匹配 | 同上 | 统一约定：前端保持 camelCase，Rust DTO 一律显式 `#[serde(rename_all = "camelCase")]`，禁止依赖默认行为 |
+
+### 9.2 制卡器 controller 承载过多职责
+
+| 现状 | 影响 | 建议 |
+| --- | --- | --- |
+| `controller.svelte.ts` 约 1800 行，管理抽屉、表单、裁剪、前景、渲染、导入导出、保存、翻译全部状态 | 修改任何维度都可能触及其他维度，难以测试，难以替换渲染后端 | 拆为独立模块：`form.svelte.ts`（表单/语言切换）、`crop.svelte.ts`（裁剪状态与算法）、`foreground.svelte.ts`（前景编辑）、`render.svelte.ts`（预览/导出编排）。主 controller 仅保留抽屉生命周期和模块组合 |
+
+### 9.3 `renderRequestMapper.ts` 跨层泄露
+
+前端直接构造 `ygo-card-renderer-rs` 的内部 `RenderRequest` 结构，违反了依赖方向——前端不应知道 Rust 渲染库的内部模型。应在重构中彻底替换为应用级 DTO。
+
+### 9.4 features/utils 双向依赖与兼容层
+
+| 现状 | 影响 | 建议 |
+| --- | --- | --- |
+| `utils/cardImage.ts` 重导出 `features/card-image/layout.ts` | `utils/` 应被 `features/` 依赖，而不是反向。当前形成隐含双向依赖 | 删除兼容重导出，让引用方直接 import 正确路径 |
+| `utils/cardImageAdapter.ts` 同理 | 同上 | 同上 |
+| `utils/lua*.ts` 系列与 `features/script-editor/lua/*.ts` 存在内容重叠 | 职责归属不清，修改可能遗漏一侧 | 确认主副本，删除冗余 |
+
+### 9.5 `stores/editor.svelte.ts` 搜索与编辑状态耦合
+
+| 现状 | 影响 | 建议 |
+| --- | --- | --- |
+| 同一个 store 同时持有搜索结果、当前页、选中卡片、草稿状态 | 搜索翻页逻辑与编辑状态变更共享同一响应式上下文，触发面过大 | 将搜索（结果、分页、filter）与编辑（草稿、选择、dirty）拆为独立 store，通过事件/action 协调 |
+
+### 9.6 Rust 后端 `Result<T, String>` 遍布所有服务
+
+| 现状 | 影响 | 建议 |
+| --- | --- | --- |
+| 几乎所有 service 函数返回 `Result<T, String>` | 调用方无法区分"文件不存在"、"权限不足"、"数据损坏"，只能匹配字符串。错误日志定位差 | 为关键服务引入局部错误枚举（如 `CdbError`、`RenderError`），仅在命令层统一转为前端可读字符串 |
+
+### 9.7 `services/media.rs` 职责过载
+
+| 现状 | 影响 | 建议 |
+| --- | --- | --- |
+| 一个文件承载 custom protocol、文件读写、图片 I/O、strings 加载、路径检查、系统打开 | 600+ 行单一文件，内部函数间无清晰子模块边界 | 拆为 `media/protocol.rs`、`media/io.rs`、`media/image.rs`、`media/strings.rs` |
+
+### 9.8 build stubs 模式的脆弱性
+
+| 现状 | 影响 | 建议 |
+| --- | --- | --- |
+| `src/lib/build-stubs/base/` 放置 `extra` 功能的占位文件，构建时被文件系统级替换 | IDE 索引不友好，本地开发和 CI 行为容易不一致 | 更多利用 `$lib/config/build.ts` 的条件导入和 `application/capabilities`，减少对文件替换的依赖 |
+
+### 9.9 `application/capabilities` 系统利用不足
+
+| 现状 | 影响 | 建议 |
+| --- | --- | --- |
+| 已定义 capability 类型和 registry，但实际使用仅少数几处 | 这个抽象是对的但没充分发挥 | 让 capability registry 成为 `base/extra` 差异的**唯一**决策点，build stubs 退化为简单的占位 |
+
+### 9.10 Tauri event 利用率偏低
+
+| 现状 | 影响 | 建议 |
+| --- | --- | --- |
+| 后端只在打包/合并时用 event 通知进度，其他操作同步返回 | 长时间渲染会阻塞 UI | 对渲染任务考虑异步模式：发起请求 → Rust 后台渲染 → event 推送结果 |
+
+### 9.11 缺少跨模块的共享类型文件
+
+| 现状 | 影响 | 建议 |
+| --- | --- | --- |
+| `CardDataEntry` 在 `types/index.ts`，但制卡器、脚本编辑器、卡片编辑器各自重复定义局部类型 | 类型散落，字段语义变化需追踪多处 | 核心跨模块类型（card data、script document、render draft）集中在 `types/` 或 `domain/` 下作为单一来源 |
+
+### 9.12 测试覆盖边界集中在纯逻辑
+
+| 现状 | 影响 | 建议 |
+| --- | --- | --- |
+| 测试覆盖 `domain/`、部分 `application/`、少量 `features/`，IPC 层、Rust services、渲染管道、UI 交互接近零覆盖 | 最复杂的集成点反而是测试最薄弱的地方 | 优先补：渲染 DTO 序列化/反序列化 fixture、CDB 合并冲突计算、打包 Lua 依赖解析 |
+
+### 9.13 优化优先级分类
+
+| 优先级 | 项目 | 理由 |
+| --- | --- | --- |
+| 立即 | IPC 类型契约（9.1） | 卡图渲染重构会涉及新 DTO，此时建立类型生成机制是一个好的时机 |
+| 立即 | renderRequestMapper 跨层泄露（9.3） | 是当前渲染重构的核心范围 |
+| 高 | controller 拆分（9.2） | 1800 行的 controller 是后续任何改动的阻力 |
+| 高 | utils 重导出清理（9.4） | 成本低，收益明确 |
+| 中 | Rust 错误模型（9.6） | 影响所有后端代码的可维护性 |
+| 中 | build stubs 简化（9.8） | 降低构建系统的认知负担 |
+| 低 | stores 拆分（9.5） | 风险较低，可在其他稳定后再做 |
+| 低 | 异步渲染（9.10） | 用户感知的性能提升在当前阶段不重要 |
 
 ## 10. 新功能放置建议
 

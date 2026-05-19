@@ -1,4 +1,7 @@
 import { invokeCommand } from '$lib/infrastructure/tauri';
+import type { RenderCardPayload } from '$lib/types/render';
+
+export type { RenderCardPayload } from '$lib/types/render';
 
 export type CardScriptInfo = {
   path: string;
@@ -49,13 +52,6 @@ export type BackgroundTaskProgressEvent = {
   stage: string;
   current: number;
   total: number;
-};
-
-export type RenderCardPayload = {
-  request: unknown;
-  artImageDataUrl?: string;
-  foregroundImageDataUrl?: string;
-  passwordText?: string;
 };
 
 export async function getCardScriptInfo(cdbPath: string, cardId: number) {

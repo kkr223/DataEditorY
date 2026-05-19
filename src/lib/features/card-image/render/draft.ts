@@ -1,26 +1,7 @@
 import { ATTRIBUTE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
 import type { CardDataEntry } from '$lib/types';
-import type { CardImageFormData } from '$lib/utils/cardImage';
-
-type RustTextGradient = {
-  start: string;
-  end: string;
-};
-
-type RustNameColor =
-  | { kind: 'auto' }
-  | { kind: 'custom'; value: string };
-
-type RustCardRenderPayload = {
-  request: {
-    kind: 'yugioh';
-    card: Record<string, unknown>;
-    options: Record<string, unknown>;
-  };
-  artImageDataUrl?: string;
-  foregroundImageDataUrl?: string;
-  passwordText?: string;
-};
+import type { CardRenderDraft, CardRenderNameColor, CardRenderTextGradient } from '$lib/types/render';
+import type { CardImageFormData } from '../layout';
 
 const ARROW_TO_LINK_MARKER_BIT: Record<number, number> = {
   1: 0x004,
@@ -43,9 +24,6 @@ const SOURCE_LINK_MARKER_BIT_TO_ARROW: Array<[number, number]> = [
   [0x08, 7],
   [0x40, 8],
 ];
-
-const RENDER_CARD_WIDTH = 1394;
-const RENDER_CARD_HEIGHT = 2031;
 
 const MONSTER_DETAIL_MASK = SUBTYPE_MAP.spirit
   | SUBTYPE_MAP.union
@@ -83,12 +61,12 @@ const optionalTrimmed = (value: string) => {
   return trimmed ? trimmed : undefined;
 };
 
-const customNameColor = (data: CardImageFormData): RustNameColor => {
+const customNameColor = (data: CardImageFormData): CardRenderNameColor => {
   const color = optionalTrimmed(data.color);
   return color ? { kind: 'custom', value: color } : { kind: 'auto' };
 };
 
-const gradient = (enabled: boolean, start: string, end: string): RustTextGradient | undefined => {
+const gradient = (enabled: boolean, start: string, end: string): CardRenderTextGradient | undefined => {
   const startColor = optionalTrimmed(start);
   const endColor = optionalTrimmed(end);
   return enabled && startColor && endColor ? { start: startColor, end: endColor } : undefined;
@@ -162,17 +140,17 @@ const buildTypeBits = (sourceCard: CardDataEntry, data: CardImageFormData) => {
   return buildMonsterTypeBits(sourceCard, data);
 };
 
+const convertSourceLinkMarker = (sourceLinkMarker: number) => SOURCE_LINK_MARKER_BIT_TO_ARROW.reduce(
+  (bits, [sourceBit, arrow]) => bits | ((sourceLinkMarker & sourceBit) ? ARROW_TO_LINK_MARKER_BIT[arrow] : 0),
+  0,
+);
+
 const buildLinkMarker = (data: CardImageFormData, fallback: number) => {
   if (!Array.isArray(data.arrowList) || data.arrowList.length === 0) {
     return convertSourceLinkMarker(fallback);
   }
   return data.arrowList.reduce((bits, arrow) => bits | (ARROW_TO_LINK_MARKER_BIT[Number(arrow)] ?? 0), 0);
 };
-
-const convertSourceLinkMarker = (sourceLinkMarker: number) => SOURCE_LINK_MARKER_BIT_TO_ARROW.reduce(
-  (bits, [sourceBit, arrow]) => bits | ((sourceLinkMarker & sourceBit) ? ARROW_TO_LINK_MARKER_BIT[arrow] : 0),
-  0,
-);
 
 const buildDescription = (data: CardImageFormData) => {
   if (data.type !== 'pendulum') return data.description;
@@ -186,64 +164,12 @@ const hasEffectBlock = (data: CardImageFormData) => Boolean(
     && data.effectBlockOpacity > 0,
 );
 
-const hasForegroundOverlay = (data: CardImageFormData) => Boolean(
-  data.foregroundImage.trim()
-    && data.foregroundWidth > 0
-    && data.foregroundHeight > 0
-    && data.foregroundScale > 0,
-);
-
-const createForegroundOverlayDataUrl = async (
-  data: CardImageFormData,
-  foregroundImageUrl = '',
-) => {
-  if (!hasForegroundOverlay(data)) return undefined;
-
-  const imageUrl = foregroundImageUrl.trim() || data.foregroundImage.trim();
-  if (!imageUrl) return undefined;
-
-  const image = new Image();
-  image.src = imageUrl;
-  await image.decode();
-
-  const canvas = document.createElement('canvas');
-  canvas.width = RENDER_CARD_WIDTH;
-  canvas.height = RENDER_CARD_HEIGHT;
-  const context = canvas.getContext('2d');
-  if (!context) {
-    throw new Error('Canvas context unavailable');
-  }
-
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = 'high';
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.save();
-  context.translate(data.foregroundX, data.foregroundY);
-  context.rotate((data.foregroundRotation * Math.PI) / 180);
-  context.scale(data.foregroundScale, data.foregroundScale);
-  context.drawImage(
-    image,
-    -data.foregroundWidth / 2,
-    -data.foregroundHeight / 2,
-    data.foregroundWidth,
-    data.foregroundHeight,
-  );
-  context.restore();
-
-  return canvas.toDataURL('image/png');
-};
-
 const rareType = (data: CardImageFormData) => optionalTrimmed(data.rare) ?? undefined;
 
-type RustCardRenderOptions = {
-  foregroundImageUrl?: string;
-};
-
-export const createRustCardRenderPayload = async (
+export const createCardRenderDraft = (
   sourceCard: CardDataEntry,
   data: CardImageFormData,
-  options: RustCardRenderOptions = {},
-): Promise<RustCardRenderPayload> => {
+): CardRenderDraft => {
   const isMonster = data.type === 'monster' || data.type === 'pendulum';
   const isXyz = data.type === 'pendulum'
     ? data.pendulumType === 'xyz-pendulum'
@@ -251,60 +177,57 @@ export const createRustCardRenderPayload = async (
   const cardTypeBits = buildTypeBits(sourceCard, data);
   const code = parsePasswordCode(data.password, sourceCard.code);
   const effectBlockEnabled = hasEffectBlock(data);
-  const foregroundImageDataUrl = await createForegroundOverlayDataUrl(data, options.foregroundImageUrl);
 
   return {
-    request: {
-      kind: 'yugioh',
-      card: {
-        code,
-        alias: sourceCard.alias ?? 0,
-        setcode: sourceCard.setcode ?? [],
-        type: cardTypeBits,
-        attack: isMonster ? toFiniteInteger(data.atk, sourceCard.attack) : 0,
-        defense: isMonster ? toFiniteInteger(data.def, sourceCard.defense) : 0,
-        level: isXyz
-          ? toUnsignedInteger(data.rank, sourceCard.level)
-          : toUnsignedInteger(data.level, sourceCard.level),
-        race: isMonster ? sourceCard.race : 0,
-        attribute: isMonster ? (ATTRIBUTE_MAP[data.attribute] ?? sourceCard.attribute ?? 0) : 0,
-        category: sourceCard.category ?? 0,
-        ot: sourceCard.ot ?? 0,
-        name: data.name,
-        desc: buildDescription(data),
-        strings: sourceCard.strings ?? [],
-        lscale: toUnsignedInteger(data.pendulumScale, sourceCard.lscale),
-        rscale: toUnsignedInteger(data.pendulumScale, sourceCard.rscale),
-        linkMarker: buildLinkMarker(data, sourceCard.linkMarker),
-        ruleCode: sourceCard.ruleCode ?? 0,
-        rare: rareType(data),
-        nameColor: customNameColor(data),
-        nameGradient: gradient(data.gradient, data.gradientColor1, data.gradientColor2),
-        nameShadowColor: optionalTrimmed(data.nameShadowColor),
-        nameShadowGradient: gradient(data.nameShadowGradient, data.nameShadowGradientColor1, data.nameShadowGradientColor2),
-        package: optionalTrimmed(data.package),
-        copyright: optionalTrimmed(data.copyright),
-        laser: optionalTrimmed(data.laser),
-        twentieth: Boolean(data.twentieth),
-        outFrame: effectBlockEnabled,
-        outFrameEffectEnabled: effectBlockEnabled,
-        outFrameEffectBackgroundColor: effectBlockEnabled ? data.effectBlockColor : undefined,
-        outFrameEffectOpacity: effectBlockEnabled ? data.effectBlockOpacity : undefined,
-      },
-      options: {
-        language: data.language,
-        artImage: null,
-        foregroundImage: null,
-        scale: Math.max(Number(data.scale) || 1, 0.01),
-        descriptionColorOverride: null,
-        titleWidthCompress: false,
-        descriptionFirstLineCompress: Boolean(data.firstLineCompress),
-        textColors: {},
-        layoutOverrides: {},
-      },
+    kind: 'yugioh',
+    identity: {
+      code,
+      alias: sourceCard.alias ?? 0,
+      ruleCode: sourceCard.ruleCode ?? 0,
+      passwordText: data.password.trim() || undefined,
     },
-    artImageDataUrl: data.image.trim() || undefined,
-    foregroundImageDataUrl,
-    passwordText: data.password.trim() || undefined,
+    frame: {
+      setcode: sourceCard.setcode ?? [],
+      type: cardTypeBits,
+      level: isXyz
+        ? toUnsignedInteger(data.rank, sourceCard.level)
+        : toUnsignedInteger(data.level, sourceCard.level),
+      lscale: toUnsignedInteger(data.pendulumScale, sourceCard.lscale),
+      rscale: toUnsignedInteger(data.pendulumScale, sourceCard.rscale),
+      linkMarker: buildLinkMarker(data, sourceCard.linkMarker),
+    },
+    stats: {
+      attack: isMonster ? toFiniteInteger(data.atk, sourceCard.attack) : 0,
+      defense: isMonster ? toFiniteInteger(data.def, sourceCard.defense) : 0,
+      race: isMonster ? sourceCard.race : 0,
+      attribute: isMonster ? (ATTRIBUTE_MAP[data.attribute] ?? sourceCard.attribute ?? 0) : 0,
+      category: sourceCard.category ?? 0,
+      ot: sourceCard.ot ?? 0,
+    },
+    localizedText: {
+      name: data.name,
+      description: buildDescription(data),
+      strings: sourceCard.strings ?? [],
+    },
+    visualStyle: {
+      rare: rareType(data),
+      nameColor: customNameColor(data),
+      nameGradient: gradient(data.gradient, data.gradientColor1, data.gradientColor2),
+      nameShadowColor: optionalTrimmed(data.nameShadowColor),
+      nameShadowGradient: gradient(data.nameShadowGradient, data.nameShadowGradientColor1, data.nameShadowGradientColor2),
+      package: optionalTrimmed(data.package),
+      copyright: optionalTrimmed(data.copyright),
+      laser: optionalTrimmed(data.laser),
+      twentieth: Boolean(data.twentieth),
+      outFrame: effectBlockEnabled,
+      outFrameEffectEnabled: effectBlockEnabled,
+      outFrameEffectBackgroundColor: effectBlockEnabled ? data.effectBlockColor : undefined,
+      outFrameEffectOpacity: effectBlockEnabled ? data.effectBlockOpacity : undefined,
+    },
+    outputOptions: {
+      language: data.language,
+      scale: Math.max(Number(data.scale) || 1, 0.01),
+      descriptionFirstLineCompress: Boolean(data.firstLineCompress),
+    },
   };
 };

@@ -17,9 +17,9 @@ import {
   serializeCardImageConfigDocument,
   type CardImageFormData,
   type CardImageLanguage,
-} from '$lib/utils/cardImage';
+} from './layout';
 import { writeErrorLog } from '$lib/utils/errorLog';
-import { createRustCardRenderPayload } from './renderRequestMapper';
+import { createCardRenderPayload } from './render';
 
 export type CropBox = { x: number; y: number; size: number };
 type DragMode = 'move' | 'resize' | null;
@@ -1284,7 +1284,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   async function renderCardPngBlob(data: CardImageFormData) {
-    const payload = await createRustCardRenderPayload(getCard(), data, {
+    const payload = await createCardRenderPayload(getCard(), data, {
       foregroundImageUrl: state.foregroundRenderableUrl,
     });
     const bytes = await renderCardImage(payload);
