@@ -1,6 +1,7 @@
 # DataEditorY 当前项目模块功能文档
 
 生成时间：2026-05-18  
+更新时间：2026-05-19
 适用范围：当前 `DataEditorY` 仓库，包含 Svelte/Tauri 前端、Rust 后端、CDB 编辑、Lua 脚本编辑、制卡器、AI、打包与合并功能。
 
 ## 1. 项目定位
@@ -162,30 +163,50 @@ flowchart TB
 | --- | --- |
 | `adapter.ts` | `CardDataEntry` → 制卡表单默认值转换；处理语言、种族/类型文案、灵摆文本拆分 |
 | `layout.ts` | 制卡表单 schema、默认值、选项列表、配置导入/导出序列化 |
-| `controller.svelte.ts` | 制卡器主控制器；管理状态、裁剪、前景编辑、预览刷新、导入/导出、保存 JPG |
+| `controller.svelte.ts` | 制卡器主控制器；创建状态、注册响应式 effect、组合各子 controller |
 | `controller.ts` | `controller.svelte.ts` 兼容重导出 |
-| `renderRequestMapper.ts` | 当前 Rust 渲染 payload 构造器；后续完全重构重点 |
+| `ai/controller.ts` | 制卡器 AI 翻译准备、调用与结果写回 |
+| `config/controller.ts` | 制卡配置导入/导出、文件选择、导入后状态同步 |
+| `form/controller.ts` | 表单 patch、选项文案、名称颜色预设、导出倍率与配置文件名 |
+| `session/controller.ts` | 抽屉开关、卡片 hydration、语言默认值切换和会话级重置 |
+| `state.ts` | 制卡器初始状态工厂 |
+| `media/controller.ts` | 原图与前景图 object URL 生命周期、data URL 到可渲染 URL 转换 |
+| `resize/controller.ts` | 预览区与前景编辑区 ResizeObserver 管理 |
+| `render/` | 应用级渲染请求、资源缓存、Tauri 渲染 client、PNG/JPG blob 转换 |
+| `render/controller.ts` | 预览刷新、预览缩放、资源缓存生命周期、PNG/JPG 导出编排 |
+| `render/dependencies.ts` | Svelte 预览刷新依赖追踪 |
+| `render/export.ts` | PNG 下载、JPG 保存、场地魔法额外图片输出 |
+| `crop/geometry.ts` | 裁剪舞台尺寸、旋转、裁剪框移动/缩放等纯几何逻辑 |
+| `crop/controller.ts` | 裁剪弹窗状态、图片读取、裁剪输出、裁剪框事件处理 |
+| `foreground/geometry.ts` | 前景图编辑器缩放、选区样式、拖拽移动/缩放/旋转等纯几何逻辑 |
+| `foreground/controller.ts` | 前景图编辑状态、上传、预览测量、拖拽事件处理 |
+| `foreground/image.ts` | 前景图读取和透明边界裁切 |
 | `scriptRenderer.ts` | Lua 代码图片渲染器，与卡图渲染主线无关 |
 | `components/CardImageCanvas.svelte` | 卡图预览、裁剪、前景编辑画布外壳 |
 | `components/CardImageControls.svelte` | 上传、导入/导出配置、保存、下载、AI 翻译按钮区 |
 | `components/CardImageFieldEditor.svelte` | 制卡字段表单，包含文字、稀有度、前景、效果框等设置 |
-| `layout.test.ts` | 配置导入/导出、locale 默认值测试 |
+| `*.test.ts` | layout、render payload/data/blob、crop geometry、foreground geometry 等单元测试 |
 
 当前卡图渲染管线：
 
 ```mermaid
 sequenceDiagram
   participant UI as CardImageDrawer / Controller
-  participant Mapper as renderRequestMapper.ts
+  participant Render as features/card-image/render
+  participant Cache as RenderResourceCache
   participant IPC as Tauri renderCardImage()
-  participant Rust as services::card_render
+  participant Rust as services::card_render::{dto,adapter,resources,output}
   participant Renderer as ygo-card-renderer-rs
 
-  UI->>Mapper: CardDataEntry + CardImageFormData
-  Mapper->>Mapper: 构造 RenderRequest / dataURL / foreground overlay
-  Mapper->>IPC: RenderCardPayload
+  UI->>Render: CardDataEntry + CardImageFormData
+  Render->>Render: 构造 DataEditorY 应用级 CardRenderDraft
+  Render->>Cache: 准备 art/foreground 资源引用
+  Cache->>IPC: prepare_card_render_resource(dataUrl)
+  IPC-->>Render: resourceToken
+  Render->>IPC: RenderCardPayload { draft, resources }
   IPC->>Rust: invoke render_card
-  Rust->>Rust: data URL 解码为临时文件
+  Rust->>Rust: resourceToken/dataUrl/filePath 解析为临时文件或文件路径
+  Rust->>Rust: dto -> renderer RenderRequest
   Rust->>Renderer: Renderer::render_png / render_document
   Renderer-->>Rust: PNG bytes
   Rust-->>IPC: Vec<u8>
@@ -193,7 +214,7 @@ sequenceDiagram
   UI->>UI: Blob URL 预览/下载/保存
 ```
 
-注意：虽然 Rust 渲染库已经接入，但当前适配层仍是临时形态，详见 `REFACTORING-PLAN.md`。
+当前状态：`renderRequestMapper.ts` 已移除，前端不再构造 renderer crate 内部请求；Rust `card_render` 已拆分为 dto/adapter/resources/bundle/output；制卡器 controller 已拆为 ai/config/crop/foreground/form/media/render/resize/session/state 等边界。仍未完成的是：前景图 overlay 仍由前端 canvas 合成，Rust/TypeScript DTO 还没有自动生成或完整 fixture 契约测试。
 
 ### 5.6 `features/script-editor` Lua 脚本编辑模块
 
@@ -463,7 +484,7 @@ Card Editor 打开脚本
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| `controller.svelte.ts` 约 1800 行，管理抽屉、表单、裁剪、前景、渲染、导入导出、保存、翻译全部状态 | 修改任何维度都可能触及其他维度，难以测试，难以替换渲染后端 | 拆为独立模块：`form.svelte.ts`（表单/语言切换）、`crop.svelte.ts`（裁剪状态与算法）、`foreground.svelte.ts`（前景编辑）、`render.svelte.ts`（预览/导出编排）。主 controller 仅保留抽屉生命周期和模块组合 |
+| `controller.svelte.ts` 已从约 1800 行拆至约 255 行，主要负责状态创建、effect 注册和子 controller 编排 | 修改影响面已显著降低；后续风险集中在跨 controller 状态契约和真实 UI 回归验证 | 继续保持主 controller 只做编排；新增行为优先进入已有子模块或独立 controller，并为纯逻辑补测试 |
 
 ### 9.3 `renderRequestMapper.ts` 跨层泄露
 
@@ -531,7 +552,7 @@ Card Editor 打开脚本
 | --- | --- | --- |
 | 立即 | IPC 类型契约（9.1） | 卡图渲染重构会涉及新 DTO，此时建立类型生成机制是一个好的时机 |
 | 立即 | renderRequestMapper 跨层泄露（9.3） | 是当前渲染重构的核心范围 |
-| 高 | controller 拆分（9.2） | 1800 行的 controller 是后续任何改动的阻力 |
+| 高（已完成本轮主要拆分） | controller 拆分（9.2） | 主 controller 已降为编排层，后续只需保持边界并补充回归验证 |
 | 高 | utils 重导出清理（9.4） | 成本低，收益明确 |
 | 中 | Rust 错误模型（9.6） | 影响所有后端代码的可维护性 |
 | 中 | build stubs 简化（9.8） | 降低构建系统的认知负担 |

@@ -1,6 +1,7 @@
 # DataEditorY 重构准备文档
 
 生成时间：2026-05-18  
+更新时间：2026-05-19
 重构目标：为后续代码重构提供方向性文档。本文不包含逐行迁移步骤，重点描述重构目标、边界、目标架构、优先级与风险。
 
 ## 1. 总体重构目标
@@ -37,23 +38,23 @@
 项目已从 JS 的 `yugioh-card` 切换到 Rust 的 `ygo-card-renderer-rs`。当前代码中已经存在基础接入：
 
 - `src-tauri/Cargo.toml` 已依赖 `ygo-card-renderer-rs`
-- `src-tauri/src/services/card_render.rs` 已调用 Rust renderer
-- `src/lib/features/card-image/renderRequestMapper.ts` 已尝试构造 Rust 渲染 payload
+- `src-tauri/src/services/card_render/` 已拆分为 dto、adapter、resources、bundle、output
+- `src/lib/features/card-image/render/` 已生成 DataEditorY 应用级渲染 draft/payload，并提供资源缓存与 Tauri client
 - 前端通过 `renderCardImage()` 调用 Tauri `render_card`
 
-但当前实现应视为**临时适配层**，不建议在其上继续小修小补。后续应按“完全重构”的方式处理。
+当前实现已经越过临时适配层的第一阶段：旧 `renderRequestMapper.ts` 已移除，前端不再构造 renderer crate 内部结构，图片资源已开始使用 `resourceToken`/缓存，制卡器主 controller 已降为编排层。后续重点转为：把 foreground overlay 下沉到 Rust renderer/adapter、补齐跨端契约测试或自动类型生成。
 
 ### 3.2 当前问题
 
-| 问题 | 影响 |
-| --- | --- |
-| 前端 `RenderCardPayload.request` 类型为 `unknown` | IPC 边界没有类型安全，字段变化无法提前发现 |
-| `renderRequestMapper.ts` 手写 Rust 请求结构 | 与 Rust renderer 类型容易漂移 |
-| 前端通过 canvas 合成 foreground overlay | 渲染职责分散，前端承担了本应由渲染器处理的图层逻辑 |
-| art/foreground 通过 data URL 传输 | base64 编解码与临时文件写入带来性能和内存浪费 |
-| password 有额外 override 逻辑 | 请求语义不干净，字段职责重复 |
-| controller 同时管理裁剪、前景、导出、渲染刷新 | 状态复杂，难以测试和替换渲染后端 |
-| 缺少渲染回归样例 | 无法确认“功能一致”是否达成 |
+| 问题 | 当前状态 | 影响 |
+| --- | --- | --- |
+| 前端 `RenderCardPayload.request` 类型为 `unknown` | 已替换为 `types/render.ts` 中的应用级 `RenderCardPayload` | 卡图渲染链路已改善，但还缺 Rust ⇔ TypeScript 自动同步或 fixture 契约测试 |
+| `renderRequestMapper.ts` 手写 Rust 请求结构 | 已移除，改为 `render/draft.ts` + Rust `adapter.rs` | renderer crate API 漂移被收敛到 Rust adapter |
+| 前端通过 canvas 合成 foreground overlay | 仍存在于 `render/resources.ts` | 渲染职责尚未完全集中到 Rust，仍是下一阶段重点 |
+| art/foreground 通过 data URL 传输 | Tauri 环境已优先 `resourceToken` 缓存，非 Tauri/测试保留 data URL fallback | 性能风险降低，但裁剪图和前景 overlay 的源头仍可能产生大 data URL |
+| password 有额外 override 逻辑 | 已进入统一应用级 DTO | 请求语义已清理 |
+| controller 同时管理裁剪、前景、导出、渲染刷新 | 已抽出 ai/config/crop/foreground/form/media/render/resize/session 子 controller，并将初始状态迁入 `state.ts`；主 controller 约 255 行，仅保留状态创建、effect 注册和模块编排 | 维护性明显改善，后续重点转为回归验证和保持边界 |
+| 缺少渲染回归样例 | 已补 payload/data/blob/resource/geometry 单测，仍缺真实渲染 smoke/fixture | 无法完全确认视觉功能一致 |
 
 ### 3.3 重构目标
 
@@ -155,16 +156,26 @@ DataEditorY Render DTO
 src/lib/features/card-image/
   adapter.ts                    CDB CardDataEntry -> 制卡表单默认值
   layout.ts                     表单 schema、选项、config import/export
+  state.ts                      初始状态工厂
+  form/
+    controller.ts               表单 patch、选项文案、颜色预设、导出倍率
+  session/
+    controller.ts               抽屉生命周期、卡片 hydration、语言默认值切换
+  media/
+    controller.ts               object URL 生命周期与前景可渲染 URL
+  resize/
+    controller.ts               预览区 ResizeObserver
   render/
     draft.ts                    CardImageFormData -> CardRenderDraft
     resources.ts                裁剪图/前景图资源准备
     client.ts                   调用 Tauri 渲染命令
     types.ts                    前端渲染 DTO 类型
+    controller.ts               预览刷新、缩放、导出、资源缓存生命周期
   crop/
     controller.ts               裁剪状态和算法
   foreground/
     controller.ts               前景编辑状态和算法
-  controller.svelte.ts          只保留抽屉级编排
+  controller.svelte.ts          只保留状态创建、effect 注册和子 controller 编排
 ```
 
 #### Rust
@@ -195,7 +206,7 @@ src-tauri/src/services/card_render/
 
 ### 4.1 当前问题
 
-`features/card-image/controller.svelte.ts` 同时承担：
+重构前 `features/card-image/controller.svelte.ts` 同时承担：
 
 - 抽屉开关与生命周期
 - 表单 state
@@ -208,7 +219,7 @@ src-tauri/src/services/card_render/
 - AI 翻译
 - 错误日志与 toast
 
-这导致文件过大、修改风险高、测试困难。
+这曾导致文件过大、修改风险高、测试困难。当前已拆出主要职责，主 controller 保留编排层角色。
 
 ### 4.2 目标方向
 
@@ -217,10 +228,13 @@ src-tauri/src/services/card_render/
 | 子模块 | 职责 |
 | --- | --- |
 | Drawer Controller | 抽屉生命周期、当前 card hydration、功能编排 |
-| Form Controller | 表单更新、默认值、语言切换、dirty/config import/export |
+| Form Controller | 表单更新、选项文案、颜色预设、导出倍率 |
+| Session Controller | 抽屉生命周期、当前 card hydration、语言默认值切换 |
 | Crop Controller | 原图读取、旋转、裁剪框、裁剪输出 |
 | Foreground Controller | 前景图读取、透明裁剪、位置/缩放/旋转 |
 | Render Controller | 预览刷新、导出 PNG/JPG、资源准备、错误状态 |
+| Media Controller | object URL 与前景可渲染资源生命周期 |
+| Resize Controller | 预览区 ResizeObserver |
 | Ai Controller | 翻译准备与结果写回 |
 
 目标不是拆得越碎越好，而是确保每个 controller 有单一理由被修改。
@@ -397,12 +411,12 @@ export type RenderCardPayload = {
 不展开具体步骤，仅建议阶段顺序：
 
 **第一阶段：卡图渲染核心（P0-P1）**
-1. **建立卡图渲染新 DTO 与目标边界**：先确定 DataEditorY 自有渲染请求模型，放入 `types/render.ts`。
-2. **建立 IPC 类型同步机制**：为渲染 DTO 建立 Rust ⇔ TypeScript 类型对应关系，消除 `unknown`。
-3. **重写 Rust card_render 服务结构**：bundle、resource、adapter、output 分离。
-4. **替换前端 renderRequestMapper**：改为生成应用级 DTO，不再构造 renderer 内部请求。
-5. **替换图片传输方式**：从 data URL 过渡到资源引用/缓存。
-6. **拆分制卡器 controller**：在渲染边界稳定后拆状态（form、crop、foreground、render 分离），降低同时变更风险。
+1. **建立卡图渲染新 DTO 与目标边界**：已完成，DataEditorY 自有渲染请求模型位于 `types/render.ts`。
+2. **建立 IPC 类型同步机制**：部分完成，渲染链路已消除 `unknown`，仍缺自动生成或 fixture 契约测试。
+3. **重写 Rust card_render 服务结构**：已完成第一轮，bundle、resource、adapter、output 分离。
+4. **替换前端 renderRequestMapper**：已完成，改为生成应用级 DTO，不再构造 renderer 内部请求。
+5. **替换图片传输方式**：部分完成，Tauri 环境已使用资源 token/cache，仍需减少前端 data URL 生成点。
+6. **拆分制卡器 controller**：已完成主要职责拆分，ai/config/crop/foreground/form/media/render/resize/session 子 controller 与 `state.ts` 已落地，主 controller 已降为编排层。
 
 **第二阶段：跨层优化（P1-P2）**
 7. **清理前端模块边界**：删除兼容重导出（`utils/cardImage.ts` 等）、统一共享类型位置。
@@ -421,20 +435,20 @@ export type RenderCardPayload = {
 卡图渲染完全重构完成时，应满足：
 
 **渲染核心**
-- 前端没有 `RenderCardPayload.request: unknown`。
-- 前端不直接构造 `ygo-card-renderer-rs` 内部 `RenderRequest`。
-- `renderRequestMapper.ts` 被替换或显著缩减为应用级 DTO 转换。
+- 前端没有 `RenderCardPayload.request: unknown`。（已完成）
+- 前端不直接构造 `ygo-card-renderer-rs` 内部 `RenderRequest`。（已完成）
+- `renderRequestMapper.ts` 被替换或显著缩减为应用级 DTO 转换。（已完成，文件已移除）
 - 前景、效果框、密码、稀有度、文字样式等功能通过统一 DTO 表达。
-- 渲染资源不再主要依赖 base64 data URL 往返。
-- Rust `card_render` 模块具备清晰子模块边界。
+- 渲染资源不再主要依赖 base64 data URL 往返。（部分完成，Tauri 渲染路径已有 token/cache）
+- Rust `card_render` 模块具备清晰子模块边界。（已完成第一轮）
 
 **类型与边界**
-- 卡图渲染 DTO 在 `types/render.ts` 有单一来源定义。
+- 卡图渲染 DTO 在 `types/render.ts` 有单一来源定义。（已完成前端侧）
 - Rust DTO 与 TypeScript 类型对应关系明确，有契约测试或自动生成。
-- `utils/cardImage.ts`、`utils/cardImageAdapter.ts` 兼容重导出已清理。
+- `utils/cardImage.ts`、`utils/cardImageAdapter.ts` 兼容重导出已清理。（已完成）
 
 **功能回归**
-- 有基本渲染契约测试与 smoke test。
+- 有基本渲染契约测试与 smoke test。（部分完成，已有 payload/data/blob/resource 测试，仍缺真实渲染 smoke）
 - 典型卡片预览、PNG 下载、JPG 保存、场地魔法场地图导出功能可用。
 - 所有语言（sc/tc/jp/kr/en/astral）的卡图渲染输出可接受。
 
