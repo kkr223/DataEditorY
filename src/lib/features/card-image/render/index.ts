@@ -1,5 +1,17 @@
+export { blobToUint8Array, convertImageBlobToJpg, dataUrlToBlob, renderSquareJpgBlob } from './blob';
+export { renderCardBlob, renderCardPngBlob } from './client';
+export {
+  applyAutoRarityStyle,
+  applyBuildVariantIsolation,
+  createForegroundPreviewRenderData,
+  createJpgRenderData,
+  createPngRenderData,
+  createPreviewRenderData,
+  isFieldSpellRenderData,
+} from './data';
 export { createCardRenderDraft } from './draft';
 export { createCardRenderPayload } from './payload';
-export { createCardRenderResources } from './resources';
+export { createCardRenderResourceCache, createCardRenderResources } from './resources';
+export type { CardRenderBlobType } from './client';
 export type { CardRenderPayloadOptions } from './payload';
-export type { CardRenderResourceOptions } from './resources';
+export type { CardRenderResourceCache, CardRenderResourceOptions } from './resources';

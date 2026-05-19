@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { CardDataEntry } from '$lib/types';
 import { normalizeCardImageFormData } from '../layout';
 import { createCardRenderDraft, createCardRenderPayload } from '.';
+import type { CardRenderResourceCache } from './resources';
 
 const baseCard: CardDataEntry = {
   code: 89631139,
@@ -77,5 +78,21 @@ describe('card render payload', () => {
       dataUrl: 'data:image/png;base64,AAA',
     });
     expect(payload.resources?.foregroundImage).toBe(undefined);
+  });
+
+  test('can materialize image data urls into resource tokens', async () => {
+    const resourceCache: CardRenderResourceCache = {
+      resolveDataUrl: async (dataUrl) => ({ kind: 'resourceToken', token: `token:${dataUrl.length}` }),
+      releaseAll: async () => undefined,
+    };
+    const payload = await createCardRenderPayload(baseCard, normalizeCardImageFormData({
+      image: 'data:image/png;base64,AAA',
+      foregroundImage: '',
+    }), { resourceCache });
+
+    expect(payload.resources?.artImage).toEqual({
+      kind: 'resourceToken',
+      token: 'token:25',
+    });
   });
 });

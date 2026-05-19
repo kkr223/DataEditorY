@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,6 +27,22 @@ pub(crate) enum CardRenderImageResource {
     FilePath {
         path: String,
     },
+    ResourceToken {
+        token: String,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrepareCardRenderResourceRequest {
+    #[serde(rename = "dataUrl")]
+    pub(crate) data_url: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PreparedCardRenderResource {
+    pub(crate) token: String,
 }
 
 #[derive(Debug, Deserialize)]

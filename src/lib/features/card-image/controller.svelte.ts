@@ -5,7 +5,7 @@ import type { CardDataEntry } from '$lib/types';
 import { HAS_AI_FEATURE, HAS_EXTRA_BUILD } from '$lib/config/build';
 import { showToast } from '$lib/stores/toast.svelte';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { pathExists, readTextFile, renderCardImage, writeBinaryFile, writeTextFile } from '$lib/infrastructure/tauri/commands';
+import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from '$lib/infrastructure/tauri/commands';
 import { createAiAppContext } from '$lib/services/aiAppContext';
 import { getPicsDir } from '$lib/services/cardImageService';
 import {
@@ -19,23 +19,64 @@ import {
   type CardImageLanguage,
 } from './layout';
 import { writeErrorLog } from '$lib/utils/errorLog';
-import { createCardRenderPayload } from './render';
+import {
+  calculateCropStageMetrics,
+  clampCropBoxToStage,
+  createCenteredCropBox,
+  moveCropBox,
+  normalizeCropRotation,
+  radiansFromDegrees,
+  recenterCropBox,
+  resizeCropBox,
+  resizeCropBoxAroundCenter,
+  type CropBox,
+} from './crop/geometry';
+import {
+  calculateForegroundEditorScale,
+  calculateForegroundRenderBounds,
+  calculatePointerAngle,
+  calculatePointerDistance,
+  createEmptyForegroundState,
+  createForegroundInitialStateFromForm,
+  createForegroundSelectionStyle,
+  createForegroundUploadInitialState,
+  FOREGROUND_EDITOR_CARD_HEIGHT,
+  FOREGROUND_EDITOR_CARD_WIDTH,
+  hasForegroundImage as hasForegroundImageData,
+  moveForegroundFromDrag,
+  rotateForegroundFromDrag,
+  scaleForegroundFromDrag,
+  type ForegroundEditorMode,
+  type ForegroundInitialState,
+} from './foreground/geometry';
+import {
+  blobToUint8Array,
+  createCardRenderResourceCache,
+  createForegroundPreviewRenderData,
+  createJpgRenderData,
+  createPngRenderData,
+  createPreviewRenderData,
+  dataUrlToBlob,
+  isFieldSpellRenderData,
+  renderCardBlob as renderCardBlobForCard,
+  renderCardPngBlob as renderCardPngBlobForCard,
+  renderSquareJpgBlob,
+  type CardRenderResourceCache,
+} from './render';
 
-export type CropBox = { x: number; y: number; size: number };
+export type { CropBox } from './crop/geometry';
+export {
+  FOREGROUND_EDITOR_CARD_HEIGHT,
+  FOREGROUND_EDITOR_CARD_WIDTH,
+  MAX_FOREGROUND_SCALE,
+  MIN_FOREGROUND_SCALE,
+} from './foreground/geometry';
 type DragMode = 'move' | 'resize' | null;
-type ForegroundEditorMode = 'move' | 'scale' | 'rotate' | null;
-type ForegroundInitialState = Pick<
-  CardImageFormData,
-  'foregroundWidth' | 'foregroundHeight' | 'foregroundX' | 'foregroundY' | 'foregroundScale' | 'foregroundRotation'
->;
 type LabelOption = { value: string; label?: string; labelKey?: string };
 export type ColorPreset = { value: string; labelKey: string };
 
-export const FOREGROUND_EDITOR_CARD_WIDTH = 1394;
-export const FOREGROUND_EDITOR_CARD_HEIGHT = 2031;
 const CARD_WIDTH = FOREGROUND_EDITOR_CARD_WIDTH;
 const CARD_HEIGHT = FOREGROUND_EDITOR_CARD_HEIGHT;
-const FOREGROUND_EDITOR_PADDING = 32;
 const CROPPED_IMAGE_SIZE = 1024;
 const MAX_CROP_PREVIEW_WIDTH = 900;
 const MAX_CROP_PREVIEW_HEIGHT = 680;
@@ -53,8 +94,6 @@ const DEFAULT_PREVIEW_ZOOM_PERCENT = 108;
 const PREVIEW_ZOOM_REFERENCE_WIDTH = 560;
 const PREVIEW_ZOOM_REFERENCE_HEIGHT = 800;
 const PREVIEW_RENDER_DEBOUNCE_MS = 160;
-export const MIN_FOREGROUND_SCALE = 0.05;
-export const MAX_FOREGROUND_SCALE = 12;
 export const NAME_COLOR_PRESETS: ColorPreset[] = [
   { value: '#ffffff', labelKey: 'editor.card_image_color_preset_white' },
   { value: '#d8dee9', labelKey: 'editor.card_image_color_preset_silver' },
@@ -148,6 +187,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   let previewResizeObserver: ResizeObserver | null = null;
   let previewRenderToken = 0;
   let foregroundPreviewRenderToken = 0;
+  let renderResourceCache: CardRenderResourceCache = createCardRenderResourceCache();
 
   function getCard() {
     return source.card();
@@ -155,18 +195,6 @@ export function createCardImageController(source: CardImageControllerSource) {
 
   function getOpen() {
     return source.open();
-  }
-
-  function dataUrlToBlob(dataUrl: string) {
-    const [header, body = ''] = dataUrl.split(',', 2);
-    const mimeMatch = /data:([^;]+)/.exec(header);
-    const mime = mimeMatch?.[1] ?? 'application/octet-stream';
-    const binary = atob(body);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return new Blob([bytes], { type: mime });
   }
 
   function revokeBlobUrl(url: string) {
@@ -192,6 +220,12 @@ export function createCardImageController(source: CardImageControllerSource) {
   function destroyPreview() {
     previewRenderToken += 1;
     replacePreviewImageUrl('');
+  }
+
+  function resetRenderResourceCache() {
+    const currentCache = renderResourceCache;
+    renderResourceCache = createCardRenderResourceCache();
+    void currentCache.releaseAll();
   }
 
   function destroyForegroundPreview() {
@@ -288,55 +322,26 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function getForegroundEditorScale() {
-    if (!state.foregroundPreviewWidth || !state.foregroundPreviewHeight) {
-      return 0.32;
-    }
-
-    const availableWidth = Math.max(state.foregroundPreviewWidth - FOREGROUND_EDITOR_PADDING * 2, 1);
-    const availableHeight = Math.max(state.foregroundPreviewHeight - FOREGROUND_EDITOR_PADDING * 2, 1);
-    return Math.min(availableWidth / FOREGROUND_EDITOR_CARD_WIDTH, availableHeight / FOREGROUND_EDITOR_CARD_HEIGHT);
-  }
-
-  function clampForegroundScale(scale: number) {
-    return Math.max(MIN_FOREGROUND_SCALE, Math.min(MAX_FOREGROUND_SCALE, scale));
-  }
-
-  function getForegroundSelectionWidth() {
-    return Math.max(0, state.form.foregroundWidth * state.form.foregroundScale);
-  }
-
-  function getForegroundSelectionHeight() {
-    return Math.max(0, state.form.foregroundHeight * state.form.foregroundScale);
+    return calculateForegroundEditorScale({
+      previewWidth: state.foregroundPreviewWidth,
+      previewHeight: state.foregroundPreviewHeight,
+    });
   }
 
   function hasForegroundImage() {
-    return Boolean(state.form.foregroundImage && state.form.foregroundWidth > 0 && state.form.foregroundHeight > 0);
+    return hasForegroundImageData(state.form);
   }
 
   function getForegroundSelectionStyle() {
-    const renderScaleX = state.foregroundRenderWidth > 0 ? state.foregroundRenderWidth / FOREGROUND_EDITOR_CARD_WIDTH : 1;
-    const renderScaleY = state.foregroundRenderHeight > 0 ? state.foregroundRenderHeight / FOREGROUND_EDITOR_CARD_HEIGHT : 1;
-    const width = getForegroundSelectionWidth();
-    const height = getForegroundSelectionHeight();
-    return [
-      `left:${state.foregroundRenderOffsetX + (state.form.foregroundX - width / 2) * renderScaleX}px`,
-      `top:${state.foregroundRenderOffsetY + (state.form.foregroundY - height / 2) * renderScaleY}px`,
-      `width:${width * renderScaleX}px`,
-      `height:${height * renderScaleY}px`,
-      `transform:rotate(${state.form.foregroundRotation}deg)`,
-    ].join(';');
-  }
-
-  function getDefaultForegroundScale(width: number, height: number) {
-    if (!width || !height) {
-      return 1;
-    }
-
-    return clampForegroundScale(Math.min(
-      1,
-      (FOREGROUND_EDITOR_CARD_WIDTH * 0.92) / width,
-      (FOREGROUND_EDITOR_CARD_HEIGHT * 0.92) / height,
-    ));
+    return createForegroundSelectionStyle({
+      data: state.form,
+      bounds: {
+        width: state.foregroundRenderWidth,
+        height: state.foregroundRenderHeight,
+        offsetX: state.foregroundRenderOffsetX,
+        offsetY: state.foregroundRenderOffsetY,
+      },
+    });
   }
 
   function resetForegroundTransform() {
@@ -357,12 +362,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     revokeForegroundRenderableUrl();
     updateForm({
       foregroundImage: '',
-      foregroundWidth: 0,
-      foregroundHeight: 0,
-      foregroundScale: 1,
-      foregroundRotation: 0,
-      foregroundX: FOREGROUND_EDITOR_CARD_WIDTH / 2,
-      foregroundY: FOREGROUND_EDITOR_CARD_HEIGHT / 2,
+      ...createEmptyForegroundState(),
     });
   }
 
@@ -425,21 +425,6 @@ export function createCardImageController(source: CardImageControllerSource) {
     const card = getCard();
     const code = String(state.form.password || card.code || 'card-image').trim() || 'card-image';
     return `${code}-card-image.json`;
-  }
-
-  function createForegroundInitialStateFromForm(data: CardImageFormData): ForegroundInitialState | null {
-    if (!data.foregroundImage || data.foregroundWidth <= 0 || data.foregroundHeight <= 0) {
-      return null;
-    }
-
-    return {
-      foregroundWidth: data.foregroundWidth,
-      foregroundHeight: data.foregroundHeight,
-      foregroundX: data.foregroundX,
-      foregroundY: data.foregroundY,
-      foregroundScale: data.foregroundScale,
-      foregroundRotation: data.foregroundRotation,
-    };
   }
 
   async function applyImportedConfigContent(content: string, sourceLabel: string) {
@@ -637,103 +622,45 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function getCropRotationRadians() {
-    return (state.cropRotation * Math.PI) / 180;
+    return radiansFromDegrees(state.cropRotation);
   }
 
   function getCropStageMetrics() {
-    if (!state.sourceImageWidth || !state.sourceImageHeight) {
-      return {
-        stageWidth: 0,
-        stageHeight: 0,
-        imageWidth: 0,
-        imageHeight: 0,
-        imageOffsetX: 0,
-        imageOffsetY: 0,
-        renderWidth: 0,
-        renderHeight: 0,
-      };
-    }
-
-    const angle = getCropRotationRadians();
-    const cos = Math.abs(Math.cos(angle));
-    const sin = Math.abs(Math.sin(angle));
-    const rotatedWidth = state.sourceImageWidth * cos + state.sourceImageHeight * sin;
-    const rotatedHeight = state.sourceImageWidth * sin + state.sourceImageHeight * cos;
-    const isStackedLayout = state.cropViewportWidth <= CROP_LAYOUT_BREAKPOINT;
-    const bodyWidth = state.cropBodyElement?.clientWidth ?? 0;
-    const sidebarWidth = isStackedLayout ? 0 : (state.cropSidebarElement?.clientWidth ?? CROP_SIDEBAR_FALLBACK_WIDTH);
-    const maxWidth = Math.min(
-      bodyWidth > 0
-        ? Math.max(bodyWidth - sidebarWidth - (isStackedLayout ? 0 : CROP_LAYOUT_GAP), MIN_CROP_SIZE)
-        : state.cropViewportWidth * 0.86,
-      MAX_CROP_PREVIEW_WIDTH,
-    );
-    const maxHeight = Math.min(state.cropViewportHeight * 0.68, MAX_CROP_PREVIEW_HEIGHT);
-    const scale = Math.min(maxWidth / rotatedWidth, maxHeight / rotatedHeight, 1);
-    const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
-    const stageWidth = rotatedWidth * safeScale;
-    const stageHeight = rotatedHeight * safeScale;
-    const imageWidth = state.sourceImageWidth * safeScale;
-    const imageHeight = state.sourceImageHeight * safeScale;
-
-    return {
-      stageWidth,
-      stageHeight,
-      imageWidth,
-      imageHeight,
-      imageOffsetX: (stageWidth - imageWidth) / 2,
-      imageOffsetY: (stageHeight - imageHeight) / 2,
-      renderWidth: Math.max(1, Math.round(rotatedWidth)),
-      renderHeight: Math.max(1, Math.round(rotatedHeight)),
-    };
+    return calculateCropStageMetrics({
+      sourceImageWidth: state.sourceImageWidth,
+      sourceImageHeight: state.sourceImageHeight,
+      rotation: state.cropRotation,
+      viewportWidth: state.cropViewportWidth,
+      viewportHeight: state.cropViewportHeight,
+      bodyWidth: state.cropBodyElement?.clientWidth ?? 0,
+      sidebarWidth: state.cropSidebarElement?.clientWidth ?? CROP_SIDEBAR_FALLBACK_WIDTH,
+      minCropSize: MIN_CROP_SIZE,
+      layoutBreakpoint: CROP_LAYOUT_BREAKPOINT,
+      layoutGap: CROP_LAYOUT_GAP,
+      maxPreviewWidth: MAX_CROP_PREVIEW_WIDTH,
+      maxPreviewHeight: MAX_CROP_PREVIEW_HEIGHT,
+    });
   }
 
   function clampCropBox(nextBox: CropBox): CropBox {
-    const { stageWidth, stageHeight } = getCropStageMetrics();
-    if (!stageWidth || !stageHeight) return nextBox;
-
-    const maxSize = Math.min(stageWidth, stageHeight);
-    const size = Math.min(Math.max(nextBox.size, MIN_CROP_SIZE), maxSize);
-    const x = Math.min(Math.max(nextBox.x, 0), Math.max(stageWidth - size, 0));
-    const y = Math.min(Math.max(nextBox.y, 0), Math.max(stageHeight - size, 0));
-
-    return { x, y, size };
+    return clampCropBoxToStage(nextBox, getCropStageMetrics(), MIN_CROP_SIZE);
   }
 
   function initializeCropBox() {
-    const { stageWidth, stageHeight } = getCropStageMetrics();
-    if (!stageWidth || !stageHeight) return;
-
-    const size = Math.max(MIN_CROP_SIZE, Math.min(stageWidth, stageHeight) * 0.72);
-    state.cropBox = {
-      x: (stageWidth - size) / 2,
-      y: (stageHeight - size) / 2,
-      size,
-    };
-  }
-
-  function normalizeCropRotation(nextRotation: number) {
-    const rounded = Math.round(nextRotation * 10) / 10;
-    const normalized = (((rounded + 180) % 360) + 360) % 360 - 180;
-    const fixed = Number(normalized.toFixed(1));
-    return fixed === -180 ? 180 : fixed;
+    const nextBox = createCenteredCropBox(getCropStageMetrics(), MIN_CROP_SIZE);
+    if (!nextBox) return;
+    state.cropBox = nextBox;
   }
 
   function setCropRotation(nextRotation: number) {
     const next = normalizeCropRotation(nextRotation);
     if (next === state.cropRotation) return;
 
-    const centerX = state.cropBox.x + state.cropBox.size / 2;
-    const centerY = state.cropBox.y + state.cropBox.size / 2;
     const size = state.cropBox.size;
 
     state.cropRotation = next;
     state.cropBox = size
-      ? clampCropBox({
-          x: centerX - size / 2,
-          y: centerY - size / 2,
-          size,
-        })
+      ? recenterCropBox(state.cropBox, getCropStageMetrics(), MIN_CROP_SIZE)
       : state.cropBox;
   }
 
@@ -777,13 +704,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       return;
     }
 
-    const centerX = state.cropBox.x + state.cropBox.size / 2;
-    const centerY = state.cropBox.y + state.cropBox.size / 2;
-    state.cropBox = clampCropBox({
-      x: centerX - state.cropBox.size / 2,
-      y: centerY - state.cropBox.size / 2,
-      size: state.cropBox.size,
-    });
+    state.cropBox = recenterCropBox(state.cropBox, getCropStageMetrics(), MIN_CROP_SIZE);
   }
 
   async function handleImageUpload(event: Event) {
@@ -923,24 +844,17 @@ export function createCardImageController(source: CardImageControllerSource) {
     try {
       const uploaded = await trimTransparentImage((await readFileAsDataUrl(file)).dataUrl);
       const isReplacing = hasForegroundImage();
-      const nextInitialState: ForegroundInitialState = {
-        foregroundWidth: uploaded.width,
-        foregroundHeight: uploaded.height,
-        foregroundX: isReplacing ? state.form.foregroundX : FOREGROUND_EDITOR_CARD_WIDTH / 2,
-        foregroundY: isReplacing ? state.form.foregroundY : FOREGROUND_EDITOR_CARD_HEIGHT / 2,
-        foregroundScale: isReplacing ? state.form.foregroundScale : getDefaultForegroundScale(uploaded.width, uploaded.height),
-        foregroundRotation: isReplacing ? state.form.foregroundRotation : 0,
-      };
+      const nextInitialState = createForegroundUploadInitialState({
+        width: uploaded.width,
+        height: uploaded.height,
+        isReplacing,
+        currentState: state.form,
+      });
       state.initialForegroundState = nextInitialState;
       await syncForegroundRenderableUrl(uploaded.dataUrl);
       updateForm({
         foregroundImage: uploaded.dataUrl,
-        foregroundWidth: nextInitialState.foregroundWidth,
-        foregroundHeight: nextInitialState.foregroundHeight,
-        foregroundX: nextInitialState.foregroundX,
-        foregroundY: nextInitialState.foregroundY,
-        foregroundScale: nextInitialState.foregroundScale,
-        foregroundRotation: nextInitialState.foregroundRotation,
+        ...nextInitialState,
       });
     } catch (error) {
       console.error('Failed to upload foreground image', error);
@@ -1045,19 +959,11 @@ export function createCardImageController(source: CardImageControllerSource) {
     const dy = event.clientY - state.dragStartY;
 
     if (state.dragMode === 'move') {
-      state.cropBox = clampCropBox({
-        x: state.dragStartBox.x + dx,
-        y: state.dragStartBox.y + dy,
-        size: state.dragStartBox.size,
-      });
+      state.cropBox = moveCropBox(state.dragStartBox, dx, dy, getCropStageMetrics(), MIN_CROP_SIZE);
       return;
     }
 
-    state.cropBox = clampCropBox({
-      x: state.dragStartBox.x,
-      y: state.dragStartBox.y,
-      size: state.dragStartBox.size + Math.max(dx, dy),
-    });
+    state.cropBox = resizeCropBox(state.dragStartBox, Math.max(dx, dy), getCropStageMetrics(), MIN_CROP_SIZE);
   }
 
   function handleCropPointerUp(event: PointerEvent) {
@@ -1069,14 +975,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   function handleCropWheel(event: WheelEvent) {
     event.preventDefault();
     const delta = Math.sign(event.deltaY) * 20;
-    const centerX = state.cropBox.x + state.cropBox.size / 2;
-    const centerY = state.cropBox.y + state.cropBox.size / 2;
-    const nextSize = state.cropBox.size - delta;
-    state.cropBox = clampCropBox({
-      x: centerX - nextSize / 2,
-      y: centerY - nextSize / 2,
-      size: nextSize,
-    });
+    state.cropBox = resizeCropBoxAroundCenter(state.cropBox, delta, getCropStageMetrics(), MIN_CROP_SIZE);
   }
 
   function getAutoPreviewZoomPercent() {
@@ -1108,107 +1007,32 @@ export function createCardImageController(source: CardImageControllerSource) {
     );
   }
 
-  function applyAutoRarityStyle(data: CardImageFormData): CardImageFormData {
-    const rarity = String(data.rare ?? '').trim().toLowerCase();
-    if (!rarity || data.color || data.gradient) {
-      return data;
-    }
-
-    const styleMap: Record<string, Pick<CardImageFormData, 'color' | 'gradient' | 'gradientColor1' | 'gradientColor2'>> = {
-      ur: { color: '#f3cc63', gradient: true, gradientColor1: '#8a5d17', gradientColor2: '#f8e6a2' },
-      gr: { color: '#d8dde6', gradient: true, gradientColor1: '#6d7683', gradientColor2: '#f4f7fb' },
-      hr: { color: '#eef2f8', gradient: true, gradientColor1: '#8e99a9', gradientColor2: '#ffffff' },
-      ser: { color: '#edf2f8', gradient: true, gradientColor1: '#8b95a4', gradientColor2: '#ffffff' },
-      gser: { color: '#f1d377', gradient: true, gradientColor1: '#8a6422', gradientColor2: '#fff1be' },
-      pser: { color: '#f5d6ef', gradient: true, gradientColor1: '#855f86', gradientColor2: '#fff5fd' },
-    };
-
-    const style = styleMap[rarity];
-    return style ? { ...data, ...style } : data;
-  }
-
   function buildPreviewData(): CardImageFormData {
-    return applyAutoRarityStyle(applyExtraBuildIsolation(normalizeCardImageFormData({
-      ...state.form,
-      image: state.croppedImageDataUrl,
-      scale: Math.max(getPreviewScale(), 0.1),
-    })));
+    return createPreviewRenderData({
+      form: state.form,
+      croppedImageDataUrl: state.croppedImageDataUrl,
+    }, getPreviewScale(), { hasExtraBuild: HAS_EXTRA_BUILD });
   }
 
   function buildJpgData(): CardImageFormData {
-    return applyAutoRarityStyle(applyExtraBuildIsolation(normalizeCardImageFormData({
-      ...state.form,
-      image: state.croppedImageDataUrl,
-      scale: state.exportScalePercent / 100,
-    })));
+    return createJpgRenderData({
+      form: state.form,
+      croppedImageDataUrl: state.croppedImageDataUrl,
+    }, state.exportScalePercent, { hasExtraBuild: HAS_EXTRA_BUILD });
   }
 
   function buildPngData(): CardImageFormData {
-    return applyAutoRarityStyle(applyExtraBuildIsolation(normalizeCardImageFormData({
-      ...state.form,
-      image: state.croppedImageDataUrl,
-      scale: 1,
-    })));
+    return createPngRenderData({
+      form: state.form,
+      croppedImageDataUrl: state.croppedImageDataUrl,
+    }, { hasExtraBuild: HAS_EXTRA_BUILD });
   }
 
   function buildForegroundPreviewData(): CardImageFormData {
-    return applyAutoRarityStyle(normalizeCardImageFormData({
-      ...state.form,
-      image: state.croppedImageDataUrl,
-      scale: 1,
-    }));
-  }
-
-  function isFieldSpellCard(data: CardImageFormData) {
-    return data.type === 'spell' && data.icon === 'field';
-  }
-
-  function applyExtraBuildIsolation(data: CardImageFormData): CardImageFormData {
-    if (HAS_EXTRA_BUILD) {
-      return data;
-    }
-
-    return normalizeCardImageFormData({
-      ...data,
-      foregroundImage: '',
-      foregroundWidth: 0,
-      foregroundHeight: 0,
-      foregroundScale: 1,
-      foregroundRotation: 0,
-      foregroundX: FOREGROUND_EDITOR_CARD_WIDTH / 2,
-      foregroundY: FOREGROUND_EDITOR_CARD_HEIGHT / 2,
-      effectBlockEnabled: false,
-      effectBlockColor: '#f6f2e8',
-      effectBlockOpacity: 0.78,
+    return createForegroundPreviewRenderData({
+      form: state.form,
+      croppedImageDataUrl: state.croppedImageDataUrl,
     });
-  }
-
-  async function renderSquareJpgBlob(dataUrl: string, size: number, quality = 0.92) {
-    const image = new Image();
-    image.src = dataUrl;
-    await image.decode();
-
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const context = canvas.getContext('2d');
-    if (!context) {
-      throw new Error('Canvas context unavailable');
-    }
-
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = 'high';
-    context.clearRect(0, 0, size, size);
-    context.drawImage(image, 0, 0, size, size);
-
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/jpeg', quality);
-    });
-    if (blob) {
-      return blob;
-    }
-
-    return dataUrlToBlob(canvas.toDataURL('image/jpeg', quality));
   }
 
   function handlePreviewWheel(event: WheelEvent) {
@@ -1284,11 +1108,10 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   async function renderCardPngBlob(data: CardImageFormData) {
-    const payload = await createCardRenderPayload(getCard(), data, {
+    return renderCardPngBlobForCard(getCard(), data, {
       foregroundImageUrl: state.foregroundRenderableUrl,
+      resourceCache: renderResourceCache,
     });
-    const bytes = await renderCardImage(payload);
-    return new Blob([new Uint8Array(bytes)], { type: 'image/png' });
   }
 
   async function renderCardBlob(
@@ -1296,48 +1119,10 @@ export function createCardImageController(source: CardImageControllerSource) {
     type: 'png' | 'jpg',
     quality?: number,
   ) {
-    const pngBlob = await renderCardPngBlob(data);
-
-    if (type === 'png') {
-      return pngBlob;
-    }
-
-    return convertImageBlobToJpg(pngBlob, quality ?? 0.92);
-  }
-
-  async function convertImageBlobToJpg(blob: Blob, quality: number) {
-    const url = URL.createObjectURL(blob);
-    try {
-      const image = new Image();
-      image.src = url;
-      await image.decode();
-
-      const canvas = document.createElement('canvas');
-      canvas.width = image.naturalWidth || image.width;
-      canvas.height = image.naturalHeight || image.height;
-      const context = canvas.getContext('2d');
-      if (!context) {
-        throw new Error('Canvas context unavailable');
-      }
-
-      context.fillStyle = '#ffffff';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-      const jpgBlob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, 'image/jpeg', quality);
-      });
-      if (jpgBlob) return jpgBlob;
-
-      return dataUrlToBlob(canvas.toDataURL('image/jpeg', quality));
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  }
-
-  async function blobToUint8Array(blob: Blob) {
-    const arrayBuffer = await blob.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
+    return renderCardBlobForCard(getCard(), data, type, {
+      foregroundImageUrl: state.foregroundRenderableUrl,
+      resourceCache: renderResourceCache,
+    }, quality ?? 0.92);
   }
 
   async function refreshPreview() {
@@ -1403,23 +1188,23 @@ export function createCardImageController(source: CardImageControllerSource) {
     }, 100);
   }
 
-  function getPointerAngle(clientX: number, clientY: number, centerX: number, centerY: number) {
-    return Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI;
-  }
-
   function measureForegroundRenderBounds() {
     if (!state.foregroundPreviewHost) return;
 
     const content = state.foregroundPreviewHost.firstElementChild as HTMLElement | null;
-    const nextWidth = content?.clientWidth || state.foregroundPreviewHost.clientWidth || FOREGROUND_EDITOR_CARD_WIDTH;
-    const nextHeight = content?.clientHeight || state.foregroundPreviewHost.clientHeight || FOREGROUND_EDITOR_CARD_HEIGHT;
-    const nextOffsetX = content?.offsetLeft ?? 0;
-    const nextOffsetY = content?.offsetTop ?? 0;
+    const bounds = calculateForegroundRenderBounds({
+      contentWidth: content?.clientWidth,
+      contentHeight: content?.clientHeight,
+      contentOffsetX: content?.offsetLeft,
+      contentOffsetY: content?.offsetTop,
+      hostWidth: state.foregroundPreviewHost.clientWidth,
+      hostHeight: state.foregroundPreviewHost.clientHeight,
+    });
 
-    state.foregroundRenderWidth = nextWidth;
-    state.foregroundRenderHeight = nextHeight;
-    state.foregroundRenderOffsetX = nextOffsetX;
-    state.foregroundRenderOffsetY = nextOffsetY;
+    state.foregroundRenderWidth = bounds.width;
+    state.foregroundRenderHeight = bounds.height;
+    state.foregroundRenderOffsetX = bounds.offsetX;
+    state.foregroundRenderOffsetY = bounds.offsetY;
   }
 
   function stopForegroundInteraction() {
@@ -1437,6 +1222,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     const rect = selection?.getBoundingClientRect();
     const centerX = rect ? rect.left + rect.width / 2 : 0;
     const centerY = rect ? rect.top + rect.height / 2 : 0;
+    const pointer = { x: event.clientX, y: event.clientY };
+    const center = { x: centerX, y: centerY };
 
     event.preventDefault();
     event.stopPropagation();
@@ -1451,8 +1238,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.foregroundDragStartForegroundRotation = state.form.foregroundRotation;
     state.foregroundDragCenterClientX = centerX;
     state.foregroundDragCenterClientY = centerY;
-    state.foregroundDragStartAngle = getPointerAngle(event.clientX, event.clientY, centerX, centerY);
-    state.foregroundDragStartDistance = Math.max(Math.hypot(event.clientX - centerX, event.clientY - centerY), 1);
+    state.foregroundDragStartAngle = calculatePointerAngle(pointer, center);
+    state.foregroundDragStartDistance = calculatePointerDistance(pointer, center);
 
     window.addEventListener('pointermove', handleForegroundPointerMove);
     window.addEventListener('pointerup', handleForegroundPointerUp);
@@ -1474,38 +1261,44 @@ export function createCardImageController(source: CardImageControllerSource) {
   function handleForegroundPointerMove(event: PointerEvent) {
     if (state.foregroundDragPointerId !== event.pointerId || !state.foregroundDragMode) return;
 
-    const editorScale = Math.max(getForegroundEditorScale(), 0.01);
+    const pointer = { x: event.clientX, y: event.clientY };
+    const center = {
+      x: state.foregroundDragCenterClientX,
+      y: state.foregroundDragCenterClientY,
+    };
 
     if (state.foregroundDragMode === 'move') {
-      updateForm({
-        foregroundX: state.foregroundDragStartForegroundX + (event.clientX - state.foregroundDragStartX) / editorScale,
-        foregroundY: state.foregroundDragStartForegroundY + (event.clientY - state.foregroundDragStartY) / editorScale,
-      });
+      updateForm(moveForegroundFromDrag({
+        pointer,
+        startPointer: {
+          x: state.foregroundDragStartX,
+          y: state.foregroundDragStartY,
+        },
+        startPosition: {
+          x: state.foregroundDragStartForegroundX,
+          y: state.foregroundDragStartForegroundY,
+        },
+        editorScale: getForegroundEditorScale(),
+      }));
       return;
     }
 
     if (state.foregroundDragMode === 'scale') {
-      const currentDistance = Math.max(
-        Math.hypot(event.clientX - state.foregroundDragCenterClientX, event.clientY - state.foregroundDragCenterClientY),
-        1,
-      );
-      updateForm({
-        foregroundScale: clampForegroundScale(
-          state.foregroundDragStartForegroundScale * (currentDistance / state.foregroundDragStartDistance),
-        ),
-      });
+      updateForm(scaleForegroundFromDrag({
+        pointer,
+        center,
+        startScale: state.foregroundDragStartForegroundScale,
+        startDistance: state.foregroundDragStartDistance,
+      }));
       return;
     }
 
-    const nextAngle = getPointerAngle(
-      event.clientX,
-      event.clientY,
-      state.foregroundDragCenterClientX,
-      state.foregroundDragCenterClientY,
-    );
-    updateForm({
-      foregroundRotation: state.foregroundDragStartForegroundRotation + (nextAngle - state.foregroundDragStartAngle),
-    });
+    updateForm(rotateForegroundFromDrag({
+      pointer,
+      center,
+      startRotation: state.foregroundDragStartForegroundRotation,
+      startAngle: state.foregroundDragStartAngle,
+    }));
   }
 
   function handleForegroundPointerUp(event: PointerEvent) {
@@ -1574,7 +1367,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       const bytes = await blobToUint8Array(jpgBlob);
 
       let fieldArtBytes: Uint8Array | null = null;
-      if (isFieldSpellCard(jpgData) && state.croppedImageDataUrl) {
+      if (isFieldSpellRenderData(jpgData) && state.croppedImageDataUrl) {
         const fieldArtBlob = await renderSquareJpgBlob(state.croppedImageDataUrl, FIELD_SPELL_ART_SIZE, 0.92);
         fieldArtBytes = await blobToUint8Array(fieldArtBlob);
       }
@@ -1641,6 +1434,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       resetForegroundState();
       clearForegroundInitialState();
       revokeForegroundRenderableUrl();
+      resetRenderResourceCache();
       return;
     }
 
@@ -1652,6 +1446,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       resetForegroundState();
       clearForegroundInitialState();
       revokeForegroundRenderableUrl();
+      resetRenderResourceCache();
       destroyPreview();
       destroyForegroundPreview();
       void warmupPreviewAfterFontsReady();
@@ -1775,6 +1570,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       foregroundResizeObserver?.disconnect();
       revokeSourceImageUrl();
       revokeForegroundRenderableUrl();
+      resetRenderResourceCache();
       stopForegroundInteraction();
     };
   });

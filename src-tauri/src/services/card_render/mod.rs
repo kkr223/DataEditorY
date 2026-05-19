@@ -7,7 +7,10 @@ mod resources;
 use tauri::AppHandle;
 use ygo_card_renderer_rs::model::PositionedRenderImage;
 
-pub(crate) use dto::RenderCardPayload;
+pub(crate) use dto::{
+    PrepareCardRenderResourceRequest, PreparedCardRenderResource, RenderCardPayload,
+};
+pub(crate) use resources::RenderResourceRegistry;
 
 pub(crate) fn render_card(app: &AppHandle, payload: RenderCardPayload) -> Result<Vec<u8>, String> {
     bundle::ensure_renderer_bundle(app)?;
@@ -18,13 +21,13 @@ pub(crate) fn render_card(app: &AppHandle, payload: RenderCardPayload) -> Result
         .resources
         .art_image
         .as_ref()
-        .map(resources::resolve_image_resource)
+        .map(|resource| resources::resolve_image_resource(app, resource))
         .transpose()?;
     let foreground_image = payload
         .resources
         .foreground_image
         .as_ref()
-        .map(resources::resolve_image_resource)
+        .map(|resource| resources::resolve_image_resource(app, resource))
         .transpose()?;
 
     if let Some(art_image) = art_image.as_ref() {
@@ -51,4 +54,15 @@ pub(crate) fn render_card(app: &AppHandle, payload: RenderCardPayload) -> Result
             .map(str::trim)
             .filter(|value| !value.is_empty()),
     )
+}
+
+pub(crate) fn prepare_image_resource(
+    app: &AppHandle,
+    request: PrepareCardRenderResourceRequest,
+) -> Result<PreparedCardRenderResource, String> {
+    resources::prepare_image_resource(app, request)
+}
+
+pub(crate) fn release_image_resource(app: &AppHandle, token: String) -> Result<(), String> {
+    resources::release_image_resource(app, token)
 }

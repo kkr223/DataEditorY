@@ -72,6 +72,7 @@ pub fn run() {
             services::media::handle_media_protocol_request(request)
         })
         .manage(PendingOpenCdbPaths(Mutex::new(Vec::new())))
+        .manage(services::card_render::RenderResourceRegistry::default())
         .manage(OpenCdbSessions(
             Mutex::new(std::collections::HashMap::new()),
         ))
@@ -127,6 +128,8 @@ pub fn run() {
             commands::scripts::save_card_script,
             commands::package::package_cdb_assets_as_zip,
             commands::render_card::render_card,
+            commands::render_card::prepare_card_render_resource,
+            commands::render_card::release_card_render_resource,
             commands::app::append_error_log,
             commands::app::consume_pending_open_cdb_paths
         ])

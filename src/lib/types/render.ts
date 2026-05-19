@@ -74,7 +74,8 @@ export type CardRenderDraft = {
 
 export type CardRenderImageResource =
   | { kind: 'dataUrl'; dataUrl: string }
-  | { kind: 'filePath'; path: string };
+  | { kind: 'filePath'; path: string }
+  | { kind: 'resourceToken'; token: string };
 
 export type CardRenderResources = {
   artImage?: CardRenderImageResource;

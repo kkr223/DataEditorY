@@ -3,6 +3,10 @@ import type { RenderCardPayload } from '$lib/types/render';
 
 export type { RenderCardPayload } from '$lib/types/render';
 
+export type PreparedCardRenderResource = {
+  token: string;
+};
+
 export type CardScriptInfo = {
   path: string;
   exists: boolean;
@@ -165,4 +169,14 @@ export async function loadStringsConfContent() {
 
 export async function renderCardImage(payload: RenderCardPayload) {
   return invokeCommand<number[]>('render_card', { payload });
+}
+
+export async function prepareCardRenderResource(dataUrl: string) {
+  return invokeCommand<PreparedCardRenderResource>('prepare_card_render_resource', {
+    request: { dataUrl },
+  });
+}
+
+export async function releaseCardRenderResource(token: string) {
+  return invokeCommand('release_card_render_resource', { token });
 }
