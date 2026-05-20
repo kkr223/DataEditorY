@@ -4,17 +4,15 @@
   import { isDbLoaded } from '$lib/stores/db';
   import { readTextFile } from '$lib/infrastructure/tauri/commands';
   import { tauriBridge } from '$lib/infrastructure/tauri';
+  import { handleSearch, handleReset } from '$lib/stores/searchActions';
   import {
-    editorState,
-    getAllCards,
-    getTotalCards,
-    handleSearch,
-    handleReset,
+    cardSelectionState,
     selectCardRange,
     setSingleSelectedCard,
     toggleCardSelection
-  } from '$lib/stores/editor.svelte';
+  } from '$lib/stores/cardSelection.svelte';
   import { clearSearchError, searchState } from '$lib/stores/searchState.svelte';
+  import { getAllCards, getTotalCards } from '$lib/stores/searchResults.svelte';
   import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
   import { SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
   import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from '$lib/utils/shortcuts';
@@ -55,7 +53,7 @@
     searchState.filters.setcode4 !== ''
   );
 
-  let selectedIdsSet = $derived(new Set(editorState.selectedIds));
+  let selectedIdsSet = $derived(new Set(cardSelectionState.selectedIds));
 
   function toggleFilter() {
     searchState.isFilterOpen = !searchState.isFilterOpen;
@@ -414,7 +412,7 @@
         {#each pageCards as card (card.code)}
           <tr
             class:selected={selectedIdsSet.has(card.code)}
-            class:primary-selected={editorState.selectedId === card.code}
+            class:primary-selected={cardSelectionState.selectedId === card.code}
             onclick={(event) => handleRowClick(event, card.code)}
           >
             <td class="id-col">{card.code}</td>

@@ -2,8 +2,10 @@
   import { onDestroy, onMount, tick, untrack } from "svelte";
   import { _ } from "svelte-i18n";
   import { activeTab, activeTabId, isDbLoaded, saveCdbFile } from "$lib/stores/db";
-  import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleReset, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
+  import { handleReset, handleSearch } from "$lib/stores/searchActions";
+  import { cardSelectionState, clearSelection, setSingleSelectedCard } from "$lib/stores/cardSelection.svelte";
   import { searchState } from "$lib/stores/searchState.svelte";
+  import { getAllCards, getAllCardsMap, getTotalCards } from "$lib/stores/searchResults.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
   import type { CardDataEntry } from "$lib/types";
   import { normalizeSetcodeHex, updateSetcode } from "$lib/utils/setcode";
@@ -266,7 +268,7 @@
       isEditableTarget,
       confirmDiscardDraft: confirmDiscardDraftForKeyboardNavigation,
       onModify: handleModify,
-      getSelectionTarget: (delta) => resolveSelectionNavigationTarget({ cards: getAllCards(), selectedId: editorState.selectedId, delta }),
+      getSelectionTarget: (delta) => resolveSelectionNavigationTarget({ cards: getAllCards(), selectedId: cardSelectionState.selectedId, delta }),
       selectCard: setSingleSelectedCard,
       getPageTarget: (delta) => resolvePageNavigationTarget({ totalCards: getTotalCards(), currentPage: searchState.currentPage, delta, pageSize: CARD_LIST_PAGE_SIZE }),
       setCurrentPage: (page) => {
@@ -556,8 +558,8 @@
   $effect(() => {
     syncLoadedDraftEffect({
       isDbLoaded: $isDbLoaded,
-      selectedId: editorState.selectedId,
-      selectedCard: getAllCardsMap().get(editorState.selectedId ?? -1) ?? null,
+      selectedId: cardSelectionState.selectedId,
+      selectedCard: getAllCardsMap().get(cardSelectionState.selectedId ?? -1) ?? null,
       lastSyncedSelectedId,
       lastLoadedCardSnapshot,
       originalCardCode,

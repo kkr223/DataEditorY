@@ -27,12 +27,12 @@ import { isShortcutEvent } from '$lib/features/shortcuts/registry';
 import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
 import {
   clearSelection,
-  getAllCardsMap,
   getSelectedCardIds,
   getSelectedCards,
-  handleSearch,
   setSelectedCards,
-} from '$lib/stores/editor.svelte';
+} from '$lib/stores/cardSelection.svelte';
+import { handleSearch } from '$lib/stores/searchActions';
+import { getAllCardsMap } from '$lib/stores/searchResults.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { dispatchAppShortcut } from '$lib/utils/shortcuts';
 import { writeErrorLog } from '$lib/utils/errorLog';

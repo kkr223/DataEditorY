@@ -2,7 +2,7 @@ import type { CardDataEntry } from '$lib/types';
 import type { ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { getCardsByIds, modifyCard } from '$lib/stores/db';
-import { setSingleSelectedCard } from '$lib/stores/editor.svelte';
+import { setSingleSelectedCard } from '$lib/stores/cardSelection.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { cloneEditableCard, createEmptyCard } from '$lib/utils/card';

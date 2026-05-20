@@ -10,7 +10,8 @@
     getCachedTotal
   } from '$lib/stores/db';
   import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-  import { clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSelectedCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
+  import { cardSelectionState, clearSelection, setSelectedCards, setSingleSelectedCard } from '$lib/stores/cardSelection.svelte';
+  import { getAllCards, setAllCards, setTotalCards } from '$lib/stores/searchResults.svelte';
   import { clearSearchError, resetSearchState, searchState } from '$lib/stores/searchState.svelte';
   import { appShellState } from '$lib/stores/appShell.svelte';
 
@@ -78,7 +79,7 @@
         const cachedSelectedIds = getCachedSelectedIds();
         if (cachedSelectedIds.length > 0) {
           setSelectedCards(cachedSelectedIds, getCachedSelectedId(), getCachedSelectionAnchorId());
-          if (cards.length > 0 && editorState.selectedId === null) {
+          if (cards.length > 0 && cardSelectionState.selectedId === null) {
             setSingleSelectedCard(cards[0].code);
           }
         } else {

@@ -1,7 +1,7 @@
 # DataEditorY 当前项目模块功能文档
 
 生成时间：2026-05-18  
-更新时间：2026-05-19
+更新时间：2026-05-20
 适用范围：当前 `DataEditorY` 仓库，包含 Svelte/Tauri 前端、Rust 后端、CDB 编辑、Lua 脚本编辑、制卡器、AI、打包与合并功能。
 
 ## 1. 项目定位
@@ -267,7 +267,9 @@ sequenceDiagram
 | --- | --- |
 | `appSettings.svelte.ts` | 持久化设置、AI 连接状态 |
 | `appShell.svelte.ts` | 全局 UI 视图状态：编辑器/设置/脚本 |
-| `editor.svelte.ts` | 当前卡片列表、选择、搜索结果缓存与搜索执行编排 |
+| `cardSelection.svelte.ts` | 当前卡片选择状态、批量选择、范围选择与标签页 selection cache 同步 |
+| `searchActions.ts` | 搜索执行、重置、缓存搜索快照刷新后的结果/选择协调 |
+| `searchResults.svelte.ts` | 搜索结果列表、code map、可见 id 索引与 total；大结果集保持 raw state |
 | `searchState.svelte.ts` | 搜索 UI 状态：filters、当前页、规则错误、过滤面板开关 |
 | `tabs.ts` | CDB 标签生命周期、缓存、保存、打开、关闭、激活 |
 | `search.ts` | 搜索 IPC 执行、source filter 缓存、搜索快照监听 |
@@ -496,7 +498,7 @@ Card Editor 打开脚本
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| `searchState.svelte.ts` 已承接 filters、当前页、规则错误和过滤面板开关；`editor.svelte.ts` 仍负责编排搜索结果与选择状态 | 搜索 UI 状态已先从选择状态中拆出，响应式触发面缩小；搜索执行与选择保留在同一编排点以降低回归风险 | 后续可继续把搜索结果列表/total 与选择索引拆为更明确的 `searchResults` / `selection` store |
+| `editor.svelte.ts` 已移除；搜索 UI 状态、搜索结果、卡片选择和搜索执行分别落到 `searchState.svelte.ts`、`searchResults.svelte.ts`、`cardSelection.svelte.ts`、`searchActions.ts` | 原先一个 store 同时触发搜索表单、结果大数组、选择状态和搜索执行的耦合已解除；大结果集、选择响应式和搜索 orchestration 可以独立维护 | 保持这四个边界稳定：搜索表单状态进 `searchState`，结果/索引进 `searchResults`，选择行为进 `cardSelection`，跨 store 搜索流程进 `searchActions` |
 
 ### 9.6 Rust 后端 `Result<T, String>` 遍布所有服务
 

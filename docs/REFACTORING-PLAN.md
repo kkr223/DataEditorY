@@ -1,7 +1,7 @@
 # DataEditorY 重构准备文档
 
 生成时间：2026-05-18  
-更新时间：2026-05-19
+更新时间：2026-05-20
 重构目标：为后续代码重构提供方向性文档。本文不包含逐行迁移步骤，重点描述重构目标、边界、目标架构、优先级与风险。
 
 ## 1. 总体重构目标
@@ -332,13 +332,13 @@ export type RenderCardPayload = {
 
 ### 8.1 stores 搜索/编辑状态拆分
 
-当前已完成第一刀：`stores/searchState.svelte.ts` 承接 filters、当前页、规则错误和过滤面板开关；`stores/editor.svelte.ts` 仍负责编排搜索执行后的卡片列表、total、选择索引与 selection cache。搜索 UI 状态已先从选择状态中解耦，后续如继续推进，可再拆搜索结果列表/total 与选择索引。
+当前已完成 P3 拆分：旧 `stores/editor.svelte.ts` 已移除，职责拆为 `searchState.svelte.ts`（filters、当前页、规则错误、过滤面板开关）、`searchResults.svelte.ts`（结果列表、code map、可见 id 索引、total）、`cardSelection.svelte.ts`（当前选择、批量/范围选择、selection cache 同步）和 `searchActions.ts`（搜索执行、重置、缓存搜索快照刷新后的跨 store 协调）。
 
 建议方向：
 
-- 拆分 `searchStore`（结果、分页、filter）与 `editorStore`（草稿、选择、dirty）
-- 两者通过事件/action 协调，而非共享同一个 reactive state
-- 注意：此项目风险较低，建议在其他重构稳定后再进行，避免引入排列爆炸的 regression
+- 搜索表单状态、搜索结果、卡片选择和搜索 action 已不再共享同一个 reactive state
+- 后续新增搜索 UI 字段时优先放入 `searchState`，新增结果索引时优先放入 `searchResults`
+- 若 `searchActions.ts` 继续膨胀，再按 use case 拆出更细的搜索流程函数，但不重新引入聚合型 editor store
 
 ### 8.2 共享类型位置统一
 
@@ -428,7 +428,7 @@ export type RenderCardPayload = {
 
 **第三阶段：后续优化（P3）**
 11. **补测试与回归样例**：渲染 DTO 契约、CDB merge 冲突、package 依赖解析。
-12. **拆分 stores/editor**：搜索与编辑状态解耦。
+12. **拆分 stores/editor**：已完成，旧 `editor.svelte.ts` 退场，搜索 UI、结果、选择、搜索 action 分模块维护。
 13. **清理旧兼容代码**：删除不再需要的 mapper、unknown 类型。
 14. **评估 Tauri event 异步渲染**：根据性能表现决定是否引入。
 
@@ -452,7 +452,7 @@ export type RenderCardPayload = {
 - `utils/lua*.ts`、`utils/ai.ts` 兼容重导出已清理；引用方改为直接指向 `features/script-editor`、`features/card-image`、`features/ai` 的真实模块。（已完成）
 - `CardScriptInfo`、`CardScriptDocument` 已迁移到 `types/script.ts`，Tauri command wrapper 只保留调用与类型转发。（已完成）
 - AI 上下文、脚本生成、脚本阶段文案、脚本模板应用已真正落到 `services/`，不再由 `services/*` 转发 `features/*` 实现。（已完成）
-- `stores/searchState.svelte.ts` 已拆出搜索 UI 状态，作为 `stores/editor` 拆分的第一步。（P3 已开始）
+- `stores/editor.svelte.ts` 已完成拆分并移除；`searchState`、`searchResults`、`cardSelection`、`searchActions` 分别承担搜索 UI、结果数据、选择状态和搜索编排。（P3 已完成当前目标）
 
 **功能回归**
 - 有基本渲染契约测试与 smoke test。（已补 payload/data/blob/resource、共享 DTO fixture、真实 renderer PNG smoke 和 committed PNG pixel snapshot）
@@ -468,7 +468,7 @@ export type RenderCardPayload = {
 - 重写 Lua 语义分析系统（parser、scope、diagnostics）。
 - 改变 base/extra 产品形态（两个构建变体的定位不变）。
 - 大规模修改 AI prompt/工具协议。
-- stores/editor 拆分——属于重构范围但不是本轮优先项。
+- stores/editor 拆分已在 P3 完成；后续只在各新边界内做增量维护。
 - Tauri event 异步渲染——性能优化而非功能修复，延后处理。
 
 这些内容与卡图渲染重构耦合度低，若同时推进会显著放大风险。

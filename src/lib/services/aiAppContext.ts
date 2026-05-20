@@ -11,7 +11,8 @@ import {
   queryCardsRaw,
   tabs,
 } from '$lib/stores/db';
-import { getAllCards, getSelectedCards } from '$lib/stores/editor.svelte';
+import { getSelectedCards } from '$lib/stores/cardSelection.svelte';
+import { getAllCards } from '$lib/stores/searchResults.svelte';
 import type { AiAppContext } from '$lib/features/ai/service';
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';

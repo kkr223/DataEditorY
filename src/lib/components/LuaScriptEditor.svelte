@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { activeTabId, tabs } from '$lib/stores/db';
-  import { editorState, getSelectedCard } from '$lib/stores/editor.svelte';
+  import { cardSelectionState, getSelectedCard } from '$lib/stores/cardSelection.svelte';
   import {
     activeScriptTab,
   } from '$lib/stores/scriptEditor.svelte';
@@ -77,7 +77,7 @@
 
   const scriptStrings = $derived.by(() => Array.from({ length: 16 }, (_, index) => cardContext?.strings[index] ?? ''));
   const activeDbTab = $derived.by(() => $tabs.find((tab) => tab.id === $activeTabId) ?? null);
-  const canOpenNewScriptTab = $derived(Boolean(activeDbTab && editorState.selectedId !== null));
+  const canOpenNewScriptTab = $derived(Boolean(activeDbTab && cardSelectionState.selectedId !== null));
 
   function ensureScriptEditorExtraUseCases() {
     if (!loadScriptEditorExtraUseCases || !hasAiCapability) {
