@@ -3,8 +3,8 @@ import { locale } from 'svelte-i18n';
 import { activeTabId, cacheActiveTabSelection, clearSourceFilterCacheForTab, onCachedSearchRefreshed, searchCardsPage } from '$lib/stores/db';
 import { getRuleExpressionErrorMessage, RuleExpressionError } from '$lib/domain/search/ruleExpression';
 import { showToast } from '$lib/stores/toast.svelte';
-import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import type { CardDataEntry, SearchFilters } from '$lib/types';
+import { clearSearchError, resetSearchState, searchState } from '$lib/stores/searchState.svelte';
+import type { CardDataEntry } from '$lib/types';
 
 // allCards is a large array (potentially 10k+ items) that is only used for
 // read-only rendering in CardList. Using $state.raw avoids Svelte 5's deep
@@ -64,18 +64,10 @@ export const editorState = $state<{
   selectedId: number | null;
   selectedIds: number[];
   selectionAnchorId: number | null;
-  currentPage: number;
-  searchFilters: SearchFilters;
-  searchError: string;
-  isFilterOpen: boolean;
 }>({
   selectedId: null,
   selectedIds: [],
   selectionAnchorId: null,
-  currentPage: 1,
-  searchFilters: { ...DEFAULT_SEARCH_FILTERS },
-  searchError: '',
-  isFilterOpen: false
 });
 
 // Expose allCards and allCardsMap as getters/setters so components can use them
@@ -126,7 +118,7 @@ function syncActiveSearchSnapshot(input: {
 
   setAllCards(input.cards);
   _totalCards = input.total;
-  editorState.currentPage = input.page;
+  searchState.currentPage = input.page;
 
   const visibleSelectedIds = getVisibleSelectedIds(prevSelectedIds);
   if (visibleSelectedIds.length > 0) {
@@ -164,10 +156,6 @@ export function clearSelection() {
   editorState.selectedId = null;
   editorState.selectionAnchorId = null;
   cacheActiveTabSelection([], null, null);
-}
-
-export function clearSearchError() {
-  editorState.searchError = '';
 }
 
 export function setSingleSelectedCard(cardId: number | null) {
@@ -221,26 +209,26 @@ export async function handleSearch(preserveSelection = false, resetPage = false)
   const prevSelectedId = editorState.selectedId;
   const prevSelectedIds = [...editorState.selectedIds];
   const prevAnchorId = editorState.selectionAnchorId;
-  const prevPage = editorState.currentPage;
+  const prevPage = searchState.currentPage;
   const currentTabId = get(activeTabId);
 
   if (!currentTabId) return false;
 
   if (resetPage) {
-    editorState.currentPage = 1;
+    searchState.currentPage = 1;
   }
 
   let cards: CardDataEntry[];
   let total: number;
   try {
-    ({ cards, total } = await searchCardsPage(editorState.searchFilters, editorState.currentPage));
+    ({ cards, total } = await searchCardsPage(searchState.filters, searchState.currentPage));
     clearSearchError();
   } catch (err) {
-    editorState.currentPage = prevPage;
+    searchState.currentPage = prevPage;
 
     if (err instanceof RuleExpressionError) {
       const message = getRuleExpressionErrorMessage(err, get(locale) ?? 'en');
-      editorState.searchError = message;
+      searchState.error = message;
       showToast(message, 'error');
       return false;
     }
@@ -275,8 +263,6 @@ export async function handleSearch(preserveSelection = false, resetPage = false)
 export function handleReset() {
   const tab = get(activeTabId);
   if (tab) clearSourceFilterCacheForTab(tab);
-  editorState.searchFilters = { ...DEFAULT_SEARCH_FILTERS };
-  clearSearchError();
-  editorState.currentPage = 1;
+  resetSearchState();
   return handleSearch();
 }

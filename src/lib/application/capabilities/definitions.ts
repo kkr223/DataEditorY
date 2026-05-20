@@ -61,3 +61,10 @@ export function isCapabilityEnabledInRegistry(
 ) {
   return registry.some((capability) => capability.id === id && capability.enabled);
 }
+
+export function isAnyCapabilityEnabledInRegistry(
+  registry: CapabilityDescriptor[],
+  ids: readonly CapabilityId[],
+) {
+  return ids.some((id) => isCapabilityEnabledInRegistry(registry, id));
+}

@@ -1,12 +1,18 @@
+use std::path::Path;
+
 use ygo_card_renderer_rs::{
-    model::{NameColor, RareType, TextGradient, YgoCardMeta},
+    model::{NameColor, PositionedRenderImage, RareType, TextGradient, YgoCardMeta},
     CardKind, RenderOptions, RenderRequest,
 };
 use ygopro_cdb_encode_rs::CardDataEntry;
 
-use super::dto::{CardRenderDraft, CardRenderKind, CardRenderNameColor, CardRenderTextGradient};
+use super::dto::{
+    CardRenderDraft, CardRenderForegroundLayer, CardRenderKind, CardRenderNameColor,
+    CardRenderTextGradient,
+};
+use super::error::{RenderError, RenderResult};
 
-pub(super) fn render_request_from_draft(draft: CardRenderDraft) -> Result<RenderRequest, String> {
+pub(super) fn render_request_from_draft(draft: CardRenderDraft) -> RenderResult<RenderRequest> {
     let card_kind = match draft.kind {
         CardRenderKind::Yugioh => CardKind::Yugioh,
     };
@@ -65,6 +71,46 @@ pub(super) fn render_request_from_draft(draft: CardRenderDraft) -> Result<Render
     })
 }
 
+pub(super) fn positioned_foreground_image(
+    path: &Path,
+    layer: Option<CardRenderForegroundLayer>,
+) -> PositionedRenderImage {
+    let Some(layer) = layer else {
+        return PositionedRenderImage {
+            path: path.to_path_buf(),
+            x: 0,
+            y: 0,
+            width: None,
+            height: None,
+            scale: None,
+            scale_x: None,
+            scale_y: None,
+            rotation: None,
+        };
+    };
+
+    let width = finite_positive(layer.width * layer.scale);
+    let height = finite_positive(layer.height * layer.scale);
+    let x = width
+        .map(|width| layer.center_x - width / 2.0)
+        .unwrap_or(layer.center_x);
+    let y = height
+        .map(|height| layer.center_y - height / 2.0)
+        .unwrap_or(layer.center_y);
+
+    PositionedRenderImage {
+        path: path.to_path_buf(),
+        x: finite_i32_or_default(x, 0),
+        y: finite_i32_or_default(y, 0),
+        width,
+        height,
+        scale: None,
+        scale_x: None,
+        scale_y: None,
+        rotation: finite_optional(layer.rotation),
+    }
+}
+
 fn convert_name_color(name_color: CardRenderNameColor) -> NameColor {
     match name_color {
         CardRenderNameColor::Auto => NameColor::Auto,
@@ -90,7 +136,26 @@ fn finite_scale_or_default(scale: f32) -> f32 {
     }
 }
 
-fn parse_rare_type(value: &str) -> Result<Option<RareType>, String> {
+fn finite_positive(value: f32) -> Option<f32> {
+    value
+        .is_finite()
+        .then_some(value)
+        .filter(|value| *value > 0.0)
+}
+
+fn finite_optional(value: f32) -> Option<f32> {
+    value.is_finite().then_some(value)
+}
+
+fn finite_i32_or_default(value: f32, fallback: i32) -> i32 {
+    if !value.is_finite() {
+        return fallback;
+    }
+
+    value.round().clamp(i32::MIN as f32, i32::MAX as f32) as i32
+}
+
+fn parse_rare_type(value: &str) -> RenderResult<Option<RareType>> {
     let normalized = value.trim().to_ascii_lowercase();
     if normalized.is_empty() {
         return Ok(None);
@@ -112,7 +177,11 @@ fn parse_rare_type(value: &str) -> Result<Option<RareType>, String> {
         "upr" => RareType::Upr,
         "sepr" => RareType::Sepr,
         "dt" => RareType::Dt,
-        _ => return Err(format!("Unsupported card render rare type: {value}")),
+        _ => {
+            return Err(RenderError::invalid(format!(
+                "Unsupported card render rare type: {value}"
+            )))
+        }
     };
 
     Ok(Some(rare_type))
@@ -125,61 +194,9 @@ mod tests {
 
     #[test]
     fn deserializes_app_level_render_payload() {
-        let raw = r##"{
-            "draft": {
-                "kind": "yugioh",
-                "identity": {
-                    "code": 89631139,
-                    "alias": 0,
-                    "ruleCode": 0,
-                    "passwordText": "89631139"
-                },
-                "frame": {
-                    "setcode": [12296],
-                    "type": 17,
-                    "level": 8,
-                    "lscale": 0,
-                    "rscale": 0,
-                    "linkMarker": 0
-                },
-                "stats": {
-                    "attack": 3000,
-                    "defense": 2500,
-                    "race": 8192,
-                    "attribute": 16,
-                    "category": 0,
-                    "ot": 0
-                },
-                "localizedText": {
-                    "name": "Blue-Eyes White Dragon",
-                    "description": "A white dragon.",
-                    "strings": ["first"]
-                },
-                "visualStyle": {
-                    "rare": "ur",
-                    "nameColor": { "kind": "custom", "value": "#f3cc63" },
-                    "nameGradient": { "start": "#8a5d17", "end": "#f8e6a2" },
-                    "twentieth": true,
-                    "outFrame": true,
-                    "outFrameEffectEnabled": true,
-                    "outFrameEffectBackgroundColor": "#f6f2e8",
-                    "outFrameEffectOpacity": 0.78
-                },
-                "outputOptions": {
-                    "language": "en",
-                    "scale": 0.43,
-                    "descriptionFirstLineCompress": true
-                }
-            },
-            "resources": {
-                "artImage": {
-                    "kind": "dataUrl",
-                    "dataUrl": "data:image/png;base64,AAA"
-                }
-            }
-        }"##;
-
+        let raw = include_str!("../../../../tests/fixtures/card-render-payload.json");
         let payload: RenderCardPayload = serde_json::from_str(raw).unwrap();
+        let foreground_layer = payload.draft.foreground_layer;
         let request = render_request_from_draft(payload.draft).unwrap();
 
         assert_eq!(request.kind, CardKind::Yugioh);
@@ -193,17 +210,33 @@ mod tests {
             NameColor::Custom("#f3cc63".to_string())
         );
         assert!(request.card.name_gradient.is_some());
+        assert_eq!(request.card.package.as_deref(), Some("LOB"));
+        assert_eq!(request.card.copyright.as_deref(), Some("en"));
+        assert_eq!(request.card.laser.as_deref(), Some("laser1"));
         assert!(request.card.twentieth);
         assert!(request.card.out_frame);
         assert_eq!(request.options.language.as_deref(), Some("en"));
         assert_eq!(request.options.scale, 0.43);
         assert!(request.options.description_first_line_compress);
+        let foreground = positioned_foreground_image(Path::new("foreground.png"), foreground_layer);
+        assert_eq!(foreground.x, 572);
+        assert_eq!(foreground.y, 916);
+        assert_eq!(foreground.width, Some(250.0));
+        assert_eq!(foreground.height, Some(200.0));
+        assert_eq!(foreground.rotation, Some(15.0));
         assert_eq!(
             match payload.resources.art_image {
                 Some(super::super::dto::CardRenderImageResource::DataUrl { data_url }) => data_url,
                 _ => String::new(),
             },
             "data:image/png;base64,AAA"
+        );
+        assert_eq!(
+            match payload.resources.foreground_image {
+                Some(super::super::dto::CardRenderImageResource::DataUrl { data_url }) => data_url,
+                _ => String::new(),
+            },
+            "data:image/png;base64,BBB"
         );
     }
 

@@ -16,6 +16,10 @@ use crate::{
     BACKGROUND_TASK_PROGRESS_EVENT,
 };
 
+fn cdb_cards_command<T>(result: cdb_cards_service::CdbCardsResult<T>) -> Result<T, String> {
+    result.map_err(|err| err.to_string())
+}
+
 #[tauri::command]
 pub fn open_cdb_tab(
     app: AppHandle,
@@ -51,7 +55,7 @@ pub fn search_cards_page(
     state: State<'_, OpenCdbSessions>,
     request: SearchCardsPageRequest,
 ) -> Result<SearchCardsPageResponse, String> {
-    cdb_cards_service::search_cards_page(state.inner(), request)
+    cdb_cards_command(cdb_cards_service::search_cards_page(state.inner(), request))
 }
 
 #[tauri::command]
@@ -59,7 +63,7 @@ pub fn query_cards_raw(
     state: State<'_, OpenCdbSessions>,
     request: QueryCardsRequest,
 ) -> Result<Vec<CardDto>, String> {
-    cdb_cards_service::query_cards_raw(state.inner(), request)
+    cdb_cards_command(cdb_cards_service::query_cards_raw(state.inner(), request))
 }
 
 #[tauri::command]
@@ -68,7 +72,11 @@ pub fn get_card_by_id(
     tab_id: String,
     card_id: u32,
 ) -> Result<Option<CardDto>, String> {
-    cdb_cards_service::get_card_by_id(state.inner(), tab_id, card_id)
+    cdb_cards_command(cdb_cards_service::get_card_by_id(
+        state.inner(),
+        tab_id,
+        card_id,
+    ))
 }
 
 #[tauri::command]
@@ -76,7 +84,7 @@ pub fn get_cards_by_ids(
     state: State<'_, OpenCdbSessions>,
     request: GetCardsByIdsRequest,
 ) -> Result<Vec<CardDto>, String> {
-    cdb_cards_service::get_cards_by_ids(state.inner(), request)
+    cdb_cards_command(cdb_cards_service::get_cards_by_ids(state.inner(), request))
 }
 
 #[tauri::command]
@@ -84,7 +92,7 @@ pub fn modify_cards(
     state: State<'_, OpenCdbSessions>,
     request: ModifyCardsRequest,
 ) -> Result<(), String> {
-    cdb_cards_service::modify_cards(state.inner(), request)
+    cdb_cards_command(cdb_cards_service::modify_cards(state.inner(), request))
 }
 
 #[tauri::command]
@@ -92,12 +100,12 @@ pub fn delete_cards(
     state: State<'_, OpenCdbSessions>,
     request: DeleteCardsRequest,
 ) -> Result<(), String> {
-    cdb_cards_service::delete_cards(state.inner(), request)
+    cdb_cards_command(cdb_cards_service::delete_cards(state.inner(), request))
 }
 
 #[tauri::command]
 pub fn create_cdb_from_cards(request: CreateCdbFromCardsRequest) -> Result<(), String> {
-    cdb_cards_service::create_cdb_from_cards(request)
+    cdb_cards_command(cdb_cards_service::create_cdb_from_cards(request))
 }
 
 #[tauri::command]
@@ -143,5 +151,8 @@ pub fn undo_modify_operation(
     state: State<'_, OpenCdbSessions>,
     request: UndoModifyOperationRequest,
 ) -> Result<(), String> {
-    cdb_cards_service::undo_modify_operation(state.inner(), request)
+    cdb_cards_command(cdb_cards_service::undo_modify_operation(
+        state.inner(),
+        request,
+    ))
 }

@@ -48,3 +48,6 @@ codegen-units = 16
 debug = false
 strip = true
 panic = "abort" # Optional: reduces size and slightly speeds up build
+
+[dev-dependencies]
+ts-rs = "11.1.0"

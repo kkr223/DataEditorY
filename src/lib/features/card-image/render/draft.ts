@@ -1,6 +1,11 @@
 import { ATTRIBUTE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
 import type { CardDataEntry } from '$lib/types';
-import type { CardRenderDraft, CardRenderNameColor, CardRenderTextGradient } from '$lib/types/render';
+import type {
+  CardRenderDraft,
+  CardRenderForegroundLayer,
+  CardRenderNameColor,
+  CardRenderTextGradient,
+} from '$lib/types/render';
 import type { CardImageFormData } from '../layout';
 
 const ARROW_TO_LINK_MARKER_BIT: Record<number, number> = {
@@ -166,6 +171,25 @@ const hasEffectBlock = (data: CardImageFormData) => Boolean(
 
 const rareType = (data: CardImageFormData) => optionalTrimmed(data.rare) ?? undefined;
 
+const foregroundLayer = (data: CardImageFormData): CardRenderForegroundLayer | undefined => {
+  const hasForegroundImage = Boolean(
+    data.foregroundImage.trim()
+      && data.foregroundWidth > 0
+      && data.foregroundHeight > 0
+      && data.foregroundScale > 0,
+  );
+  if (!hasForegroundImage) return undefined;
+
+  return {
+    centerX: Number(data.foregroundX),
+    centerY: Number(data.foregroundY),
+    width: Number(data.foregroundWidth),
+    height: Number(data.foregroundHeight),
+    scale: Number(data.foregroundScale),
+    rotation: Number(data.foregroundRotation),
+  };
+};
+
 export const createCardRenderDraft = (
   sourceCard: CardDataEntry,
   data: CardImageFormData,
@@ -224,6 +248,7 @@ export const createCardRenderDraft = (
       outFrameEffectBackgroundColor: effectBlockEnabled ? data.effectBlockColor : undefined,
       outFrameEffectOpacity: effectBlockEnabled ? data.effectBlockOpacity : undefined,
     },
+    foregroundLayer: foregroundLayer(data),
     outputOptions: {
       language: data.language,
       scale: Math.max(Number(data.scale) || 1, 0.01),

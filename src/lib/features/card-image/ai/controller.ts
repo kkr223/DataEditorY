@@ -1,5 +1,5 @@
 import type { CardDataEntry } from '$lib/types';
-import { HAS_AI_FEATURE } from '$lib/config/build';
+import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
 import { showToast } from '$lib/stores/toast.svelte';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { createAiAppContext } from '$lib/services/aiAppContext';
@@ -29,8 +29,10 @@ export const createCardImageAiController = ({
   getOptionLabel,
   t,
 }: CardImageAiControllerOptions) => {
+  const hasAiCapability = isCapabilityEnabled('ai');
+
   const ensureAiReady = async () => {
-    if (!HAS_AI_FEATURE) {
+    if (!hasAiCapability) {
       return false;
     }
 
@@ -57,7 +59,7 @@ export const createCardImageAiController = ({
 
     try {
       state.isTranslating = true;
-      const { translateCardImageFields } = await import('$lib/utils/ai');
+      const { translateCardImageFields } = await import('$lib/features/ai/service');
       const targetLanguageLabel = getOptionLabel(
         CARD_IMAGE_LANGUAGE_OPTIONS.find((option) => option.value === state.form.language) ?? {
           value: state.form.language,

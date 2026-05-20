@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import type { CardDataEntry } from '$lib/types';
+import type { RenderCardPayload } from '$lib/types/render';
 import { normalizeCardImageFormData } from '../layout';
 import { createCardRenderDraft, createCardRenderPayload } from '.';
 import type { CardRenderResourceCache } from './resources';
+import renderPayloadFixture from '../../../../../tests/fixtures/card-render-payload.json';
 
 const baseCard: CardDataEntry = {
   code: 89631139,
@@ -94,5 +96,44 @@ describe('card render payload', () => {
       kind: 'resourceToken',
       token: 'token:25',
     });
+  });
+
+  test('matches the shared TypeScript/Rust render payload fixture', async () => {
+    const payload = await createCardRenderPayload(baseCard, normalizeCardImageFormData({
+      name: 'Blue-Eyes White Dragon',
+      description: 'A white dragon.',
+      language: 'en',
+      type: 'monster',
+      cardType: 'normal',
+      attribute: 'light',
+      atk: 3000,
+      def: 2500,
+      level: 8,
+      password: '89631139',
+      image: 'data:image/png;base64,AAA',
+      rare: 'ur',
+      color: '#f3cc63',
+      gradient: true,
+      gradientColor1: '#8a5d17',
+      gradientColor2: '#f8e6a2',
+      package: 'LOB',
+      copyright: 'en',
+      laser: 'laser1',
+      twentieth: true,
+      foregroundImage: 'data:image/png;base64,BBB',
+      foregroundWidth: 500,
+      foregroundHeight: 400,
+      foregroundX: 697,
+      foregroundY: 1015.5,
+      foregroundScale: 0.5,
+      foregroundRotation: 15,
+      effectBlockEnabled: true,
+      effectBlockColor: '#f6f2e8',
+      effectBlockOpacity: 0.78,
+      firstLineCompress: true,
+      scale: 0.43,
+    }));
+
+    expect(JSON.parse(JSON.stringify(payload))).toEqual(renderPayloadFixture as RenderCardPayload);
   });
 });

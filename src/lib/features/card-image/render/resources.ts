@@ -3,9 +3,6 @@ import { tauriBridge } from '$lib/infrastructure/tauri';
 import { prepareCardRenderResource, releaseCardRenderResource } from '$lib/infrastructure/tauri/commands';
 import type { CardImageFormData } from '../layout';
 
-const RENDER_CARD_WIDTH = 1394;
-const RENDER_CARD_HEIGHT = 2031;
-
 export type CardRenderResourceOptions = {
   foregroundImageUrl?: string;
   resourceCache?: CardRenderResourceCache;
@@ -70,51 +67,24 @@ export const createCardRenderResourceCache = (): CardRenderResourceCache => {
 
 const defaultResourceCache = createCardRenderResourceCache();
 
-const createForegroundOverlayDataUrl = async (
+const getForegroundImageDataUrl = (
   data: CardImageFormData,
   foregroundImageUrl = '',
 ) => {
   if (!hasForegroundOverlay(data)) return undefined;
 
-  const imageUrl = foregroundImageUrl.trim() || data.foregroundImage.trim();
-  if (!imageUrl) return undefined;
+  const foregroundDataUrl = data.foregroundImage.trim();
+  if (foregroundDataUrl) return foregroundDataUrl;
 
-  const image = new Image();
-  image.src = imageUrl;
-  await image.decode();
-
-  const canvas = document.createElement('canvas');
-  canvas.width = RENDER_CARD_WIDTH;
-  canvas.height = RENDER_CARD_HEIGHT;
-  const context = canvas.getContext('2d');
-  if (!context) {
-    throw new Error('Canvas context unavailable');
-  }
-
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = 'high';
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.save();
-  context.translate(data.foregroundX, data.foregroundY);
-  context.rotate((data.foregroundRotation * Math.PI) / 180);
-  context.scale(data.foregroundScale, data.foregroundScale);
-  context.drawImage(
-    image,
-    -data.foregroundWidth / 2,
-    -data.foregroundHeight / 2,
-    data.foregroundWidth,
-    data.foregroundHeight,
-  );
-  context.restore();
-
-  return canvas.toDataURL('image/png');
+  const renderableUrl = foregroundImageUrl.trim();
+  return renderableUrl.startsWith('data:') ? renderableUrl : undefined;
 };
 
 export const createCardRenderResources = async (
   data: CardImageFormData,
   options: CardRenderResourceOptions = {},
 ): Promise<CardRenderResources> => {
-  const foregroundImageDataUrl = await createForegroundOverlayDataUrl(data, options.foregroundImageUrl);
+  const foregroundImageDataUrl = getForegroundImageDataUrl(data, options.foregroundImageUrl);
   const resourceCache = options.resourceCache ?? defaultResourceCache;
 
   return {

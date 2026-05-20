@@ -1,6 +1,6 @@
 import type { editor as MonacoEditor } from 'monaco-editor';
 
-export type ScriptMonacoModule = typeof import('$lib/utils/luaScriptMonaco');
+export type ScriptMonacoModule = typeof import('$lib/features/script-editor/monaco/setup');
 export type ScriptMonacoApi = typeof import('monaco-editor');
 
 export type ScriptMonacoRuntime = {
@@ -53,7 +53,7 @@ export async function createScriptMonacoRuntime(input: {
   onWindowKeyup: (event: KeyboardEvent) => void;
   onWindowBlur: () => void;
 }) {
-  const loadedModule = await import('$lib/utils/luaScriptMonaco');
+  const loadedModule = await import('$lib/features/script-editor/monaco/setup');
   const loadedMonaco = await loadedModule.loadMonaco();
 
   const editor = loadedMonaco.editor.create(input.host, buildScriptEditorMonacoOptions());

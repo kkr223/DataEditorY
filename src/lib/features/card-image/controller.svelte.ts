@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import type { CardDataEntry } from '$lib/types';
-import { HAS_EXTRA_BUILD } from '$lib/config/build';
+import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
 import { showToast } from '$lib/stores/toast.svelte';
 import { createCardImageAiController } from './ai/controller';
 import { createCardImageConfigController } from './config/controller';
@@ -54,6 +54,7 @@ function t(key: string, options?: Record<string, unknown>) {
 }
 
 export function createCardImageController(source: CardImageControllerSource) {
+  const hasCardImageCapability = isCapabilityEnabled('card-image');
   const state = $state(createCardImageInitialState({
     maxCropPreviewWidth: MAX_CROP_PREVIEW_WIDTH,
     maxCropPreviewHeight: MAX_CROP_PREVIEW_HEIGHT,
@@ -84,7 +85,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   let foregroundController: ReturnType<typeof createCardImageForegroundController>;
   const renderController = createCardImageRenderController({
     state,
-    hasExtraBuild: HAS_EXTRA_BUILD,
+    hasExtraBuild: hasCardImageCapability,
     getOpen,
     getCard,
     getCdbPath: () => source.cdbPath(),
@@ -102,7 +103,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   });
   foregroundController = createCardImageForegroundController({
     state,
-    hasExtraBuild: HAS_EXTRA_BUILD,
+    hasExtraBuild: hasCardImageCapability,
     updateForm: formController.updateForm,
     syncForegroundRenderableUrl: mediaController.syncForegroundRenderableUrl,
     revokeForegroundRenderableUrl: mediaController.revokeForegroundRenderableUrl,

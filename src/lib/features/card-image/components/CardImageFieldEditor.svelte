@@ -14,13 +14,15 @@
     normalizeCardImageFormData,
     type CardImageFormData,
   } from '$lib/features/card-image/layout';
-  import type { ColorPreset } from '$lib/features/card-image/controller';
   import {
     MAX_EXPORT_SCALE_PERCENT,
-    MAX_FOREGROUND_SCALE,
     MIN_EXPORT_SCALE_PERCENT,
+    type ColorPreset,
+  } from '$lib/features/card-image/form/controller';
+  import {
+    MAX_FOREGROUND_SCALE,
     MIN_FOREGROUND_SCALE,
-  } from '$lib/features/card-image/controller';
+  } from '$lib/features/card-image/foreground/geometry';
 
   let {
     variant,

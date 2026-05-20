@@ -3,6 +3,7 @@
   import { _ } from "svelte-i18n";
   import { activeTab, activeTabId, isDbLoaded, saveCdbFile } from "$lib/stores/db";
   import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleReset, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
+  import { searchState } from "$lib/stores/searchState.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
   import type { CardDataEntry } from "$lib/types";
   import { normalizeSetcodeHex, updateSetcode } from "$lib/utils/setcode";
@@ -11,7 +12,12 @@
   import { dispatchAppShortcut } from "$lib/utils/shortcuts";
   import { isEditableTarget } from "$lib/features/shell/controller";
   import { shellBackgroundTaskState } from "$lib/features/shell/dialogsController.svelte";
-  import { isCapabilityEnabled } from "$lib/application/capabilities/registry";
+  import {
+    AI_CAPABILITY_ENABLED,
+    CARD_EDITOR_EXTRA_CAPABILITY_ENABLED,
+    CARD_IMAGE_CAPABILITY_ENABLED,
+    isCapabilityEnabled,
+  } from "$lib/application/capabilities/registry";
   import { appSettingsState } from "$lib/stores/appSettings.svelte";
   import { isShortcutEvent } from "$lib/features/shortcuts/registry";
   import { getScriptGenerationStageLabel } from "$lib/services/scriptGenerationStages";
@@ -44,9 +50,9 @@
   const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
   const hasAiCapability = isCapabilityEnabled("ai");
   const hasCardImageCapability = isCapabilityEnabled("card-image");
-  const loadCardEditorExtraUseCases = __APP_FEATURES__.ai || __APP_FEATURES__.cardImage ? () => import("$lib/features/card-editor/extraUseCases") : null;
-  const loadCardParseDialogModule = __APP_FEATURES__.ai ? () => import("$lib/features/card-editor/components/CardParseDialog.svelte") : null;
-  const loadCardImageDrawerHostModule = __APP_FEATURES__.cardImage ? () => import("$lib/features/card-editor/components/CardImageDrawerHost.svelte") : null;
+  const loadCardEditorExtraUseCases = CARD_EDITOR_EXTRA_CAPABILITY_ENABLED ? () => import("$lib/features/card-editor/extraUseCases") : null;
+  const loadCardParseDialogModule = AI_CAPABILITY_ENABLED ? () => import("$lib/features/card-editor/components/CardParseDialog.svelte") : null;
+  const loadCardImageDrawerHostModule = CARD_IMAGE_CAPABILITY_ENABLED ? () => import("$lib/features/card-editor/components/CardImageDrawerHost.svelte") : null;
   const initialDraftCard = createEmptyCard();
 
   let editorRoot = $state<HTMLDivElement | null>(null);
@@ -262,9 +268,9 @@
       onModify: handleModify,
       getSelectionTarget: (delta) => resolveSelectionNavigationTarget({ cards: getAllCards(), selectedId: editorState.selectedId, delta }),
       selectCard: setSingleSelectedCard,
-      getPageTarget: (delta) => resolvePageNavigationTarget({ totalCards: getTotalCards(), currentPage: editorState.currentPage, delta, pageSize: CARD_LIST_PAGE_SIZE }),
+      getPageTarget: (delta) => resolvePageNavigationTarget({ totalCards: getTotalCards(), currentPage: searchState.currentPage, delta, pageSize: CARD_LIST_PAGE_SIZE }),
       setCurrentPage: (page) => {
-        editorState.currentPage = page;
+        searchState.currentPage = page;
       },
       runSearch: async () => {
         await handleSearch();
@@ -326,7 +332,7 @@
       isDbLoaded: $isDbLoaded,
       draftCard,
       setSearchFilters: (filters) => {
-        editorState.searchFilters = filters;
+        searchState.filters = filters;
       },
       runSearch: handleSearch,
     });

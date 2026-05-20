@@ -135,6 +135,7 @@ export interface LinkMarkerOption {
 }
 
 export type * from './render';
+export type * from './script';
 
 export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
 id: '',

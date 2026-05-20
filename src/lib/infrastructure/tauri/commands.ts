@@ -1,19 +1,12 @@
 import { invokeCommand } from '$lib/infrastructure/tauri';
+import type { CardDataEntry, CardScriptDocument, CardScriptInfo } from '$lib/types';
 import type { RenderCardPayload } from '$lib/types/render';
 
 export type { RenderCardPayload } from '$lib/types/render';
+export type { CardScriptDocument, CardScriptInfo } from '$lib/types';
 
 export type PreparedCardRenderResource = {
   token: string;
-};
-
-export type CardScriptInfo = {
-  path: string;
-  exists: boolean;
-};
-
-export type CardScriptDocument = CardScriptInfo & {
-  content: string;
 };
 
 export type ZipPackageInfo = {
@@ -122,7 +115,7 @@ export async function packageCdbAssetsAsZip(cdbPath: string, outputPath: string)
   return invokeCommand<ZipPackageInfo>('package_cdb_assets_as_zip', { cdbPath, outputPath });
 }
 
-export async function createCdbFromCards(outputPath: string, cards: import('$lib/types').CardDataEntry[]) {
+export async function createCdbFromCards(outputPath: string, cards: CardDataEntry[]) {
   return invokeCommand('create_cdb_from_cards', {
     request: { outputPath, cards },
   });

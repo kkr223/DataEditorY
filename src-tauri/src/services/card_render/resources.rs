@@ -14,6 +14,7 @@ use tauri::{AppHandle, Manager};
 use super::dto::{
     CardRenderImageResource, PrepareCardRenderResourceRequest, PreparedCardRenderResource,
 };
+use super::error::{RenderError, RenderResult};
 
 const MAX_DATA_URL_BYTES: usize = 16 * 1024 * 1024;
 
@@ -68,7 +69,7 @@ impl RenderResourceRegistry {
     pub(super) fn prepare_data_url(
         &self,
         data_url: &str,
-    ) -> Result<PreparedCardRenderResource, String> {
+    ) -> RenderResult<PreparedCardRenderResource> {
         let (token, path) = write_data_url_to_temp_path(data_url)?;
         let mut entries = self
             .inner
@@ -86,20 +87,22 @@ impl RenderResourceRegistry {
         Ok(PreparedCardRenderResource { token })
     }
 
-    fn lease(&self, token: &str) -> Result<RegisteredRenderResourceLease, String> {
+    fn lease(&self, token: &str) -> RenderResult<RegisteredRenderResourceLease> {
         let mut entries = self
             .inner
             .entries
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let entry = entries
-            .get_mut(token)
-            .ok_or_else(|| format!("Card render resource is missing or expired: {token}"))?;
+        let entry = entries.get_mut(token).ok_or_else(|| {
+            RenderError::invalid(format!(
+                "Card render resource is missing or expired: {token}"
+            ))
+        })?;
         if !entry.path.is_file() {
-            return Err(format!(
+            return Err(RenderError::invalid(format!(
                 "Card render resource file does not exist: {}",
                 entry.path.display()
-            ));
+            )));
         }
 
         entry.active_leases += 1;
@@ -193,7 +196,7 @@ impl ResolvedRenderImage {
 pub(super) fn resolve_image_resource(
     app: &AppHandle,
     resource: &CardRenderImageResource,
-) -> Result<ResolvedRenderImage, String> {
+) -> RenderResult<ResolvedRenderImage> {
     match resource {
         CardRenderImageResource::DataUrl { data_url } => {
             write_data_url_to_temp_file(data_url).map(ResolvedRenderImage::TempFile)
@@ -211,49 +214,53 @@ pub(super) fn resolve_image_resource(
 pub(super) fn prepare_image_resource(
     app: &AppHandle,
     request: PrepareCardRenderResourceRequest,
-) -> Result<PreparedCardRenderResource, String> {
+) -> RenderResult<PreparedCardRenderResource> {
     app.state::<RenderResourceRegistry>()
         .prepare_data_url(&request.data_url)
 }
 
-pub(super) fn release_image_resource(app: &AppHandle, token: String) -> Result<(), String> {
+pub(super) fn release_image_resource(app: &AppHandle, token: String) -> RenderResult<()> {
     app.state::<RenderResourceRegistry>().release(token.trim());
     Ok(())
 }
 
-fn write_data_url_to_temp_file(data_url: &str) -> Result<TempRenderFile, String> {
+fn write_data_url_to_temp_file(data_url: &str) -> RenderResult<TempRenderFile> {
     let (_token, path) = write_data_url_to_temp_path(data_url)?;
     Ok(TempRenderFile::new(path))
 }
 
-fn resolve_file_path_resource(path: &str) -> Result<PathBuf, String> {
+fn resolve_file_path_resource(path: &str) -> RenderResult<PathBuf> {
     let trimmed = path.trim();
     if trimmed.is_empty() {
-        return Err("Card image resource file path is empty".to_string());
+        return Err(RenderError::invalid(
+            "Card image resource file path is empty",
+        ));
     }
 
     let path = PathBuf::from(trimmed);
     if !path.is_absolute() {
-        return Err("Card image resource file path must be absolute".to_string());
+        return Err(RenderError::invalid(
+            "Card image resource file path must be absolute",
+        ));
     }
     if !path.is_file() {
-        return Err(format!(
+        return Err(RenderError::invalid(format!(
             "Card image resource file does not exist: {}",
             path.display()
-        ));
+        )));
     }
 
     Ok(path)
 }
 
-fn write_data_url_to_temp_path(data_url: &str) -> Result<(String, PathBuf), String> {
+fn write_data_url_to_temp_path(data_url: &str) -> RenderResult<(String, PathBuf)> {
     let (mime, encoded) = parse_base64_data_url(data_url)?;
     let bytes = general_purpose::STANDARD
         .decode(encoded)
-        .map_err(|err| format!("Failed to decode card image data URL: {err}"))?;
+        .map_err(|source| RenderError::DecodeDataUrl { source })?;
 
     if bytes.len() > MAX_DATA_URL_BYTES {
-        return Err("Card image data URL is too large".to_string());
+        return Err(RenderError::invalid("Card image data URL is too large"));
     }
 
     let extension = data_url_extension(mime);
@@ -261,19 +268,22 @@ fn write_data_url_to_temp_path(data_url: &str) -> Result<(String, PathBuf), Stri
     let token = format!("{}-{counter}", std::process::id());
     let path = std::env::temp_dir().join(format!("dataeditory-card-render-{token}.{extension}"));
 
-    fs::write(&path, bytes).map_err(|err| err.to_string())?;
+    fs::write(&path, bytes)
+        .map_err(|err| RenderError::io_at("Failed to write card image temp file", &path, err))?;
     Ok((token, path))
 }
 
-fn parse_base64_data_url(data_url: &str) -> Result<(&str, &str), String> {
+fn parse_base64_data_url(data_url: &str) -> RenderResult<(&str, &str)> {
     let Some((header, body)) = data_url.split_once(',') else {
-        return Err("Card image must be a data URL".to_string());
+        return Err(RenderError::invalid("Card image must be a data URL"));
     };
     let Some(mime) = header.strip_prefix("data:") else {
-        return Err("Card image must be a data URL".to_string());
+        return Err(RenderError::invalid("Card image must be a data URL"));
     };
     let Some(mime) = mime.strip_suffix(";base64") else {
-        return Err("Card image data URL must be base64-encoded".to_string());
+        return Err(RenderError::invalid(
+            "Card image data URL must be base64-encoded",
+        ));
     };
 
     Ok((mime, body))

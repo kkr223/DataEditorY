@@ -3,9 +3,11 @@ use std::{fs, path::PathBuf};
 use tauri::{AppHandle, Manager};
 use ygo_card_renderer_rs::asset_bundle::{init_global_bundle_from_file, try_get_bundle};
 
+use super::error::{RenderError, RenderResult};
+
 const BUNDLE_FILE_NAME: &str = "yugioh_bundle.bin";
 
-pub(super) fn ensure_renderer_bundle(app: &AppHandle) -> Result<(), String> {
+pub(super) fn ensure_renderer_bundle(app: &AppHandle) -> RenderResult<()> {
     if try_get_bundle().is_ok() {
         return Ok(());
     }
@@ -13,15 +15,12 @@ pub(super) fn ensure_renderer_bundle(app: &AppHandle) -> Result<(), String> {
     let bundle_path = renderer_bundle_candidates(app)
         .into_iter()
         .find(|path| path.is_file())
-        .ok_or_else(|| "Unable to locate yugioh renderer bundle".to_string())?;
+        .ok_or(RenderError::BundleMissing)?;
 
     match init_global_bundle_from_file(&bundle_path) {
         Ok(()) => Ok(()),
         Err(message) if message.contains("already initialized") => Ok(()),
-        Err(message) => Err(format!(
-            "Failed to load yugioh renderer bundle at {}: {message}",
-            bundle_path.display()
-        )),
+        Err(message) => Err(RenderError::bundle_load(bundle_path, message)),
     }
 }
 

@@ -5,7 +5,7 @@
   import {
     activeScriptTab,
   } from '$lib/stores/scriptEditor.svelte';
-  import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
+  import { AI_CAPABILITY_ENABLED, isCapabilityEnabled } from '$lib/application/capabilities/registry';
   import type { CardDataEntry } from '$lib/types';
   import { buildScriptFileName } from '$lib/domain/script/workspace';
   import { getScriptGenerationStageLabel, type ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
@@ -28,6 +28,7 @@
     type ScriptEditorCoreReferenceState,
   } from '$lib/features/script-editor/components/ScriptEditorCore.svelte';
   import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded, type LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
+  import type { LuaReferenceManualItem } from '$lib/features/script-editor/lua/referenceInsert';
 
   type ScriptEditorExtraUseCasesModule = typeof import('$lib/features/script-editor/extraUseCases');
   type ScriptEditorCoreHandle = {
@@ -36,14 +37,12 @@
     updateStringInput: (index: number, value: string) => void;
     persistString: (index: number) => Promise<void>;
     closeReferenceOverlay: () => void;
-    insertReferenceItem: (item: import('$lib/utils/luaReferenceManual').LuaReferenceManualItem) => void;
+    insertReferenceItem: (item: LuaReferenceManualItem) => void;
     revealDiagnosticLocation: (diagnostic: Pick<LuaScriptDiagnostic, 'startLineNumber' | 'startColumn' | 'endLineNumber' | 'endColumn'>) => void;
   };
 
   const hasAiCapability = isCapabilityEnabled('ai');
-  const loadScriptEditorExtraUseCases = __APP_FEATURES__.ai
-    ? () => import('$lib/features/script-editor/extraUseCases')
-    : null;
+  const loadScriptEditorExtraUseCases = AI_CAPABILITY_ENABLED ? () => import('$lib/features/script-editor/extraUseCases') : null;
 
   let editorCore = $state<ScriptEditorCoreHandle | null>(null);
   let cardContext = $state<CardDataEntry | null>(null);

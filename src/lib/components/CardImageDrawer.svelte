@@ -1,12 +1,10 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { disableAutofill } from '$lib/actions/disableAutofill';
+  import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
   import type { CardDataEntry } from '$lib/types';
-  import { HAS_EXTRA_BUILD } from '$lib/config/build';
-  import {
-    createCardImageController,
-    NAME_COLOR_PRESETS,
-  } from '$lib/features/card-image/controller';
+  import { createCardImageController } from '$lib/features/card-image/controller.svelte';
+  import { NAME_COLOR_PRESETS } from '$lib/features/card-image/form/controller';
   import CardImageCanvas from '$lib/features/card-image/components/CardImageCanvas.svelte';
   import CardImageControls from '$lib/features/card-image/components/CardImageControls.svelte';
   import CardImageFieldEditor from '$lib/features/card-image/components/CardImageFieldEditor.svelte';
@@ -25,6 +23,7 @@
     onClose?: () => void;
   } = $props();
 
+  const hasCardImageCapability = isCapabilityEnabled('card-image');
   const controller = createCardImageController({
     open: () => open,
     card: () => card,
@@ -117,7 +116,7 @@
   </div>
 {/if}
 
-{#if HAS_EXTRA_BUILD && controller.state.foregroundEditorOpen}
+{#if hasCardImageCapability && controller.state.foregroundEditorOpen}
   <div class="foreground-backdrop" role="presentation" onclick={controller.handleForegroundBackdropClick}>
     <div class="foreground-dialog" role="dialog" aria-modal="true" aria-label={$_('editor.card_image_foreground_title')}>
       <div class="foreground-header">

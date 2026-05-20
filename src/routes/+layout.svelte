@@ -11,6 +11,7 @@
   import FileDragOverlay from '$lib/features/shell/components/FileDragOverlay.svelte';
   import CreateFilteredCdbDialog from '$lib/features/shell/components/dialogs/CreateFilteredCdbDialog.svelte';
   import MergeCdbDialog from '$lib/features/shell/components/dialogs/MergeCdbDialog.svelte';
+  import { APP_BUILD_LABEL } from '$lib/config/build';
   import { createShellLayoutController } from '$lib/features/shell/layoutController.svelte';
   import { createShellDialogsController } from '$lib/features/shell/dialogsController.svelte';
   import { workspaceState } from '$lib/core/workspace/store.svelte';
@@ -26,6 +27,7 @@
   const SCALE_CURVE_EXPONENT = 0.4;
   const MIN_UI_SCALE = 0.82;
   const MAX_UI_SCALE = 1.32;
+  const appWindowTitle = `DataEditorY ${APP_BUILD_LABEL}`;
 
   function syncUiScale() {
     const widthScale = window.innerWidth / REFERENCE_VIEWPORT_WIDTH;
@@ -53,6 +55,10 @@
     };
   });
 </script>
+
+<svelte:head>
+  <title>{appWindowTitle}</title>
+</svelte:head>
 
 <Toast />
 

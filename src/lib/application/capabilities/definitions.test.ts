@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   createCapabilityRegistry,
+  isAnyCapabilityEnabledInRegistry,
   isCapabilityEnabledInRegistry,
 } from '$lib/application/capabilities/definitions';
 
@@ -32,5 +33,13 @@ describe('capability registry definitions', () => {
     expect(isCapabilityEnabledInRegistry(baseRegistry, 'card-image')).toBe(false);
     expect(isCapabilityEnabledInRegistry(extraRegistry, 'ai')).toBe(true);
     expect(isCapabilityEnabledInRegistry(extraRegistry, 'card-image')).toBe(true);
+  });
+
+  test('can evaluate capability groups for optional module loading', () => {
+    const baseRegistry = createCapabilityRegistry({ ai: false, cardImage: false });
+    const mixedRegistry = createCapabilityRegistry({ ai: false, cardImage: true });
+
+    expect(isAnyCapabilityEnabledInRegistry(baseRegistry, ['ai', 'card-image'])).toBe(false);
+    expect(isAnyCapabilityEnabledInRegistry(mixedRegistry, ['ai', 'card-image'])).toBe(true);
   });
 });

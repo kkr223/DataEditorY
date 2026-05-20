@@ -12,9 +12,9 @@ DataEditorY ships two build variants controlled by the `APP_VARIANT` environment
 ### Mechanism
 
 1. `scripts/build-variant-config.mjs` defines which features each variant includes.
-2. `vite.config.js` reads the active variant and sets Vite **path aliases** for excluded features. For example, when building `base`, imports like `$lib/features/card-image/...` are redirected to `$lib/build-stubs/base/features/card-image/...`.
+2. `vite.config.js` reads the active variant and installs base stub aliases for excluded optional entry modules. The alias plugin matches both `$lib/...` imports and the absolute paths produced after SvelteKit resolves `$lib`. For example, when building `base`, imports like `$lib/features/card-editor/extraUseCases` are redirected to `$lib/build-stubs/base/features/card-editor/extraUseCases.ts`.
 3. The stub modules in `base/` export no-op implementations or empty components so the rest of the code compiles without conditional imports.
-4. `src/lib/config/build.ts` exposes runtime flags (e.g. `HAS_CARD_IMAGE_FEATURE`) derived from the variant, allowing UI code to hide controls that have no backing implementation.
+4. `src/lib/config/build.ts` exposes the raw variant feature flags. Runtime UI decisions and compile-time-safe optional module gates should go through `src/lib/application/capabilities`, so stubs stay as compile-time fallbacks rather than the main feature switch.
 
 ### Dev / Build Commands
 

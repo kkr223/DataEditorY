@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { resolveReferenceManualInsertText, type LuaReferenceManualItem } from './reference';
+import { resolveReferenceManualInsertText, type LuaReferenceManualItem } from './referenceInsert';
 
 describe('lua reference manual insertion', () => {
   test('converts card namespace functions to method-style insertion when requested', () => {

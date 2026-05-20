@@ -12,7 +12,7 @@ import {
   analyzeLuaScript,
   ensureLuaDiagnosticsCatalogLoaded,
   type LuaScriptDiagnostic,
-} from '$lib/utils/luaScriptDiagnostics';
+} from '$lib/features/script-editor/lua/diagnostics';
 
 type AiRole = 'system' | 'user' | 'assistant' | 'tool';
 

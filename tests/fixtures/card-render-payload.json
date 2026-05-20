@@ -1,0 +1,74 @@
+{
+  "draft": {
+    "kind": "yugioh",
+    "identity": {
+      "code": 89631139,
+      "alias": 0,
+      "ruleCode": 0,
+      "passwordText": "89631139"
+    },
+    "frame": {
+      "setcode": [12296],
+      "type": 17,
+      "level": 8,
+      "lscale": 0,
+      "rscale": 0,
+      "linkMarker": 0
+    },
+    "stats": {
+      "attack": 3000,
+      "defense": 2500,
+      "race": 8192,
+      "attribute": 16,
+      "category": 0,
+      "ot": 0
+    },
+    "localizedText": {
+      "name": "Blue-Eyes White Dragon",
+      "description": "A white dragon.",
+      "strings": ["first"]
+    },
+    "visualStyle": {
+      "rare": "ur",
+      "nameColor": {
+        "kind": "custom",
+        "value": "#f3cc63"
+      },
+      "nameGradient": {
+        "start": "#8a5d17",
+        "end": "#f8e6a2"
+      },
+      "package": "LOB",
+      "copyright": "en",
+      "laser": "laser1",
+      "twentieth": true,
+      "outFrame": true,
+      "outFrameEffectEnabled": true,
+      "outFrameEffectBackgroundColor": "#f6f2e8",
+      "outFrameEffectOpacity": 0.78
+    },
+    "foregroundLayer": {
+      "centerX": 697,
+      "centerY": 1015.5,
+      "width": 500,
+      "height": 400,
+      "scale": 0.5,
+      "rotation": 15
+    },
+    "outputOptions": {
+      "language": "en",
+      "scale": 0.43,
+      "descriptionFirstLineCompress": true
+    }
+  },
+  "resources": {
+    "artImage": {
+      "kind": "dataUrl",
+      "dataUrl": "data:image/png;base64,AAA"
+    },
+    "foregroundImage": {
+      "kind": "dataUrl",
+      "dataUrl": "data:image/png;base64,BBB"
+    }
+  }
+}

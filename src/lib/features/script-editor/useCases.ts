@@ -230,7 +230,7 @@ async function buildScriptImageBlob(input: {
   lineNumberStart?: number;
   renderInfo: ScriptImageRenderInfo;
 }) {
-  const imageRenderer = await import('$lib/utils/luaScriptImageRenderer');
+  const imageRenderer = await import('$lib/features/card-image/scriptRenderer');
   return imageRenderer.renderLuaCodeImageBlob(input.content, {
     title: input.renderInfo.title,
     metaLines: input.renderInfo.metaLines,

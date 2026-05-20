@@ -15,7 +15,7 @@ import {
   isAbortError,
 } from '$lib/services/scriptGeneration';
 import { createAiAppContext } from '$lib/services/aiAppContext';
-import { parseCardManuscript, runEditorInstruction } from '$lib/utils/ai';
+import { parseCardManuscript, runEditorInstruction } from '$lib/features/ai/service';
 import { createInitialParseManuscript } from '$lib/features/card-editor/controller';
 import { getValidatedCardCode } from '$lib/features/card-editor/useCases';
 

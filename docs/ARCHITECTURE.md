@@ -81,7 +81,7 @@ flowchart TB
 | 功能层 | `src/lib/features/` | 按功能组织 controller / useCases / components |
 | 服务层 | `src/lib/services/` | 跨功能复用的应用服务，如脚本、卡图、AI 上下文 |
 | 基础设施层 | `src/lib/infrastructure/` | Tauri IPC 适配 |
-| 工具层 | `src/lib/utils/` | 通用工具、兼容导出、Lua 工具、AI 工具 |
+| 工具层 | `src/lib/utils/` | 通用工具，如卡片字段、setcode、快捷键、媒体协议、错误日志 |
 | UI 组件层 | `src/lib/components/` | 顶级复用组件和功能入口组件 |
 
 ### 4.2 Rust 后端分层
@@ -164,7 +164,6 @@ flowchart TB
 | `adapter.ts` | `CardDataEntry` → 制卡表单默认值转换；处理语言、种族/类型文案、灵摆文本拆分 |
 | `layout.ts` | 制卡表单 schema、默认值、选项列表、配置导入/导出序列化 |
 | `controller.svelte.ts` | 制卡器主控制器；创建状态、注册响应式 effect、组合各子 controller |
-| `controller.ts` | `controller.svelte.ts` 兼容重导出 |
 | `ai/controller.ts` | 制卡器 AI 翻译准备、调用与结果写回 |
 | `config/controller.ts` | 制卡配置导入/导出、文件选择、导入后状态同步 |
 | `form/controller.ts` | 表单 patch、选项文案、名称颜色预设、导出倍率与配置文件名 |
@@ -214,7 +213,7 @@ sequenceDiagram
   UI->>UI: Blob URL 预览/下载/保存
 ```
 
-当前状态：`renderRequestMapper.ts` 已移除，前端不再构造 renderer crate 内部请求；Rust `card_render` 已拆分为 dto/adapter/resources/bundle/output；制卡器 controller 已拆为 ai/config/crop/foreground/form/media/render/resize/session/state 等边界。仍未完成的是：前景图 overlay 仍由前端 canvas 合成，Rust/TypeScript DTO 还没有自动生成或完整 fixture 契约测试。
+当前状态：`renderRequestMapper.ts` 已移除，前端不再构造 renderer crate 内部请求；Rust `card_render` 已拆分为 dto/adapter/resources/bundle/output；制卡器 controller 已拆为 ai/config/crop/foreground/form/media/render/resize/session/state 等边界；前景图 overlay 已改为 `foregroundLayer` DTO + Rust `PositionedRenderImage` 定位，不再由前端 canvas 预合成整张 overlay；渲染 DTO 已通过 Rust `ts-rs` 生成 `src/lib/types/generated/render.ts`，`types/render.ts` 只保留类型转发；共享 JSON fixture 已同时覆盖 TS/Rust DTO 契约，并补了真实 renderer PNG smoke 与 committed PNG pixel snapshot。
 
 ### 5.6 `features/script-editor` Lua 脚本编辑模块
 
@@ -225,9 +224,6 @@ sequenceDiagram
 | `controller.ts` | 编辑器 UI 辅助逻辑：hint、overlay、快捷键、诊断排序、decorations |
 | `useCases.ts` | 脚本打开、保存、重载、外部打开、分享/导出等流程 |
 | `runtime.ts` | Monaco runtime 创建与主题/事件绑定 |
-| `template.ts` | 脚本模板应用 |
-| `generation.ts` | AI 脚本生成的准备、保存与状态同步 |
-| `generationStages.ts` | 生成阶段枚举与文案 |
 | `view.ts` | 从卡片上下文派生脚本图片导出元数据 |
 | `monaco/setup.ts` | Monaco Lua 语言、补全、hover、诊断、主题初始化 |
 | `monaco/completion.ts` | Lua 函数补全参数规范化、引用启发式判断 |
@@ -235,7 +231,8 @@ sequenceDiagram
 | `lua/catalog.ts` | Lua 常量/函数/片段目录加载 |
 | `lua/calls.ts` | 内联函数调用高亮辅助 |
 | `lua/scope.ts` | Lua 作用域和 range 工具 |
-| `lua/reference.ts` | 函数/常量手册搜索与引用工具 |
+| `lua/reference.ts` | 函数/常量手册数据加载与搜索项构造 |
+| `lua/referenceInsert.ts` | 引用手册插入文本与方法调用语法转换 |
 | `lua/diagnostics.ts` | Lua 诊断分析封装 |
 | `lua/symbols.ts` | 脚本文档符号提取 |
 | `components/*` | Toolbar、TabBar、SidePanel、Monaco Core、诊断弹层、引用弹层、空状态等 UI |
@@ -258,11 +255,10 @@ sequenceDiagram
 
 ### 5.8 `features/ai` AI 模块
 
-职责：为 AI 功能提供上下文和工具调用能力。
+职责：为 AI 功能提供工具调用能力。
 
 | 文件 | 功能 |
 | --- | --- |
-| `context.ts` | 从 stores/Tauri commands 组装 AI 可用的应用上下文 |
 | `service.ts` | AI 工具定义、卡片序列化、批量编辑、稿件解析、脚本生成、chat completions 编排 |
 
 ### 5.9 `stores` 状态模块
@@ -271,9 +267,10 @@ sequenceDiagram
 | --- | --- |
 | `appSettings.svelte.ts` | 持久化设置、AI 连接状态 |
 | `appShell.svelte.ts` | 全局 UI 视图状态：编辑器/设置/脚本 |
-| `editor.svelte.ts` | 当前卡片列表、选择、搜索结果、编辑器状态 |
+| `editor.svelte.ts` | 当前卡片列表、选择、搜索结果缓存与搜索执行编排 |
+| `searchState.svelte.ts` | 搜索 UI 状态：filters、当前页、规则错误、过滤面板开关 |
 | `tabs.ts` | CDB 标签生命周期、缓存、保存、打开、关闭、激活 |
-| `search.ts` | 搜索执行、source filter 缓存、搜索快照监听 |
+| `search.ts` | 搜索 IPC 执行、source filter 缓存、搜索快照监听 |
 | `scriptEditor.svelte.ts` | 脚本标签、active tab、dirty、保存/重载/关闭 |
 | `cardOperations.ts` | 卡片 CRUD/query Tauri wrapper、缓存刷新、undo 记录 |
 | `cardUtils.ts` | 卡片深拷贝工具 |
@@ -325,20 +322,17 @@ sequenceDiagram
 | `index.ts` | 对 `@tauri-apps/api/core.invoke` 的薄封装 |
 | `commands.ts` | 前端侧 Tauri command wrapper，包括 CDB、文件、脚本、设置、打包、合并、渲染 |
 
-当前需要重点改进：Rust IPC 类型契约不够严格，尤其 `renderCardImage()` 的 `request` 类型为 `unknown`。
+当前需要重点改进：渲染链路已用 Rust DTO 自动生成 TypeScript 类型；其他复杂 Rust IPC 类型契约仍依赖双端手写字段，需要按同一模式继续治理。
 
 ### 5.14 `utils` 工具模块
 
 | 类别 | 文件 | 功能 |
 | --- | --- | --- |
 | 卡片 | `card.ts` | 卡片字段格式化、选项映射 |
-| 制卡兼容 | `cardImage.ts` / `cardImageAdapter.ts` | 对 `features/card-image` 的兼容重导出 |
 | 媒体 | `mediaProtocol.ts` | 本地路径转 Tauri media protocol URL，带 cache bust |
 | setcode | `setcode.ts` | setcode 工具函数 |
 | 快捷键 | `shortcuts.ts` | 快捷键 dispatch 工具 |
 | 错误日志 | `errorLog.ts` | 前端错误写入后端日志 |
-| AI | `ai.ts` | Prompt、解析、翻译、生成工具 |
-| Lua | `lua*.ts` | Lua 语义、补全、诊断、手册、代码图片渲染等兼容工具 |
 
 ## 6. Rust 后端模块功能文档
 
@@ -374,12 +368,12 @@ sequenceDiagram
 | --- | --- |
 | `app_config.rs` | app config 路径、设置文件、日志、默认模板、路径规范化 |
 | `assets.rs` | 卡图、场地图、脚本资源复制 |
-| `card_render.rs` | 当前 Rust 卡图渲染服务；负责 bundle 加载、data URL 临时文件、Renderer 调用 |
-| `cdb_cards.rs` | CDB 内容查询、分页搜索、修改、删除、创建、undo |
+| `card_render/` | Rust 卡图渲染服务：dto、adapter、bundle、resources、output、局部错误模型 |
+| `cdb_cards.rs` | CDB 内容查询、分页搜索、修改、删除、创建、undo、局部错误模型 |
 | `cdb_session.rs` | CDB tab 生命周期、临时工作副本、保存写回 |
 | `crypto.rs` | API Key AES-GCM 加密/解密、legacy key 迁移 |
 | `logging.rs` | 结构化错误日志追加 |
-| `media.rs` | 自定义 media protocol、文件/图片 I/O、strings 加载、系统打开 |
+| `media/` | 自定义 media protocol、文件 I/O、图片 I/O、strings 加载、系统打开、启动参数路径收集 |
 | `merge.rs` | 多 CDB 合并计划、冲突分析、资产索引、合并执行 |
 | `package.rs` | 打包 manifest、Lua 依赖解析、ZIP 输出 |
 | `scripts.rs` | 卡片脚本路径、读取、写入、保存 |
@@ -469,7 +463,7 @@ Card Editor 打开脚本
 | `features/*` | card editor、settings、shell、script runtime/controller 部分逻辑 |
 | `features/card-image` | layout/config roundtrip |
 
-当前不足：卡图渲染适配层缺少契约测试、快照测试、Rust IPC DTO 测试和真实渲染回归样例。
+当前不足：卡图渲染适配层已有共享 JSON fixture 契约测试、真实 renderer PNG smoke 与 committed PNG pixel snapshot；后续仍可扩展更多卡种/语言的视觉样例。
 
 ## 9. 架构风险与优化点
 
@@ -477,7 +471,7 @@ Card Editor 打开脚本
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| `RenderCardPayload.request: unknown` (commands.ts:54) | 字段拼写漂移只能在运行时发现，是最严重的一例 | 从 Rust `serde` DTO 自动生成 TypeScript 类型（`ts-rs` / `typeshare`），或为关键 DTO 建立 JSON fixture 契约测试 |
+| `RenderCardPayload` 已从 `unknown` 改为应用级 DTO，并由 Rust `ts-rs` 生成 TypeScript 类型；共享 JSON fixture 同时覆盖 TypeScript 序列化与 Rust 反序列化 | 渲染链路字段漂移已被生成类型与 fixture 双重约束；其他命令仍可能漂移 | 将渲染 DTO 的生成模式推广到其他复杂 IPC DTO，继续保留关键 JSON fixture |
 | 其他命令（modify_cards、query_cards_raw）也依赖手写字段匹配 | 同上 | 统一约定：前端保持 camelCase，Rust DTO 一律显式 `#[serde(rename_all = "camelCase")]`，禁止依赖默认行为 |
 
 ### 9.2 制卡器 controller 承载过多职责
@@ -494,39 +488,39 @@ Card Editor 打开脚本
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| `utils/cardImage.ts` 重导出 `features/card-image/layout.ts` | `utils/` 应被 `features/` 依赖，而不是反向。当前形成隐含双向依赖 | 删除兼容重导出，让引用方直接 import 正确路径 |
-| `utils/cardImageAdapter.ts` 同理 | 同上 | 同上 |
-| `utils/lua*.ts` 系列与 `features/script-editor/lua/*.ts` 存在内容重叠 | 职责归属不清，修改可能遗漏一侧 | 确认主副本，删除冗余 |
+| `utils/cardImage.ts` / `utils/cardImageAdapter.ts` 兼容重导出 | 已删除，引用方直接 import `features/card-image` 真实模块 | 保持新代码不再新增 `utils` 反向出口 |
+| `utils/lua*.ts` 系列兼容重导出 | 已删除，主副本保留在 `features/script-editor/lua`、`features/script-editor/monaco` 与 `features/card-image/scriptRenderer` | 后续 Lua 新能力继续放在归属 feature 下 |
+| `utils/ai.ts` 兼容重导出 | 已删除，引用方直接使用 `features/ai/service` | AI feature 继续作为 Prompt、解析、翻译、生成工具的主归属 |
 
 ### 9.5 `stores/editor.svelte.ts` 搜索与编辑状态耦合
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| 同一个 store 同时持有搜索结果、当前页、选中卡片、草稿状态 | 搜索翻页逻辑与编辑状态变更共享同一响应式上下文，触发面过大 | 将搜索（结果、分页、filter）与编辑（草稿、选择、dirty）拆为独立 store，通过事件/action 协调 |
+| `searchState.svelte.ts` 已承接 filters、当前页、规则错误和过滤面板开关；`editor.svelte.ts` 仍负责编排搜索结果与选择状态 | 搜索 UI 状态已先从选择状态中拆出，响应式触发面缩小；搜索执行与选择保留在同一编排点以降低回归风险 | 后续可继续把搜索结果列表/total 与选择索引拆为更明确的 `searchResults` / `selection` store |
 
 ### 9.6 Rust 后端 `Result<T, String>` 遍布所有服务
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| 几乎所有 service 函数返回 `Result<T, String>` | 调用方无法区分"文件不存在"、"权限不足"、"数据损坏"，只能匹配字符串。错误日志定位差 | 为关键服务引入局部错误枚举（如 `CdbError`、`RenderError`），仅在命令层统一转为前端可读字符串 |
+| 很多 service 函数仍返回 `Result<T, String>`；`media` 已引入 `MediaError`/`MediaResult`，`card_render` 已引入 `RenderError`/`RenderResult`，`cdb_cards` 已引入 `CdbCardsError`/`CdbCardsResult` | 目标服务的错误边界已更清晰；剩余服务仍可能只能匹配字符串 | 后续按收益继续为 `cdb_session`、`assets`、`merge`、`package` 等服务引入局部错误枚举，仅在命令层统一转为前端可读字符串 |
 
-### 9.7 `services/media.rs` 职责过载
+### 9.7 `services/media` 模块边界
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| 一个文件承载 custom protocol、文件读写、图片 I/O、strings 加载、路径检查、系统打开 | 600+ 行单一文件，内部函数间无清晰子模块边界 | 拆为 `media/protocol.rs`、`media/io.rs`、`media/image.rs`、`media/strings.rs` |
+| 已从单一 `media.rs` 拆为 `media/protocol.rs`、`media/io.rs`、`media/image.rs`、`media/strings.rs`、`media/system.rs`，并补入 `media/error.rs` | 文件职责边界已清晰；服务内部错误已具备定位信息，命令层仍保持前端字符串错误兼容 | 保持 `services::media::*` 对外 API 稳定；剩余错误模型推广按其他服务收益继续排期 |
 
 ### 9.8 build stubs 模式的脆弱性
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| `src/lib/build-stubs/base/` 放置 `extra` 功能的占位文件，构建时被文件系统级替换 | IDE 索引不友好，本地开发和 CI 行为容易不一致 | 更多利用 `$lib/config/build.ts` 的条件导入和 `application/capabilities`，减少对文件替换的依赖 |
+| `src/lib/build-stubs/base/` 放置 `extra` 功能的占位文件，构建时被文件系统级替换；主要 UI 入口已改由 capability registry 决策 | IDE 索引不友好，本地开发和 CI 行为仍可能不一致 | 继续把 stubs 收敛为编译兜底，后续减少 alias 面；运行时启用判断统一走 `application/capabilities` |
 
 ### 9.9 `application/capabilities` 系统利用不足
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| 已定义 capability 类型和 registry，但实际使用仅少数几处 | 这个抽象是对的但没充分发挥 | 让 capability registry 成为 `base/extra` 差异的**唯一**决策点，build stubs 退化为简单的占位 |
+| capability registry 已接管 CardEditor、ScriptEditor、Settings、CardImage 入口的启用判断；可选模块动态 import 通过 capability 层导出的编译期布尔常量裁剪 | `base/extra` 运行时决策已更集中；剩余风险主要是 build alias 仍需要保留一段时间 | 保持组件/feature 入口不直接读取 `__APP_FEATURES__`、`HAS_EXTRA_BUILD`、`HAS_AI_FEATURE`，后续按模块继续缩小 build stubs |
 
 ### 9.10 Tauri event 利用率偏低
 
@@ -538,24 +532,24 @@ Card Editor 打开脚本
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| `CardDataEntry` 在 `types/index.ts`，但制卡器、脚本编辑器、卡片编辑器各自重复定义局部类型 | 类型散落，字段语义变化需追踪多处 | 核心跨模块类型（card data、script document、render draft）集中在 `types/` 或 `domain/` 下作为单一来源 |
+| `CardDataEntry` 在 `types/index.ts`，脚本文件信息在 `types/script.ts`，渲染 DTO 在 `types/render.ts` | 核心跨模块类型已有主归属；剩余局部 UI 类型仍可按收益逐步收敛 | 继续保持 card data、script document、render draft 等跨模块类型集中在 `types/` 或 `domain/` 下 |
 
 ### 9.12 测试覆盖边界集中在纯逻辑
 
 | 现状 | 影响 | 建议 |
 | --- | --- | --- |
-| 测试覆盖 `domain/`、部分 `application/`、少量 `features/`，IPC 层、Rust services、渲染管道、UI 交互接近零覆盖 | 最复杂的集成点反而是测试最薄弱的地方 | 优先补：渲染 DTO 序列化/反序列化 fixture、CDB 合并冲突计算、打包 Lua 依赖解析 |
+| 测试覆盖 `domain/`、部分 `application/`、少量 `features/`，IPC 层、Rust services、UI 交互仍偏薄 | 最复杂的集成点仍需要更多回归保护 | 优先补：CDB 合并冲突计算、打包 Lua 依赖解析、更多渲染卡种/语言样例 |
 
 ### 9.13 优化优先级分类
 
 | 优先级 | 项目 | 理由 |
 | --- | --- | --- |
-| 立即 | IPC 类型契约（9.1） | 卡图渲染重构会涉及新 DTO，此时建立类型生成机制是一个好的时机 |
+| 高（渲染已完成试点） | IPC 类型契约（9.1） | 渲染 DTO 已建立 `ts-rs` 生成链路，后续可逐步推广到其他复杂命令 |
 | 立即 | renderRequestMapper 跨层泄露（9.3） | 是当前渲染重构的核心范围 |
 | 高（已完成本轮主要拆分） | controller 拆分（9.2） | 主 controller 已降为编排层，后续只需保持边界并补充回归验证 |
 | 高 | utils 重导出清理（9.4） | 成本低，收益明确 |
-| 中 | Rust 错误模型（9.6） | 影响所有后端代码的可维护性 |
-| 中 | build stubs 简化（9.8） | 降低构建系统的认知负担 |
+| 中（目标服务已完成） | Rust 错误模型（9.6） | 影响所有后端代码的可维护性 |
+| 中（已完成第一轮） | build stubs 简化（9.8） | 降低构建系统的认知负担 |
 | 低 | stores 拆分（9.5） | 风险较低，可在其他稳定后再做 |
 | 低 | 异步渲染（9.10） | 用户感知的性能提升在当前阶段不重要 |
 
