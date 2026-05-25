@@ -681,6 +681,10 @@
     validateTimer = null;
     monacoRuntime?.dispose();
     monacoRuntime = null;
+    editorInstance = null;
+    monacoModule = null;
+    monacoApi = null;
+    isMonacoReady = false;
   });
 
   $effect(() => {
