@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import type { CardDataEntry } from '$lib/types';
+import type { CardImageWorkspaceSnapshot } from '$lib/types/card-image-workspace';
 import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
 import { showToast } from '$lib/stores/toast.svelte';
 import { createCardImageAiController } from './ai/controller';
@@ -47,6 +48,7 @@ type CardImageControllerSource = {
   cdbPath: () => string;
   onSavedJpg: () => void | Promise<void>;
   onClose: () => void;
+  getInitialSnapshot?: () => CardImageWorkspaceSnapshot | null;
 };
 
 function t(key: string, options?: Record<string, unknown>) {
@@ -125,7 +127,9 @@ export function createCardImageController(source: CardImageControllerSource) {
     destroyPreview: renderController.destroyPreview,
     destroyForegroundPreview: renderController.destroyForegroundPreview,
     resetResourceCache: renderController.resetResourceCache,
+    syncForegroundRenderableUrl: mediaController.syncForegroundRenderableUrl,
     warmupPreviewAfterFontsReady: renderController.warmupPreviewAfterFontsReady,
+    getInitialSnapshot: () => source.getInitialSnapshot?.() ?? null,
   });
   const configController = createCardImageConfigController({
     state,

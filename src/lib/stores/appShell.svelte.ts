@@ -1,4 +1,4 @@
-export type MainView = 'editor' | 'settings' | 'script';
+export type MainView = 'editor' | 'settings' | 'script' | 'card-image';
 
 export const appShellState = $state({
   mainView: 'editor' as MainView,
@@ -20,6 +20,10 @@ export function activateEditorView() {
 
 export function activateScriptView() {
   appShellState.mainView = 'script';
+}
+
+export function activateCardImageView() {
+  appShellState.mainView = 'card-image';
 }
 
 export function closeSettingsView() {

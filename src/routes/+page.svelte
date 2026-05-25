@@ -13,11 +13,13 @@
   import { cardSelectionState, clearSelection, setSelectedCards, setSingleSelectedCard } from '$lib/stores/cardSelection.svelte';
   import { clearSearchError, getAllCards, resetSearchState, searchState, setAllCards, setTotalCards } from '$lib/stores/searchStore.svelte';
   import { appShellState } from '$lib/stores/appShell.svelte';
+  import { CARD_IMAGE_CAPABILITY_ENABLED } from '$lib/application/capabilities/registry';
 
   type CardListModule = typeof import('$lib/components/CardList.svelte');
   type CardEditorModule = typeof import('$lib/components/CardEditor.svelte');
   type LuaScriptEditorModule = typeof import('$lib/components/LuaScriptEditor.svelte');
   type SettingsPanelModule = typeof import('$lib/components/SettingsPanel.svelte');
+  type CardImageWorkspaceModule = typeof import('$lib/components/CardImageWorkspace.svelte');
 
   function restoreSearchFilters() {
     const cached = getCachedFilters();
@@ -48,6 +50,7 @@
   let cardEditorModulePromise = $state<Promise<CardEditorModule> | null>(null);
   let luaScriptEditorModulePromise = $state<Promise<LuaScriptEditorModule> | null>(null);
   let settingsPanelModulePromise = $state<Promise<SettingsPanelModule> | null>(null);
+  let cardImageWorkspaceModulePromise = $state<Promise<CardImageWorkspaceModule> | null>(null);
 
   function ensureEditorModules() {
     cardListModulePromise ??= import('$lib/components/CardList.svelte');
@@ -60,6 +63,11 @@
 
   function ensureSettingsPanelModule() {
     settingsPanelModulePromise ??= import('$lib/components/SettingsPanel.svelte');
+  }
+
+  function ensureCardImageWorkspaceModule() {
+    if (!CARD_IMAGE_CAPABILITY_ENABLED) return;
+    cardImageWorkspaceModulePromise ??= import('$lib/components/CardImageWorkspace.svelte');
   }
 
   // React to tab changes: use cached results for instant switching
@@ -104,6 +112,11 @@
       return;
     }
 
+    if (appShellState.mainView === 'card-image') {
+      ensureCardImageWorkspaceModule();
+      return;
+    }
+
     ensureEditorModules();
   });
 </script>
@@ -117,6 +130,12 @@
 {:else if appShellState.mainView === 'script'}
   {#if luaScriptEditorModulePromise}
     {#await luaScriptEditorModulePromise then module}
+      <module.default />
+    {/await}
+  {/if}
+{:else if appShellState.mainView === 'card-image'}
+  {#if cardImageWorkspaceModulePromise}
+    {#await cardImageWorkspaceModulePromise then module}
       <module.default />
     {/await}
   {/if}

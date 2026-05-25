@@ -119,6 +119,7 @@ export type * from './render';
 export type * from './script';
 export type * from './app';
 export type * from './cdb';
+export type * from './card-image-workspace';
 
 export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
 id: '',

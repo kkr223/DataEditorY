@@ -26,7 +26,7 @@
   export let onOpenScript: () => void | Promise<void> = () => {};
   export let onGenerateScript: () => void | Promise<void> = () => {};
   export let onCancelGenerateScript: () => void = () => {};
-  export let onOpenCardImageDrawer: () => void = () => {};
+  export let onOpenCardImageEditor: () => void = () => {};
   export let onResetSearch: () => void | Promise<void> = () => {};
   export let onSearch: () => void | Promise<void> = () => {};
   export let onSaveAs: () => void | Promise<void> = () => {};
@@ -76,7 +76,7 @@
       </div>
     {/if}
     {#if hasCardImageCapability}
-      <button class="btn-secondary btn-sm btn-secondary-card-image" onclick={onOpenCardImageDrawer}>{cardImageLabel}</button>
+      <button class="btn-secondary btn-sm btn-secondary-card-image" onclick={onOpenCardImageEditor}>{cardImageLabel}</button>
     {/if}
   </div>
   <div class="btn-group">

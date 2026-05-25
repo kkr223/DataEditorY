@@ -420,10 +420,10 @@ describe('card editor controller helpers', () => {
     expect(state.abortController).toBeNull();
   });
 
-  test('coordinates image click, preview, and drawer state', async () => {
+  test('coordinates image click, preview, and editor opening', async () => {
     const imageState = {
       previewOpen: false,
-      drawerOpen: false,
+      editorOpenCount: 0,
       picked: 0,
     };
 
@@ -437,8 +437,8 @@ describe('card editor controller helpers', () => {
       setPreviewOpen: (value) => {
         imageState.previewOpen = value;
       },
-      setDrawerOpen: (value) => {
-        imageState.drawerOpen = value;
+      onOpenEditor: () => {
+        imageState.editorOpenCount += 1;
       },
     });
 
@@ -456,10 +456,7 @@ describe('card editor controller helpers', () => {
     controller.closePreview();
     expect(imageState.previewOpen).toBe(false);
 
-    expect(controller.openDrawer()).toBe(true);
-    expect(imageState.drawerOpen).toBe(true);
-
-    controller.closeDrawer();
-    expect(imageState.drawerOpen).toBe(false);
+    expect(controller.openEditor()).toBe(true);
+    expect(imageState.editorOpenCount).toBe(1);
   });
 });

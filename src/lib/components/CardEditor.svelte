@@ -12,6 +12,7 @@
   } from "$lib/stores/searchStore.svelte";
   import { cardSelectionState, clearSelection, setSingleSelectedCard } from "$lib/stores/cardSelection.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
+  import { openOrActivateCardImageTab } from "$lib/stores/cardImageEditor.svelte";
   import type { CardDataEntry } from "$lib/types";
   import { normalizeSetcodeHex, updateSetcode } from "$lib/domain/card/setcode";
   import { cloneEditableCard, createCardSnapshot, createEmptyCard, getPackedLevel, normalizeEditableScaleValue, setPackedLevel } from "$lib/domain/card/draft";
@@ -21,7 +22,6 @@
   import {
     AI_CAPABILITY_ENABLED,
     CARD_EDITOR_EXTRA_CAPABILITY_ENABLED,
-    CARD_IMAGE_CAPABILITY_ENABLED,
     isCapabilityEnabled,
   } from "$lib/application/capabilities/registry";
   import { appSettingsState } from "$lib/stores/appSettings.svelte";
@@ -51,14 +51,12 @@
 
   type CardEditorExtraUseCasesModule = typeof import("$lib/features/card-editor/extraUseCases");
   type CardParseDialogModule = typeof import("$lib/features/card-editor/components/CardParseDialog.svelte");
-  type CardImageDrawerHostModule = typeof import("$lib/features/card-editor/components/CardImageDrawerHost.svelte");
 
   const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
   const hasAiCapability = isCapabilityEnabled("ai");
   const hasCardImageCapability = isCapabilityEnabled("card-image");
   const loadCardEditorExtraUseCases = CARD_EDITOR_EXTRA_CAPABILITY_ENABLED ? () => import("$lib/features/card-editor/extraUseCases") : null;
   const loadCardParseDialogModule = AI_CAPABILITY_ENABLED ? () => import("$lib/features/card-editor/components/CardParseDialog.svelte") : null;
-  const loadCardImageDrawerHostModule = CARD_IMAGE_CAPABILITY_ENABLED ? () => import("$lib/features/card-editor/components/CardImageDrawerHost.svelte") : null;
   const initialDraftCard = createEmptyCard();
 
   let editorRoot = $state<HTMLDivElement | null>(null);
@@ -68,7 +66,7 @@
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
   let imageRequestToken = 0;
-  const imageInteraction = $state({ isPreviewOpen: false, isDrawerOpen: false });
+  const imageInteraction = $state({ isPreviewOpen: false });
   let lastSyncedSelectedId: number | null = null;
   let lastLoadedCardSnapshot = $state("");
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
@@ -79,7 +77,6 @@
   let aiInteractionResult = $state("");
   let cardEditorExtraUseCasesPromise = $state<Promise<CardEditorExtraUseCasesModule> | null>(null);
   let cardParseDialogModulePromise = $state<Promise<CardParseDialogModule> | null>(null);
-  let cardImageDrawerHostModulePromise = $state<Promise<CardImageDrawerHostModule> | null>(null);
   const scriptGeneration = $state(createCardScriptGenerationState());
   let isKeyboardNavigating = $state(false);
   let draftUndoHistory = $state.raw<DraftUndoEntry[]>(createDraftUndoHistory(initialDraftCard));
@@ -93,9 +90,7 @@
     setPreviewOpen: (value) => {
       imageInteraction.isPreviewOpen = value;
     },
-    setDrawerOpen: (value) => {
-      imageInteraction.isDrawerOpen = value;
-    },
+    onOpenEditor: openCardImageEditor,
   });
 
   const scriptGenerationController = createCardScriptGenerationController(scriptGeneration);
@@ -168,12 +163,6 @@
     return cardParseDialogModulePromise;
   }
 
-  function ensureCardImageDrawerHostModule() {
-    if (!loadCardImageDrawerHostModule || !hasCardImageCapability) return null;
-    cardImageDrawerHostModulePromise ??= loadCardImageDrawerHostModule();
-    return cardImageDrawerHostModulePromise;
-  }
-
   function isCardEditorShortcutTarget(target: EventTarget | null) {
     if (!editorRoot) return false;
     const candidate = getShortcutTargetElement(target);
@@ -240,7 +229,7 @@
   }
 
   async function handleEditorKeydown(event: KeyboardEvent) {
-    if (isShortcutEvent('cardEditor.undoDraft', event, appSettingsState.values.shortcutBindings) && !isParseModalOpen && !imageInteraction.isDrawerOpen && !imageInteraction.isPreviewOpen && isCardEditorShortcutTarget(event.target) && !isNativeTextUndoTarget(event.target)) {
+    if (isShortcutEvent('cardEditor.undoDraft', event, appSettingsState.values.shortcutBindings) && !isParseModalOpen && !imageInteraction.isPreviewOpen && isCardEditorShortcutTarget(event.target) && !isNativeTextUndoTarget(event.target)) {
       if (handleDraftUndo()) event.preventDefault();
       return;
     }
@@ -249,7 +238,6 @@
       isDbLoaded: $isDbLoaded,
       isKeyboardNavigating,
       isParseModalOpen,
-      isCardImageDrawerOpen: imageInteraction.isDrawerOpen,
       isImagePreviewOpen: imageInteraction.isPreviewOpen,
       isEditableTarget,
       confirmDiscardDraft: confirmDiscardDraftForKeyboardNavigation,
@@ -377,18 +365,17 @@
     imageInteractionController.closePreview();
   }
 
-  function openCardImageDrawer() {
-    imageInteractionController.openDrawer();
-  }
+  function openCardImageEditor() {
+    if (!$activeTab?.path) {
+      showToast($_("editor.card_image_save_jpg_missing_cdb"), "error");
+      return;
+    }
 
-  function closeCardImageDrawer() {
-    imageInteractionController.closeDrawer();
-  }
-
-  async function handleCardImageSaved() {
-    const targetCode = Number(draftCard.code ?? 0);
-    if (!Number.isInteger(targetCode) || targetCode <= 0) return;
-    await lifecycleController.refreshDraftImage(targetCode, true);
+    openOrActivateCardImageTab({
+      cdbPath: $activeTab.path,
+      sourceTabId: $activeTabId,
+      card: draftCard,
+    });
   }
 
   async function handleOpenScript() {
@@ -582,10 +569,6 @@
   });
 
   $effect(() => {
-    ensureCapabilityModuleEffect({ enabled: hasCardImageCapability, open: imageInteraction.isDrawerOpen, ensureModule: ensureCardImageDrawerHostModule });
-  });
-
-  $effect(() => {
     return syncWorkspaceLifecycleEffect({
       workspaceId: $activeTabId,
       workspaceDirty: ($activeTab?.isDirty ?? false) || isDraftDirty(),
@@ -663,7 +646,7 @@
       onOpenScript={handleOpenScript}
       onGenerateScript={handleGenerateScript}
       onCancelGenerateScript={handleCancelGenerateScript}
-      onOpenCardImageDrawer={openCardImageDrawer}
+      onOpenCardImageEditor={() => imageInteractionController.openEditor()}
       onResetSearch={runResetSearch}
       onSearch={() => dispatchAppShortcut("search-from-draft")}
       onSaveAs={handleSaveAs}
@@ -671,12 +654,6 @@
       onDelete={handleDelete}
     />
   </div>
-{/if}
-
-{#if hasCardImageCapability && cardImageDrawerHostModulePromise}
-  {#await cardImageDrawerHostModulePromise then module}
-    <module.default open={imageInteraction.isDrawerOpen} card={draftCard} cdbPath={$activeTab?.path ?? ""} onSavedJpg={handleCardImageSaved} onClose={closeCardImageDrawer} />
-  {/await}
 {/if}
 
 {#if hasAiCapability && cardParseDialogModulePromise}

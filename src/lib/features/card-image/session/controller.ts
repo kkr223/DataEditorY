@@ -1,4 +1,5 @@
 import type { CardDataEntry } from '$lib/types';
+import type { CardImageWorkspaceSnapshot } from '$lib/types/card-image-workspace';
 import {
   createCardImageFormData,
   getCardImageLocaleDefaults,
@@ -41,7 +42,9 @@ export type CardImageSessionControllerOptions = {
   destroyPreview: () => void;
   destroyForegroundPreview: () => void;
   resetResourceCache: () => void;
+  syncForegroundRenderableUrl: (url: string) => Promise<void>;
   warmupPreviewAfterFontsReady: () => Promise<void>;
+  getInitialSnapshot?: () => CardImageWorkspaceSnapshot | null;
 };
 
 const getHydrationKey = (open: boolean, card: CardDataEntry) => {
@@ -75,12 +78,17 @@ export const createCardImageSessionController = ({
   destroyPreview,
   destroyForegroundPreview,
   resetResourceCache,
+  syncForegroundRenderableUrl,
   warmupPreviewAfterFontsReady,
+  getInitialSnapshot = () => null,
 }: CardImageSessionControllerOptions) => {
   let lastHydrationKey = '';
 
-  const resetImageState = () => {
-    state.croppedImageDataUrl = '';
+  const resetImageState = (
+    snapshot: CardImageWorkspaceSnapshot | null = null,
+    preserveFormImage = false,
+  ) => {
+    state.croppedImageDataUrl = snapshot?.croppedImageDataUrl || (preserveFormImage ? state.form.image : '');
     state.sourceImageWidth = 0;
     state.sourceImageHeight = 0;
     state.cropModalOpen = false;
@@ -90,7 +98,7 @@ export const createCardImageSessionController = ({
     state.dragPointerId = null;
     state.hasManualPreviewZoom = false;
     state.previewZoomPercent = defaultPreviewZoomPercent;
-    state.exportScalePercent = defaultExportScalePercent;
+    state.exportScalePercent = snapshot?.exportScalePercent ?? defaultExportScalePercent;
     revokeSourceImageUrl();
   };
 
@@ -108,13 +116,19 @@ export const createCardImageSessionController = ({
   };
 
   const hydrateCard = (card: CardDataEntry, hydrationKey: string) => {
+    const snapshot = getInitialSnapshot();
     lastHydrationKey = hydrationKey;
-    state.form = createCardImageFormData(card);
+    state.form = snapshot?.form
+      ? normalizeCardImageFormData(snapshot.form)
+      : createCardImageFormData(card);
     state.lastFormLanguage = state.form.language;
-    resetImageState();
+    resetImageState(snapshot, true);
     resetForegroundState();
     clearForegroundInitialState();
     revokeForegroundRenderableUrl();
+    if (state.form.foregroundImage) {
+      void syncForegroundRenderableUrl(state.form.foregroundImage);
+    }
     resetResourceCache();
     destroyPreview();
     destroyForegroundPreview();

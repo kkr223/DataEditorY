@@ -121,7 +121,7 @@ export function createCardImageInteractionController(input: {
   hasImageSrc: () => boolean;
   hasCardImageCapability: () => boolean;
   setPreviewOpen: (value: boolean) => void;
-  setDrawerOpen: (value: boolean) => void;
+  onOpenEditor: () => void | Promise<void>;
 }) {
   let clickTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -159,15 +159,12 @@ export function createCardImageInteractionController(input: {
     closePreview() {
       input.setPreviewOpen(false);
     },
-    openDrawer() {
+    openEditor() {
       if (!input.hasCardImageCapability()) {
         return false;
       }
-      input.setDrawerOpen(true);
+      void input.onOpenEditor();
       return true;
-    },
-    closeDrawer() {
-      input.setDrawerOpen(false);
     },
   };
 }
@@ -374,7 +371,6 @@ export function shouldIgnoreArrowNavigation(input: {
   event: KeyboardEvent;
   isKeyboardNavigating: boolean;
   isParseModalOpen: boolean;
-  isCardImageDrawerOpen: boolean;
   isImagePreviewOpen: boolean;
   isEditableTarget: (target: EventTarget | null) => boolean;
 }) {
@@ -385,7 +381,6 @@ export function shouldIgnoreArrowNavigation(input: {
     || input.isEditableTarget(input.event.target)
     || input.isKeyboardNavigating
     || input.isParseModalOpen
-    || input.isCardImageDrawerOpen
     || input.isImagePreviewOpen
   );
 }
@@ -435,7 +430,6 @@ export async function handleCardEditorKeydown(
     isDbLoaded: boolean;
     isKeyboardNavigating: boolean;
     isParseModalOpen: boolean;
-    isCardImageDrawerOpen: boolean;
     isImagePreviewOpen: boolean;
     isEditableTarget: (target: EventTarget | null) => boolean;
     confirmDiscardDraft: () => Promise<boolean>;
@@ -457,7 +451,6 @@ export async function handleCardEditorKeydown(
     isShortcutEvent('cardEditor.modify', event, input.shortcutBindings)
     && !input.isKeyboardNavigating
     && !input.isParseModalOpen
-    && !input.isCardImageDrawerOpen
     && !input.isImagePreviewOpen
   ) {
     event.preventDefault();
@@ -474,7 +467,6 @@ export async function handleCardEditorKeydown(
     event,
     isKeyboardNavigating: input.isKeyboardNavigating,
     isParseModalOpen: input.isParseModalOpen,
-    isCardImageDrawerOpen: input.isCardImageDrawerOpen,
     isImagePreviewOpen: input.isImagePreviewOpen,
     isEditableTarget: input.isEditableTarget,
   })) {

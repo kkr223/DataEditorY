@@ -1,120 +1,155 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { disableAutofill } from '$lib/actions/disableAutofill';
   import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
   import type { CardDataEntry } from '$lib/types';
+  import type { CardImageWorkspaceSnapshot } from '$lib/types/card-image-workspace';
   import { createCardImageController } from '$lib/features/card-image/controller.svelte';
   import { NAME_COLOR_PRESETS } from '$lib/features/card-image/form/controller';
+  import { normalizeCardImageFormData } from '$lib/features/card-image/layout';
   import CardImageCanvas from '$lib/features/card-image/components/CardImageCanvas.svelte';
   import CardImageControls from '$lib/features/card-image/components/CardImageControls.svelte';
   import CardImageFieldEditor from '$lib/features/card-image/components/CardImageFieldEditor.svelte';
 
   let {
     open = false,
+    displayMode = 'drawer',
     card,
     cdbPath = '',
+    initialSnapshot = null,
+    onSnapshotChange = () => {},
     onSavedJpg = async () => {},
     onClose = () => {},
   }: {
     open?: boolean;
+    displayMode?: 'drawer' | 'workspace';
     card: CardDataEntry;
     cdbPath?: string;
+    initialSnapshot?: CardImageWorkspaceSnapshot | null;
+    onSnapshotChange?: (snapshot: CardImageWorkspaceSnapshot) => void;
     onSavedJpg?: () => void | Promise<void>;
     onClose?: () => void;
   } = $props();
 
+  const isWorkspaceMode = $derived(displayMode === 'workspace');
+  const isEditorOpen = $derived(open || isWorkspaceMode);
   const hasCardImageCapability = isCapabilityEnabled('card-image');
   const controller = createCardImageController({
-    open: () => open,
+    open: () => isEditorOpen,
     card: () => card,
     cdbPath: () => cdbPath,
     onSavedJpg: () => onSavedJpg(),
     onClose: () => onClose(),
+    getInitialSnapshot: () => initialSnapshot,
+  });
+
+  $effect(() => {
+    if (!isEditorOpen) return;
+
+    const form = normalizeCardImageFormData(controller.state.form);
+    untrack(() => onSnapshotChange({
+      form,
+      croppedImageDataUrl: controller.state.croppedImageDataUrl,
+      exportScalePercent: controller.state.exportScalePercent,
+    }));
   });
 </script>
 
 <svelte:window onresize={controller.handleCropViewportResize} />
 
-{#if open}
-  <div class="drawer-backdrop" role="presentation" onclick={controller.handleBackdropClick}>
-    <div class="drawer-panel" use:disableAutofill role="dialog" aria-modal="true" aria-label={$_('editor.card_image_title')}>
-      <div class="drawer-header">
+{#snippet editorContent()}
+  {#if !isWorkspaceMode}
+    <div class="drawer-header">
+      <div>
+        <h3>{$_('editor.card_image_title')}</h3>
+        <p>{$_('editor.card_image_description')}</p>
+      </div>
+      <button class="close-btn" type="button" onclick={controller.closeDrawer}>×</button>
+    </div>
+  {/if}
+
+  <div class="drawer-body">
+    <div class="form-pane">
+      <CardImageControls
+        mode="toolbar"
+        bind:fileInput={controller.state.fileInput}
+        bind:configFileInput={controller.state.configFileInput}
+        bind:foregroundFileInput={controller.state.foregroundFileInput}
+        croppedImageDataUrl={controller.state.croppedImageDataUrl}
+        isTranslating={controller.state.isTranslating}
+        onImageUpload={controller.handleImageUpload}
+        onConfigFileUpload={controller.handleConfigFileUpload}
+        onForegroundImageUpload={controller.handleForegroundImageUpload}
+        onOpenFilePicker={controller.openFilePicker}
+        onConfigImport={controller.handleConfigImport}
+        onConfigExport={controller.handleConfigExport}
+        onOpenForegroundEditor={controller.openForegroundEditor}
+        onAiTranslate={controller.handleAiTranslate}
+      />
+
+      <CardImageFieldEditor
+        variant="main"
+        bind:form={controller.state.form}
+        bind:exportScalePercent={controller.state.exportScalePercent}
+        nameColorPresets={NAME_COLOR_PRESETS}
+        getOptionLabel={controller.getOptionLabel}
+        onClearCustomNameColor={controller.clearCustomNameColor}
+        onApplyNameColorPreset={controller.applyNameColorPreset}
+        isNameColorPresetActive={controller.isNameColorPresetActive}
+        onClearCustomNameShadowColor={controller.clearCustomNameShadowColor}
+        onApplyNameShadowColorPreset={controller.applyNameShadowColorPreset}
+        isNameShadowColorPresetActive={controller.isNameShadowColorPresetActive}
+      />
+    </div>
+
+    <div class="preview-pane">
+      <div class="preview-header">
         <div>
-          <h3>{$_('editor.card_image_title')}</h3>
-          <p>{$_('editor.card_image_description')}</p>
+          <div class="section-title">{$_('editor.card_image_preview')}</div>
+          <p>{$_('editor.card_image_preview_hint')}</p>
         </div>
-        <button class="close-btn" type="button" onclick={controller.closeDrawer}>×</button>
+        <CardImageControls
+          mode="preview-actions"
+          isSavingJpg={controller.state.isSavingJpg}
+          isDownloading={controller.state.isDownloading}
+          onSaveJpg={controller.handleSaveJpg}
+          onDownload={controller.handleDownload}
+        />
       </div>
 
-      <div class="drawer-body">
-        <div class="form-pane">
-          <CardImageControls
-            mode="toolbar"
-            bind:fileInput={controller.state.fileInput}
-            bind:configFileInput={controller.state.configFileInput}
-            bind:foregroundFileInput={controller.state.foregroundFileInput}
-            croppedImageDataUrl={controller.state.croppedImageDataUrl}
-            isTranslating={controller.state.isTranslating}
-            onImageUpload={controller.handleImageUpload}
-            onConfigFileUpload={controller.handleConfigFileUpload}
-            onForegroundImageUpload={controller.handleForegroundImageUpload}
-            onOpenFilePicker={controller.openFilePicker}
-            onConfigImport={controller.handleConfigImport}
-            onConfigExport={controller.handleConfigExport}
-            onOpenForegroundEditor={controller.openForegroundEditor}
-            onAiTranslate={controller.handleAiTranslate}
-          />
-
-          <CardImageFieldEditor
-            variant="main"
-            bind:form={controller.state.form}
-            bind:exportScalePercent={controller.state.exportScalePercent}
-            nameColorPresets={NAME_COLOR_PRESETS}
-            getOptionLabel={controller.getOptionLabel}
-            onClearCustomNameColor={controller.clearCustomNameColor}
-            onApplyNameColorPreset={controller.applyNameColorPreset}
-            isNameColorPresetActive={controller.isNameColorPresetActive}
-            onClearCustomNameShadowColor={controller.clearCustomNameShadowColor}
-            onApplyNameShadowColorPreset={controller.applyNameShadowColorPreset}
-            isNameShadowColorPresetActive={controller.isNameShadowColorPresetActive}
-          />
-        </div>
-
-        <div class="preview-pane">
-          <div class="preview-header">
-            <div>
-              <div class="section-title">{$_('editor.card_image_preview')}</div>
-              <p>{$_('editor.card_image_preview_hint')}</p>
-            </div>
-            <CardImageControls
-              mode="preview-actions"
-              isSavingJpg={controller.state.isSavingJpg}
-              isDownloading={controller.state.isDownloading}
-              onSaveJpg={controller.handleSaveJpg}
-              onDownload={controller.handleDownload}
-            />
-          </div>
-
-          <CardImageCanvas
-            mode="preview"
-            bind:previewShell={controller.state.previewShell}
-            bind:previewHost={controller.state.previewHost}
-            previewImageUrl={controller.state.previewImageUrl}
-            previewImageStyle={controller.getPreviewImageStyle()}
-            previewZoomPercent={controller.state.previewZoomPercent}
-            errorMessage={controller.state.errorMessage}
-            onPreviewWheel={controller.handlePreviewWheel}
-            onAdjustPreviewZoom={controller.adjustPreviewZoom}
-          />
-        </div>
-      </div>
-
-      <div class="drawer-footer">
-        <span class="field-hint">{$_('editor.card_image_live_preview')}</span>
-        <button class="btn-primary btn-sm" type="button" onclick={controller.closeDrawer}>{$_('editor.card_image_done')}</button>
-      </div>
+      <CardImageCanvas
+        mode="preview"
+        bind:previewShell={controller.state.previewShell}
+        bind:previewHost={controller.state.previewHost}
+        previewImageUrl={controller.state.previewImageUrl}
+        previewImageStyle={controller.getPreviewImageStyle()}
+        previewZoomPercent={controller.state.previewZoomPercent}
+        errorMessage={controller.state.errorMessage}
+        onPreviewWheel={controller.handlePreviewWheel}
+        onAdjustPreviewZoom={controller.adjustPreviewZoom}
+      />
     </div>
   </div>
+
+  <div class="drawer-footer">
+    <span class="field-hint">{$_('editor.card_image_live_preview')}</span>
+    <button class="btn-primary btn-sm" type="button" onclick={controller.closeDrawer}>{$_('editor.card_image_done')}</button>
+  </div>
+{/snippet}
+
+{#if isEditorOpen}
+  {#if isWorkspaceMode}
+    <section class="workspace-panel" use:disableAutofill aria-label={$_('editor.card_image_title')}>
+      {@render editorContent()}
+    </section>
+  {:else}
+    <div class="drawer-backdrop" role="presentation" onclick={controller.handleBackdropClick}>
+      <div class="drawer-panel" use:disableAutofill role="dialog" aria-modal="true" aria-label={$_('editor.card_image_title')}>
+        {@render editorContent()}
+      </div>
+    </div>
+  {/if}
 {/if}
 
 {#if hasCardImageCapability && controller.state.foregroundEditorOpen}
@@ -211,6 +246,7 @@
   .btn-secondary { background: rgba(148, 163, 184, 0.14); color: var(--text-primary); border: 1px solid rgba(148, 163, 184, 0.22); }
   .drawer-backdrop { position: fixed; inset: 0; z-index: 1200; display: flex; justify-content: flex-end; background: rgba(9, 15, 24, 0.45); backdrop-filter: blur(2px); }
   .drawer-panel { width: min(1320px, 90vw); height: 100vh; background: var(--bg-surface); border-left: 1px solid var(--border-color); box-shadow: -20px 0 40px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; }
+  .workspace-panel { height: 100%; min-width: 0; overflow: hidden; background: var(--bg-surface); display: flex; flex-direction: column; }
   .drawer-header, .drawer-footer { padding: 14px 18px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .drawer-footer { border-bottom: none; border-top: 1px solid var(--border-color); }
   .drawer-header h3, .section-title, .crop-header h4 { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
