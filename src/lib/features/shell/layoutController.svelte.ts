@@ -58,6 +58,7 @@ import { getEnabledCapabilities } from '$lib/application/capabilities/registry';
 import { SETTINGS_WORKSPACE_ID, workspaceState } from '$lib/core/workspace/store.svelte';
 
 const PRELOAD_RETRY_KEY = 'dataeditory:preload-retry';
+const PRELOAD_MAX_RETRIES = 3;
 const OPEN_HISTORY_HIDE_DELAY_MS = 180;
 const MAX_DIRTY_DOCUMENT_NAMES = 5;
 
@@ -501,13 +502,15 @@ export function createShellLayoutController() {
         error: preloadEvent.payload ?? 'Unknown preload error',
       });
 
-      if (sessionStorage.getItem(PRELOAD_RETRY_KEY) === '1') {
+      const retryCount = Number(sessionStorage.getItem(PRELOAD_RETRY_KEY) ?? '0');
+
+      if (retryCount >= PRELOAD_MAX_RETRIES) {
         sessionStorage.removeItem(PRELOAD_RETRY_KEY);
         showToast('Resource preload failed. Please reopen the current page.', 'error');
         return;
       }
 
-      sessionStorage.setItem(PRELOAD_RETRY_KEY, '1');
+      sessionStorage.setItem(PRELOAD_RETRY_KEY, String(retryCount + 1));
       window.location.reload();
     };
 
@@ -540,16 +543,15 @@ export function createShellLayoutController() {
       await getCurrentWindow().close();
     };
 
-    const preloadRetryResetTimer = window.setTimeout(() => {
-      sessionStorage.removeItem(PRELOAD_RETRY_KEY);
-    }, 8000);
-
     window.addEventListener('keydown', handleGlobalKeydown);
     window.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('error', handleWindowError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('vite:preloadError', handlePreloadError as EventListener);
+    setTimeout(() => {
+      sessionStorage.removeItem(PRELOAD_RETRY_KEY);
+    }, 5000);
     let closeRequestUnlisten: (() => void) | null = null;
     if (tauriBridge.isTauri()) {
       const appWindow = getCurrentWindow();
@@ -559,7 +561,6 @@ export function createShellLayoutController() {
     }
 
     return () => {
-      window.clearTimeout(preloadRetryResetTimer);
       if (openHistoryHideTimer) {
         clearTimeout(openHistoryHideTimer);
         openHistoryHideTimer = null;
