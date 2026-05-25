@@ -24,6 +24,7 @@
     foregroundPreviewShell = $bindable<HTMLDivElement | null>(null),
     foregroundPreviewHost = $bindable<HTMLDivElement | null>(null),
     previewImageUrl = '',
+    previewImageStyle = '',
     foregroundPreviewImageUrl = '',
     cropBodyElement = $bindable<HTMLDivElement | null>(null),
     cropSidebarElement = $bindable<HTMLElement | null>(null),
@@ -68,6 +69,7 @@
     foregroundPreviewShell?: HTMLDivElement | null;
     foregroundPreviewHost?: HTMLDivElement | null;
     previewImageUrl?: string;
+    previewImageStyle?: string;
     foregroundPreviewImageUrl?: string;
     cropBodyElement?: HTMLDivElement | null;
     cropSidebarElement?: HTMLElement | null;
@@ -121,7 +123,7 @@
   <div class="preview-card-shell" bind:this={previewShell} onwheel={onPreviewWheel}>
     <div class="preview-stage" bind:this={previewHost}>
       {#if previewImageUrl}
-        <img class="preview-image" src={previewImageUrl} alt={$_('editor.card_image_preview')} draggable="false" />
+        <img class="preview-image" src={previewImageUrl} alt={$_('editor.card_image_preview')} style={previewImageStyle} draggable="false" />
       {/if}
     </div>
   </div>

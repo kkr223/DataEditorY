@@ -5,7 +5,6 @@ type PreviewDependencyState = {
   croppedImageDataUrl: string;
   previewWidth: number;
   previewHeight: number;
-  previewZoomPercent: number;
   foregroundPreviewWidth: number;
   foregroundPreviewHeight: number;
   foregroundRenderWidth: number;
@@ -70,7 +69,6 @@ export const trackCardImagePreviewDependencies = (state: PreviewDependencyState)
   void state.croppedImageDataUrl;
   void state.previewWidth;
   void state.previewHeight;
-  void state.previewZoomPercent;
   void state.foregroundPreviewWidth;
   void state.foregroundPreviewHeight;
   void state.foregroundRenderWidth;

@@ -100,6 +100,7 @@
             bind:previewShell={controller.state.previewShell}
             bind:previewHost={controller.state.previewHost}
             previewImageUrl={controller.state.previewImageUrl}
+            previewImageStyle={controller.getPreviewImageStyle()}
             previewZoomPercent={controller.state.previewZoomPercent}
             errorMessage={controller.state.errorMessage}
             onPreviewWheel={controller.handlePreviewWheel}

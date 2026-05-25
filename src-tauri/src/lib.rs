@@ -30,6 +30,7 @@ const DEFAULT_PACKAGE_INCLUDE_PATTERNS: &[&str] = &[
     "lflist.conf",
 ];
 const SECRET_VERSION_PREFIX: &str = "v1";
+#[cfg(feature = "ai")]
 const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
 const OPEN_CDB_PATHS_EVENT: &str = "open-cdb-paths";
 pub(crate) const BACKGROUND_TASK_PROGRESS_EVENT: &str = "background-task-progress";
@@ -70,15 +71,19 @@ fn queue_open_cdb_paths(app: &AppHandle, paths: Vec<String>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .register_uri_scheme_protocol(services::media::media_protocol_name(), |_ctx, request| {
             services::media::handle_media_protocol_request(request)
         })
         .manage(PendingOpenCdbPaths(Mutex::new(Vec::new())))
-        .manage(services::card_render::RenderResourceRegistry::default())
         .manage(OpenCdbSessions(
             Mutex::new(std::collections::HashMap::new()),
-        ))
+        ));
+
+    #[cfg(feature = "card-render")]
+    let builder = builder.manage(services::card_render::RenderResourceRegistry::default());
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())

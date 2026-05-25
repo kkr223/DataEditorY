@@ -58,9 +58,10 @@ async function runTauriCommand(command, rawVariant, passthroughArgs) {
     writeFileSync(tauriConfigPath, variantConfigText);
     rmSync(resourcesDir, { recursive: true, force: true });
     rmSync(wixDir, { recursive: true, force: true });
+    const featureArgs = variant.key === 'extra' ? ['--features', 'extra'] : [];
     await run(
       'bun',
-      ['x', 'tauri', command, ...passthroughArgs],
+      ['x', 'tauri', command, ...featureArgs, ...passthroughArgs],
       { APP_VARIANT: variant.key },
     );
   } finally {

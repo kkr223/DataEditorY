@@ -1117,6 +1117,42 @@ export function getDiagnostics(document: LuaSemanticDocument) {
     diagnostics.push({ severity: 'warning', message, ...rangeOf(node, document.sourceLines) });
   };
 
+  const pushDuplicateDefinitionWarning = (
+    node: LuaNode | undefined,
+    name: string,
+    previousRange: LuaSourceRange,
+  ) => {
+    pushWarning(
+      node,
+      `Duplicate definition: ${name} was already defined at line ${previousRange.startLineNumber}.`,
+    );
+  };
+
+  const declareRuntimeBindingWithDuplicateWarning = (
+    scope: LuaRuntimeScope,
+    name: string,
+    kind: LuaVisibleSymbolKind,
+    declarationRange: LuaSourceRange,
+    node: LuaNode | undefined,
+    typeName: string | null = null,
+    hidden = false,
+  ) => {
+    const existing = scope.get(name);
+    if (existing && !existing.hidden && !hidden) {
+      pushDuplicateDefinitionWarning(node, name, existing.declarationRange);
+    }
+    declareRuntimeBinding(scope, name, kind, declarationRange, typeName, hidden);
+  };
+
+  const declaredFunctions = new Map<string, LuaSourceRange>();
+  const checkScriptFunctionDuplicate = (node: LuaNode | undefined, name: string) => {
+    const previousRange = declaredFunctions.get(name);
+    if (previousRange) {
+      pushDuplicateDefinitionWarning(node, name, previousRange);
+    }
+    declaredFunctions.set(name, rangeOf(node, document.sourceLines));
+  };
+
   const walkExpression = (node: LuaNode | undefined, scopes: LuaRuntimeScope[]) => {
     if (!node) return;
     if (node.type === 'Identifier') {
@@ -1175,13 +1211,26 @@ export function getDiagnostics(document: LuaSemanticDocument) {
           const variable = variables[index];
           if (variable?.type !== 'Identifier') continue;
           const targetScope = isLocal ? scopes[scopes.length - 1] : (findRuntimeScope(scopes, String(variable.name ?? '')) ?? scopes[0]);
-          declareRuntimeBinding(
-            targetScope,
-            String(variable.name ?? ''),
-            'local',
-            rangeOf(variable, document.sourceLines),
-            inferExpressionType(init[index], scopes, document.strictAnalysis!),
-          );
+          const name = String(variable.name ?? '');
+          const declarationRange = rangeOf(variable, document.sourceLines);
+          if (isLocal) {
+            declareRuntimeBindingWithDuplicateWarning(
+              targetScope,
+              name,
+              'local',
+              declarationRange,
+              variable,
+              inferExpressionType(init[index], scopes, document.strictAnalysis!),
+            );
+          } else {
+            declareRuntimeBinding(
+              targetScope,
+              name,
+              'local',
+              declarationRange,
+              inferExpressionType(init[index], scopes, document.strictAnalysis!),
+            );
+          }
         }
         continue;
       }
@@ -1196,8 +1245,17 @@ export function getDiagnostics(document: LuaSemanticDocument) {
       if (statement.type === 'FunctionDeclaration') {
         const info = getFunctionNameInfo(statement.identifier as LuaNode | undefined);
         if (statement.isLocal && info && info.namespace === null) {
-          declareRuntimeBinding(scopes[scopes.length - 1], info.name, 'function', rangeOf(statement.identifier as LuaNode | undefined, document.sourceLines));
-        } else if ((statement.identifier as LuaNode | undefined)?.type === 'MemberExpression') {
+          declareRuntimeBindingWithDuplicateWarning(
+            scopes[scopes.length - 1],
+            info.name,
+            'function',
+            rangeOf(statement.identifier as LuaNode | undefined, document.sourceLines),
+            statement.identifier as LuaNode | undefined,
+          );
+        } else if (info) {
+          checkScriptFunctionDuplicate(statement.identifier as LuaNode | undefined, info.name);
+        }
+        if ((statement.identifier as LuaNode | undefined)?.type === 'MemberExpression') {
           const base = ((statement.identifier as LuaNode | undefined)?.base as LuaNode | undefined);
           if (base?.type === 'Identifier' && !lookupRuntimeBinding(scopes, String(base.name ?? '')) && !isKnownGlobal(document.catalogIndexes, String(base.name ?? ''))) {
             declareRuntimeBinding(scopes[0], String(base.name ?? ''), 'local', rangeOf(base, document.sourceLines));
@@ -1206,11 +1264,12 @@ export function getDiagnostics(document: LuaSemanticDocument) {
         const localScope: LuaRuntimeScope = new Map();
         ((statement.parameters as LuaNode[] | undefined) ?? []).forEach((parameter, index) => {
           if (parameter?.type !== 'Identifier') return;
-          declareRuntimeBinding(
+          declareRuntimeBindingWithDuplicateWarning(
             localScope,
             String(parameter.name ?? ''),
             'parameter',
             rangeOf(parameter, document.sourceLines),
+            parameter,
             inferParameterType(statement, String(parameter.name ?? ''), index),
           );
         });
@@ -1244,7 +1303,13 @@ export function getDiagnostics(document: LuaSemanticDocument) {
           : ((statement.variables as LuaNode[] | undefined) ?? []);
         for (const variable of variables) {
           if (variable?.type === 'Identifier') {
-            declareRuntimeBinding(loopScope, String(variable.name ?? ''), 'loop', rangeOf(variable, document.sourceLines));
+            declareRuntimeBindingWithDuplicateWarning(
+              loopScope,
+              String(variable.name ?? ''),
+              'loop',
+              rangeOf(variable, document.sourceLines),
+              variable,
+            );
           }
         }
         walkStatements((statement.body as LuaNode[] | undefined) ?? [], [...scopes, loopScope]);

@@ -27,6 +27,8 @@ const DEFAULT_PREVIEW_ZOOM_PERCENT = 108;
 const PREVIEW_ZOOM_REFERENCE_WIDTH = 560;
 const PREVIEW_ZOOM_REFERENCE_HEIGHT = 800;
 const PREVIEW_RENDER_DEBOUNCE_MS = 160;
+const PREVIEW_ZOOM_RENDER_DEBOUNCE_MS = 420;
+const MAX_PREVIEW_DEVICE_PIXEL_RATIO = 2;
 
 export type CardImageRenderState = {
   form: CardImageFormData;
@@ -81,6 +83,7 @@ export const createCardImageRenderController = ({
   measureForegroundRenderBounds,
 }: CardImageRenderControllerOptions) => {
   let previewTimer: ReturnType<typeof setTimeout> | null = null;
+  let previewZoomTimer: ReturnType<typeof setTimeout> | null = null;
   let previewWarmupTimer: ReturnType<typeof setTimeout> | null = null;
   let foregroundPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   let previewRenderToken = 0;
@@ -138,18 +141,39 @@ export const createCardImageRenderController = ({
     return Math.max(baseScale * (state.previewZoomPercent / 100), 0.02);
   };
 
+  const getPreviewDevicePixelRatio = () => {
+    if (typeof window === 'undefined') return 1;
+    const ratio = Number(window.devicePixelRatio) || 1;
+    return Math.max(1, Math.min(MAX_PREVIEW_DEVICE_PIXEL_RATIO, ratio));
+  };
+
+  const getPreviewRenderScale = () => getPreviewScale() * getPreviewDevicePixelRatio();
+
+  const getPreviewImageStyle = () => {
+    const scale = getPreviewScale();
+    return `width:${Math.round(CARD_WIDTH * scale)}px;height:${Math.round(CARD_HEIGHT * scale)}px;`;
+  };
+
+  const queuePreviewQualityRefresh = () => {
+    clearTimeout(previewZoomTimer ?? undefined);
+    previewZoomTimer = setTimeout(() => {
+      void refreshPreview();
+    }, PREVIEW_ZOOM_RENDER_DEBOUNCE_MS);
+  };
+
   const adjustPreviewZoom = (delta: number) => {
     state.hasManualPreviewZoom = true;
     state.previewZoomPercent = Math.max(
       MIN_PREVIEW_ZOOM_PERCENT,
       Math.min(MAX_PREVIEW_ZOOM_PERCENT, state.previewZoomPercent + delta),
     );
+    queuePreviewQualityRefresh();
   };
 
   const buildPreviewData = (): CardImageFormData => createPreviewRenderData({
     form: state.form,
     croppedImageDataUrl: state.croppedImageDataUrl,
-  }, getPreviewScale(), { hasExtraBuild });
+  }, getPreviewRenderScale(), { hasExtraBuild });
 
   const buildJpgData = (): CardImageFormData => createJpgRenderData({
     form: state.form,
@@ -300,6 +324,7 @@ export const createCardImageRenderController = ({
 
   const dispose = () => {
     clearTimeout(previewTimer ?? undefined);
+    clearTimeout(previewZoomTimer ?? undefined);
     clearTimeout(previewWarmupTimer ?? undefined);
     clearTimeout(foregroundPreviewTimer ?? undefined);
     destroyPreview();
@@ -317,6 +342,7 @@ export const createCardImageRenderController = ({
     handleDownload: exportActions.handleDownload,
     handlePreviewWheel,
     handleSaveJpg: exportActions.handleSaveJpg,
+    getPreviewImageStyle,
     queueForegroundPreviewRefresh,
     queuePreviewRefresh,
     resetResourceCache,

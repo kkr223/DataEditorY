@@ -6,6 +6,7 @@ use ts_rs::TS;
 
 pub type CardDto = ygopro_cdb_encode_rs::CardDataEntry;
 
+#[cfg(test)]
 #[cfg_attr(test, derive(TS))]
 #[cfg_attr(test, ts(export_to = "cdb.ts", rename = "CardDataEntry"))]
 #[derive(Debug, Clone, Deserialize, Serialize)]

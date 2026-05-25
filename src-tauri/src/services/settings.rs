@@ -1,4 +1,10 @@
-use std::{fs, path::Path};
+use std::{
+    fs,
+    io::{BufWriter, Write},
+    path::Path,
+};
+
+use image::codecs::jpeg::JpegEncoder;
 use tauri::AppHandle;
 
 use crate::{
@@ -7,6 +13,8 @@ use crate::{
     normalize_shortcut_bindings, normalize_temperature, save_persisted_settings,
     to_settings_payload, AppSettingsPayload, SaveAppSettingsRequest,
 };
+
+const MAX_COVER_SOURCE_BYTES: u64 = 16 * 1024 * 1024;
 
 pub fn load_app_settings(app: &AppHandle) -> Result<AppSettingsPayload, String> {
     let settings = load_persisted_settings(app)?;
@@ -61,11 +69,24 @@ pub fn save_app_settings(
 
 pub fn set_cover_image(app: &AppHandle, source_path: String) -> Result<String, String> {
     let cover_path = custom_cover_path(app)?;
+    let source_path = Path::new(&source_path);
+    let metadata = fs::metadata(source_path).map_err(|err| err.to_string())?;
+    if metadata.len() > MAX_COVER_SOURCE_BYTES {
+        return Err("Cover image is too large".to_string());
+    }
+    let image = image::open(source_path).map_err(|err| err.to_string())?;
+
     if let Some(parent) = cover_path.parent() {
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
 
-    fs::copy(Path::new(&source_path), &cover_path).map_err(|err| err.to_string())?;
+    let file = fs::File::create(&cover_path).map_err(|err| err.to_string())?;
+    let mut writer = BufWriter::new(file);
+    let mut encoder = JpegEncoder::new_with_quality(&mut writer, 92);
+    encoder
+        .encode_image(&image)
+        .map_err(|err| err.to_string())?;
+    writer.flush().map_err(|err| err.to_string())?;
     Ok(cover_path.to_string_lossy().to_string())
 }
 

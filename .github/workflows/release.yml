@@ -71,7 +71,7 @@ jobs:
         run: node scripts/write-tauri-config.mjs ${{ matrix.variant }} src-tauri/tauri.conf.json
 
       - name: Build Tauri app and upload release assets
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_VARIANT: ${{ matrix.variant }}
@@ -84,6 +84,7 @@ jobs:
             Built from GitHub Actions using Tauri 2.
           releaseDraft: true
           prerelease: false
+          args: ${{ matrix.variant == 'extra' && '--features extra' || '' }}
 
       - name: Pack Windows portable bundle
         if: matrix.platform == 'windows-latest'

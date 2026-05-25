@@ -263,6 +263,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     isNameShadowColorPresetActive: formController.isNameShadowColorPresetActive,
     updateForm: formController.updateForm,
     getOptionLabel: formController.getOptionLabel,
+    getPreviewImageStyle: renderController.getPreviewImageStyle,
     resetForegroundTransform: foregroundController.resetForegroundTransform,
     clearForegroundImage: foregroundController.clearForegroundImage,
     hasForegroundImage: foregroundController.hasForegroundImage,
