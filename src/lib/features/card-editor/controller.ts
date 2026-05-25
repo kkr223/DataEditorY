@@ -463,6 +463,29 @@ export async function handleCardEditorKeydown(
     return;
   }
 
+  if (
+    (isShortcutEvent('cardEditor.selectPreviousGlobal', event, input.shortcutBindings)
+     || isShortcutEvent('cardEditor.selectNextGlobal', event, input.shortcutBindings))
+    && !input.isKeyboardNavigating
+    && !input.isParseModalOpen
+    && !input.isImagePreviewOpen
+  ) {
+    const delta = isShortcutEvent('cardEditor.selectPreviousGlobal', event, input.shortcutBindings) ? -1 : 1;
+    event.preventDefault();
+    const nextCardCode = input.getSelectionTarget(delta);
+    if (nextCardCode !== null) {
+      input.setKeyboardNavigating(true);
+      try {
+        if (await input.confirmDiscardDraft()) {
+          input.selectCard(nextCardCode);
+        }
+      } finally {
+        input.setKeyboardNavigating(false);
+      }
+    }
+    return;
+  }
+
   if (shouldIgnoreArrowNavigation({
     event,
     isKeyboardNavigating: input.isKeyboardNavigating,
