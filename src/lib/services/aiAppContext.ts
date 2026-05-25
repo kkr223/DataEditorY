@@ -1,6 +1,5 @@
 import { get } from 'svelte/store';
-import { getCardScriptInfo } from '$lib/infrastructure/tauri/commands';
-import { invokeCommand } from '$lib/infrastructure/tauri';
+import { readCardScriptDocument } from '$lib/infrastructure/tauri/commands';
 import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
 import {
   activeTab,
@@ -21,8 +20,7 @@ export function createAiAppContext(): AiAppContext {
   return {
     async getAiConfig() {
       await loadAppSettings();
-      const secretKey = await invokeCommand<string | null>('load_secret_key');
-      if (!secretKey) {
+      if (!appSettingsState.values.hasSecretKey) {
         throw new Error('Secret key is not configured');
       }
 
@@ -30,7 +28,6 @@ export function createAiAppContext(): AiAppContext {
         apiBaseUrl: appSettingsState.values.apiBaseUrl || DEFAULT_API_BASE_URL,
         model: appSettingsState.values.model || 'gpt-4o-mini',
         temperature: Number.isFinite(appSettingsState.values.temperature) ? appSettingsState.values.temperature : 1,
-        secretKey,
       };
     },
     listOpenDatabases() {
@@ -65,13 +62,10 @@ export function createAiAppContext(): AiAppContext {
         return { exists: false, path: null, content: null };
       }
 
-      const info = await getCardScriptInfo(targetTab.path, code);
-      if (!info.exists) {
-        return { exists: false, path: info.path, content: null };
-      }
-
-      const content = await invokeCommand<string>('read_text_file', { path: info.path });
-      return { exists: true, path: info.path, content };
+      const document = await readCardScriptDocument(targetTab.path, code);
+      return document.exists
+        ? { exists: true, path: document.path, content: document.content }
+        : { exists: false, path: document.path, content: null };
     },
   };
 }

@@ -10,7 +10,6 @@
     "core:window:allow-close",
     "core:window:allow-destroy",
     "opener:default",
-    "fs:default",
     "dialog:default"
   ]
 }

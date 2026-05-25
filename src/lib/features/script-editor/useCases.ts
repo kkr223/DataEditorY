@@ -9,7 +9,7 @@ import { normalizeCardStrings } from '$lib/domain/card/draft';
 import { buildScriptImagePath } from '$lib/domain/script/workspace';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import { openScriptExternally } from '$lib/services/cardScriptService';
-import { writeBinaryFile } from '$lib/infrastructure/tauri/commands';
+import { saveScriptImage } from '$lib/infrastructure/tauri/commands';
 import { normalizeScriptCardContext } from '$lib/features/script-editor/controller';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -267,8 +267,8 @@ export async function shareScriptImageFlow(input: {
     await writeImageBlobToClipboard(blob);
 
     if (appSettingsState.values.saveScriptImageToLocal && outputPath) {
-      await writeBinaryFile(outputPath, await blobToUint8Array(blob));
-      showToast(input.t('editor.script_export_image_success', { values: { path: outputPath } }), 'success');
+      const savedPath = await saveScriptImage(tab.cdbPath, tab.cardCode, await blobToUint8Array(blob));
+      showToast(input.t('editor.script_export_image_success', { values: { path: savedPath } }), 'success');
       return true;
     }
 

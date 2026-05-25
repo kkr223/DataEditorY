@@ -1,43 +1,23 @@
 import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
+import { listAiModels } from '$lib/infrastructure/tauri/commands';
 import { normalizeShortcutBindingMap } from '$lib/features/shortcuts/registry';
+import {
+  buildSaveAppSettingsRequest,
+  DEFAULT_PACKAGE_INCLUDE_PATTERNS,
+  normalizePackageIncludePatterns,
+  normalizeSettingsTemperature,
+  type SaveAppSettingsInput,
+} from '$lib/stores/appSettingsRequest';
+import type { AppSettingsPayload } from '$lib/types/app';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 
-export interface AppSettingsPayload {
-  apiBaseUrl: string;
-  model: string;
-  temperature: number;
-  scriptTemplate: string;
-  useExternalScriptEditor: boolean;
-  saveScriptImageToLocal: boolean;
-  packageIncludePatterns: string[];
-  shortcutBindings: Record<string, string>;
-  hasSecretKey: boolean;
-  coverImagePath: string | null;
-  errorLogPath: string;
-}
+export type { AppSettingsPayload } from '$lib/types/app';
+export { DEFAULT_PACKAGE_INCLUDE_PATTERNS } from '$lib/stores/appSettingsRequest';
 
 const DEFAULT_COVER_SRC = '/resources/cover.jpg';
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_SCRIPT_TEMPLATE = '-- {name}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n';
 const LEGACY_DEFAULT_SCRIPT_TEMPLATE = '-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n';
-export const DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
-  'pics/{code}.jpg',
-  'pics/field/{code}.jpg',
-  'script/c{code}.lua',
-  'strings.conf',
-  'lflist.conf',
-];
-const LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
-  'pics/{code}.jpg',
-  'pics/field/{code}.jpg',
-  'script/{code}.lua',
-  'strings.conf',
-  'lflist.conf',
-];
-
-function isSamePatternList(left: string[], right: string[]) {
-  return left.length === right.length && left.every((item, index) => item === right[index]);
-}
 
 function createDefaultSettings(): AppSettingsPayload {
   return {
@@ -53,25 +33,6 @@ function createDefaultSettings(): AppSettingsPayload {
     coverImagePath: null,
     errorLogPath: '',
   };
-}
-
-function normalizeTemperature(value: number | null | undefined) {
-  if (!Number.isFinite(value)) {
-    return 1;
-  }
-
-  return Math.min(2, Math.max(0, Number(value)));
-}
-
-function normalizePackageIncludePatterns(value: string[] | null | undefined) {
-  const patterns = (value ?? [])
-    .map((item) => String(item ?? '').trim().replace(/\\/g, '/'))
-    .filter((item) => item.length > 0);
-  const uniquePatterns = Array.from(new Set(patterns));
-  if (uniquePatterns.length === 0 || isSamePatternList(uniquePatterns, LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS)) {
-    return [...DEFAULT_PACKAGE_INCLUDE_PATTERNS];
-  }
-  return uniquePatterns;
 }
 
 function normalizeScriptTemplate(value: string | null | undefined) {
@@ -107,7 +68,7 @@ function applySettings(payload: AppSettingsPayload) {
   appSettingsState.values = {
     apiBaseUrl: payload.apiBaseUrl ?? '',
     model: payload.model?.trim() || 'gpt-4o-mini',
-    temperature: normalizeTemperature(payload.temperature),
+    temperature: normalizeSettingsTemperature(payload.temperature),
     scriptTemplate: normalizeScriptTemplate(payload.scriptTemplate),
     useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
     saveScriptImageToLocal: Boolean(payload.saveScriptImageToLocal),
@@ -137,14 +98,8 @@ function getModelsEndpoint(apiBaseUrl: string) {
   return `${normalized}/models`;
 }
 
-async function resolveSecretKey(providedSecretKey?: string) {
-  const direct = providedSecretKey?.trim();
-  if (direct) {
-    return direct;
-  }
-
-  const stored = await invokeCommand<string | null>('load_secret_key');
-  return stored?.trim() || '';
+function isUnsafeHttpApiBaseUrl(apiBaseUrl: string) {
+  return apiBaseUrl.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\]|::1)(:|\/|$)/.test(apiBaseUrl);
 }
 
 export async function loadAppSettings(force = false) {
@@ -161,37 +116,12 @@ export async function loadAppSettings(force = false) {
   }
 }
 
-export async function saveAppSettings(input: {
-  apiBaseUrl: string;
-  model?: string;
-  temperature?: number;
-  scriptTemplate: string;
-  useExternalScriptEditor?: boolean;
-  saveScriptImageToLocal?: boolean;
-  packageIncludePatterns?: string[];
-  shortcutBindings?: Record<string, string>;
-  secretKey?: string;
-  clearSecretKey?: boolean;
-}) {
+export async function saveAppSettings(input: SaveAppSettingsInput) {
   appSettingsState.saving = true;
   try {
+    const request = buildSaveAppSettingsRequest(input, appSettingsState.values.temperature);
     const payload = await invokeCommand<AppSettingsPayload>('save_app_settings', {
-      request: {
-        apiBaseUrl: input.apiBaseUrl,
-        model: input.model,
-        temperature: normalizeTemperature(input.temperature ?? appSettingsState.values.temperature),
-        scriptTemplate: input.scriptTemplate,
-        useExternalScriptEditor: input.useExternalScriptEditor,
-        saveScriptImageToLocal: input.saveScriptImageToLocal,
-        packageIncludePatterns: input.packageIncludePatterns
-          ? normalizePackageIncludePatterns(input.packageIncludePatterns)
-          : undefined,
-        shortcutBindings: input.shortcutBindings
-          ? normalizeShortcutBindingMap(input.shortcutBindings)
-          : undefined,
-        secretKey: input.secretKey,
-        clearSecretKey: input.clearSecretKey,
-      },
+      request,
     });
     applySettings(payload);
     return appSettingsState.values;
@@ -234,31 +164,14 @@ export async function connectAiProvider(input: {
   try {
     const apiBaseUrl = input.apiBaseUrl.trim() || DEFAULT_API_BASE_URL;
 
-    if (apiBaseUrl.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(apiBaseUrl)) {
-      console.warn('[DataEditorY] API base URL uses HTTP instead of HTTPS — the secret key will be transmitted in plaintext.');
+    if (isUnsafeHttpApiBaseUrl(apiBaseUrl)) {
+      throw new Error('Insecure HTTP API base URL is not allowed for secret key authentication. Use HTTPS or localhost.');
     }
 
-    const secretKey = await resolveSecretKey(input.secretKey);
-    if (!secretKey) {
-      throw new Error('Secret key is required');
-    }
-
-    const response = await fetch(getModelsEndpoint(apiBaseUrl), {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${secretKey}`,
-      },
+    const models = await listAiModels({
+      apiBaseUrl: getModelsEndpoint(apiBaseUrl),
+      secretKey: input.secretKey?.trim() || undefined,
     });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(payload?.error?.message || payload?.message || `Failed to load models (${response.status})`);
-    }
-
-    const models = Array.isArray(payload?.data)
-      ? payload.data
-          .map((item: unknown) => (item && typeof item === 'object' && 'id' in item ? String(item.id ?? '').trim() : ''))
-          .filter((item: string) => item.length > 0)
-      : [];
 
     if (models.length === 0) {
       throw new Error('No models were returned by the API');
@@ -276,7 +189,7 @@ export async function connectAiProvider(input: {
         ...appSettingsState.values,
         apiBaseUrl,
         model: selectedModel,
-        temperature: normalizeTemperature(input.temperature ?? appSettingsState.values.temperature),
+        temperature: normalizeSettingsTemperature(input.temperature ?? appSettingsState.values.temperature),
       };
       return { models, selectedModel };
     }

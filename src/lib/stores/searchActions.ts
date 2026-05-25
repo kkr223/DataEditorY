@@ -12,7 +12,14 @@ import {
 } from '$lib/stores/cardSelection.svelte';
 import { clearSearchError, resetSearchState, searchState } from '$lib/stores/searchState.svelte';
 import { getAllCards, setAllCards, setTotalCards } from '$lib/stores/searchResults.svelte';
-import type { CardDataEntry } from '$lib/types';
+import { DEFAULT_SEARCH_FILTERS, type CardDataEntry, type SearchFilters } from '$lib/types';
+
+let latestSearchRequestId = 0;
+
+const cloneSearchFilters = (filters: SearchFilters): SearchFilters => ({
+  ...DEFAULT_SEARCH_FILTERS,
+  ...filters,
+});
 
 function syncActiveSearchSnapshot(input: {
   tabId: string;
@@ -50,25 +57,25 @@ onCachedSearchRefreshed((snapshot) => {
 });
 
 export async function handleSearch(preserveSelection = false, resetPage = false) {
+  const requestId = ++latestSearchRequestId;
   const prevSelectedId = cardSelectionState.selectedId;
   const prevSelectedIds = getSelectedCardIds();
   const prevAnchorId = cardSelectionState.selectionAnchorId;
-  const prevPage = searchState.currentPage;
   const currentTabId = get(activeTabId);
 
   if (!currentTabId) return false;
 
-  if (resetPage) {
-    searchState.currentPage = 1;
-  }
+  const requestedPage = resetPage ? 1 : searchState.currentPage;
+  const filtersSnapshot = cloneSearchFilters(searchState.filters);
 
   let cards: CardDataEntry[];
   let total: number;
   try {
-    ({ cards, total } = await searchCardsPage(searchState.filters, searchState.currentPage));
+    ({ cards, total } = await searchCardsPage(filtersSnapshot, requestedPage));
+    if (requestId !== latestSearchRequestId || get(activeTabId) !== currentTabId) return false;
     clearSearchError();
   } catch (err) {
-    searchState.currentPage = prevPage;
+    if (requestId !== latestSearchRequestId || get(activeTabId) !== currentTabId) return false;
 
     if (err instanceof RuleExpressionError) {
       const message = getRuleExpressionErrorMessage(err, get(locale) ?? 'en');
@@ -82,10 +89,11 @@ export async function handleSearch(preserveSelection = false, resetPage = false)
   }
 
   // If the active tab changed while the search was in flight, discard the results.
-  if (get(activeTabId) !== currentTabId) return false;
+  if (requestId !== latestSearchRequestId || get(activeTabId) !== currentTabId) return false;
 
   setAllCards(cards);
   setTotalCards(total);
+  searchState.currentPage = requestedPage;
 
   if (preserveSelection) {
     const visibleSelectedIds = setSelectedCards(prevSelectedIds, prevSelectedId, prevAnchorId);

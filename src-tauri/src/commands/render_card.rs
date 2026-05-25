@@ -7,11 +7,15 @@ fn render_command<T>(result: services::card_render::RenderResult<T>) -> Result<T
 }
 
 #[tauri::command]
-pub(crate) fn render_card(
+pub(crate) async fn render_card(
     app: AppHandle,
     payload: services::card_render::RenderCardPayload,
 ) -> Result<Vec<u8>, String> {
-    render_command(services::card_render::render_card(&app, payload))
+    tauri::async_runtime::spawn_blocking(move || {
+        render_command(services::card_render::render_card(&app, payload))
+    })
+    .await
+    .map_err(|err| err.to_string())?
 }
 
 #[tauri::command]

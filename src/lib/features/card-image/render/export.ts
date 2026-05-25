@@ -1,6 +1,6 @@
 import type { CardDataEntry } from '$lib/types';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { pathExists, writeBinaryFile } from '$lib/infrastructure/tauri/commands';
+import { pathExists, saveCardImageJpg, savePngFile } from '$lib/infrastructure/tauri/commands';
 import { showToast } from '$lib/stores/toast.svelte';
 import { getPicsDir } from '$lib/services/cardImageService';
 import type { CardImageFormData } from '../layout';
@@ -48,14 +48,9 @@ export const createCardImageExportActions = ({
     try {
       const pngBlob = await renderCardBlob(buildPngData(), 'png');
 
-      const targetPath = await tauriBridge.save({
-        defaultPath: `${state.form.password || card.code || 'card'}.png`,
-        filters: [{ name: 'PNG', extensions: ['png'] }],
-      });
-      if (!targetPath) return;
-
       const bytes = await blobToUint8Array(pngBlob);
-      await writeBinaryFile(targetPath, Array.from(bytes));
+      const targetPath = await savePngFile(`${state.form.password || card.code || 'card'}.png`, Array.from(bytes));
+      if (!targetPath) return;
       showToast(t('editor.card_image_download_success'), 'success');
     } catch (error) {
       console.error('Failed to download generated card image', error);
@@ -107,10 +102,12 @@ export const createCardImageExportActions = ({
         fieldArtBytes = await blobToUint8Array(fieldArtBlob);
       }
 
-      await writeBinaryFile(picPath, Array.from(bytes));
-      if (fieldArtBytes) {
-        await writeBinaryFile(fieldPicPath, Array.from(fieldArtBytes));
-      }
+      await saveCardImageJpg({
+        cdbPath,
+        cardCode: card.code,
+        imageData: Array.from(bytes),
+        fieldImageData: fieldArtBytes ? Array.from(fieldArtBytes) : null,
+      });
       await onSavedJpg();
       showToast(t('editor.card_image_save_jpg_success', {
         values: { code: String(card.code) },

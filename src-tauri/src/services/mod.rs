@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod app_config;
 pub mod assets;
 pub mod card_render;

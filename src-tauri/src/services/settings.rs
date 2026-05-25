@@ -2,10 +2,10 @@ use std::{fs, path::Path};
 use tauri::AppHandle;
 
 use crate::{
-    custom_cover_path, decrypt_secret_key, encrypt_secret_key, load_persisted_settings,
-    normalize_base_url, normalize_model, normalize_package_include_patterns,
-    normalize_script_template, normalize_shortcut_bindings, normalize_temperature,
-    save_persisted_settings, to_settings_payload, AppSettingsPayload, SaveAppSettingsRequest,
+    custom_cover_path, encrypt_secret_key, load_persisted_settings, normalize_base_url,
+    normalize_model, normalize_package_include_patterns, normalize_script_template,
+    normalize_shortcut_bindings, normalize_temperature, save_persisted_settings,
+    to_settings_payload, AppSettingsPayload, SaveAppSettingsRequest,
 };
 
 pub fn load_app_settings(app: &AppHandle) -> Result<AppSettingsPayload, String> {
@@ -18,7 +18,15 @@ pub fn save_app_settings(
     request: SaveAppSettingsRequest,
 ) -> Result<AppSettingsPayload, String> {
     let mut settings = load_persisted_settings(app)?;
-    settings.api_base_url = normalize_base_url(request.api_base_url);
+    let next_api_base_url = normalize_base_url(request.api_base_url);
+    let api_base_url_changed = next_api_base_url != settings.api_base_url;
+    let provided_secret_key = request
+        .secret_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|secret_key| !secret_key.is_empty());
+
+    settings.api_base_url = next_api_base_url;
     settings.model = normalize_model(request.model);
     settings.temperature =
         normalize_temperature(request.temperature.or(Some(settings.temperature)));
@@ -37,27 +45,18 @@ pub fn save_app_settings(
         settings.shortcut_bindings = normalize_shortcut_bindings(Some(shortcut_bindings));
     }
 
-    if request.clear_secret_key.unwrap_or(false) {
+    if request.clear_secret_key.unwrap_or(false)
+        || (api_base_url_changed && provided_secret_key.is_none())
+    {
         settings.encrypted_secret_key = None;
     }
 
-    if let Some(secret_key) = request.secret_key {
-        let secret_key = secret_key.trim();
-        if !secret_key.is_empty() {
-            settings.encrypted_secret_key = Some(encrypt_secret_key(app, secret_key)?);
-        }
+    if let Some(secret_key) = provided_secret_key {
+        settings.encrypted_secret_key = Some(encrypt_secret_key(app, secret_key)?);
     }
 
     save_persisted_settings(app, &settings)?;
     to_settings_payload(app, settings)
-}
-
-pub fn load_secret_key(app: &AppHandle) -> Result<Option<String>, String> {
-    let settings = load_persisted_settings(app)?;
-    match settings.encrypted_secret_key {
-        Some(secret_key) => decrypt_secret_key(app, &secret_key).map(Some),
-        None => Ok(None),
-    }
 }
 
 pub fn set_cover_image(app: &AppHandle, source_path: String) -> Result<String, String> {

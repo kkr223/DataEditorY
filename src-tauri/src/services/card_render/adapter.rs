@@ -12,6 +12,8 @@ use super::dto::{
 };
 use super::error::{RenderError, RenderResult};
 
+const MAX_RENDER_SCALE: f32 = 2.0;
+
 pub(super) fn render_request_from_draft(draft: CardRenderDraft) -> RenderResult<RenderRequest> {
     let card_kind = match draft.kind {
         CardRenderKind::Yugioh => CardKind::Yugioh,
@@ -130,7 +132,7 @@ fn optional_trimmed_string(value: Option<String>) -> Option<String> {
 
 fn finite_scale_or_default(scale: f32) -> f32 {
     if scale.is_finite() {
-        scale.max(0.01)
+        scale.clamp(0.01, MAX_RENDER_SCALE)
     } else {
         1.0
     }

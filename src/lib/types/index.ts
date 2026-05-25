@@ -1,3 +1,5 @@
+import type { CardDataEntry } from './cdb';
+
 export interface SearchFilters {
 id: string;
 name: string;
@@ -23,27 +25,6 @@ nameOrDesc: string;
 export interface CardSearchQuery {
   whereClause: string;
   params: Record<string, string | number>;
-}
-
-export interface CardDataEntry {
-  code: number;
-  alias: number;
-  setcode: number[];
-  type: number;
-  attack: number;
-  defense: number;
-  level: number;
-  race: number;
-  attribute: number;
-  category: number;
-  ot: number;
-  name: string;
-  desc: string;
-  strings: string[];
-  lscale: number;
-  rscale: number;
-  linkMarker: number;
-  ruleCode: number;
 }
 
 export interface DbWorkspaceState {
@@ -136,6 +117,8 @@ export interface LinkMarkerOption {
 
 export type * from './render';
 export type * from './script';
+export type * from './app';
+export type * from './cdb';
 
 export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
 id: '',

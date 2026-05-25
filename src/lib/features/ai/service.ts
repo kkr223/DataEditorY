@@ -1,4 +1,5 @@
 import { get } from 'svelte/store';
+import { requestAiChatCompletion } from '$lib/infrastructure/tauri/commands';
 import type { CardDataEntry } from '$lib/types';
 import { areCardsEquivalent, cloneEditableCard, createEmptyCard } from '$lib/domain/card/draft';
 import { normalizeGeneratedScript } from '$lib/domain/script/workspace';
@@ -51,7 +52,6 @@ type AiConfig = {
   apiBaseUrl: string;
   model: string;
   temperature: number;
-  secretKey: string;
 };
 
 type OpenDbMeta = {
@@ -561,26 +561,13 @@ async function requestChatCompletion(
   body: Record<string, unknown>,
   signal?: AbortSignal,
 ) {
-  const response = await fetch(getChatCompletionsEndpoint(config.apiBaseUrl), {
-    method: 'POST',
-    signal,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.secretKey}`,
-    },
-    body: JSON.stringify(body),
+  throwIfAborted(signal);
+  const payload = await requestAiChatCompletion({
+    apiBaseUrl: getChatCompletionsEndpoint(config.apiBaseUrl),
+    body,
   });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message =
-      payload?.error?.message ||
-      payload?.message ||
-      `AI request failed with status ${response.status}`;
-    throw new Error(message);
-  }
-
-  return payload;
+  throwIfAborted(signal);
+  return payload as any;
 }
 
 async function finalizeAgentResponse(

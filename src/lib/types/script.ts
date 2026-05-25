@@ -1,8 +1,1 @@
-export type CardScriptInfo = {
-  path: string;
-  exists: boolean;
-};
-
-export type CardScriptDocument = CardScriptInfo & {
-  content: string;
-};
+export type { CardScriptDocument, CardScriptInfo } from './generated/app';

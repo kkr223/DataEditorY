@@ -1,7 +1,7 @@
 # DataEditorY 重构准备文档
 
 生成时间：2026-05-18  
-更新时间：2026-05-20
+更新时间：2026-05-21
 重构目标：为后续代码重构提供方向性文档。本文不包含逐行迁移步骤，重点描述重构目标、边界、目标架构、优先级与风险。
 
 ## 1. 总体重构目标
@@ -42,7 +42,7 @@
 - `src/lib/features/card-image/render/` 已生成 DataEditorY 应用级渲染 draft/payload，并提供资源缓存与 Tauri client
 - 前端通过 `renderCardImage()` 调用 Tauri `render_card`
 
-当前实现已经完成第一阶段卡图渲染核心收口：旧 `renderRequestMapper.ts` 已移除，前端不再构造 renderer crate 内部结构，图片资源已开始使用 `resourceToken`/缓存，制卡器主 controller 已降为编排层，foreground overlay 已通过 `foregroundLayer` DTO 下沉到 Rust renderer/adapter，共享 fixture、真实 renderer PNG smoke、committed PNG pixel snapshot 已落地。渲染 DTO 已由 Rust `ts-rs` 生成 TypeScript 类型，后续重点转为：将类型生成模式推广到其他复杂 IPC DTO，并扩展更多卡种/语言的视觉样例。
+当前实现已经完成第一阶段卡图渲染核心收口：旧 `renderRequestMapper.ts` 已移除，前端不再构造 renderer crate 内部结构，图片资源已开始使用 `resourceToken`/缓存，制卡器主 controller 已降为编排层，foreground overlay 已通过 `foregroundLayer` DTO 下沉到 Rust renderer/adapter，共享 fixture、真实 renderer PNG smoke、committed PNG pixel snapshot 已落地。渲染 DTO 已由 Rust `ts-rs` 生成 TypeScript 类型，生成模式也已推广到 app/cdb 相关的 settings、script、package、merge、基础 CDB 查询/修改 DTO；后续重点转为扩展更多卡种/语言的视觉样例。
 
 ### 3.2 当前问题
 
@@ -254,9 +254,9 @@ export type RenderCardPayload = {
 };
 ```
 
-该旧类型无法表达真实字段，也无法在 Rust renderer API 变化时提供编译期反馈。当前渲染链路已改为 Rust `dto.rs` 通过 `ts-rs` 生成 `src/lib/types/generated/render.ts`，`types/render.ts` 只做类型转发，并通过共享 JSON fixture 覆盖双端契约；其他复杂 IPC DTO 仍需要同样的治理方式。
+该旧类型无法表达真实字段，也无法在 Rust renderer API 变化时提供编译期反馈。当前渲染链路已改为 Rust `dto.rs` 通过 `ts-rs` 生成 `src/lib/types/generated/render.ts`，`types/render.ts` 只做类型转发，并通过共享 JSON fixture 覆盖双端契约；app/cdb 相关的 settings、script、package、merge、基础 CDB 查询/修改 DTO 也已生成 `generated/app.ts`、`generated/cdb.ts`，由前端 `types/app.ts`、`types/cdb.ts` 统一转发。
 
-不只卡图渲染一条命令——`modify_cards`、`query_cards_raw` 等命令同样依赖前端手写字段名去匹配 Rust `serde` 输出，拼写漂移只能在运行时发现。
+`modify_cards`、`query_cards_raw`、`search_cards_page`、`undo_modify_operation` 等基础 CDB 命令已接入生成类型；仍未生成的直接参数命令主要是 `tabId`、`path`、`cardId` 这类低复杂度 primitive 参数。
 
 另外，前后端字段命名风格不一致：前端 camelCase，Rust snake_case，依赖 `#[serde(rename_all)]` 隐式转换。
 
@@ -264,7 +264,7 @@ export type RenderCardPayload = {
 
 1. 为所有跨 IPC 的复杂 DTO 建立明确 TypeScript 类型。
 2. 卡图渲染 DTO 以 DataEditorY 自有模型为准，而不是直接暴露 renderer crate 内部类型。
-3. 已在渲染 DTO 上引入 Rust `ts-rs` 自动生成 TypeScript 类型；后续按收益逐步推广到其他复杂 IPC DTO。
+3. 已在渲染、app、cdb DTO 上引入 Rust `ts-rs` 自动生成 TypeScript 类型；后续仅对新增复杂 IPC DTO 沿用同一模式。
 4. 统一命名约定：Rust DTO 一律显式标注 `#[serde(rename_all = "camelCase")]`，不依赖默认行为。
 5. 对关键命令增加契约测试（JSON fixture：前端序列化 ⇔ Rust 反序列化）。
 
@@ -342,17 +342,19 @@ export type RenderCardPayload = {
 
 ### 8.2 共享类型位置统一
 
-当前跨模块使用的核心类型散落各处：
+当前跨模块使用的核心类型已逐步收敛：
 
 | 类型 | 当前位置 | 使用方 |
 | --- | --- | --- |
-| `CardDataEntry` | `types/index.ts` | 全局 |
+| `CardDataEntry` | `types/cdb.ts` 转发 `generated/cdb.ts`，并由 `types/index.ts` 汇总导出 | 全局 |
 | `CardImageFormData` | `features/card-image/layout.ts` | 制卡器、utils 重导出 |
-| `CardScriptInfo` / `CardScriptDocument` | `types/script.ts` | 脚本编辑器、services、Tauri command wrapper |
+| `CardScriptInfo` / `CardScriptDocument` | `types/script.ts` 转发 `generated/app.ts` | 脚本编辑器、services、Tauri command wrapper |
+| `AppSettingsPayload` / `SaveAppSettingsRequest` | `types/app.ts` 转发 `generated/app.ts` | 设置 store、Tauri command wrapper |
+| `MergeSourceItem` / `AnalyzeCdbMergeResponse` 等 | `types/cdb.ts` 转发 `generated/cdb.ts` | shell merge/filter、Tauri command wrapper |
 
 建议方向：
 
-- 为跨模块使用的核心类型建立单一来源：`types/card.ts`、`types/script.ts`、`types/render.ts`
+- 为跨模块使用的核心类型建立单一来源：`types/card.ts`、`types/script.ts`、`types/render.ts`、`types/app.ts`、`types/cdb.ts`
 - 功能模块内部使用的 UI 专属类型保持原地
 - 新的卡图渲染 DTO 应直接放入 `types/render.ts`，避免走 `features/card-image` 间接引用
 
@@ -391,9 +393,9 @@ export type RenderCardPayload = {
 ### 9.2 其他测试方向
 
 - Shell dirty-close guard
-- CDB merge 冲突计划
-- package Lua 依赖解析
-- settings 密钥保存/清除
+- CDB merge 冲突计划（已补：重复卡 last-source winner、图片/脚本资源 winner、include flag）
+- package Lua 依赖解析（已补：递归依赖、循环去重、反斜杠路径、工作区逃逸保护）
+- settings 密钥保存/清除（已补前端保存请求 helper 测试；Rust 持久化仍可后续补隔离 AppHandle 用例）
 - script editor semantic diagnostics
 
 ## 10. 风险与控制
@@ -414,7 +416,7 @@ export type RenderCardPayload = {
 
 **第一阶段：卡图渲染核心（P0-P1）**
 1. **建立卡图渲染新 DTO 与目标边界**：已完成，DataEditorY 自有渲染请求模型由 Rust DTO 生成，并通过 `types/render.ts` 转发。
-2. **建立 IPC 类型同步机制**：渲染链路已消除 `unknown`，并已有 `ts-rs` 自动类型生成、生成文件 freshness 测试和共享 JSON fixture；其他复杂 IPC DTO 待后续推广。
+2. **建立 IPC 类型同步机制**：渲染链路已消除 `unknown`，并已有 `ts-rs` 自动类型生成、生成文件 freshness 测试和共享 JSON fixture；app/cdb 相关 settings、script、package、merge、基础 CDB 查询/修改 DTO 也已接入生成类型与 freshness 测试。
 3. **重写 Rust card_render 服务结构**：已完成当前阶段，bundle、resource、adapter、output 分离。
 4. **替换前端 renderRequestMapper**：已完成，改为生成应用级 DTO，不再构造 renderer 内部请求。
 5. **替换图片传输方式**：已完成当前阶段目标，Tauri 渲染路径使用资源 token/cache；foreground overlay 不再生成整卡 data URL，非 Tauri/测试保留 data URL fallback。
@@ -427,10 +429,10 @@ export type RenderCardPayload = {
 10. **深化 capability 系统**：已完成第一轮，主要 UI 入口改为通过 capability registry 判断；可选模块加载使用 capability 层的编译期布尔常量，build stubs 仍保留为 base 编译兜底，后续可继续缩减 alias 面。
 
 **第三阶段：后续优化（P3）**
-11. **补测试与回归样例**：渲染 DTO 契约、CDB merge 冲突、package 依赖解析。
+11. **补测试与回归样例**：渲染 DTO 契约已完成；基础 CDB DTO freshness、CDB merge 冲突计划、package Lua 依赖解析和 settings 保存请求构造已补用例；后续继续扩展更多渲染卡种/语言样例。
 12. **拆分 stores/editor**：已完成，旧 `editor.svelte.ts` 退场，搜索 UI、结果、选择、搜索 action 分模块维护。
 13. **清理旧兼容代码**：删除不再需要的 mapper、unknown 类型。
-14. **评估 Tauri event 异步渲染**：根据性能表现决定是否引入。
+14. **评估 Tauri event 异步渲染**：已完成第一步，`render_card` 改为 async command + `spawn_blocking`，前端 API 保持不变；event-result 模式暂不引入，等需要取消、排队、进度或更大图传输时再做。
 
 ## 12. 完成标准
 
@@ -446,7 +448,7 @@ export type RenderCardPayload = {
 
 **类型与边界**
 - 卡图渲染 DTO 在 `types/render.ts` 有单一来源定义。（已完成，前端入口转发 Rust 生成类型）
-- Rust DTO 与 TypeScript 类型对应关系明确，有契约测试或自动生成。（渲染 DTO 已补 `ts-rs` 生成、freshness 测试和共享 JSON fixture）
+- Rust DTO 与 TypeScript 类型对应关系明确，有契约测试或自动生成。（渲染、app、cdb DTO 已补 `ts-rs` 生成与 freshness 测试；渲染链路另有共享 JSON fixture）
 - `utils/cardImage.ts`、`utils/cardImageAdapter.ts` 兼容重导出已清理。（已完成）
 - `features/card-image/controller.ts` 兼容重导出已清理；组件改为直接引用 `controller.svelte.ts`、`form`、`crop`、`foreground` 等真实归属模块。（已完成）
 - `utils/lua*.ts`、`utils/ai.ts` 兼容重导出已清理；引用方改为直接指向 `features/script-editor`、`features/card-image`、`features/ai` 的真实模块。（已完成）
@@ -456,6 +458,9 @@ export type RenderCardPayload = {
 
 **功能回归**
 - 有基本渲染契约测试与 smoke test。（已补 payload/data/blob/resource、共享 DTO fixture、真实 renderer PNG smoke 和 committed PNG pixel snapshot）
+- 有基础 CDB 查询/修改 DTO 的生成类型 freshness 测试，并校验生成用 `CardDataEntry` 镜像与实际 Rust `CardDto` JSON 形状一致。（已补）
+- 有 CDB merge 冲突计划与 package Lua 依赖解析的 Rust service 回归用例。（已补）
+- 有 settings 密钥保存/清除请求构造的前端单元用例。（已补）
 - 典型卡片预览、PNG 下载、JPG 保存、场地魔法场地图导出功能可用。
 - 所有语言（sc/tc/jp/kr/en/astral）的卡图渲染输出可接受。
 
@@ -469,6 +474,6 @@ export type RenderCardPayload = {
 - 改变 base/extra 产品形态（两个构建变体的定位不变）。
 - 大规模修改 AI prompt/工具协议。
 - stores/editor 拆分已在 P3 完成；后续只在各新边界内做增量维护。
-- Tauri event 异步渲染——性能优化而非功能修复，延后处理。
+- Tauri event-result 渲染协议——当前已先用 async command + `spawn_blocking` 降低阻塞风险；完整 event 结果通道延后到出现取消/进度/大图传输需求时处理。
 
 这些内容与卡图渲染重构耦合度低，若同时推进会显著放大风险。

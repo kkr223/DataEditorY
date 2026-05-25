@@ -64,17 +64,6 @@ pub fn list_image_folder_entries(path: String) -> MediaResult<Vec<String>> {
     Ok(entries)
 }
 
-pub fn copy_image(src: String, dest: String) -> MediaResult<()> {
-    let target = Path::new(&dest);
-    ensure_parent_dir(target, "Failed to create parent directory for copied image")?;
-    fs::copy(&src, target).map_err(|err| MediaError::io_at("Failed to copy image", &src, err))?;
-    Ok(())
-}
-
-pub fn read_image(path: String) -> MediaResult<Vec<u8>> {
-    fs::read(&path).map_err(|err| MediaError::io_at("Failed to read image", &path, err))
-}
-
 pub fn import_card_image(
     src: String,
     dest: String,

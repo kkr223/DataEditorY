@@ -1,55 +1,54 @@
 import { invokeCommand } from '$lib/infrastructure/tauri';
-import type { CardDataEntry, CardScriptDocument, CardScriptInfo } from '$lib/types';
-import type { RenderCardPayload } from '$lib/types/render';
+import type {
+  AnalyzeCdbMergeResponse,
+  BackgroundTaskProgressEvent,
+  CardDataEntry,
+  CardScriptDocument,
+  CardScriptInfo,
+  CopyCardAssetsRequest,
+  CreateCdbFromCardsRequest,
+  ExecuteCdbMergeRequest,
+  ExecuteCdbMergeResponse,
+  MergeSourceItem,
+  PreparedCardRenderResource,
+  RenderCardPayload,
+  ZipPackageInfo,
+} from '$lib/types';
 
-export type { RenderCardPayload } from '$lib/types/render';
-export type { CardScriptDocument, CardScriptInfo } from '$lib/types';
+export type {
+  AnalyzeCdbMergeResponse,
+  BackgroundTaskProgressEvent,
+  CardScriptDocument,
+  CardScriptInfo,
+  ExecuteCdbMergeResponse,
+  MergeSourceItem,
+  PreparedCardRenderResource,
+  RenderCardPayload,
+  ZipPackageInfo,
+} from '$lib/types';
 
-export type PreparedCardRenderResource = {
-  token: string;
+export type ListAiModelsRequest = {
+  apiBaseUrl: string;
+  secretKey?: string;
 };
 
-export type ZipPackageInfo = {
+export type AiChatCompletionRequest = {
+  apiBaseUrl: string;
+  body: Record<string, unknown>;
+};
+
+export type SelectedTextFileContent = {
   path: string;
+  content: string;
 };
 
-export type MergeSourceItem = {
-  path: string;
-  name: string;
-  projectDir: string;
-  cardTotal?: number;
-};
+export async function listAiModels(request: ListAiModelsRequest) {
+  return invokeCommand<string[]>('list_ai_models', { request });
+}
 
-export type MergeSourcePlanItem = {
-  path: string;
-  name: string;
-  cardTotal: number;
-  winningCardCount: number;
-  winningMainImageCount: number;
-  winningFieldImageCount: number;
-  winningScriptCount: number;
-};
-
-export type AnalyzeCdbMergeResponse = {
-  sourceCount: number;
-  mergedTotal: number;
-  duplicateCardTotal: number;
-  mainImageTotal: number;
-  fieldImageTotal: number;
-  scriptTotal: number;
-  sources: MergeSourcePlanItem[];
-};
-
-export type ExecuteCdbMergeResponse = {
-  outputPath: string;
-};
-
-export type BackgroundTaskProgressEvent = {
-  task: 'package' | 'merge';
-  stage: string;
-  current: number;
-  total: number;
-};
+export async function requestAiChatCompletion(request: AiChatCompletionRequest) {
+  return invokeCommand<unknown>('request_ai_chat_completion', { request });
+}
 
 export async function getCardScriptInfo(cdbPath: string, cardId: number) {
   return invokeCommand<CardScriptInfo>('get_card_script_info', { cdbPath, cardId });
@@ -90,17 +89,43 @@ export async function importCardImageFile(input: {
   return invokeCommand('import_card_image', input);
 }
 
-export async function writeBinaryFile(path: string, data: number[]) {
-  return invokeCommand('write_file', { path, data });
+export async function pickCardImageConfig() {
+  return invokeCommand<SelectedTextFileContent | null>('pick_card_image_config');
 }
 
-export async function writeTextFile(path: string, content: string) {
-  const encoder = new TextEncoder();
-  return invokeCommand('write_file', { path, data: Array.from(encoder.encode(content)) });
+export async function pickDeckText() {
+  return invokeCommand<SelectedTextFileContent | null>('pick_deck_text');
 }
 
-export async function readTextFile(path: string) {
-  return invokeCommand<string>('read_text_file', { path });
+export async function saveCardImageConfig(defaultFileName: string, content: string) {
+  return invokeCommand<string | null>('save_card_image_config', {
+    defaultFileName,
+    content,
+  });
+}
+
+export async function savePngFile(defaultFileName: string, data: number[]) {
+  return invokeCommand<string | null>('save_png_file', {
+    defaultFileName,
+    data,
+  });
+}
+
+export async function saveCardImageJpg(input: {
+  cdbPath: string;
+  cardCode: number;
+  imageData: number[];
+  fieldImageData?: number[] | null;
+}) {
+  return invokeCommand('save_card_image_jpg', input);
+}
+
+export async function saveScriptImage(cdbPath: string, cardCode: number, data: number[]) {
+  return invokeCommand<string>('save_script_image', { cdbPath, cardCode, data });
+}
+
+export async function loadLuaIntelResource(filename: string) {
+  return invokeCommand<string>('load_lua_intel_resource', { filename });
 }
 
 export async function pathExists(path: string) {
@@ -116,18 +141,16 @@ export async function packageCdbAssetsAsZip(cdbPath: string, outputPath: string)
 }
 
 export async function createCdbFromCards(outputPath: string, cards: CardDataEntry[]) {
+  const request: CreateCdbFromCardsRequest = {
+    outputPath,
+    cards,
+  };
   return invokeCommand('create_cdb_from_cards', {
-    request: { outputPath, cards },
+    request,
   });
 }
 
-export async function copyCardAssets(input: {
-  sourceCdbPath: string;
-  targetCdbPath: string;
-  cardIds: number[];
-  includeImages: boolean;
-  includeScripts: boolean;
-}) {
+export async function copyCardAssets(input: CopyCardAssetsRequest) {
   return invokeCommand('copy_card_assets', { request: input });
 }
 
@@ -143,12 +166,7 @@ export async function analyzeCdbMerge(sourcePaths: string[], includeImages: bool
   });
 }
 
-export async function executeCdbMerge(input: {
-  sourcePaths: string[];
-  outputDir: string;
-  includeImages: boolean;
-  includeScripts: boolean;
-}) {
+export async function executeCdbMerge(input: ExecuteCdbMergeRequest) {
   return invokeCommand<ExecuteCdbMergeResponse>('execute_cdb_merge', { request: input });
 }
 

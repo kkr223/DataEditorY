@@ -30,6 +30,9 @@ const SOURCE_LINK_MARKER_BIT_TO_ARROW: Array<[number, number]> = [
   [0x40, 8],
 ];
 
+const MAX_FOREGROUND_DIMENSION = 4096;
+const MAX_FOREGROUND_SCALE = 12;
+
 const MONSTER_DETAIL_MASK = SUBTYPE_MAP.spirit
   | SUBTYPE_MAP.union
   | SUBTYPE_MAP.gemini
@@ -81,6 +84,12 @@ const parsePasswordCode = (password: string, fallback: number) => {
   const normalized = password.trim();
   if (!/^\d+$/.test(normalized)) return fallback;
   return toUnsignedInteger(normalized, fallback);
+};
+
+const finiteNumber = (value: unknown): number | null => {
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 };
 
 const buildSpellTrapTypeBits = (data: CardImageFormData) => {
@@ -172,21 +181,38 @@ const hasEffectBlock = (data: CardImageFormData) => Boolean(
 const rareType = (data: CardImageFormData) => optionalTrimmed(data.rare) ?? undefined;
 
 const foregroundLayer = (data: CardImageFormData): CardRenderForegroundLayer | undefined => {
-  const hasForegroundImage = Boolean(
-    data.foregroundImage.trim()
-      && data.foregroundWidth > 0
-      && data.foregroundHeight > 0
-      && data.foregroundScale > 0,
-  );
+  const centerX = finiteNumber(data.foregroundX);
+  const centerY = finiteNumber(data.foregroundY);
+  const width = finiteNumber(data.foregroundWidth);
+  const height = finiteNumber(data.foregroundHeight);
+  const scale = finiteNumber(data.foregroundScale);
+  const rotation = finiteNumber(data.foregroundRotation) ?? 0;
+  const hasForegroundImage = Boolean(data.foregroundImage.trim());
   if (!hasForegroundImage) return undefined;
 
+  if (
+    centerX === null
+    || centerY === null
+    || width === null
+    || height === null
+    || scale === null
+    || width <= 0
+    || height <= 0
+    || scale <= 0
+    || width > MAX_FOREGROUND_DIMENSION
+    || height > MAX_FOREGROUND_DIMENSION
+    || scale > MAX_FOREGROUND_SCALE
+  ) {
+    return undefined;
+  }
+
   return {
-    centerX: Number(data.foregroundX),
-    centerY: Number(data.foregroundY),
-    width: Number(data.foregroundWidth),
-    height: Number(data.foregroundHeight),
-    scale: Number(data.foregroundScale),
-    rotation: Number(data.foregroundRotation),
+    centerX,
+    centerY,
+    width,
+    height,
+    scale,
+    rotation,
   };
 };
 

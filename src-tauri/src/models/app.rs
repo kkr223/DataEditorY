@@ -4,6 +4,8 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+#[cfg(test)]
+use ts_rs::TS;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -39,7 +41,9 @@ impl Default for PersistedAppSettings {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "app.ts"))]
 pub(crate) struct AppSettingsPayload {
     pub(crate) api_base_url: String,
     pub(crate) model: String,
@@ -55,7 +59,9 @@ pub(crate) struct AppSettingsPayload {
 }
 
 #[derive(Debug, Deserialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "app.ts"))]
 pub(crate) struct SaveAppSettingsRequest {
     pub(crate) api_base_url: String,
     pub(crate) model: Option<String>,
@@ -70,14 +76,18 @@ pub(crate) struct SaveAppSettingsRequest {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "app.ts"))]
 pub(crate) struct CardScriptInfo {
     pub(crate) path: String,
     pub(crate) exists: bool,
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "app.ts"))]
 pub(crate) struct CardScriptDocument {
     pub(crate) path: String,
     pub(crate) exists: bool,
@@ -85,13 +95,17 @@ pub(crate) struct CardScriptDocument {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "app.ts"))]
 pub(crate) struct ZipPackageInfo {
     pub(crate) path: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "app.ts"))]
 pub(crate) struct TaskProgressPayload {
     pub(crate) task: String,
     pub(crate) stage: String,
@@ -133,6 +147,78 @@ impl<'a> ThrottledProgressEmitter<'a> {
             self.last_emit = std::time::Instant::now();
             self.last_stage = stage.to_string();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    const GENERATED_APP_TYPESCRIPT_PATH: &str = "../src/lib/types/generated/app.ts";
+    const UPDATE_APP_TS_BINDINGS_ENV: &str = "UPDATE_APP_TS_BINDINGS";
+
+    fn unique_export_dir() -> PathBuf {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after UNIX_EPOCH")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "dataeditory-app-bindings-{}-{timestamp}",
+            std::process::id(),
+        ))
+    }
+
+    fn export_app_typescript_bindings(out_dir: &Path) -> String {
+        if out_dir.exists() {
+            fs::remove_dir_all(out_dir).expect("remove stale TypeScript export dir");
+        }
+        fs::create_dir_all(out_dir).expect("create TypeScript export dir");
+
+        AppSettingsPayload::export_all_to(out_dir).expect("export app settings payload binding");
+        SaveAppSettingsRequest::export_all_to(out_dir)
+            .expect("export save app settings request binding");
+        CardScriptInfo::export_all_to(out_dir).expect("export card script info binding");
+        CardScriptDocument::export_all_to(out_dir).expect("export card script document binding");
+        ZipPackageInfo::export_all_to(out_dir).expect("export package info binding");
+        TaskProgressPayload::export_all_to(out_dir).expect("export task progress binding");
+
+        fs::read_to_string(out_dir.join("app.ts")).expect("read generated app binding")
+    }
+
+    fn normalize_newlines(value: &str) -> String {
+        value.replace("\r\n", "\n")
+    }
+
+    #[test]
+    fn generated_app_types_are_current() {
+        let out_dir = unique_export_dir();
+        let generated = export_app_typescript_bindings(&out_dir);
+        let target_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(GENERATED_APP_TYPESCRIPT_PATH);
+
+        if std::env::var_os(UPDATE_APP_TS_BINDINGS_ENV).is_some() {
+            fs::create_dir_all(
+                target_path
+                    .parent()
+                    .expect("generated binding path should have a parent"),
+            )
+            .expect("create generated binding directory");
+            fs::write(&target_path, &generated).expect("update generated app binding");
+        }
+
+        let actual = fs::read_to_string(&target_path).expect("read committed app binding");
+        assert_eq!(
+            normalize_newlines(&actual),
+            generated,
+            "Rust app DTO TypeScript binding is stale. Re-run this test with {UPDATE_APP_TS_BINDINGS_ENV}=1 to update it.",
+        );
+
+        fs::remove_dir_all(out_dir).expect("remove TypeScript export dir");
     }
 }
 

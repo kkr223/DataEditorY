@@ -1,5 +1,12 @@
 import { writable, get, derived } from 'svelte/store';
-import type { CardDataEntry, DbWorkspaceState, SearchFilters } from '$lib/types';
+import type {
+  CardDataEntry,
+  DbWorkspaceState,
+  ModifyCardsRequest,
+  OpenCdbTabResponse,
+  SearchFilters,
+  UndoModifyOperationRequest,
+} from '$lib/types';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
 import { cloneCard } from './cardUtils';
@@ -18,12 +25,6 @@ export const activeTab = derived(
 );
 
 export const isDbLoaded = derived(activeTab, ($activeTab) => $activeTab !== null);
-
-interface OpenCdbTabResponse {
-  name: string;
-  cachedCards: CardDataEntry[];
-  cachedTotal: number;
-}
 
 async function openCdbAtPath(selected: string): Promise<string | null> {
   const existing = get(tabs).find(t => t.path === selected);
@@ -269,20 +270,22 @@ export async function undoLastOperation(): Promise<boolean> {
     if (operation.kind === 'modify') {
       const cardsToRestore = operation.previousCards.filter((card): card is CardDataEntry => card !== null);
       const deletedIds = operation.affectedIds.filter((cardId, index) => operation.previousCards[index] === null);
+      const request: UndoModifyOperationRequest = {
+        tabId: tab.id,
+        cardsToRestore: cardsToRestore.map((card) => cloneCard(card)),
+        idsToDelete: deletedIds,
+      };
 
       await invokeCommand('undo_modify_operation', {
-        request: {
-          tabId: tab.id,
-          cardsToRestore: cardsToRestore.map((card) => cloneCard(card)),
-          idsToDelete: deletedIds,
-        },
+        request,
       });
     } else if (operation.deletedCards.length > 0) {
+      const request: ModifyCardsRequest = {
+        tabId: tab.id,
+        cards: operation.deletedCards.map((card) => cloneCard(card)),
+      };
       await invokeCommand('modify_cards', {
-        request: {
-          tabId: tab.id,
-          cards: operation.deletedCards.map((card) => cloneCard(card)),
-        },
+        request,
       });
     }
 

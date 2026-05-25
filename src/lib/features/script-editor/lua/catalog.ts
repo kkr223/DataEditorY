@@ -1,8 +1,7 @@
-import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
+import { tauriBridge } from '$lib/infrastructure/tauri';
+import { loadLuaIntelResource } from '$lib/infrastructure/tauri/commands';
 import { luaCatalog as generatedLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
 import type { LuaCatalog, LuaConstantItem, LuaFunctionItem, LuaSnippetItem } from '$lib/types';
-
-const LUA_INTEL_RESOURCE_DIR = 'resources/lua-intel';
 
 function normalizeLine(raw: string) {
   return raw.replace(/\r/g, '');
@@ -403,9 +402,7 @@ function buildLuaCatalog(source: {
 }
 
 async function readLuaIntelResource(filename: string) {
-  const resourcePath = `${LUA_INTEL_RESOURCE_DIR}/${filename}`;
-  const absolutePath = await tauriBridge.resolveResource(resourcePath);
-  return invokeCommand<string>('read_text_file', { path: absolutePath });
+  return loadLuaIntelResource(filename);
 }
 
 export async function loadExternalLuaCatalog() {

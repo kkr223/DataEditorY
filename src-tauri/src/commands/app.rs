@@ -14,6 +14,9 @@ pub(crate) fn append_error_log(
 pub(crate) fn consume_pending_open_cdb_paths(
     state: tauri::State<'_, PendingOpenCdbPaths>,
 ) -> Result<Vec<String>, String> {
-    let mut pending = state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut pending = state
+        .0
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     Ok(std::mem::take(&mut *pending))
 }

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
-  import { readTextFile } from '$lib/infrastructure/tauri/commands';
+  import { pickDeckText } from '$lib/infrastructure/tauri/commands';
   import { tauriBridge } from '$lib/infrastructure/tauri';
   import { handleSearch, handleReset } from '$lib/stores/searchActions';
   import {
@@ -117,17 +117,12 @@
   }
 
   async function importDeckText() {
-    const selected = await tauriBridge.open({
-      multiple: false,
-      filters: [
-        { name: 'YDK / Text', extensions: ['ydk', 'txt'] },
-      ],
-    });
-    if (!selected || typeof selected !== 'string') {
+    const selected = await pickDeckText();
+    if (!selected) {
       return;
     }
 
-    searchState.filters.deckText = await readTextFile(selected);
+    searchState.filters.deckText = selected.content;
     void runSearch();
   }
 

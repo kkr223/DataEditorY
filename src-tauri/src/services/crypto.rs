@@ -23,7 +23,11 @@ pub(crate) fn get_or_create_cipher_key(app: &AppHandle) -> Result<[u8; 32], Stri
             key.copy_from_slice(&bytes);
             return Ok(key);
         }
-        // File is corrupt / wrong size 鈥?regenerate below.
+        return Err(format!(
+            "Cipher key file is invalid: expected 32 bytes, found {} bytes at {}. The file was left unchanged to avoid losing encrypted secrets.",
+            bytes.len(),
+            key_path.display(),
+        ));
     }
 
     let mut key = [0u8; 32];

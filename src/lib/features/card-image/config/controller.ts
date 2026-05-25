@@ -1,6 +1,6 @@
 import type { CardDataEntry } from '$lib/types';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { readTextFile, writeTextFile } from '$lib/infrastructure/tauri/commands';
+import { pickCardImageConfig, saveCardImageConfig } from '$lib/infrastructure/tauri/commands';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import {
@@ -109,14 +109,10 @@ export const createCardImageConfigController = ({
       return;
     }
 
-    const selected = await tauriBridge.open({
-      multiple: false,
-      filters: [{ name: 'JSON', extensions: ['json'] }],
-    });
-    if (!selected || typeof selected !== 'string') return;
     try {
-      const content = await readTextFile(selected);
-      await applyImportedConfigContent(content, selected);
+      const selected = await pickCardImageConfig();
+      if (!selected) return;
+      await applyImportedConfigContent(selected.content, selected.path);
     } catch (error) {
       const card = getCard();
       console.error('Failed to read card image config', error);
@@ -125,7 +121,6 @@ export const createCardImageConfigController = ({
         error,
         extra: {
           cardCode: card.code ?? 0,
-          source: selected,
         },
       });
       showToast(t('editor.card_image_config_import_failed'), 'error');
@@ -156,12 +151,8 @@ export const createCardImageConfigController = ({
       });
 
       if (tauriBridge.isTauri()) {
-        const targetPath = await tauriBridge.save({
-          defaultPath: getConfigFileName(),
-          filters: [{ name: 'JSON', extensions: ['json'] }],
-        });
+        const targetPath = await saveCardImageConfig(getConfigFileName(), content);
         if (!targetPath) return;
-        await writeTextFile(targetPath, content);
       } else {
         const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
         const url = URL.createObjectURL(blob);
