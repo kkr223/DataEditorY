@@ -9,6 +9,7 @@
     onActivateWorkspace = (_tabId: string) => {},
     onCloseWorkspace = async (_tabId: string) => {},
     onOpenAnother = async () => {},
+    onReorderWorkspaces = (_ids: string[]) => {},
   }: {
     workspaces?: WorkspaceDocument[];
     activeWorkspaceId?: string | null;
@@ -16,29 +17,154 @@
     onActivateWorkspace?: (tabId: string) => void;
     onCloseWorkspace?: (tabId: string) => void | Promise<void>;
     onOpenAnother?: () => void | Promise<void>;
+    onReorderWorkspaces?: (orderedIds: string[]) => void;
   } = $props();
 
+  // ── Local ordered copy ──────────────────────────────────────────────
+
+  let ordered = $state<WorkspaceDocument[]>([]);
+  let prevWorkspaceIds = $state('');
+
+  $effect(() => {
+    const ids = workspaces.map((w) => w.id).join(',');
+    if (ids === prevWorkspaceIds) return;
+    prevWorkspaceIds = ids;
+
+    const propIds = new Set(workspaces.map((w) => w.id));
+    const currentIds = new Set(ordered.map((w) => w.id));
+
+    // Start from current order, drop removed items
+    let next = ordered.filter((w) => propIds.has(w.id));
+
+    // Append new items at the end
+    for (const ws of workspaces) {
+      if (!currentIds.has(ws.id)) {
+        next = [...next, ws];
+      }
+    }
+
+    // Only update when the ordered list actually changed
+    if (next.length !== ordered.length || next.some((w, i) => w.id !== ordered[i]?.id)) {
+      ordered = next;
+    }
+  });
+
+  function commitOrder() {
+    onReorderWorkspaces(ordered.map((w) => w.id));
+  }
+
+  // ── Drag-to-reorder ─────────────────────────────────────────────────
+
+  let draggedId = $state<string | null>(null);
+  let dragOverId = $state<string | null>(null);
+  let dragPointerId = $state(-1);
+  let listEl = $state<HTMLElement | null>(null);
+
+  function dragStart(id: string, event: PointerEvent) {
+    // Don't start drag from close button or interactive children
+    const target = event.target as HTMLElement;
+    if (target.closest('.tab-close')) return;
+
+    draggedId = id;
+    dragPointerId = event.pointerId;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event: PointerEvent) {
+    if (!draggedId || !listEl) return;
+
+    const items = listEl.querySelectorAll<HTMLElement>('.tab-item:not(.tab-add)');
+    let targetId: string | null = null;
+
+    for (const item of items) {
+      const rect = item.getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+      if (event.clientX < midX) {
+        targetId = item.dataset.tabId ?? null;
+        break;
+      }
+    }
+
+    // If pointer is past the last item, target after the last
+    if (targetId === null && items.length > 0) {
+      const lastItem = items[items.length - 1];
+      const lastRect = lastItem.getBoundingClientRect();
+      if (event.clientX > lastRect.right) {
+        targetId = '__end__';
+      }
+    }
+
+    dragOverId = targetId;
+  }
+
+  function onPointerUp(_event: PointerEvent) {
+    if (!draggedId) return;
+    commitDrag();
+  }
+
+  function commitDrag() {
+    if (!draggedId || dragOverId === null) {
+      draggedId = null;
+      dragOverId = null;
+      dragPointerId = -1;
+      return;
+    }
+
+    const fromIdx = ordered.findIndex((w) => w.id === draggedId);
+    if (fromIdx === -1) {
+      resetDrag();
+      return;
+    }
+
+    const dragged = ordered[fromIdx];
+    let next = ordered.filter((w) => w.id !== draggedId);
+
+    if (dragOverId === '__end__') {
+      next.push(dragged);
+    } else {
+      const toIdx = next.findIndex((w) => w.id === dragOverId);
+      if (toIdx === -1) {
+        resetDrag();
+        return;
+      }
+      next.splice(toIdx, 0, dragged);
+    }
+
+    ordered = next;
+    commitOrder();
+    resetDrag();
+  }
+
+  function resetDrag() {
+    draggedId = null;
+    dragOverId = null;
+    dragPointerId = -1;
+  }
+
   function getWorkspaceIcon(workspace: WorkspaceDocument) {
-    if (workspace.kind === 'settings') {
-      return 'settings';
-    }
-
-    if (workspace.kind === 'script') {
-      return 'script';
-    }
-
+    if (workspace.kind === 'settings') return 'settings';
+    if (workspace.kind === 'script') return 'script';
     return 'db';
   }
 </script>
 
 {#if workspaces.length > 0}
-  <div class="tab-bar">
-    {#each workspaces as workspace (workspace.id)}
+  <div class="tab-bar" class:overflow-mode={workspaces.length > 10} bind:this={listEl}
+    role="application"
+    onpointermove={onPointerMove}
+    onpointerup={onPointerUp}
+    onpointercancel={resetDrag}
+  >
+    {#each ordered as workspace (workspace.id)}
       <button
+        data-tab-id={workspace.id}
         class="tab-item"
         class:active={activeWorkspaceId === workspace.id}
         class:script-tab={workspace.kind === 'script'}
+        class:dragging={draggedId === workspace.id}
+        class:drag-over={dragOverId === workspace.id}
         onclick={() => onActivateWorkspace(workspace.id)}
+        onpointerdown={(e) => dragStart(workspace.id, e)}
         title={workspace.subtitle}
       >
         {#if getWorkspaceIcon(workspace) === 'settings'}
@@ -81,11 +207,35 @@
     overflow-x: auto;
     flex-shrink: 0;
     position: relative;
+    user-select: none;
+  }
+
+  .tab-bar:not(.overflow-mode) {
     scrollbar-width: none;
   }
 
-  .tab-bar::-webkit-scrollbar {
+  .tab-bar:not(.overflow-mode)::-webkit-scrollbar {
     display: none;
+  }
+
+  .tab-bar.overflow-mode {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+    padding-bottom: 2px;
+  }
+
+  .tab-bar.overflow-mode::-webkit-scrollbar {
+    height: 6px;
+    display: block;
+  }
+
+  .tab-bar.overflow-mode::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .tab-bar.overflow-mode::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
   }
 
   .tab-bar::after {
@@ -122,6 +272,12 @@
     font: inherit;
     transform: translateY(2px);
     box-shadow: none;
+    touch-action: none;
+  }
+
+  .tab-bar.overflow-mode .tab-item {
+    flex-shrink: 0;
+    min-width: 108px;
   }
 
   .tab-item::before {
@@ -247,5 +403,17 @@
   .tab-add:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring-strong);
+  }
+
+  /* ── Drag states ────────────────────────────────────────────────── */
+
+  .tab-item.dragging {
+    opacity: 0.45;
+    transform: translateY(2px) scale(0.97);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+
+  .tab-item.drag-over {
+    box-shadow: inset 2px 0 0 var(--accent-primary);
   }
 </style>
