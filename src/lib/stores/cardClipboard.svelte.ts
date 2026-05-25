@@ -1,14 +1,7 @@
 import type { CardDataEntry } from '$lib/types';
+import { cloneCard } from './cardUtils';
 
 let clipboardCards = $state.raw<CardDataEntry[]>([]);
-
-function cloneCard(card: CardDataEntry): CardDataEntry {
-  return {
-    ...card,
-    setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
-    strings: Array.isArray(card.strings) ? [...card.strings] : [],
-  };
-}
 
 export function setCardClipboard(cards: CardDataEntry[]) {
   clipboardCards = cards.map((card) => cloneCard(card));

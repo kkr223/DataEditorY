@@ -5,7 +5,7 @@ import {
   getCardIndex,
   getVisibleCardIds,
   hasVisibleCard,
-} from '$lib/stores/searchResults.svelte';
+} from '$lib/stores/searchStore.svelte';
 import type { CardDataEntry } from '$lib/types';
 
 export const cardSelectionState = $state<{

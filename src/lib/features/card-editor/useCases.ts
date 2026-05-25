@@ -3,11 +3,10 @@ import { tauriBridge } from '$lib/infrastructure/tauri';
 import { deleteCard, getCardById, modifyCard, saveCdbFile } from '$lib/stores/db';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import { setSingleSelectedCard } from '$lib/stores/cardSelection.svelte';
-import { updateVisibleCards } from '$lib/stores/searchResults.svelte';
+import { updateVisibleCards } from '$lib/stores/searchStore.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
-import { cloneEditableCard } from '$lib/utils/card';
-import { createCardSnapshot, toPersistableDraftCard } from '$lib/domain/card/draft';
+import { cloneEditableCard, createCardSnapshot, toPersistableDraftCard } from '$lib/domain/card/draft';
 import {
   ensureCardScriptFile,
   getExistingCardScriptInfo,

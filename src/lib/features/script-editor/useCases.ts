@@ -3,7 +3,7 @@ import { tauriBridge } from '$lib/infrastructure/tauri';
 import { getCardByIdInTab, modifyCardsInTab } from '$lib/stores/db';
 import { reloadActiveScriptTab, saveActiveScriptTab } from '$lib/stores/scriptEditor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
-import { updateVisibleCards } from '$lib/stores/searchResults.svelte';
+import { updateVisibleCards } from '$lib/stores/searchStore.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { normalizeCardStrings } from '$lib/domain/card/draft';
 import { buildScriptImagePath } from '$lib/domain/script/workspace';

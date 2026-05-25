@@ -2,17 +2,21 @@
   import { onDestroy, onMount, tick, untrack } from "svelte";
   import { _ } from "svelte-i18n";
   import { activeTab, activeTabId, isDbLoaded, saveCdbFile } from "$lib/stores/db";
-  import { handleReset, handleSearch } from "$lib/stores/searchActions";
+  import {
+    getAllCards,
+    getAllCardsMap,
+    getTotalCards,
+    handleReset,
+    handleSearch,
+    searchState,
+  } from "$lib/stores/searchStore.svelte";
   import { cardSelectionState, clearSelection, setSingleSelectedCard } from "$lib/stores/cardSelection.svelte";
-  import { searchState } from "$lib/stores/searchState.svelte";
-  import { getAllCards, getAllCardsMap, getTotalCards } from "$lib/stores/searchResults.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
   import type { CardDataEntry } from "$lib/types";
-  import { normalizeSetcodeHex, updateSetcode } from "$lib/utils/setcode";
-  import { cloneEditableCard, createEmptyCard, getPackedLevel, normalizeEditableScaleValue, setPackedLevel } from "$lib/utils/card";
-  import { createCardSnapshot } from "$lib/domain/card/draft";
+  import { normalizeSetcodeHex, updateSetcode } from "$lib/domain/card/setcode";
+  import { cloneEditableCard, createCardSnapshot, createEmptyCard, getPackedLevel, normalizeEditableScaleValue, setPackedLevel } from "$lib/domain/card/draft";
   import { dispatchAppShortcut } from "$lib/utils/shortcuts";
-  import { isEditableTarget } from "$lib/features/shell/controller";
+  import { getShortcutTargetElement, isEditableTarget, isNativeTextUndoTarget } from "$lib/features/shell/controller";
   import { shellBackgroundTaskState } from "$lib/features/shell/dialogsController.svelte";
   import {
     AI_CAPABILITY_ENABLED,
@@ -170,27 +174,9 @@
     return cardImageDrawerHostModulePromise;
   }
 
-  function toShortcutElement(target: EventTarget | null) {
-    if (target instanceof HTMLElement) return target;
-    if (target instanceof Node) return target.parentElement;
-    return null;
-  }
-
-  function isNativeTextUndoTarget(target: EventTarget | null) {
-    const candidate = toShortcutElement(target) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    if (!candidate) return false;
-    if (candidate.closest(".monaco-editor, .monaco-diff-editor")) return true;
-    if (candidate instanceof HTMLTextAreaElement || candidate.isContentEditable) return true;
-    if (candidate instanceof HTMLInputElement) {
-      const type = candidate.type.toLowerCase();
-      return !["button", "checkbox", "color", "file", "image", "radio", "range", "reset", "submit"].includes(type);
-    }
-    return Boolean(candidate.closest('[contenteditable="true"]'));
-  }
-
   function isCardEditorShortcutTarget(target: EventTarget | null) {
     if (!editorRoot) return false;
-    const candidate = toShortcutElement(target) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    const candidate = getShortcutTargetElement(target);
     return Boolean(candidate && editorRoot.contains(candidate));
   }
 

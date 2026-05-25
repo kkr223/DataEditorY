@@ -1,11 +1,18 @@
 import { describe, expect, test } from 'bun:test';
-import {
+
+Object.assign(globalThis, {
+  __APP_BUILD_VARIANT__: 'extra',
+  __APP_BUILD_LABEL__: 'Extra',
+  __APP_FEATURES__: { ai: true, cardImage: true },
+});
+
+const {
   createCapabilityRegistry,
   isAnyCapabilityEnabledInRegistry,
   isCapabilityEnabledInRegistry,
-} from '$lib/application/capabilities/definitions';
+} = await import('$lib/application/capabilities/registry');
 
-describe('capability registry definitions', () => {
+describe('capability registry', () => {
   test('always exposes the core shell capabilities', () => {
     const registry = createCapabilityRegistry({ ai: false, cardImage: false });
 

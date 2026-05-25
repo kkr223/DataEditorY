@@ -1,13 +1,15 @@
 import {
   ATTRIBUTE_OPTIONS,
   getCardTypeKey,
-  getPackedLScale,
-  getPackedLevel,
-  getPackedRScale,
   LINK_MARKERS,
   RACE_OPTIONS,
   TYPE_BITS,
-} from '$lib/utils/card';
+} from '$lib/domain/card/taxonomy';
+import {
+  getPackedLScale,
+  getPackedLevel,
+  getPackedRScale,
+} from '$lib/domain/card/draft';
 import type { CardDataEntry } from '$lib/types';
 import type { ScriptImageRenderInfo } from '$lib/features/script-editor/useCases';
 

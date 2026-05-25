@@ -36,6 +36,10 @@ function toElement(target: EventTarget | null): HTMLElement | null {
   return null;
 }
 
+export function getShortcutTargetElement(target: EventTarget | null): HTMLElement | null {
+  return toElement(target) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+}
+
 function describeUndoTarget(element: HTMLElement | null): UndoTargetDescriptor | null {
   if (!element) return null;
 

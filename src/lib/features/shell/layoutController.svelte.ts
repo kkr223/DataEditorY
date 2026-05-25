@@ -31,11 +31,11 @@ import {
   getSelectedCards,
   setSelectedCards,
 } from '$lib/stores/cardSelection.svelte';
-import { handleSearch } from '$lib/stores/searchActions';
-import { getAllCardsMap } from '$lib/stores/searchResults.svelte';
+import { getAllCardsMap, handleSearch } from '$lib/stores/searchStore.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { dispatchAppShortcut } from '$lib/utils/shortcuts';
 import { writeErrorLog } from '$lib/utils/errorLog';
+import { cloneCard } from '$lib/stores/cardUtils';
 import {
   type DragDropPayload,
   isCdbFilePath,
@@ -56,7 +56,6 @@ import {
 } from '$lib/application/workspace/lifecycle';
 import { getEnabledCapabilities } from '$lib/application/capabilities/registry';
 import { SETTINGS_WORKSPACE_ID, workspaceState } from '$lib/core/workspace/store.svelte';
-import type { CardDataEntry } from '$lib/types';
 
 const PRELOAD_RETRY_KEY = 'dataeditory:preload-retry';
 const OPEN_HISTORY_HIDE_DELAY_MS = 180;
@@ -240,11 +239,7 @@ export function createShellLayoutController() {
       if (!shouldOverwrite) return;
     }
 
-    const pastedCards = clipboardCards.map((card) => ({
-      ...card,
-      setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
-      strings: Array.isArray(card.strings) ? [...card.strings] : [],
-    } satisfies CardDataEntry));
+    const pastedCards = clipboardCards.map((card) => cloneCard(card));
     const ok = await modifyCards(pastedCards);
     if (!ok) {
       showToast('Paste failed', 'error');

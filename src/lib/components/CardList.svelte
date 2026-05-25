@@ -4,17 +4,21 @@
   import { isDbLoaded } from '$lib/stores/db';
   import { pickDeckText } from '$lib/infrastructure/tauri/commands';
   import { tauriBridge } from '$lib/infrastructure/tauri';
-  import { handleSearch, handleReset } from '$lib/stores/searchActions';
+  import {
+    clearSearchError,
+    getAllCards,
+    getTotalCards,
+    handleReset,
+    handleSearch,
+    searchState,
+  } from '$lib/stores/searchStore.svelte';
   import {
     cardSelectionState,
     selectCardRange,
     setSingleSelectedCard,
     toggleCardSelection
   } from '$lib/stores/cardSelection.svelte';
-  import { clearSearchError, searchState } from '$lib/stores/searchState.svelte';
-  import { getAllCards, getTotalCards } from '$lib/stores/searchResults.svelte';
-  import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
-  import { SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
+  import { getCardTypeKey, RACE_OPTIONS, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
   import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from '$lib/utils/shortcuts';
   import { disableAutofill } from '$lib/actions/disableAutofill';
   import { appSettingsState } from '$lib/stores/appSettings.svelte';

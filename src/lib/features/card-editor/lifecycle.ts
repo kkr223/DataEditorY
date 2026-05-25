@@ -1,7 +1,7 @@
 import { showToast } from '$lib/stores/toast.svelte';
-import { loadPopularSetcodes, getSetcode } from '$lib/utils/setcode';
-import { cloneEditableCard, cloneLoadedCardForEditing } from '$lib/utils/card';
-import { createCardSnapshot } from '$lib/domain/card/draft';
+import { getSetcode } from '$lib/domain/card/setcode';
+import { loadPopularSetcodes } from '$lib/services/setcodeCatalog';
+import { cloneEditableCard, cloneLoadedCardForEditing, createCardSnapshot } from '$lib/domain/card/draft';
 import { APP_SHORTCUT_EVENT } from '$lib/utils/shortcuts';
 import { resolveCardImageSrc } from '$lib/services/cardImageService';
 import {

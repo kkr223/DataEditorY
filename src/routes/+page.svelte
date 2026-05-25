@@ -11,8 +11,7 @@
   } from '$lib/stores/db';
   import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
   import { cardSelectionState, clearSelection, setSelectedCards, setSingleSelectedCard } from '$lib/stores/cardSelection.svelte';
-  import { getAllCards, setAllCards, setTotalCards } from '$lib/stores/searchResults.svelte';
-  import { clearSearchError, resetSearchState, searchState } from '$lib/stores/searchState.svelte';
+  import { clearSearchError, getAllCards, resetSearchState, searchState, setAllCards, setTotalCards } from '$lib/stores/searchStore.svelte';
   import { appShellState } from '$lib/stores/appShell.svelte';
 
   type CardListModule = typeof import('$lib/components/CardList.svelte');

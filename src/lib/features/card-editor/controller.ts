@@ -1,8 +1,7 @@
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import type { CardDataEntry, SearchFilters } from '$lib/types';
 import type { ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
-import { cloneEditableCard, cloneLoadedCardForEditing, createEmptyCard } from '$lib/utils/card';
-import { createCardSnapshot } from '$lib/domain/card/draft';
+import { cloneEditableCard, cloneLoadedCardForEditing, createCardSnapshot, createEmptyCard } from '$lib/domain/card/draft';
 import { ATTRIBUTE_MAP, LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
 import { isShortcutEvent } from '$lib/features/shortcuts/registry';
 

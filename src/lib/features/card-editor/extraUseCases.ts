@@ -5,8 +5,7 @@ import { getCardsByIds, modifyCard } from '$lib/stores/db';
 import { setSingleSelectedCard } from '$lib/stores/cardSelection.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
-import { cloneEditableCard, createEmptyCard } from '$lib/utils/card';
-import { toPersistableCard } from '$lib/domain/card/draft';
+import { cloneEditableCard, createEmptyCard, toPersistableCard } from '$lib/domain/card/draft';
 import { importCardImage, resolveCardImageSrc } from '$lib/services/cardImageService';
 import {
   ensureAiReady,
