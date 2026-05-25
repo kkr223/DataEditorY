@@ -384,9 +384,14 @@
     "card_image_export_scale_hint": "参考：43% 约等于 399 x 582。",
     "card_image_description_zoom": "描述缩放",
     "card_image_description_weight": "描述字重",
+    "card_image_art_fit": "卡图适配",
+    "card_image_art_scale": "卡图缩放",
+    "card_image_art_offset_x": "卡图偏移 X",
+    "card_image_art_offset_y": "卡图偏移 Y",
     "card_image_first_line_compress": "首行压缩",
     "card_image_description_center": "描述居中",
     "card_image_twentieth": "20 周年标记",
+    "card_image_twenty_fifth": "25 周年标记",
     "card_image_round_corner": "圆角卡面",
     "card_image_ai_translate_empty": "当前没有可翻译的文本",
     "card_image_ai_translate_success": "卡图表单文本已翻译",
@@ -414,13 +419,26 @@
         "xyz": "超量灵摆"
       },
       "rare": {
+        "sr": "SR",
         "dt": "DT",
         "ur": "UR",
+        "utr": "UTR",
         "gr": "GR",
         "hr": "HR",
         "ser": "SER",
+        "scr": "SCR",
+        "esr": "ESR",
         "gser": "GSER",
-        "pser": "PSER"
+        "pser": "PSER",
+        "pser_print": "PSER Print",
+        "npr": "NPR",
+        "upr": "UPR",
+        "sepr": "SEPR"
+      },
+      "art_fit": {
+        "cover": "填满裁切",
+        "contain": "完整包含",
+        "stretch": "拉伸填满"
       },
       "laser": {
         "laser1": "角标 1",

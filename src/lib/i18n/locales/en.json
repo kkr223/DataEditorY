@@ -384,9 +384,14 @@
     "card_image_export_scale_hint": "Reference: 43% is about 399 x 582.",
     "card_image_description_zoom": "Description Zoom",
     "card_image_description_weight": "Description Weight",
+    "card_image_art_fit": "Art Fit",
+    "card_image_art_scale": "Art Scale",
+    "card_image_art_offset_x": "Art Offset X",
+    "card_image_art_offset_y": "Art Offset Y",
     "card_image_first_line_compress": "Compress First Line",
     "card_image_description_center": "Center Description",
     "card_image_twentieth": "20th Anniversary",
+    "card_image_twenty_fifth": "25th Anniversary",
     "card_image_round_corner": "Rounded Corners",
     "card_image_ai_translate_empty": "There is no text to translate yet",
     "card_image_ai_translate_success": "Card image fields translated",
@@ -414,13 +419,26 @@
         "xyz": "Xyz Pendulum"
       },
       "rare": {
+        "sr": "SR",
         "dt": "DT",
         "ur": "UR",
+        "utr": "UTR",
         "gr": "GR",
         "hr": "HR",
         "ser": "SER",
+        "scr": "SCR",
+        "esr": "ESR",
         "gser": "GSER",
-        "pser": "PSER"
+        "pser": "PSER",
+        "pser_print": "PSER Print",
+        "npr": "NPR",
+        "upr": "UPR",
+        "sepr": "SEPR"
+      },
+      "art_fit": {
+        "cover": "Cover",
+        "contain": "Contain",
+        "stretch": "Stretch"
       },
       "laser": {
         "laser1": "Laser 1",

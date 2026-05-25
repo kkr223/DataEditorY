@@ -7,6 +7,11 @@ import {
 export type { CardImageLanguage } from "./adapter";
 
 export type CardImageFormData = CardImageBaseData & {
+  twentyFifth: boolean;
+  artFit: "stretch" | "cover" | "contain";
+  artScale: number;
+  artOffsetX: number;
+  artOffsetY: number;
   foregroundImage: string;
   foregroundWidth: number;
   foregroundHeight: number;
@@ -80,8 +85,13 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   laser: "",
   rare: "",
   twentieth: false,
+  twentyFifth: false,
   radius: true,
   scale: 1,
+  artFit: "cover",
+  artScale: 1,
+  artOffsetX: 0,
+  artOffsetY: 0,
   foregroundImage: "",
   foregroundWidth: 0,
   foregroundHeight: 0,
@@ -167,13 +177,27 @@ export const CARD_IMAGE_ICON_OPTIONS: StringOption[] = [
 
 export const CARD_IMAGE_RARE_OPTIONS: StringOption[] = [
   { value: "", labelKey: "search.na" },
+  { value: "sr", labelKey: "editor.card_image_option.rare.sr" },
   { value: "dt", labelKey: "editor.card_image_option.rare.dt" },
   { value: "ur", labelKey: "editor.card_image_option.rare.ur" },
+  { value: "utr", labelKey: "editor.card_image_option.rare.utr" },
   { value: "gr", labelKey: "editor.card_image_option.rare.gr" },
   { value: "hr", labelKey: "editor.card_image_option.rare.hr" },
   { value: "ser", labelKey: "editor.card_image_option.rare.ser" },
+  { value: "scr", labelKey: "editor.card_image_option.rare.scr" },
+  { value: "esr", labelKey: "editor.card_image_option.rare.esr" },
   { value: "gser", labelKey: "editor.card_image_option.rare.gser" },
   { value: "pser", labelKey: "editor.card_image_option.rare.pser" },
+  { value: "pser-print", labelKey: "editor.card_image_option.rare.pser_print" },
+  { value: "npr", labelKey: "editor.card_image_option.rare.npr" },
+  { value: "upr", labelKey: "editor.card_image_option.rare.upr" },
+  { value: "sepr", labelKey: "editor.card_image_option.rare.sepr" },
+];
+
+export const CARD_IMAGE_ART_FIT_OPTIONS: StringOption[] = [
+  { value: "cover", labelKey: "editor.card_image_option.art_fit.cover" },
+  { value: "contain", labelKey: "editor.card_image_option.art_fit.contain" },
+  { value: "stretch", labelKey: "editor.card_image_option.art_fit.stretch" },
 ];
 
 export const CARD_IMAGE_LASER_OPTIONS: StringOption[] = [
@@ -238,8 +262,15 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     laser: String(data.laser ?? DEFAULT_CARD_IMAGE_FORM_DATA.laser),
     rare: String(data.rare ?? DEFAULT_CARD_IMAGE_FORM_DATA.rare),
     twentieth: Boolean(data.twentieth ?? DEFAULT_CARD_IMAGE_FORM_DATA.twentieth),
+    twentyFifth: Boolean(data.twentyFifth ?? DEFAULT_CARD_IMAGE_FORM_DATA.twentyFifth),
     radius: Boolean(data.radius ?? DEFAULT_CARD_IMAGE_FORM_DATA.radius),
     scale: coerceNumber(data.scale, DEFAULT_CARD_IMAGE_FORM_DATA.scale),
+    artFit: (["stretch", "cover", "contain"].includes(String(data.artFit))
+      ? String(data.artFit)
+      : DEFAULT_CARD_IMAGE_FORM_DATA.artFit) as CardImageFormData["artFit"],
+    artScale: coerceNumber(data.artScale, DEFAULT_CARD_IMAGE_FORM_DATA.artScale),
+    artOffsetX: coerceNumber(data.artOffsetX, DEFAULT_CARD_IMAGE_FORM_DATA.artOffsetX),
+    artOffsetY: coerceNumber(data.artOffsetY, DEFAULT_CARD_IMAGE_FORM_DATA.artOffsetY),
     foregroundImage: String(data.foregroundImage ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundImage),
     foregroundWidth: coerceNumber(data.foregroundWidth, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundWidth),
     foregroundHeight: coerceNumber(data.foregroundHeight, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundHeight),

@@ -1,8 +1,7 @@
-mod adapter;
 mod bundle;
 mod dto;
+mod edit;
 mod error;
-mod output;
 mod resources;
 
 pub(crate) use dto::{
@@ -10,14 +9,28 @@ pub(crate) use dto::{
 };
 pub(crate) use error::RenderResult;
 pub(crate) use resources::RenderResourceRegistry;
+
+use std::path::Path;
+
 use tauri::AppHandle;
+use ygo_card_renderer_rs::{
+    model::{
+        EffectMask, ImageAlign, PositionedRenderImage, RareType, TextAlignChoice, YgoCardMeta,
+    },
+    CardKind, RenderOptions, RenderRequest,
+};
+use ygopro_cdb_encode_rs::CardDataEntry;
+
+use self::{
+    dto::{CardBaseData, CardRenderKind, DocumentEdit, ForegroundLayoutDto, TextAlignDto},
+    error::{RenderError, RenderResult as CardRenderResult},
+};
+
+const MAX_RENDER_SCALE: f32 = 2.0;
 
 pub(crate) fn render_card(app: &AppHandle, payload: RenderCardPayload) -> RenderResult<Vec<u8>> {
     bundle::ensure_renderer_bundle(app)?;
 
-    let password_text = payload.draft.identity.password_text.clone();
-    let foreground_layer = payload.draft.foreground_layer;
-    let mut request = adapter::render_request_from_draft(payload.draft)?;
     let art_image = payload
         .resources
         .art_image
@@ -30,24 +43,22 @@ pub(crate) fn render_card(app: &AppHandle, payload: RenderCardPayload) -> Render
         .as_ref()
         .map(|resource| resources::resolve_image_resource(app, resource))
         .transpose()?;
+    let effect_mask = payload
+        .resources
+        .effect_mask
+        .as_ref()
+        .map(|resource| resources::resolve_image_resource(app, resource))
+        .transpose()?;
 
-    if let Some(art_image) = art_image.as_ref() {
-        request.options.art_image = Some(art_image.path().to_path_buf());
-    }
-    if let Some(foreground_image) = foreground_image.as_ref() {
-        request.options.foreground_image = Some(adapter::positioned_foreground_image(
-            foreground_image.path(),
-            foreground_layer,
-        ));
-    }
+    let request = build_render_request(
+        &payload.base,
+        &payload.edits,
+        art_image.as_ref().map(|image| image.path()),
+        foreground_image.as_ref().map(|image| image.path()),
+        effect_mask.as_ref().map(|image| image.path()),
+    )?;
 
-    output::render_png_with_password_override(
-        &request,
-        password_text
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty()),
-    )
+    edit::render_card_with_edits(&request, &payload.edits)
 }
 
 pub(crate) fn prepare_image_resource(
@@ -59,6 +70,213 @@ pub(crate) fn prepare_image_resource(
 
 pub(crate) fn release_image_resource(app: &AppHandle, token: String) -> RenderResult<()> {
     resources::release_image_resource(app, token)
+}
+
+fn build_render_request(
+    base: &CardBaseData,
+    edits: &[DocumentEdit],
+    art_image: Option<&Path>,
+    foreground_image: Option<&Path>,
+    effect_mask: Option<&Path>,
+) -> CardRenderResult<RenderRequest> {
+    let entry = CardDataEntry {
+        code: base.code,
+        alias: base.alias,
+        setcode: base.setcode.clone(),
+        type_: base.type_,
+        attack: base.attack,
+        defense: base.defense,
+        level: base.level,
+        race: base.race,
+        attribute: base.attribute,
+        category: base.category,
+        ot: base.ot,
+        name: base.name.clone(),
+        desc: base.desc.clone(),
+        strings: base.strings.clone(),
+        lscale: base.lscale,
+        rscale: base.rscale,
+        link_marker: base.link_marker,
+        rule_code: base.rule_code,
+    };
+
+    let mut card = YgoCardMeta::from_entry(entry);
+    card.rare = base
+        .rare
+        .as_deref()
+        .map(parse_rare_type)
+        .transpose()?
+        .flatten();
+    card.twentieth = base.twentieth;
+    card.twenty_fifth = base.twenty_fifth;
+    card.out_frame = base.out_frame;
+    card.out_frame_effect_enabled = base.out_frame_effect_enabled;
+    card.out_frame_effect_background_color =
+        optional_trimmed_string(base.out_frame_effect_background_color.clone());
+    card.out_frame_effect_opacity = base.out_frame_effect_opacity;
+    card.package = optional_text_edit(edits, "package");
+    card.copyright = optional_text_edit(edits, "copyright");
+    card.laser = optional_text_edit(edits, "laser");
+    card.monster_type = optional_text_edit(edits, "monster-type-line");
+
+    let foreground_layout = foreground_layout_edit(edits);
+    let foreground_image =
+        foreground_image.map(|path| positioned_foreground_image(path, foreground_layout));
+
+    Ok(RenderRequest {
+        kind: card_kind(base.kind),
+        card,
+        options: RenderOptions {
+            language: optional_trimmed_string(Some(base.language.clone())),
+            art_image: art_image.map(Path::to_path_buf),
+            art_align: Some(ImageAlign::Top),
+            foreground_image,
+            effect_mask: effect_mask.map(|path| EffectMask {
+                path: path.to_path_buf(),
+                x: None,
+                y: None,
+            }),
+            scale: finite_scale_or_default(base.scale),
+            font: optional_trimmed_string(base.font.clone()),
+            align: base.align.map(text_align_choice),
+            description_align: base.description_align.map(text_align_choice),
+            radius: base.radius,
+            atk_bar: base.atk_bar,
+            ..RenderOptions::default()
+        },
+    })
+}
+
+fn card_kind(kind: CardRenderKind) -> CardKind {
+    match kind {
+        CardRenderKind::Yugioh => CardKind::Yugioh,
+    }
+}
+
+fn text_align_choice(align: TextAlignDto) -> TextAlignChoice {
+    match align {
+        TextAlignDto::Left => TextAlignChoice::Left,
+        TextAlignDto::Center => TextAlignChoice::Center,
+        TextAlignDto::Right => TextAlignChoice::Right,
+        TextAlignDto::Justify => TextAlignChoice::Justify,
+    }
+}
+
+fn optional_text_edit(edits: &[DocumentEdit], node_id: &str) -> Option<String> {
+    edits.iter().find_map(|edit| match edit {
+        DocumentEdit::SetText {
+            node_id: edit_node_id,
+            text,
+        } if edit_node_id == node_id => optional_trimmed_string(Some(text.clone())),
+        _ => None,
+    })
+}
+
+fn foreground_layout_edit(edits: &[DocumentEdit]) -> Option<ForegroundLayoutDto> {
+    edits.iter().find_map(|edit| match edit {
+        DocumentEdit::SetForegroundLayout { node_id, layout } if node_id == "foreground" => {
+            Some(*layout)
+        }
+        _ => None,
+    })
+}
+
+fn positioned_foreground_image(
+    path: &Path,
+    layout: Option<ForegroundLayoutDto>,
+) -> PositionedRenderImage {
+    let Some(layout) = layout else {
+        return PositionedRenderImage {
+            path: path.to_path_buf(),
+            x: 0,
+            y: 0,
+            width: None,
+            height: None,
+            scale: None,
+            scale_x: None,
+            scale_y: None,
+            rotation: None,
+        };
+    };
+
+    let scale = finite_positive(layout.scale, 1.0);
+    PositionedRenderImage {
+        path: path.to_path_buf(),
+        x: finite_i32_or_default(layout.x, 0),
+        y: finite_i32_or_default(layout.y, 0),
+        width: Some(finite_positive(layout.width, 1.0) * scale),
+        height: Some(finite_positive(layout.height, 1.0) * scale),
+        scale: None,
+        scale_x: None,
+        scale_y: None,
+        rotation: finite_optional(layout.rotation),
+    }
+}
+
+fn optional_trimmed_string(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn finite_scale_or_default(scale: f32) -> f32 {
+    if scale.is_finite() {
+        scale.clamp(0.01, MAX_RENDER_SCALE)
+    } else {
+        1.0
+    }
+}
+
+fn finite_positive(value: f32, fallback: f32) -> f32 {
+    if value.is_finite() && value > 0.0 {
+        value
+    } else {
+        fallback
+    }
+}
+
+fn finite_optional(value: f32) -> Option<f32> {
+    value.is_finite().then_some(value)
+}
+
+fn finite_i32_or_default(value: f32, fallback: i32) -> i32 {
+    if !value.is_finite() {
+        return fallback;
+    }
+
+    value.round().clamp(i32::MIN as f32, i32::MAX as f32) as i32
+}
+
+fn parse_rare_type(value: &str) -> CardRenderResult<Option<RareType>> {
+    let normalized = value.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return Ok(None);
+    }
+
+    let rare_type = match normalized.as_str() {
+        "sr" => RareType::Sr,
+        "hr" => RareType::Hr,
+        "gr" => RareType::Gr,
+        "ur" => RareType::Ur,
+        "utr" => RareType::Utr,
+        "ser" => RareType::Ser,
+        "gser" => RareType::Gser,
+        "pser" => RareType::Pser,
+        "pser-print" | "pser_print" => RareType::PserPrint,
+        "scr" => RareType::Scr,
+        "esr" => RareType::Esr,
+        "npr" => RareType::Npr,
+        "upr" => RareType::Upr,
+        "sepr" => RareType::Sepr,
+        "dt" => RareType::Dt,
+        _ => {
+            return Err(RenderError::invalid(format!(
+                "Unsupported card render rare type: {value}"
+            )))
+        }
+    };
+
+    Ok(Some(rare_type))
 }
 
 #[cfg(test)]
@@ -100,7 +318,8 @@ mod tests {
 
     struct RenderedFixture {
         bytes: Vec<u8>,
-        foreground_layer: dto::CardRenderForegroundLayer,
+        foreground_center_x: f32,
+        foreground_center_y: f32,
         scale: f32,
     }
 
@@ -153,31 +372,27 @@ mod tests {
 
         let raw = include_str!("../../../../tests/fixtures/card-render-payload.json");
         let payload: dto::RenderCardPayload = serde_json::from_str(raw).unwrap();
-        let password_text = payload.draft.identity.password_text.clone();
-        let foreground_layer = payload.draft.foreground_layer.unwrap();
-        let mut request = adapter::render_request_from_draft(payload.draft).unwrap();
-        let scale = request.options.scale;
+        let scale = payload.base.scale;
         let foreground_path = unique_temp_png_path("foreground");
 
         create_foreground_fixture(&foreground_path);
-        request.options.foreground_image = Some(adapter::positioned_foreground_image(
-            &foreground_path,
-            Some(foreground_layer),
-        ));
-
-        let bytes = output::render_png_with_password_override(
-            &request,
-            password_text
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty()),
+        let request = build_render_request(
+            &payload.base,
+            &payload.edits,
+            None,
+            Some(&foreground_path),
+            None,
         )
         .unwrap();
+        let layout = foreground_layout_edit(&payload.edits).unwrap();
+
+        let bytes = edit::render_card_with_edits(&request, &payload.edits).unwrap();
         let _ = fs::remove_file(&foreground_path);
 
         RenderedFixture {
             bytes,
-            foreground_layer,
+            foreground_center_x: layout.x + (layout.width * layout.scale) / 2.0,
+            foreground_center_y: layout.y + (layout.height * layout.scale) / 2.0,
             scale,
         }
     }
@@ -207,7 +422,8 @@ mod tests {
 
     fn build_render_png_snapshot(
         image: &RgbaImage,
-        foreground_layer: dto::CardRenderForegroundLayer,
+        foreground_center_x: f32,
+        foreground_center_y: f32,
     ) -> RenderPngSnapshot {
         RenderPngSnapshot {
             width: image.width(),
@@ -218,8 +434,8 @@ mod tests {
                 sample_at_card_space(
                     image,
                     "foreground-center",
-                    foreground_layer.center_x,
-                    foreground_layer.center_y,
+                    foreground_center_x,
+                    foreground_center_y,
                 ),
                 sample_at_card_space(image, "effect-box", 350.0, 1540.0),
                 sample_at_card_space(image, "lower-right-frame", 1210.0, 1890.0),
@@ -249,6 +465,39 @@ mod tests {
     }
 
     #[test]
+    fn deserializes_app_level_render_payload() {
+        let raw = include_str!("../../../../tests/fixtures/card-render-payload.json");
+        let payload: dto::RenderCardPayload = serde_json::from_str(raw).unwrap();
+        let request = build_render_request(&payload.base, &payload.edits, None, None, None).unwrap();
+
+        assert_eq!(request.kind, CardKind::Yugioh);
+        assert_eq!(request.card.entry.code, 89631139);
+        assert_eq!(request.card.entry.type_, 17);
+        assert_eq!(request.card.entry.name, "Blue-Eyes White Dragon");
+        assert_eq!(request.card.entry.desc, "A white dragon.");
+        assert_eq!(request.card.rare, Some(RareType::Ur));
+        assert_eq!(request.card.package.as_deref(), Some("LOB"));
+        assert_eq!(request.card.copyright.as_deref(), Some("en"));
+        assert_eq!(request.card.laser.as_deref(), Some("laser1"));
+        assert!(request.card.twentieth);
+        assert!(request.card.twenty_fifth);
+        assert!(request.card.out_frame);
+        assert_eq!(request.options.language.as_deref(), Some("en"));
+        assert_eq!(request.options.scale, 0.43);
+        assert_eq!(request.options.font.as_deref(), Some("custom1"));
+        assert_eq!(request.options.radius, Some(true));
+        assert_eq!(request.options.atk_bar, Some(true));
+        assert_eq!(request.options.description_align, Some(TextAlignChoice::Center));
+    }
+
+    #[test]
+    fn rejects_unknown_rare_type() {
+        let result = parse_rare_type("unknown");
+
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn renders_shared_payload_fixture_to_png_smoke() {
         let rendered_fixture = render_shared_payload_fixture();
 
@@ -261,11 +510,12 @@ mod tests {
         assert!((rendered.width() as i32 - expected_width).abs() <= 1);
         assert!((rendered.height() as i32 - expected_height).abs() <= 1);
 
-        let layer = rendered_fixture.foreground_layer;
-        let sample_x = ((layer.center_x / CARD_WIDTH) * rendered.width() as f32)
+        let sample_x = ((rendered_fixture.foreground_center_x / CARD_WIDTH)
+            * rendered.width() as f32)
             .round()
             .clamp(0.0, (rendered.width() - 1) as f32) as u32;
-        let sample_y = ((layer.center_y / CARD_HEIGHT) * rendered.height() as f32)
+        let sample_y = ((rendered_fixture.foreground_center_y / CARD_HEIGHT)
+            * rendered.height() as f32)
             .round()
             .clamp(0.0, (rendered.height() - 1) as f32) as u32;
         let pixel = rendered.get_pixel(sample_x, sample_y).0;
@@ -282,7 +532,11 @@ mod tests {
         let rendered = image::load_from_memory(&rendered_fixture.bytes)
             .unwrap()
             .to_rgba8();
-        let actual = build_render_png_snapshot(&rendered, rendered_fixture.foreground_layer);
+        let actual = build_render_png_snapshot(
+            &rendered,
+            rendered_fixture.foreground_center_x,
+            rendered_fixture.foreground_center_y,
+        );
         let snapshot_path = snapshot_path();
 
         if std::env::var_os(UPDATE_RENDER_PNG_SNAPSHOT_ENV).is_some() {

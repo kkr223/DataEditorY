@@ -1,6 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import {
+    CARD_IMAGE_ART_FIT_OPTIONS,
     CARD_IMAGE_ATTRIBUTE_OPTIONS,
     CARD_IMAGE_CARD_TYPE_OPTIONS,
     CARD_IMAGE_COPYRIGHT_OPTIONS,
@@ -196,6 +197,10 @@
       <label class="field"><span>{$_('editor.card_image_copyright')}</span><select bind:value={form.copyright}>{#each CARD_IMAGE_COPYRIGHT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
       <label class="field"><span>{$_('editor.card_image_package')}</span><input type="text" bind:value={form.package} /></label>
       <label class="field"><span>{$_('editor.card_image_password')}</span><input type="text" bind:value={form.password} /></label>
+      <label class="field"><span>{$_('editor.card_image_art_fit')}</span><select bind:value={form.artFit}>{#each CARD_IMAGE_ART_FIT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+      <label class="field"><span>{$_('editor.card_image_art_scale')}</span><input type="number" min="0.1" step="0.05" bind:value={form.artScale} /></label>
+      <label class="field"><span>{$_('editor.card_image_art_offset_x')}</span><input type="number" step="1" bind:value={form.artOffsetX} /></label>
+      <label class="field"><span>{$_('editor.card_image_art_offset_y')}</span><input type="number" step="1" bind:value={form.artOffsetY} /></label>
       <label class="field field-span-2">
         <span>{$_('editor.card_image_export_scale', { values: { percent: String(exportScalePercent) } })}</span>
         <input type="range" min={MIN_EXPORT_SCALE_PERCENT} max={MAX_EXPORT_SCALE_PERCENT} step="1" bind:value={exportScalePercent} />
@@ -209,6 +214,7 @@
       <label class="toggle"><input type="checkbox" bind:checked={form.firstLineCompress} /><span>{$_('editor.card_image_first_line_compress')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.descriptionAlign} /><span>{$_('editor.card_image_description_center')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.twentieth} /><span>{$_('editor.card_image_twentieth')}</span></label>
+      <label class="toggle"><input type="checkbox" bind:checked={form.twentyFifth} /><span>{$_('editor.card_image_twenty_fifth')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.radius} /><span>{$_('editor.card_image_round_corner')}</span></label>
     </div>
   </section>

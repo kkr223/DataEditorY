@@ -9,7 +9,7 @@ export {
   createPreviewRenderData,
   isFieldSpellRenderData,
 } from './data';
-export { createCardRenderDraft } from './draft';
+export { createCardBaseData, createDocumentEdits } from './document-edits';
 export { createCardRenderPayload } from './payload';
 export { createCardRenderResourceCache, createCardRenderResources } from './resources';
 export type { CardRenderBlobType } from './client';

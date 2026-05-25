@@ -7,7 +7,9 @@ use ts_rs::TS;
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, ts(export_to = "render.ts"))]
 pub(crate) struct RenderCardPayload {
-    pub(crate) draft: CardRenderDraft,
+    pub(crate) base: CardBaseData,
+    #[serde(default)]
+    pub(crate) edits: Vec<DocumentEdit>,
     #[serde(default)]
     pub(crate) resources: CardRenderResources,
 }
@@ -23,6 +25,9 @@ pub(crate) struct CardRenderResources {
     #[serde(default)]
     #[cfg_attr(test, ts(optional))]
     pub(crate) foreground_image: Option<CardRenderImageResource>,
+    #[serde(default)]
+    #[cfg_attr(test, ts(optional))]
+    pub(crate) effect_mask: Option<CardRenderImageResource>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -63,111 +68,42 @@ pub(crate) struct PreparedCardRenderResource {
 #[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) struct CardRenderDraft {
+pub(crate) struct CardBaseData {
     pub(crate) kind: CardRenderKind,
-    pub(crate) identity: CardRenderIdentity,
-    pub(crate) frame: CardRenderFrame,
-    pub(crate) stats: CardRenderStats,
-    pub(crate) localized_text: CardRenderLocalizedText,
-    #[serde(default)]
-    pub(crate) visual_style: CardRenderVisualStyle,
-    #[serde(default)]
-    #[cfg_attr(test, ts(optional))]
-    pub(crate) foreground_layer: Option<CardRenderForegroundLayer>,
-    pub(crate) output_options: CardRenderOutputOptions,
-}
-
-#[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(TS))]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) enum CardRenderKind {
-    Yugioh,
-}
-
-#[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(TS))]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) struct CardRenderIdentity {
     pub(crate) code: u32,
     pub(crate) alias: u32,
-    pub(crate) rule_code: u32,
-    #[serde(default)]
-    #[cfg_attr(test, ts(optional))]
-    pub(crate) password_text: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(TS))]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) struct CardRenderFrame {
     #[serde(default)]
     pub(crate) setcode: Vec<u16>,
     #[serde(rename = "type")]
     pub(crate) type_: u32,
-    pub(crate) level: u32,
-    pub(crate) lscale: u32,
-    pub(crate) rscale: u32,
-    pub(crate) link_marker: u32,
-}
-
-#[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(TS))]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) struct CardRenderStats {
     pub(crate) attack: i32,
     pub(crate) defense: i32,
+    pub(crate) level: u32,
     pub(crate) race: u32,
     pub(crate) attribute: u32,
     #[cfg_attr(test, ts(type = "number"))]
     pub(crate) category: u64,
     pub(crate) ot: u32,
-}
-
-#[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(TS))]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) struct CardRenderLocalizedText {
     pub(crate) name: String,
-    pub(crate) description: String,
+    pub(crate) desc: String,
     #[serde(default)]
     pub(crate) strings: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, Default)]
-#[cfg_attr(test, derive(TS))]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) struct CardRenderVisualStyle {
+    pub(crate) lscale: u32,
+    pub(crate) rscale: u32,
+    pub(crate) link_marker: u32,
+    pub(crate) rule_code: u32,
     #[serde(default)]
     #[cfg_attr(test, ts(optional))]
     pub(crate) rare: Option<String>,
-    #[serde(default)]
-    pub(crate) name_color: CardRenderNameColor,
-    #[serde(default)]
-    #[cfg_attr(test, ts(optional))]
-    pub(crate) name_gradient: Option<CardRenderTextGradient>,
+    pub(crate) language: String,
     #[serde(default)]
     #[cfg_attr(test, ts(optional))]
-    pub(crate) name_shadow_color: Option<String>,
-    #[serde(default)]
-    #[cfg_attr(test, ts(optional))]
-    pub(crate) name_shadow_gradient: Option<CardRenderTextGradient>,
-    #[serde(default)]
-    #[cfg_attr(test, ts(optional))]
-    pub(crate) package: Option<String>,
-    #[serde(default)]
-    #[cfg_attr(test, ts(optional))]
-    pub(crate) copyright: Option<String>,
-    #[serde(default)]
-    #[cfg_attr(test, ts(optional))]
-    pub(crate) laser: Option<String>,
+    pub(crate) font: Option<String>,
+    pub(crate) scale: f32,
     #[serde(default)]
     pub(crate) twentieth: bool,
+    #[serde(default)]
+    pub(crate) twenty_fifth: bool,
     #[serde(default)]
     pub(crate) out_frame: bool,
     #[serde(default)]
@@ -178,23 +114,132 @@ pub(crate) struct CardRenderVisualStyle {
     #[serde(default)]
     #[cfg_attr(test, ts(optional))]
     pub(crate) out_frame_effect_opacity: Option<f32>,
+    #[serde(default)]
+    #[cfg_attr(test, ts(optional))]
+    pub(crate) radius: Option<bool>,
+    #[serde(default)]
+    #[cfg_attr(test, ts(optional))]
+    pub(crate) atk_bar: Option<bool>,
+    #[serde(default)]
+    #[cfg_attr(test, ts(optional))]
+    pub(crate) align: Option<TextAlignDto>,
+    #[serde(default)]
+    #[cfg_attr(test, ts(optional))]
+    pub(crate) description_align: Option<TextAlignDto>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 #[cfg_attr(test, derive(TS))]
-#[serde(rename_all = "camelCase", tag = "kind", content = "value")]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) enum CardRenderNameColor {
-    #[default]
-    Auto,
-    Custom(String),
+pub(crate) enum CardRenderKind {
+    Yugioh,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[cfg_attr(test, derive(TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "render.ts"))]
+pub(crate) enum TextAlignDto {
+    Left,
+    Center,
+    Right,
+    Justify,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[cfg_attr(test, derive(TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "render.ts"))]
+pub(crate) enum ArtFitDto {
+    Stretch,
+    Cover,
+    Contain,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(test, derive(TS))]
+#[serde(rename_all = "camelCase", tag = "kind")]
+#[cfg_attr(test, ts(export_to = "render.ts"))]
+pub(crate) enum DocumentEdit {
+    SetText {
+        node_id: String,
+        text: String,
+    },
+    SetTextFill {
+        node_id: String,
+        fill: TextFill,
+    },
+    SetTextShadow {
+        node_id: String,
+        shadow: Option<TextFill>,
+    },
+    SetFontWeight {
+        node_id: String,
+        weight: Option<u16>,
+    },
+    SetFontSize {
+        node_id: String,
+        size: u32,
+    },
+    SetLineHeight {
+        node_id: String,
+        height: f32,
+    },
+    SetFirstLineCompress {
+        node_id: String,
+        enabled: bool,
+    },
+    SetArtFit {
+        node_id: String,
+        fit: ArtFitDto,
+    },
+    SetArtCrop {
+        node_id: String,
+        crop: Option<ImageCropDto>,
+    },
+    SetArtScale {
+        node_id: String,
+        scale: f32,
+    },
+    SetArtOffset {
+        node_id: String,
+        offset_x: f32,
+        offset_y: f32,
+    },
+    SetForegroundLayout {
+        node_id: String,
+        layout: ForegroundLayoutDto,
+    },
+    SetVisible {
+        node_id: String,
+        visible: bool,
+    },
+    SetFillRect {
+        node_id: String,
+        color: String,
+        opacity: f32,
+    },
 }
 
 #[derive(Debug, Deserialize)]
 #[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) struct CardRenderTextGradient {
+pub(crate) struct TextFill {
+    #[serde(default)]
+    #[cfg_attr(test, ts(optional))]
+    pub(crate) color: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(test, ts(optional))]
+    pub(crate) gradient: Option<TextGradientDto>,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(test, derive(TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "render.ts"))]
+pub(crate) struct TextGradientDto {
     pub(crate) start: String,
     pub(crate) end: String,
 }
@@ -203,23 +248,45 @@ pub(crate) struct CardRenderTextGradient {
 #[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) struct CardRenderForegroundLayer {
-    pub(crate) center_x: f32,
-    pub(crate) center_y: f32,
+pub(crate) struct ImageCropDto {
+    pub(crate) x: f32,
+    pub(crate) y: f32,
+    pub(crate) width: f32,
+    pub(crate) height: f32,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[cfg_attr(test, derive(TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "render.ts"))]
+pub(crate) struct ForegroundLayoutDto {
+    pub(crate) x: f32,
+    pub(crate) y: f32,
     pub(crate) width: f32,
     pub(crate) height: f32,
     pub(crate) scale: f32,
     pub(crate) rotation: f32,
 }
 
-#[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(TS))]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(test, ts(export_to = "render.ts"))]
-pub(crate) struct CardRenderOutputOptions {
-    pub(crate) language: String,
-    pub(crate) scale: f32,
-    pub(crate) description_first_line_compress: bool,
+impl DocumentEdit {
+    pub(crate) fn node_id(&self) -> &str {
+        match self {
+            Self::SetText { node_id, .. }
+            | Self::SetTextFill { node_id, .. }
+            | Self::SetTextShadow { node_id, .. }
+            | Self::SetFontWeight { node_id, .. }
+            | Self::SetFontSize { node_id, .. }
+            | Self::SetLineHeight { node_id, .. }
+            | Self::SetFirstLineCompress { node_id, .. }
+            | Self::SetArtFit { node_id, .. }
+            | Self::SetArtCrop { node_id, .. }
+            | Self::SetArtScale { node_id, .. }
+            | Self::SetArtOffset { node_id, .. }
+            | Self::SetForegroundLayout { node_id, .. }
+            | Self::SetVisible { node_id, .. }
+            | Self::SetFillRect { node_id, .. } => node_id.as_str(),
+        }
+    }
 }
 
 #[cfg(test)]

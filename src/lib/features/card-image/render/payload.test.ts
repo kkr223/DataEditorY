@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { CardDataEntry } from '$lib/types';
 import type { RenderCardPayload } from '$lib/types/render';
 import { normalizeCardImageFormData } from '../layout';
-import { createCardRenderDraft, createCardRenderPayload } from '.';
+import { createCardBaseData, createCardRenderPayload, createDocumentEdits } from '.';
 import type { CardRenderResourceCache } from './resources';
 import renderPayloadFixture from '../../../../../tests/fixtures/card-render-payload.json';
 
@@ -28,11 +28,12 @@ const baseCard: CardDataEntry = {
 };
 
 describe('card render payload', () => {
-  test('builds an app-level render draft without renderer internals', () => {
-    const draft = createCardRenderDraft(baseCard, normalizeCardImageFormData({
+  test('builds app-level base data and document edits without renderer internals', () => {
+    const form = normalizeCardImageFormData({
       name: 'Blue-Eyes White Dragon',
       description: 'A white dragon.',
       language: 'en',
+      font: 'custom1',
       type: 'monster',
       cardType: 'normal',
       attribute: 'light',
@@ -41,31 +42,50 @@ describe('card render payload', () => {
       level: 8,
       password: '89631139',
       rare: 'ur',
+      package: 'LOB',
+      copyright: 'en',
+      laser: 'laser1',
       color: '#f3cc63',
       gradient: true,
       gradientColor1: '#8a5d17',
       gradientColor2: '#f8e6a2',
+      twentieth: true,
+      twentyFifth: true,
+      descriptionAlign: true,
       firstLineCompress: true,
       scale: 0.43,
-    }));
+    });
+    const base = createCardBaseData(baseCard, form);
+    const edits = createDocumentEdits(baseCard, form);
 
-    expect(draft.kind).toBe('yugioh');
-    expect(draft.identity).toEqual({
-      code: 89631139,
-      alias: 0,
-      ruleCode: 0,
-      passwordText: '89631139',
-    });
-    expect(draft.localizedText.description).toBe('A white dragon.');
-    expect(draft.visualStyle.rare).toBe('ur');
-    expect(draft.visualStyle.nameColor).toEqual({ kind: 'custom', value: '#f3cc63' });
-    expect(draft.visualStyle.nameGradient).toEqual({ start: '#8a5d17', end: '#f8e6a2' });
-    expect(draft.outputOptions).toEqual({
-      language: 'en',
-      scale: 0.43,
-      descriptionFirstLineCompress: true,
-    });
-    expect('request' in draft).toBe(false);
+    expect(base.kind).toBe('yugioh');
+    expect(base.code).toBe(89631139);
+    expect(base.alias).toBe(0);
+    expect(base.ruleCode).toBe(0);
+    expect(base.rare).toBe('ur');
+    expect(base.language).toBe('en');
+    expect(base.font).toBe('custom1');
+    expect(base.twentieth).toBe(true);
+    expect(base.twentyFifth).toBe(true);
+    expect(base.scale).toBe(0.43);
+    expect(base.descriptionAlign).toBe('center');
+    expect(base.desc).toBe('A white dragon.');
+    expect(edits.some((edit) => JSON.stringify(edit) === JSON.stringify({
+      kind: 'setText',
+      node_id: 'title',
+      text: 'Blue-Eyes White Dragon',
+    }))).toBe(true);
+    expect(edits.some((edit) => JSON.stringify(edit) === JSON.stringify({
+      kind: 'setTextFill',
+      node_id: 'title',
+      fill: { gradient: { start: '#8a5d17', end: '#f8e6a2' } },
+    }))).toBe(true);
+    expect(edits.some((edit) => JSON.stringify(edit) === JSON.stringify({
+      kind: 'setFirstLineCompress',
+      node_id: 'description',
+      enabled: true,
+    }))).toBe(true);
+    expect('request' in base).toBe(false);
   });
 
   test('keeps image data urls behind explicit resource refs', async () => {
@@ -74,7 +94,7 @@ describe('card render payload', () => {
       foregroundImage: '',
     }));
 
-    expect(payload.draft.kind).toBe('yugioh');
+    expect(payload.base.kind).toBe('yugioh');
     expect(payload.resources?.artImage).toEqual({
       kind: 'dataUrl',
       dataUrl: 'data:image/png;base64,AAA',
@@ -103,6 +123,7 @@ describe('card render payload', () => {
       name: 'Blue-Eyes White Dragon',
       description: 'A white dragon.',
       language: 'en',
+      font: 'custom1',
       type: 'monster',
       cardType: 'normal',
       attribute: 'light',
@@ -120,6 +141,8 @@ describe('card render payload', () => {
       copyright: 'en',
       laser: 'laser1',
       twentieth: true,
+      twentyFifth: true,
+      descriptionAlign: true,
       foregroundImage: 'data:image/png;base64,BBB',
       foregroundWidth: 500,
       foregroundHeight: 400,
