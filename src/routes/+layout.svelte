@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import '../app.css';
   import { setupI18n } from '$lib/i18n';
-  import { _, isLoading } from 'svelte-i18n';
+  import { _, isLoading, locale } from 'svelte-i18n';
   import { activeTab } from '$lib/stores/db';
   import { openSettingsView } from '$lib/stores/appShell.svelte';
   import Toast from '$lib/components/Toast.svelte';
@@ -15,6 +15,7 @@
   import { createShellLayoutController } from '$lib/features/shell/layoutController.svelte';
   import { createShellDialogsController } from '$lib/features/shell/dialogsController.svelte';
   import { workspaceState } from '$lib/core/workspace/store.svelte';
+  import { initTaxonomyConfig } from '$lib/domain/card/taxonomy';
 
   setupI18n();
 
@@ -53,6 +54,12 @@
       window.removeEventListener('resize', syncUiScale);
       document.documentElement.style.removeProperty('--ui-scale');
     };
+  });
+
+  // Load taxonomy config for current locale; re-loads on language switch.
+  $effect(() => {
+    const lang = ($locale ?? 'zh').split('-')[0];
+    void initTaxonomyConfig(lang);
   });
 </script>
 

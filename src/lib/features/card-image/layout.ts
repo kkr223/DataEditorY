@@ -4,6 +4,7 @@ import {
   type CardImageBaseData,
   type CardImageLanguage,
 } from "./adapter";
+export { CARD_IMAGE_ATTRIBUTE_OPTIONS } from "$lib/data/taxonomy-config";
 export type { CardImageLanguage } from "./adapter";
 
 export type CardImageFormData = CardImageBaseData & {
@@ -152,17 +153,6 @@ export const CARD_IMAGE_PENDULUM_TYPE_OPTIONS: StringOption[] = [
   { value: "fusion-pendulum", labelKey: "editor.card_image_option.pendulum_type.fusion" },
   { value: "synchro-pendulum", labelKey: "editor.card_image_option.pendulum_type.synchro" },
   { value: "xyz-pendulum", labelKey: "editor.card_image_option.pendulum_type.xyz" },
-];
-
-export const CARD_IMAGE_ATTRIBUTE_OPTIONS: StringOption[] = [
-  { value: "", labelKey: "search.na" },
-  { value: "dark", labelKey: "search.attributes.dark" },
-  { value: "light", labelKey: "search.attributes.light" },
-  { value: "earth", labelKey: "search.attributes.earth" },
-  { value: "water", labelKey: "search.attributes.water" },
-  { value: "fire", labelKey: "search.attributes.fire" },
-  { value: "wind", labelKey: "search.attributes.wind" },
-  { value: "divine", labelKey: "search.attributes.divine" },
 ];
 
 export const CARD_IMAGE_ICON_OPTIONS: StringOption[] = [

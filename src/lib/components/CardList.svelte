@@ -18,7 +18,7 @@
     setSingleSelectedCard,
     toggleCardSelection
   } from '$lib/stores/cardSelection.svelte';
-  import { getCardTypeKey, RACE_OPTIONS, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
+  import { getCardTypeKey, RACE_OPTIONS, ATTRIBUTE_FILTER_OPTIONS, SUBTYPE_MAP, TYPE_MAP, RACE_MAP } from '$lib/domain/card/taxonomy';
   import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from '$lib/utils/shortcuts';
   import { disableAutofill } from '$lib/actions/disableAutofill';
   import { appSettingsState } from '$lib/stores/appSettings.svelte';
@@ -26,11 +26,14 @@
 
   const PAGE_SIZE = 50;
   const RACE_FILTER_OPTIONS = RACE_OPTIONS
-    .filter((option) => option.value !== 0 && option.key)
-    .map((option) => ({
-      value: option.key!.replace('search.races.', ''),
-      key: option.key!,
-    }));
+    .filter((option) => option.value !== 0 && option.label)
+    .map((option) => {
+      const raceName = Object.entries(RACE_MAP).find(([, v]) => v === option.value)?.[0] ?? '';
+      return {
+        value: raceName,
+        label: option.label!,
+      };
+    });
 
   let pageCards = $derived(getAllCards());
   let totalCards = $derived(getTotalCards());
@@ -303,14 +306,9 @@
         <div class="form-group">
           <label for="search-attribute">{$_('search.attribute')}</label>
           <select id="search-attribute" bind:value={searchState.filters.attribute}>
-            <option value="">{$_('search.na')}</option>
-            <option value="light">{$_('search.attributes.light')}</option>
-            <option value="dark">{$_('search.attributes.dark')}</option>
-            <option value="water">{$_('search.attributes.water')}</option>
-            <option value="fire">{$_('search.attributes.fire')}</option>
-            <option value="earth">{$_('search.attributes.earth')}</option>
-            <option value="wind">{$_('search.attributes.wind')}</option>
-            <option value="divine">{$_('search.attributes.divine')}</option>
+            {#each ATTRIBUTE_FILTER_OPTIONS as opt}
+              <option value={opt.value}>{opt.label}</option>
+            {/each}
           </select>
         </div>
         <div class="form-group">
@@ -318,7 +316,7 @@
           <select id="search-race" bind:value={searchState.filters.race}>
             <option value="">{$_('search.na')}</option>
             {#each RACE_FILTER_OPTIONS as r}
-              <option value={r.value}>{$_(r.key)}</option>
+              <option value={r.value}>{r.label}</option>
             {/each}
           </select>
         </div>

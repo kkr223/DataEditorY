@@ -1,0 +1,31 @@
+{
+  "options": [
+    { "value": "0x0", "label": "N/A" },
+    { "value": "0x1", "label": "Warrior" },
+    { "value": "0x2", "label": "Spellcaster" },
+    { "value": "0x4", "label": "Fairy" },
+    { "value": "0x8", "label": "Fiend" },
+    { "value": "0x10", "label": "Zombie" },
+    { "value": "0x20", "label": "Machine" },
+    { "value": "0x40", "label": "Aqua" },
+    { "value": "0x80", "label": "Pyro" },
+    { "value": "0x100", "label": "Rock" },
+    { "value": "0x200", "label": "Winged Beast" },
+    { "value": "0x400", "label": "Plant" },
+    { "value": "0x800", "label": "Insect" },
+    { "value": "0x1000", "label": "Thunder" },
+    { "value": "0x2000", "label": "Dragon" },
+    { "value": "0x4000", "label": "Beast" },
+    { "value": "0x8000", "label": "Beast-Warrior" },
+    { "value": "0x10000", "label": "Dinosaur" },
+    { "value": "0x20000", "label": "Fish" },
+    { "value": "0x40000", "label": "Sea Serpent" },
+    { "value": "0x80000", "label": "Reptile" },
+    { "value": "0x100000", "label": "Psychic" },
+    { "value": "0x200000", "label": "Divine-Beast" },
+    { "value": "0x400000", "label": "Creator God" },
+    { "value": "0x800000", "label": "Wyrm" },
+    { "value": "0x1000000", "label": "Cyberse" },
+    { "value": "0x2000000", "label": "Illusion" }
+  ]
+}

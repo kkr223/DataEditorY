@@ -1,0 +1,11 @@
+{
+  "options": [
+    { "value": "0x0", "label": "N/A" },
+    { "value": "0x1", "label": "OCG" },
+    { "value": "0x2", "label": "TCG" },
+    { "value": "0x3", "label": "OCG/TCG" },
+    { "value": "0x4", "label": "Custom" },
+    { "value": "0x9", "label": "简体中文" },
+    { "value": "0xB", "label": "简体中文/TCG" }
+  ]
+}

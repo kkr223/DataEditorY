@@ -1,0 +1,31 @@
+{
+  "options": [
+    { "value": "0x0", "label": "无" },
+    { "value": "0x1", "label": "战士族" },
+    { "value": "0x2", "label": "魔法师族" },
+    { "value": "0x4", "label": "天使族" },
+    { "value": "0x8", "label": "恶魔族" },
+    { "value": "0x10", "label": "不死族" },
+    { "value": "0x20", "label": "机械族" },
+    { "value": "0x40", "label": "水族" },
+    { "value": "0x80", "label": "炎族" },
+    { "value": "0x100", "label": "岩石族" },
+    { "value": "0x200", "label": "鸟兽族" },
+    { "value": "0x400", "label": "植物族" },
+    { "value": "0x800", "label": "昆虫族" },
+    { "value": "0x1000", "label": "雷族" },
+    { "value": "0x2000", "label": "龙族" },
+    { "value": "0x4000", "label": "兽族" },
+    { "value": "0x8000", "label": "兽战士族" },
+    { "value": "0x10000", "label": "恐龙族" },
+    { "value": "0x20000", "label": "鱼族" },
+    { "value": "0x40000", "label": "海龙族" },
+    { "value": "0x80000", "label": "爬虫类族" },
+    { "value": "0x100000", "label": "念动力族" },
+    { "value": "0x200000", "label": "幻神兽族" },
+    { "value": "0x400000", "label": "创造神族" },
+    { "value": "0x800000", "label": "幻龙族" },
+    { "value": "0x1000000", "label": "电子界族" },
+    { "value": "0x2000000", "label": "幻想魔族" }
+  ]
+}
