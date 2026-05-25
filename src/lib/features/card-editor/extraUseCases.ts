@@ -30,21 +30,31 @@ export async function pickCardImageFlow(input: {
   const targetCode = getValidatedCardCode(input.draftCard, input.t);
   if (!targetCode) return;
 
-  const selected = await tauriBridge.open({
-    multiple: false,
-    filters: [{ name: 'Images', extensions: ['jpg', 'png', 'jpeg'] }],
-  });
-  if (selected && typeof selected === 'string') {
-    try {
-      await importCardImage({
-        cdbPath: input.activeCdbPath,
-        cardCode: targetCode,
-        sourcePath: selected,
-      });
-      input.setImageSrc(await resolveCardImageSrc(input.activeCdbPath, targetCode, true));
-    } catch (error) {
-      console.error('Failed to copy image', error);
+  try {
+    const selected = await tauriBridge.open({
+      multiple: false,
+      filters: [{ name: 'Images', extensions: ['jpg', 'png', 'jpeg'] }],
+    });
+    if (selected && typeof selected === 'string') {
+      try {
+        await importCardImage({
+          cdbPath: input.activeCdbPath,
+          cardCode: targetCode,
+          sourcePath: selected,
+        });
+        input.setImageSrc(await resolveCardImageSrc(input.activeCdbPath, targetCode, true));
+      } catch (error) {
+        console.error('Failed to copy image', error);
+        void writeErrorLog({
+          source: 'editor.image.import',
+          error,
+          extra: { cdbPath: input.activeCdbPath, cardCode: targetCode, sourcePath: selected },
+        });
+        showToast(input.t('editor.card_image_import_failed'), 'error');
+      }
     }
+  } catch (error) {
+    console.error('Failed to open file dialog for image import', error);
   }
 }
 

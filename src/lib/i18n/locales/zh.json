@@ -327,6 +327,8 @@
     "card_image_foreground_rotate_handle": "旋转前景图",
     "card_image_foreground_scale_handle": "缩放前景图",
     "card_image_foreground_upload_failed": "前景图加载失败",
+    "card_image_import_failed": "卡图导入失败，请查看错误日志了解详情。",
+    "card_image_import_unavailable": "当前版本不支持卡图导入功能。",
     "card_image_ai_translate": "AI翻译",
     "card_image_recrop": "重新裁剪卡图",
     "card_image_upload_hint": "不使用当前已有卡图，请上传原图后裁剪为正方形。",

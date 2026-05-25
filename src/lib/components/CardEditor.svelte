@@ -341,7 +341,10 @@
 
   async function handleImagePick() {
     const extraModule = ensureCardEditorExtraUseCases();
-    if (!extraModule) return;
+    if (!extraModule) {
+      showToast($_("editor.card_image_import_unavailable"), "info");
+      return;
+    }
 
     await (await extraModule).pickCardImageFlow({
       activeCdbPath: $activeTab?.path ?? null,

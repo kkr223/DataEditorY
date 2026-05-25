@@ -327,6 +327,8 @@
     "card_image_foreground_rotate_handle": "Rotate foreground",
     "card_image_foreground_scale_handle": "Scale foreground",
     "card_image_foreground_upload_failed": "Failed to load the foreground image",
+    "card_image_import_failed": "Failed to import card image. Check the error log for details.",
+    "card_image_import_unavailable": "Card image import is not available in this build.",
     "card_image_ai_translate": "AI Translate",
     "card_image_recrop": "Recrop Art",
     "card_image_upload_hint": "The existing card image is ignored here. Upload source art and crop it to a square.",
