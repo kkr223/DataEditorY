@@ -6689,6 +6689,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tiny-skia",
+ "unicode-script",
  "woff2-patched",
  "ygopro-cdb-encode-rs",
 ]

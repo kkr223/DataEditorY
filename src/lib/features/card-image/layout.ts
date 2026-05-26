@@ -27,6 +27,7 @@ export type CardImageFormData = CardImageBaseData & {
   effectBlockHeight: number;
   effectBlockColor: string;
   effectBlockOpacity: number;
+  showNameBox: boolean;
   nameShadowColor: string;
   nameShadowGradient: boolean;
   nameShadowGradientColor1: string;
@@ -107,6 +108,7 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   effectBlockHeight: 428,
   effectBlockColor: "#f6f2e8",
   effectBlockOpacity: 0.78,
+  showNameBox: true,
   nameShadowColor: "",
   nameShadowGradient: false,
   nameShadowGradientColor1: "#1f2937",
@@ -168,7 +170,6 @@ export const CARD_IMAGE_ICON_OPTIONS: StringOption[] = [
 export const CARD_IMAGE_RARE_OPTIONS: StringOption[] = [
   { value: "", labelKey: "search.na" },
   { value: "sr", labelKey: "editor.card_image_option.rare.sr" },
-  { value: "dt", labelKey: "editor.card_image_option.rare.dt" },
   { value: "ur", labelKey: "editor.card_image_option.rare.ur" },
   { value: "utr", labelKey: "editor.card_image_option.rare.utr" },
   { value: "gr", labelKey: "editor.card_image_option.rare.gr" },
@@ -178,16 +179,9 @@ export const CARD_IMAGE_RARE_OPTIONS: StringOption[] = [
   { value: "esr", labelKey: "editor.card_image_option.rare.esr" },
   { value: "gser", labelKey: "editor.card_image_option.rare.gser" },
   { value: "pser", labelKey: "editor.card_image_option.rare.pser" },
-  { value: "pser-print", labelKey: "editor.card_image_option.rare.pser_print" },
   { value: "npr", labelKey: "editor.card_image_option.rare.npr" },
   { value: "upr", labelKey: "editor.card_image_option.rare.upr" },
   { value: "sepr", labelKey: "editor.card_image_option.rare.sepr" },
-];
-
-export const CARD_IMAGE_ART_FIT_OPTIONS: StringOption[] = [
-  { value: "cover", labelKey: "editor.card_image_option.art_fit.cover" },
-  { value: "contain", labelKey: "editor.card_image_option.art_fit.contain" },
-  { value: "stretch", labelKey: "editor.card_image_option.art_fit.stretch" },
 ];
 
 export const CARD_IMAGE_LASER_OPTIONS: StringOption[] = [
@@ -255,12 +249,10 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     twentyFifth: Boolean(data.twentyFifth ?? DEFAULT_CARD_IMAGE_FORM_DATA.twentyFifth),
     radius: Boolean(data.radius ?? DEFAULT_CARD_IMAGE_FORM_DATA.radius),
     scale: coerceNumber(data.scale, DEFAULT_CARD_IMAGE_FORM_DATA.scale),
-    artFit: (["stretch", "cover", "contain"].includes(String(data.artFit))
-      ? String(data.artFit)
-      : DEFAULT_CARD_IMAGE_FORM_DATA.artFit) as CardImageFormData["artFit"],
-    artScale: coerceNumber(data.artScale, DEFAULT_CARD_IMAGE_FORM_DATA.artScale),
-    artOffsetX: coerceNumber(data.artOffsetX, DEFAULT_CARD_IMAGE_FORM_DATA.artOffsetX),
-    artOffsetY: coerceNumber(data.artOffsetY, DEFAULT_CARD_IMAGE_FORM_DATA.artOffsetY),
+    artFit: DEFAULT_CARD_IMAGE_FORM_DATA.artFit,
+    artScale: DEFAULT_CARD_IMAGE_FORM_DATA.artScale,
+    artOffsetX: DEFAULT_CARD_IMAGE_FORM_DATA.artOffsetX,
+    artOffsetY: DEFAULT_CARD_IMAGE_FORM_DATA.artOffsetY,
     foregroundImage: String(data.foregroundImage ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundImage),
     foregroundWidth: coerceNumber(data.foregroundWidth, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundWidth),
     foregroundHeight: coerceNumber(data.foregroundHeight, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundHeight),
@@ -275,6 +267,7 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     effectBlockHeight: coerceNumber(data.effectBlockHeight, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockHeight),
     effectBlockColor: String(data.effectBlockColor ?? DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockColor),
     effectBlockOpacity: coerceNumber(data.effectBlockOpacity, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockOpacity),
+    showNameBox: Boolean(data.showNameBox ?? DEFAULT_CARD_IMAGE_FORM_DATA.showNameBox),
     nameShadowColor: String(data.nameShadowColor ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowColor),
     nameShadowGradient: Boolean(data.nameShadowGradient ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradient),
     nameShadowGradientColor1: String(data.nameShadowGradientColor1 ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradientColor1),

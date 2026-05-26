@@ -262,13 +262,11 @@ fn parse_rare_type(value: &str) -> CardRenderResult<Option<RareType>> {
         "ser" => RareType::Ser,
         "gser" => RareType::Gser,
         "pser" => RareType::Pser,
-        "pser-print" | "pser_print" => RareType::PserPrint,
         "scr" => RareType::Scr,
         "esr" => RareType::Esr,
         "npr" => RareType::Npr,
         "upr" => RareType::Upr,
         "sepr" => RareType::Sepr,
-        "dt" => RareType::Dt,
         _ => {
             return Err(RenderError::invalid(format!(
                 "Unsupported card render rare type: {value}"

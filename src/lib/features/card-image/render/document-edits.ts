@@ -323,6 +323,10 @@ export const createDocumentEdits = (
     },
   ];
 
+  if (!data.showNameBox) {
+    edits.push({ kind: 'setVisible', node_id: 'title', visible: false });
+  }
+
   if (data.type === 'pendulum') {
     edits.push({ kind: 'setText', node_id: 'pendulum-description', text: data.pendulumDescription });
     edits.push({ kind: 'setText', node_id: 'stats-lscale', text: String(toUnsignedInteger(data.pendulumScale, 0)) });
@@ -331,7 +335,10 @@ export const createDocumentEdits = (
 
   const monsterType = optionalTrimmed(data.monsterType);
   if (monsterType) {
-    edits.push({ kind: 'setText', node_id: 'monster-type-line', text: monsterType });
+    const useFullwidthBrackets = ['sc', 'tc', 'jp', 'astral'].includes(data.language);
+    const leftBracket = useFullwidthBrackets ? '\u3010' : '[';
+    const rightBracket = useFullwidthBrackets ? '\u3011' : ']';
+    edits.push({ kind: 'setText', node_id: 'monster-type-line', text: `${leftBracket}${monsterType}${rightBracket}` });
   }
 
   addOptionalTextEdit(edits, 'password', data.password);
@@ -370,21 +377,6 @@ export const createDocumentEdits = (
   const weight = fontWeight(data.descriptionWeight);
   if (weight !== null) {
     edits.push({ kind: 'setFontWeight', node_id: 'description', weight });
-  }
-
-  if (data.artFit !== 'cover') {
-    edits.push({ kind: 'setArtFit', node_id: 'art', fit: data.artFit });
-  }
-  if (Number(data.artScale) !== 1) {
-    edits.push({ kind: 'setArtScale', node_id: 'art', scale: Number(data.artScale) || 1 });
-  }
-  if (Number(data.artOffsetX) !== 0 || Number(data.artOffsetY) !== 0) {
-    edits.push({
-      kind: 'setArtOffset',
-      node_id: 'art',
-      offset_x: Number(data.artOffsetX) || 0,
-      offset_y: Number(data.artOffsetY) || 0,
-    });
   }
 
   const foreground = foregroundLayout(data);

@@ -47,6 +47,7 @@ export const trackCardImagePreviewDependencies = (state: PreviewDependencyState)
   void state.form.laser;
   void state.form.rare;
   void state.form.twentieth;
+  void state.form.twentyFifth;
   void state.form.radius;
   void state.form.foregroundImage;
   void state.form.foregroundWidth;
@@ -62,6 +63,7 @@ export const trackCardImagePreviewDependencies = (state: PreviewDependencyState)
   void state.form.effectBlockHeight;
   void state.form.effectBlockColor;
   void state.form.effectBlockOpacity;
+  void state.form.showNameBox;
   void state.form.nameShadowColor;
   void state.form.nameShadowGradient;
   void state.form.nameShadowGradientColor1;
