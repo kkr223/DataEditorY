@@ -107,6 +107,8 @@ pub(crate) struct CardBaseData {
     #[serde(default)]
     pub(crate) out_frame: bool,
     #[serde(default)]
+    pub(crate) out_frame_name_block_enabled: bool,
+    #[serde(default)]
     pub(crate) out_frame_effect_enabled: bool,
     #[serde(default)]
     #[cfg_attr(test, ts(optional))]

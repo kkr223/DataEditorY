@@ -26,6 +26,7 @@
     "twentieth": true,
     "twentyFifth": true,
     "outFrame": true,
+    "outFrameNameBlockEnabled": true,
     "outFrameEffectEnabled": true,
     "outFrameEffectBackgroundColor": "#f6f2e8",
     "outFrameEffectOpacity": 0.78,

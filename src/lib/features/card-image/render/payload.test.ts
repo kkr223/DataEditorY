@@ -102,6 +102,46 @@ describe('card render payload', () => {
     expect(payload.resources?.foregroundImage).toBe(undefined);
   });
 
+  test('renders the name box as an out-frame foreground overlay without hiding the title', () => {
+    const form = normalizeCardImageFormData({
+      foregroundImage: 'data:image/png;base64,BBB',
+      foregroundWidth: 500,
+      foregroundHeight: 400,
+      showNameBox: true,
+      effectBlockEnabled: false,
+    });
+    const base = createCardBaseData(baseCard, form);
+    const edits = createDocumentEdits(baseCard, form);
+
+    expect(base.outFrame).toBe(true);
+    expect(base.outFrameNameBlockEnabled).toBe(true);
+    expect(edits.some((edit) => JSON.stringify(edit) === JSON.stringify({
+      kind: 'setVisible',
+      node_id: 'title',
+      visible: false,
+    }))).toBe(false);
+  });
+
+  test('disabling the name box suppresses only the out-frame overlay', () => {
+    const form = normalizeCardImageFormData({
+      foregroundImage: 'data:image/png;base64,BBB',
+      foregroundWidth: 500,
+      foregroundHeight: 400,
+      showNameBox: false,
+      effectBlockEnabled: true,
+    });
+    const base = createCardBaseData(baseCard, form);
+    const edits = createDocumentEdits(baseCard, form);
+
+    expect(base.outFrame).toBe(true);
+    expect(base.outFrameNameBlockEnabled).toBe(false);
+    expect(edits.some((edit) => JSON.stringify(edit) === JSON.stringify({
+      kind: 'setVisible',
+      node_id: 'title',
+      visible: false,
+    }))).toBe(false);
+  });
+
   test('can materialize image data urls into resource tokens', async () => {
     const resourceCache: CardRenderResourceCache = {
       resolveDataUrl: async (dataUrl) => ({ kind: 'resourceToken', token: `token:${dataUrl.length}` }),

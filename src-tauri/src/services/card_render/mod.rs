@@ -110,6 +110,7 @@ fn build_render_request(
     card.twentieth = base.twentieth;
     card.twenty_fifth = base.twenty_fifth;
     card.out_frame = base.out_frame;
+    card.out_frame_name_block_enabled = base.out_frame_name_block_enabled;
     card.out_frame_effect_enabled = base.out_frame_effect_enabled;
     card.out_frame_effect_background_color =
         optional_trimmed_string(base.out_frame_effect_background_color.clone());
@@ -480,6 +481,7 @@ mod tests {
         assert!(request.card.twentieth);
         assert!(request.card.twenty_fifth);
         assert!(request.card.out_frame);
+        assert!(request.card.out_frame_name_block_enabled);
         assert_eq!(request.options.language.as_deref(), Some("en"));
         assert_eq!(request.options.scale, 0.43);
         assert_eq!(request.options.font.as_deref(), Some("custom1"));

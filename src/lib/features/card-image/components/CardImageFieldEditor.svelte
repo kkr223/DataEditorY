@@ -211,7 +211,6 @@
       <label class="toggle"><input type="checkbox" bind:checked={form.twentieth} /><span>{$_('editor.card_image_twentieth')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.twentyFifth} /><span>{$_('editor.card_image_twenty_fifth')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.radius} /><span>{$_('editor.card_image_round_corner')}</span></label>
-      <label class="toggle"><input type="checkbox" bind:checked={form.showNameBox} /><span>{$_('editor.card_image_show_name_box')}</span></label>
     </div>
   </section>
 {:else}
@@ -222,6 +221,10 @@
       {$_('editor.card_image_foreground_empty')}
     {/if}
   </p>
+
+  <div class="toggle-grid">
+    <label class="toggle"><input type="checkbox" bind:checked={form.showNameBox} /><span>{$_('editor.card_image_show_name_box')}</span></label>
+  </div>
 
   <div class="drawer-section foreground-section">
     <div class="section-title">{$_('editor.card_image_foreground_transform')}</div>

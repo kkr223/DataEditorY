@@ -171,6 +171,10 @@ const hasEffectBlock = (data: CardImageFormData) => Boolean(
     && data.effectBlockOpacity > 0,
 );
 
+const hasForegroundImage = (data: CardImageFormData) => Boolean(data.foregroundImage.trim());
+
+const hasNameBlock = (data: CardImageFormData) => Boolean(data.showNameBox && hasForegroundImage(data));
+
 const foregroundLayout = (data: CardImageFormData) => {
   const centerX = finiteNumber(data.foregroundX);
   const centerY = finiteNumber(data.foregroundY);
@@ -178,8 +182,7 @@ const foregroundLayout = (data: CardImageFormData) => {
   const height = finiteNumber(data.foregroundHeight);
   const scale = finiteNumber(data.foregroundScale);
   const rotation = finiteNumber(data.foregroundRotation) ?? 0;
-  const hasForegroundImage = Boolean(data.foregroundImage.trim());
-  if (!hasForegroundImage) return null;
+  if (!hasForegroundImage(data)) return null;
 
   if (
     centerX === null
@@ -269,6 +272,7 @@ export const createCardBaseData = (
     ? data.pendulumType === 'xyz-pendulum'
     : data.type === 'monster' && data.cardType === 'xyz';
   const effectBlockEnabled = hasEffectBlock(data);
+  const nameBlockEnabled = hasNameBlock(data);
 
   return {
     kind: 'yugioh',
@@ -298,7 +302,8 @@ export const createCardBaseData = (
     scale: Math.max(Number(data.scale) || 1, 0.01),
     twentieth: Boolean(data.twentieth),
     twentyFifth: Boolean(data.twentyFifth),
-    outFrame: effectBlockEnabled,
+    outFrame: effectBlockEnabled || nameBlockEnabled,
+    outFrameNameBlockEnabled: nameBlockEnabled,
     outFrameEffectEnabled: effectBlockEnabled,
     outFrameEffectBackgroundColor: effectBlockEnabled ? data.effectBlockColor : undefined,
     outFrameEffectOpacity: effectBlockEnabled ? data.effectBlockOpacity : undefined,
@@ -322,10 +327,6 @@ export const createDocumentEdits = (
       enabled: Boolean(data.firstLineCompress),
     },
   ];
-
-  if (!data.showNameBox) {
-    edits.push({ kind: 'setVisible', node_id: 'title', visible: false });
-  }
 
   if (data.type === 'pendulum') {
     edits.push({ kind: 'setText', node_id: 'pendulum-description', text: data.pendulumDescription });
