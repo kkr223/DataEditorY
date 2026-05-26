@@ -2,7 +2,7 @@
 
 export type ArtFitDto = "stretch" | "cover" | "contain";
 
-export type CardBaseData = { kind: CardRenderKind, code: number, alias: number, setcode: Array<number>, type: number, attack: number, defense: number, level: number, race: number, attribute: number, category: number, ot: number, name: string, desc: string, strings: Array<string>, lscale: number, rscale: number, linkMarker: number, ruleCode: number, rare?: string, language: string, font?: string, scale: number, twentieth: boolean, twentyFifth: boolean, outFrame: boolean, outFrameNameBlockEnabled: boolean, outFrameEffectEnabled: boolean, outFrameEffectBackgroundColor?: string, outFrameEffectOpacity?: number, radius?: boolean, atkBar?: boolean, align?: TextAlignDto, descriptionAlign?: TextAlignDto, };
+export type CardBaseData = { kind: CardRenderKind, code: number, alias: number, setcode: Array<number>, type: number, attack: number, defense: number, level: number, race: number, attribute: number, category: number, ot: number, name: string, desc: string, strings: Array<string>, lscale: number, rscale: number, linkMarker: number, ruleCode: number, rare?: string, language: string, font?: string, scale: number, twentieth: boolean, twentyFifth: boolean, outFrame: boolean, outFrameNameBlockEnabled: boolean, outFrameEffectEnabled: boolean, outFrameEffectBox?: string, outFrameEffectBackgroundColor?: string, outFrameEffectOpacity?: number, radius?: boolean, atkBar?: boolean, align?: TextAlignDto, descriptionAlign?: TextAlignDto, };
 
 export type CardRenderImageResource = { "kind": "dataUrl", dataUrl: string, } | { "kind": "filePath", path: string, } | { "kind": "resourceToken", token: string, };
 

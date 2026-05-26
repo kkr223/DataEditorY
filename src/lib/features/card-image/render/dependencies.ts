@@ -56,7 +56,7 @@ export const trackCardImagePreviewDependencies = (state: PreviewDependencyState)
   void state.form.foregroundY;
   void state.form.foregroundScale;
   void state.form.foregroundRotation;
-  void state.form.effectBlockEnabled;
+  void state.form.effectBlockType;
   void state.form.effectBlockX;
   void state.form.effectBlockY;
   void state.form.effectBlockWidth;

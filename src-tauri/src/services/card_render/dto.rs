@@ -112,6 +112,9 @@ pub(crate) struct CardBaseData {
     pub(crate) out_frame_effect_enabled: bool,
     #[serde(default)]
     #[cfg_attr(test, ts(optional))]
+    pub(crate) out_frame_effect_box: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(test, ts(optional))]
     pub(crate) out_frame_effect_background_color: Option<String>,
     #[serde(default)]
     #[cfg_attr(test, ts(optional))]

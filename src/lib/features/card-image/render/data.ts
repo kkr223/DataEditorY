@@ -48,7 +48,7 @@ export const applyBuildVariantIsolation = (
     foregroundRotation: 0,
     foregroundX: CARD_RENDER_WIDTH / 2,
     foregroundY: CARD_RENDER_HEIGHT / 2,
-    effectBlockEnabled: false,
+    effectBlockType: 'none',
     effectBlockColor: '#f6f2e8',
     effectBlockOpacity: 0.78,
   });

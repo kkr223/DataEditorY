@@ -33,7 +33,7 @@ describe('card render data helpers', () => {
         foregroundImage: 'foreground-image',
         foregroundWidth: 100,
         foregroundHeight: 120,
-        effectBlockEnabled: true,
+        effectBlockType: 'type1',
       }),
       croppedImageDataUrl: 'cropped-image',
     }, 0.05, { hasExtraBuild: false });
@@ -42,7 +42,7 @@ describe('card render data helpers', () => {
     expect(data.scale).toBe(0.1);
     expect(data.foregroundImage).toBe('');
     expect(data.foregroundWidth).toBe(0);
-    expect(data.effectBlockEnabled).toBe(false);
+    expect(data.effectBlockType).toBe('none');
   });
 
   test('builds jpg data using export scale percent and detects field spells', () => {

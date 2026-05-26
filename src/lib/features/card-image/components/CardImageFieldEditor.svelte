@@ -241,9 +241,16 @@
   <div class="drawer-section foreground-section">
     <div class="effect-block-header">
       <div class="section-title">{$_('editor.card_image_effect_block')}</div>
-      <label class="toggle effect-block-toggle"><input type="checkbox" bind:checked={form.effectBlockEnabled} /><span>{$_('editor.card_image_effect_block_enable')}</span></label>
     </div>
-    <fieldset class="effect-block-fieldset" disabled={!form.effectBlockEnabled}>
+    <div class="field">
+      <span>{$_('editor.card_image_effect_block_type')}</span>
+      <select bind:value={form.effectBlockType}>
+        <option value="none">{$_('editor.card_image_effect_block_type_none')}</option>
+        <option value="type1">{$_('editor.card_image_effect_block_type_type1')}</option>
+        <option value="type2">{$_('editor.card_image_effect_block_type_type2')}</option>
+      </select>
+    </div>
+    <fieldset class="effect-block-fieldset" disabled={form.effectBlockType === 'none'}>
       <div class="field-grid">
         <label class="field"><span>{$_('editor.card_image_effect_block_opacity')}</span><input type="number" min="0" max="1" step="0.05" bind:value={form.effectBlockOpacity} /></label>
         <div class="field">

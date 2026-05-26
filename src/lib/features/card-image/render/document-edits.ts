@@ -164,8 +164,13 @@ const buildDescription = (data: CardImageFormData) => {
   return `${data.pendulumDescription}\n【怪兽效果】\n${data.description}`.trim();
 };
 
+const EFFECT_BLOCK_BOX_MAP: Record<string, string | undefined> = {
+  type1: 'eblock-border',
+  type2: 'eblock-border-o',
+};
+
 const hasEffectBlock = (data: CardImageFormData) => Boolean(
-  data.effectBlockEnabled
+  data.effectBlockType !== 'none'
     && data.effectBlockWidth > 0
     && data.effectBlockHeight > 0
     && data.effectBlockOpacity > 0,
@@ -305,6 +310,7 @@ export const createCardBaseData = (
     outFrame: effectBlockEnabled || nameBlockEnabled,
     outFrameNameBlockEnabled: nameBlockEnabled,
     outFrameEffectEnabled: effectBlockEnabled,
+    outFrameEffectBox: EFFECT_BLOCK_BOX_MAP[data.effectBlockType],
     outFrameEffectBackgroundColor: effectBlockEnabled ? data.effectBlockColor : undefined,
     outFrameEffectOpacity: effectBlockEnabled ? data.effectBlockOpacity : undefined,
     radius: Boolean(data.radius),
@@ -385,7 +391,7 @@ export const createDocumentEdits = (
     edits.push({ kind: 'setForegroundLayout', node_id: 'foreground', layout: foreground });
   }
 
-  if (data.effectBlockEnabled) {
+  if (hasEffectBlock(data)) {
     edits.push({
       kind: 'setFillRect',
       node_id: 'out-frame-effect-bg',

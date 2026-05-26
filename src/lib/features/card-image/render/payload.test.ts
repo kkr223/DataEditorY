@@ -108,7 +108,7 @@ describe('card render payload', () => {
       foregroundWidth: 500,
       foregroundHeight: 400,
       showNameBox: true,
-      effectBlockEnabled: false,
+      effectBlockType: 'none',
     });
     const base = createCardBaseData(baseCard, form);
     const edits = createDocumentEdits(baseCard, form);
@@ -128,7 +128,7 @@ describe('card render payload', () => {
       foregroundWidth: 500,
       foregroundHeight: 400,
       showNameBox: false,
-      effectBlockEnabled: true,
+      effectBlockType: 'type1',
     });
     const base = createCardBaseData(baseCard, form);
     const edits = createDocumentEdits(baseCard, form);
@@ -140,6 +140,54 @@ describe('card render payload', () => {
       node_id: 'title',
       visible: false,
     }))).toBe(false);
+  });
+
+  test('effectBlockType none produces no out-frame effect fields', () => {
+    const form = normalizeCardImageFormData({
+      foregroundImage: 'data:image/png;base64,BBB',
+      foregroundWidth: 500,
+      foregroundHeight: 400,
+      effectBlockType: 'none',
+      showNameBox: true,
+    });
+    const base = createCardBaseData(baseCard, form);
+    const edits = createDocumentEdits(baseCard, form);
+
+    expect(base.outFrameEffectEnabled).toBe(false);
+    expect((base as typeof base & { outFrameEffectBox?: string }).outFrameEffectBox).toBe(undefined);
+    expect(edits.some((edit) => edit.kind === 'setFillRect' && edit.node_id === 'out-frame-effect-bg')).toBe(false);
+  });
+
+  test('effectBlockType type1 maps to eblock-border', () => {
+    const form = normalizeCardImageFormData({
+      foregroundImage: 'data:image/png;base64,BBB',
+      foregroundWidth: 500,
+      foregroundHeight: 400,
+      effectBlockType: 'type1',
+      showNameBox: true,
+    });
+    const base = createCardBaseData(baseCard, form);
+    const edits = createDocumentEdits(baseCard, form);
+
+    expect(base.outFrameEffectEnabled).toBe(true);
+    expect((base as typeof base & { outFrameEffectBox?: string }).outFrameEffectBox).toBe('eblock-border');
+    expect(edits.some((edit) => edit.kind === 'setFillRect' && edit.node_id === 'out-frame-effect-bg')).toBe(true);
+  });
+
+  test('effectBlockType type2 maps to eblock-border-o', () => {
+    const form = normalizeCardImageFormData({
+      foregroundImage: 'data:image/png;base64,BBB',
+      foregroundWidth: 500,
+      foregroundHeight: 400,
+      effectBlockType: 'type2',
+      showNameBox: true,
+    });
+    const base = createCardBaseData(baseCard, form);
+    const edits = createDocumentEdits(baseCard, form);
+
+    expect(base.outFrameEffectEnabled).toBe(true);
+    expect((base as typeof base & { outFrameEffectBox?: string }).outFrameEffectBox).toBe('eblock-border-o');
+    expect(edits.some((edit) => edit.kind === 'setFillRect' && edit.node_id === 'out-frame-effect-bg')).toBe(true);
   });
 
   test('can materialize image data urls into resource tokens', async () => {
@@ -190,7 +238,7 @@ describe('card render payload', () => {
       foregroundY: 1015.5,
       foregroundScale: 0.5,
       foregroundRotation: 15,
-      effectBlockEnabled: true,
+      effectBlockType: 'type1',
       effectBlockColor: '#f6f2e8',
       effectBlockOpacity: 0.78,
       firstLineCompress: true,

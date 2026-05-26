@@ -28,6 +28,7 @@
     "outFrame": true,
     "outFrameNameBlockEnabled": true,
     "outFrameEffectEnabled": true,
+    "outFrameEffectBox": "eblock-border",
     "outFrameEffectBackgroundColor": "#f6f2e8",
     "outFrameEffectOpacity": 0.78,
     "radius": true,

@@ -15,7 +15,7 @@ use std::path::Path;
 use tauri::AppHandle;
 use ygo_card_renderer_rs::{
     model::{
-        EffectMask, ImageAlign, PositionedRenderImage, RareType, TextAlignChoice, YgoCardMeta,
+        EffectMask, ImageAlign, OutFrameEffectBox, PositionedRenderImage, RareType, TextAlignChoice, YgoCardMeta,
     },
     CardKind, RenderOptions, RenderRequest,
 };
@@ -112,6 +112,12 @@ fn build_render_request(
     card.out_frame = base.out_frame;
     card.out_frame_name_block_enabled = base.out_frame_name_block_enabled;
     card.out_frame_effect_enabled = base.out_frame_effect_enabled;
+    if let Some(box_type) = &base.out_frame_effect_box {
+        card.out_frame_effect_box = match box_type.as_str() {
+            "eblock-border-o" => OutFrameEffectBox::EblockBorderO,
+            _ => OutFrameEffectBox::EblockBorder,
+        };
+    }
     card.out_frame_effect_background_color =
         optional_trimmed_string(base.out_frame_effect_background_color.clone());
     card.out_frame_effect_opacity = base.out_frame_effect_opacity;

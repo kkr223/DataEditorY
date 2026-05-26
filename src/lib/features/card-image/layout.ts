@@ -20,7 +20,7 @@ export type CardImageFormData = CardImageBaseData & {
   foregroundY: number;
   foregroundScale: number;
   foregroundRotation: number;
-  effectBlockEnabled: boolean;
+  effectBlockType: 'none' | 'type1' | 'type2';
   effectBlockX: number;
   effectBlockY: number;
   effectBlockWidth: number;
@@ -101,7 +101,7 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   foregroundY: 1015.5,
   foregroundScale: 1,
   foregroundRotation: 0,
-  effectBlockEnabled: false,
+  effectBlockType: 'none' as const,
   effectBlockX: 76,
   effectBlockY: 1503,
   effectBlockWidth: 1239,
@@ -204,6 +204,12 @@ function coerceNumber(value: unknown, fallback: number): number {
   return Number.isFinite(next) ? next : fallback;
 }
 
+function normalizeEffectBlockType(value: unknown): 'none' | 'type1' | 'type2' {
+  const type = String(value ?? 'none');
+  if (type === 'type1' || type === 'type2') return type;
+  return 'none';
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -260,7 +266,7 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     foregroundY: coerceNumber(data.foregroundY, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundY),
     foregroundScale: coerceNumber(data.foregroundScale, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundScale),
     foregroundRotation: coerceNumber(data.foregroundRotation, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundRotation),
-    effectBlockEnabled: Boolean(data.effectBlockEnabled ?? DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockEnabled),
+    effectBlockType: normalizeEffectBlockType(data.effectBlockType),
     effectBlockX: coerceNumber(data.effectBlockX, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockX),
     effectBlockY: coerceNumber(data.effectBlockY, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockY),
     effectBlockWidth: coerceNumber(data.effectBlockWidth, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockWidth),
