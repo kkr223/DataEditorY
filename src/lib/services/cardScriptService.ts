@@ -6,7 +6,7 @@ import {
   readCardScriptDocument,
   saveCardScriptDocument,
 } from '$lib/infrastructure/tauri/commands';
-import { openOrCreateScriptTab } from '$lib/stores/scriptEditor.svelte';
+import { openExternalScriptFileTab, openOrCreateScriptTab } from '$lib/stores/scriptEditor.svelte';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 
 function buildTemplateContent(cardName: string, cardCode: number) {
@@ -30,6 +30,10 @@ export async function openCardScriptWorkspace(input: {
     cardName: input.cardName,
     templateContent: buildTemplateContent(input.cardName, input.cardCode),
   });
+}
+
+export async function openExternalScriptFileWorkspace(path: string) {
+  return openExternalScriptFileTab(path);
 }
 
 export async function ensureCardScriptFile(input: {

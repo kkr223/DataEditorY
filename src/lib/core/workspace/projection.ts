@@ -41,13 +41,13 @@ export function toScriptWorkspaceDocument(
     id: tab.id,
     kind: 'script',
     title,
-    subtitle: tab.cardName || tab.scriptPath,
+    subtitle: tab.sourceKind === 'file' ? tab.scriptPath : tab.cardName || tab.scriptPath,
     dirty: tab.isDirty,
     status: 'ready',
     savePolicy: 'manual',
     closeGuard: 'confirm-dirty',
     source: {
-      path: tab.cdbPath,
+      path: tab.sourceKind === 'file' ? tab.scriptPath : tab.cdbPath,
       tabId: tab.sourceTabId,
     },
     viewState: {

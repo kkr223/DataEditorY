@@ -92,6 +92,38 @@ pub fn read_deck_text_file(path: &Path) -> MediaResult<String> {
     fs::read_to_string(path).map_err(|err| MediaError::io_at("Failed to read deck text", path, err))
 }
 
+pub fn read_external_text_file(path: String) -> MediaResult<String> {
+    let path = Path::new(&path);
+    ensure_absolute_path(path, "Failed to read external text file")?;
+    ensure_allowed_extension(path, &["lua", "txt", "conf"], "Failed to read external text file")?;
+    let metadata = fs::metadata(path).map_err(|err| {
+        MediaError::io_at("Failed to read external text file metadata", path, err)
+    })?;
+    if metadata.len() > MAX_TEXT_FILE_BYTES {
+        return Err(MediaError::invalid(
+            "Failed to read external text file: file is too large",
+        ));
+    }
+
+    fs::read_to_string(path)
+        .map_err(|err| MediaError::io_at("Failed to read external text file", path, err))
+}
+
+pub fn write_external_text_file(path: String, content: String) -> MediaResult<()> {
+    let path = Path::new(&path);
+    ensure_absolute_path(path, "Failed to write external text file")?;
+    ensure_allowed_extension(path, &["lua", "txt", "conf"], "Failed to write external text file")?;
+    if content.len() > MAX_TEXT_FILE_BYTES as usize {
+        return Err(MediaError::invalid(
+            "Failed to write external text file: file is too large",
+        ));
+    }
+
+    ensure_parent_dir(path, "Failed to create parent directory for external text file")?;
+    fs::write(path, content)
+        .map_err(|err| MediaError::io_at("Failed to write external text file", path, err))
+}
+
 pub fn write_json_file(path: &Path, content: String) -> MediaResult<()> {
     ensure_absolute_path(path, "Failed to write JSON file")?;
     ensure_allowed_extension(path, &["json"], "Failed to write JSON file")?;
@@ -259,4 +291,46 @@ fn lua_intel_resource_candidates(app: &AppHandle, filename: &str) -> Vec<PathBuf
 
 pub fn path_exists(path: String) -> MediaResult<bool> {
     Ok(Path::new(&path).exists())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::make_temp_dir;
+
+    #[test]
+    fn reads_external_text_files_with_allowed_extensions() {
+        let root = make_temp_dir("read-external-text");
+        let script = root.join("script.lua");
+        fs::write(&script, "line 1\r\nline 2").unwrap();
+
+        let content = read_external_text_file(script.to_string_lossy().to_string()).unwrap();
+
+        assert_eq!(content, "line 1\r\nline 2");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn writes_external_text_files_with_allowed_extensions() {
+        let root = make_temp_dir("write-external-text");
+        let target = root.join("strings.conf");
+
+        write_external_text_file(target.to_string_lossy().to_string(), "hello".to_string())
+            .unwrap();
+
+        assert_eq!(fs::read_to_string(&target).unwrap(), "hello");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn rejects_external_text_files_with_unsupported_extensions() {
+        let root = make_temp_dir("reject-external-text");
+        let target = root.join("image.png");
+        fs::write(&target, "not text").unwrap();
+
+        let result = read_external_text_file(target.to_string_lossy().to_string());
+
+        assert!(result.is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
 }

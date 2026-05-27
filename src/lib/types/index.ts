@@ -49,6 +49,7 @@ export interface CardDraftState {
 
 export interface ScriptWorkspaceState {
   id: string;
+  sourceKind: 'card' | 'file';
   cdbPath: string;
   sourceTabId: string | null;
   cardCode: number;

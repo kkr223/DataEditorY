@@ -77,6 +77,7 @@
 
   const scriptStrings = $derived.by(() => Array.from({ length: 16 }, (_, index) => cardContext?.strings[index] ?? ''));
   const activeDbTab = $derived.by(() => $tabs.find((tab) => tab.id === $activeTabId) ?? null);
+  const isExternalFileTab = $derived($activeScriptTab?.sourceKind === 'file');
   const canOpenNewScriptTab = $derived(Boolean(activeDbTab && cardSelectionState.selectedId !== null));
 
   function ensureScriptEditorExtraUseCases() {
@@ -221,10 +222,10 @@
   <section class="script-page">
     <ScriptToolbar
       title={getScriptTabTitle()}
-      cardCodeLabel={$_('editor.script_workspace_card', { values: { code: String($activeScriptTab.cardCode) } })}
-      cardName={cardContext?.name || $activeScriptTab.cardName || '-'}
-      cdbPath={$activeScriptTab.cdbPath}
-      hasAiCapability={hasAiCapability}
+      cardCodeLabel={isExternalFileTab ? $_('editor.script_workspace_file') : $_('editor.script_workspace_card', { values: { code: String($activeScriptTab.cardCode) } })}
+      cardName={isExternalFileTab ? $activeScriptTab.cardName : cardContext?.name || $activeScriptTab.cardName || '-'}
+      cdbPath={isExternalFileTab ? $activeScriptTab.scriptPath : $activeScriptTab.cdbPath}
+      hasAiCapability={hasAiCapability && !isExternalFileTab}
       isGeneratingScript={isGeneratingScript}
       isReloading={isReloading}
       isSaving={isSaving}
@@ -237,6 +238,7 @@
       checkDiagnosticsLabel={$_('editor.script_check_diagnostics')}
       openExternalLabel={$_('editor.script_open_external')}
       imageActionLabel={$_(hasSelectedCode ? 'editor.script_export_selected_image' : 'editor.script_export_image')}
+      canShareImage={!isExternalFileTab}
       saveLabel={$_('editor.script_save')}
       isSharingImage={isSharingImage}
       sharingImageLabel={$_('editor.script_exporting_image')}
@@ -250,7 +252,7 @@
       onSave={handleSave}
     />
 
-    <div class="script-layout">
+    <div class:has-side-panel={!isExternalFileTab} class="script-layout">
       <ScriptEditorCore
         bind:this={editorCore}
         bind:cardContext
@@ -305,17 +307,19 @@
         />
       </ScriptEditorCore>
 
-      <ScriptSidePanel
-        descriptionTitle={$_('editor.desc')}
-        stringsTitle={$_('editor.script_strings_title')}
-        effectText={cardContext?.desc || ''}
-        effectEmptyText={$_('editor.script_effect_empty')}
-        stringPlaceholder={$_('editor.script_string_empty')}
-        scriptStrings={scriptStrings}
-        onInsertStringId={(index) => editorCore?.insertStringId(index)}
-        onStringInput={(index, value) => editorCore?.updateStringInput(index, value)}
-        onStringBlur={(index) => editorCore?.persistString(index) ?? Promise.resolve()}
-      />
+      {#if !isExternalFileTab}
+        <ScriptSidePanel
+          descriptionTitle={$_('editor.desc')}
+          stringsTitle={$_('editor.script_strings_title')}
+          effectText={cardContext?.desc || ''}
+          effectEmptyText={$_('editor.script_effect_empty')}
+          stringPlaceholder={$_('editor.script_string_empty')}
+          scriptStrings={scriptStrings}
+          onInsertStringId={(index) => editorCore?.insertStringId(index)}
+          onStringInput={(index, value) => editorCore?.updateStringInput(index, value)}
+          onStringBlur={(index) => editorCore?.persistString(index) ?? Promise.resolve()}
+        />
+      {/if}
     </div>
   </section>
 {:else}
@@ -341,7 +345,11 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 272px;
+    grid-template-columns: minmax(0, 1fr);
     overflow: hidden;
+  }
+
+  .script-layout.has-side-panel {
+    grid-template-columns: minmax(0, 1fr) 272px;
   }
 </style>

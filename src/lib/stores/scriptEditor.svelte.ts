@@ -4,7 +4,9 @@ import { activeTabId, tabs } from '$lib/stores/db';
 import { activateEditorView, activateScriptView } from '$lib/stores/appShell.svelte';
 import {
   readCardScriptDocument,
+  readExternalTextFile,
   saveCardScriptDocument,
+  saveExternalTextFile,
 } from '$lib/infrastructure/tauri/commands';
 import {
   buildScriptFileName,
@@ -26,6 +28,7 @@ export type OpenScriptTabResult = {
 
 /** Prevents duplicate tab creation for the same cdb+card while a request is in flight. */
 const inflightOpenRequests = new Map<string, Promise<OpenScriptTabResult>>();
+const inflightExternalOpenRequests = new Map<string, Promise<OpenScriptTabResult>>();
 
 function getScriptKey(cdbPath: string, cardCode: number) {
   return `${cdbPath}::${cardCode}`;
@@ -33,7 +36,11 @@ function getScriptKey(cdbPath: string, cardCode: number) {
 
 function getScriptTabByKey(cdbPath: string, cardCode: number) {
   const key = getScriptKey(cdbPath, cardCode);
-  return get(scriptTabs).find((tab) => getScriptKey(tab.cdbPath, tab.cardCode) === key) ?? null;
+  return get(scriptTabs).find((tab) => tab.sourceKind === 'card' && getScriptKey(tab.cdbPath, tab.cardCode) === key) ?? null;
+}
+
+function getExternalScriptTabByPath(path: string) {
+  return get(scriptTabs).find((tab) => tab.sourceKind === 'file' && tab.scriptPath === path) ?? null;
 }
 
 async function readScriptDocument(cdbPath: string, cardCode: number) {
@@ -56,7 +63,7 @@ export function activateScriptTab(tabId: string) {
   activeScriptTabId.set(tabId);
   if (tab.sourceTabId) {
     activeTabId.set(tab.sourceTabId);
-  } else {
+  } else if (tab.sourceKind === 'card') {
     const matchedDbTab = get(tabs).find((item) => item.path === tab.cdbPath);
     if (matchedDbTab) {
       activeTabId.set(matchedDbTab.id);
@@ -99,6 +106,7 @@ export function syncScriptTabFromSavedContent(input: {
 
   const nextTab: ScriptWorkspaceState = {
     id: crypto.randomUUID(),
+    sourceKind: 'card',
     cdbPath: input.cdbPath,
     sourceTabId: input.sourceTabId,
     cardCode: input.cardCode,
@@ -154,6 +162,7 @@ export async function openOrCreateScriptTab(input: {
 
         const nextTab: ScriptWorkspaceState = {
           id: crypto.randomUUID(),
+          sourceKind: 'card',
           cdbPath: input.cdbPath,
           sourceTabId: input.sourceTabId,
           cardCode: input.cardCode,
@@ -177,6 +186,7 @@ export async function openOrCreateScriptTab(input: {
 
       const nextTab: ScriptWorkspaceState = {
         id: crypto.randomUUID(),
+        sourceKind: 'card',
         cdbPath: input.cdbPath,
         sourceTabId: input.sourceTabId,
         cardCode: input.cardCode,
@@ -202,6 +212,67 @@ export async function openOrCreateScriptTab(input: {
   })();
 
   inflightOpenRequests.set(key, promise);
+  return promise;
+}
+
+function getFileDisplayName(path: string) {
+  const normalized = path.trim();
+  const separatorIndex = Math.max(normalized.lastIndexOf('/'), normalized.lastIndexOf('\\'));
+  return separatorIndex >= 0 ? normalized.slice(separatorIndex + 1) : normalized;
+}
+
+export async function openExternalScriptFileTab(path: string): Promise<OpenScriptTabResult> {
+  const normalizedPath = path.trim();
+  if (!normalizedPath) {
+    return {
+      tabId: '',
+      createdFromTemplate: false,
+    };
+  }
+
+  const inflight = inflightExternalOpenRequests.get(normalizedPath);
+  if (inflight) return inflight;
+
+  const existing = getExternalScriptTabByPath(normalizedPath);
+  if (existing) {
+    activateScriptTab(existing.id);
+    return {
+      tabId: existing.id,
+      createdFromTemplate: false,
+    };
+  }
+
+  const promise = (async () => {
+    try {
+      const content = normalizeScriptContent(await readExternalTextFile(normalizedPath));
+      const nextTab: ScriptWorkspaceState = {
+        id: crypto.randomUUID(),
+        sourceKind: 'file',
+        cdbPath: '',
+        sourceTabId: null,
+        cardCode: 0,
+        cardName: getFileDisplayName(normalizedPath),
+        scriptPath: normalizedPath,
+        content,
+        savedContent: content,
+        isDirty: false,
+        viewState: null,
+        createdFromTemplate: false,
+      };
+
+      scriptTabs.update((currentTabs) => [...currentTabs, nextTab]);
+      activeScriptTabId.set(nextTab.id);
+      activateScriptView();
+      return {
+        tabId: nextTab.id,
+        createdFromTemplate: false,
+      };
+    } finally {
+      inflightExternalOpenRequests.delete(normalizedPath);
+    }
+  })();
+
+  inflightExternalOpenRequests.set(normalizedPath, promise);
   return promise;
 }
 
@@ -231,14 +302,20 @@ export async function saveScriptTab(tabId: string) {
   if (!tab) return false;
 
   const normalized = normalizeScriptContent(tab.content);
-  const saved = await saveCardScriptDocument(tab.cdbPath, tab.cardCode, normalized);
+  const saved = tab.sourceKind === 'file'
+    ? null
+    : await saveCardScriptDocument(tab.cdbPath, tab.cardCode, normalized);
+
+  if (tab.sourceKind === 'file') {
+    await saveExternalTextFile(tab.scriptPath, normalized);
+  }
 
   scriptTabs.update((currentTabs) =>
     currentTabs.map((item) =>
       item.id === tabId
         ? {
             ...item,
-            scriptPath: saved.path,
+            scriptPath: saved?.path ?? item.scriptPath,
             content: normalized,
             savedContent: normalized,
             isDirty: false,
@@ -259,7 +336,12 @@ export async function reloadScriptTab(tabId: string) {
   const tab = get(scriptTabs).find((item) => item.id === tabId);
   if (!tab) return false;
 
-  const loaded = await readScriptDocument(tab.cdbPath, tab.cardCode);
+  const loaded = tab.sourceKind === 'file'
+    ? {
+        path: tab.scriptPath,
+        content: await readExternalTextFile(tab.scriptPath),
+      }
+    : await readScriptDocument(tab.cdbPath, tab.cardCode);
   const normalized = normalizeScriptContent(loaded.content);
   scriptTabs.update((currentTabs) =>
     currentTabs.map((item) =>
@@ -309,5 +391,8 @@ export function closeScriptTab(tabId: string) {
 }
 
 export function getScriptTabDisplayName(tab: ScriptWorkspaceState) {
+  if (tab.sourceKind === 'file') {
+    return getFileDisplayName(tab.scriptPath);
+  }
   return buildScriptFileName(tab.cardCode);
 }

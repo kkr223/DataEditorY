@@ -6,6 +6,8 @@ export type CardScriptDocument = { path: string, exists: boolean, content: strin
 
 export type CardScriptInfo = { path: string, exists: boolean, };
 
+export type ExternalOpenPaths = { cdbPaths: Array<string>, textPaths: Array<string>, };
+
 export type SaveAppSettingsRequest = { apiBaseUrl: string, model: string | null, temperature: number | null, scriptTemplate: string, useExternalScriptEditor: boolean | null, saveScriptImageToLocal: boolean | null, packageIncludePatterns: Array<string> | null, shortcutBindings: { [key in string]?: string } | null, secretKey: string | null, clearSecretKey: boolean | null, };
 
 export type TaskProgressPayload = { task: string, stage: string, current: number, total: number, };

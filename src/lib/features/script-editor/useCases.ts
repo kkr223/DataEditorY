@@ -19,7 +19,7 @@ export async function loadScriptCardContextFlow(input: {
   dbTabs: Array<{ id: string; path: string }>;
   loadToken: number;
 }) {
-  if (!input.tab) {
+  if (!input.tab || input.tab.sourceKind === 'file') {
     return {
       loadToken: input.loadToken,
       cardContext: null,
@@ -61,7 +61,7 @@ export async function saveScriptStringFlow(input: {
   activeDbTabId: string | null;
   t: Translate;
 }) {
-  if (!input.tab || !input.cardContext) {
+  if (!input.tab || input.tab.sourceKind === 'file' || !input.cardContext) {
     return null;
   }
 

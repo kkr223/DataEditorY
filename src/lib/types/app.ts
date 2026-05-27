@@ -2,6 +2,7 @@ export type {
   AppSettingsPayload,
   CardScriptDocument,
   CardScriptInfo,
+  ExternalOpenPaths,
   SaveAppSettingsRequest,
   TaskProgressPayload,
   ZipPackageInfo,

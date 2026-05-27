@@ -33,35 +33,44 @@ const SECRET_VERSION_PREFIX: &str = "v1";
 #[cfg(feature = "ai")]
 const APP_IDENTIFIER: &str = "com.kkr223.dataeditory";
 const OPEN_CDB_PATHS_EVENT: &str = "open-cdb-paths";
+const OPEN_EXTERNAL_PATHS_EVENT: &str = "open-external-paths";
 pub(crate) const BACKGROUND_TASK_PROGRESS_EVENT: &str = "background-task-progress";
 
-pub(crate) struct PendingOpenCdbPaths(Mutex<Vec<String>>);
+pub(crate) struct PendingExternalOpenPaths(Mutex<ExternalOpenPaths>);
 
-fn collect_cdb_paths_from_args<I>(args: I) -> Vec<String>
+fn collect_external_open_paths_from_args<I>(args: I) -> ExternalOpenPaths
 where
     I: IntoIterator,
     I::Item: Into<std::ffi::OsString>,
 {
-    services::media::collect_cdb_paths_from_args(args)
+    services::media::collect_external_open_paths_from_args(args)
 }
 
-fn queue_open_cdb_paths(app: &AppHandle, paths: Vec<String>) {
-    if paths.is_empty() {
+fn push_unique_paths(target: &mut Vec<String>, paths: &[String]) {
+    for path in paths {
+        if !target.contains(path) {
+            target.push(path.clone());
+        }
+    }
+}
+
+fn queue_external_open_paths(app: &AppHandle, paths: ExternalOpenPaths) {
+    if paths.cdb_paths.is_empty() && paths.text_paths.is_empty() {
         return;
     }
 
-    let pending_state = app.state::<PendingOpenCdbPaths>();
+    let pending_state = app.state::<PendingExternalOpenPaths>();
     let mut pending = pending_state
         .0
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    for path in &paths {
-        if !pending.contains(path) {
-            pending.push(path.clone());
-        }
-    }
+    push_unique_paths(&mut pending.cdb_paths, &paths.cdb_paths);
+    push_unique_paths(&mut pending.text_paths, &paths.text_paths);
 
-    let _ = app.emit(OPEN_CDB_PATHS_EVENT, &paths);
+    let _ = app.emit(OPEN_EXTERNAL_PATHS_EVENT, &paths);
+    if !paths.cdb_paths.is_empty() {
+        let _ = app.emit(OPEN_CDB_PATHS_EVENT, &paths.cdb_paths);
+    }
 
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -75,7 +84,7 @@ pub fn run() {
         .register_uri_scheme_protocol(services::media::media_protocol_name(), |_ctx, request| {
             services::media::handle_media_protocol_request(request)
         })
-        .manage(PendingOpenCdbPaths(Mutex::new(Vec::new())))
+        .manage(PendingExternalOpenPaths(Mutex::new(ExternalOpenPaths::default())))
         .manage(OpenCdbSessions(
             Mutex::new(std::collections::HashMap::new()),
         ));
@@ -88,12 +97,12 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            let paths = collect_cdb_paths_from_args(argv.into_iter().skip(1));
-            queue_open_cdb_paths(app, paths);
+            let paths = collect_external_open_paths_from_args(argv.into_iter().skip(1));
+            queue_external_open_paths(app, paths);
         }))
         .setup(|app| {
-            let paths = collect_cdb_paths_from_args(std::env::args_os().skip(1));
-            queue_open_cdb_paths(&app.handle(), paths);
+            let paths = collect_external_open_paths_from_args(std::env::args_os().skip(1));
+            queue_external_open_paths(&app.handle(), paths);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -117,7 +126,9 @@ pub fn run() {
             commands::cdb::undo_modify_operation,
             commands::media::pick_card_image_config,
             commands::media::pick_deck_text,
+            commands::media::read_external_text_file,
             commands::media::save_card_image_config,
+            commands::media::save_external_text_file,
             commands::media::save_png_file,
             commands::media::save_card_image_jpg,
             commands::media::save_script_image,
@@ -141,6 +152,7 @@ pub fn run() {
             commands::render_card::prepare_card_render_resource,
             commands::render_card::release_card_render_resource,
             commands::app::append_error_log,
+            commands::app::consume_pending_external_open_paths,
             commands::app::consume_pending_open_cdb_paths
         ])
         .run(tauri::generate_context!())

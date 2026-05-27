@@ -58,6 +58,16 @@ pub(crate) fn pick_deck_text(app: AppHandle) -> Result<Option<SelectedTextFileCo
 }
 
 #[tauri::command]
+pub(crate) fn read_external_text_file(path: String) -> Result<String, String> {
+    media_command(services::media::read_external_text_file(path))
+}
+
+#[tauri::command]
+pub(crate) fn save_external_text_file(path: String, content: String) -> Result<(), String> {
+    media_command(services::media::write_external_text_file(path, content))
+}
+
+#[tauri::command]
 pub(crate) fn save_card_image_config(
     app: AppHandle,
     default_file_name: String,

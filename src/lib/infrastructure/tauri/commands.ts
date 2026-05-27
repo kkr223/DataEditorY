@@ -9,6 +9,7 @@ import type {
   CreateCdbFromCardsRequest,
   ExecuteCdbMergeRequest,
   ExecuteCdbMergeResponse,
+  ExternalOpenPaths,
   MergeSourceItem,
   PreparedCardRenderResource,
   RenderCardPayload,
@@ -21,6 +22,7 @@ export type {
   CardScriptDocument,
   CardScriptInfo,
   ExecuteCdbMergeResponse,
+  ExternalOpenPaths,
   MergeSourceItem,
   PreparedCardRenderResource,
   RenderCardPayload,
@@ -69,6 +71,14 @@ export async function writeCardScriptDocument(cdbPath: string, cardId: number, c
 
 export async function saveCardScriptDocument(cdbPath: string, cardId: number, content: string) {
   return invokeCommand<CardScriptInfo>('save_card_script', { cdbPath, cardId, content });
+}
+
+export async function readExternalTextFile(path: string) {
+  return invokeCommand<string>('read_external_text_file', { path });
+}
+
+export async function saveExternalTextFile(path: string, content: string) {
+  return invokeCommand('save_external_text_file', { path, content });
 }
 
 export async function openInSystemEditor(path: string) {
@@ -172,6 +182,10 @@ export async function executeCdbMerge(input: ExecuteCdbMergeRequest) {
 
 export async function consumePendingOpenCdbPaths() {
   return invokeCommand<string[]>('consume_pending_open_cdb_paths');
+}
+
+export async function consumePendingExternalOpenPaths() {
+  return invokeCommand<ExternalOpenPaths>('consume_pending_external_open_paths');
 }
 
 export async function loadStringsConfContent() {

@@ -26,6 +26,7 @@ function createDbTab(): CdbTab {
 function createScriptTab(): ScriptWorkspaceState {
   return {
     id: 'script-1',
+    sourceKind: 'card',
     cdbPath: 'D:/cards/main.cdb',
     sourceTabId: 'db-1',
     cardCode: 1000,
@@ -86,6 +87,30 @@ describe('workspace projection helpers', () => {
     expect(documents[1]?.dirty).toBe(true);
     expect(documents[2]?.title).toBe('c1000.lua');
     expect(documents[3]?.title).toBe('Image 1000');
+  });
+
+  test('uses direct file path as script workspace source for external script tabs', () => {
+    const scriptTab: ScriptWorkspaceState = {
+      ...createScriptTab(),
+      sourceKind: 'file',
+      cdbPath: '',
+      sourceTabId: null,
+      cardCode: 0,
+      cardName: 'custom.lua',
+      scriptPath: 'D:/external/custom.lua',
+    };
+
+    const documents = buildWorkspaceDocuments({
+      dbTabs: [],
+      scriptTabs: [scriptTab],
+      cardImageTabs: [],
+      settingsOpen: false,
+      getScriptTitle: () => 'custom.lua',
+      getCardImageTitle: () => '',
+    });
+
+    expect(documents[0]?.source.path).toBe('D:/external/custom.lua');
+    expect(documents[0]?.subtitle).toBe('D:/external/custom.lua');
   });
 
   test('resolves the active workspace from shell view state', () => {

@@ -94,6 +94,15 @@ pub(crate) struct CardScriptDocument {
     pub(crate) content: String,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(test, derive(TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(export_to = "app.ts"))]
+pub(crate) struct ExternalOpenPaths {
+    pub(crate) cdb_paths: Vec<String>,
+    pub(crate) text_paths: Vec<String>,
+}
+
 #[derive(Debug, Serialize)]
 #[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
@@ -184,6 +193,7 @@ mod tests {
             .expect("export save app settings request binding");
         CardScriptInfo::export_all_to(out_dir).expect("export card script info binding");
         CardScriptDocument::export_all_to(out_dir).expect("export card script document binding");
+        ExternalOpenPaths::export_all_to(out_dir).expect("export external open paths binding");
         ZipPackageInfo::export_all_to(out_dir).expect("export package info binding");
         TaskProgressPayload::export_all_to(out_dir).expect("export task progress binding");
 
