@@ -23,6 +23,7 @@ vite.config.ts.timestamp-*
 # Tauri
 src-tauri/target/
 src-tauri/gen/schemas/
+src-tauri/resources/yugioh_bundle.bin
 
 # Environment
 .env

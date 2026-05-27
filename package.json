@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build:lua-intel": "node scripts/build-lua-intel.mjs",
+    "download:renderer-bundle": "node scripts/download-renderer-bundle.mjs",
     "dev:raw": "bun run build:lua-intel && vite dev",
     "dev": "node scripts/run-variant-build.mjs dev-frontend",
     "dev:base": "node scripts/run-variant-build.mjs dev-frontend base",

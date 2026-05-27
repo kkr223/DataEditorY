@@ -6677,6 +6677,7 @@ checksum = "e01738255b5a16e78bbb83e7fbba0a1e7dd506905cfc53f4622d89015a03fbb5"
 [[package]]
 name = "ygo-card-renderer-rs"
 version = "0.1.0"
+source = "git+https://github.com/kkr223/ygo-card-renderer-rs#ab98bb742851383f4101efde785a6f660b287881"
 dependencies = [
  "bytes",
  "cosmic-text",

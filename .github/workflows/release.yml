@@ -34,13 +34,6 @@ jobs:
           rm -rf "$DEP_DIR"
           git clone --depth 1 https://github.com/kkr223/ygopro-cdb-encode-rs.git "$DEP_DIR"
 
-      - name: Checkout ygo-card-renderer-rs dependency
-        shell: bash
-        run: |
-          DEP_DIR="$GITHUB_WORKSPACE/../ygo-card-renderer-rs"
-          rm -rf "$DEP_DIR"
-          git clone --depth 1 https://github.com/kkr223/ygo-card-renderer-rs.git "$DEP_DIR"
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -66,6 +59,14 @@ jobs:
 
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
+
+      - name: Download renderer bundle
+        if: matrix.variant == 'extra'
+        run: bun run download:renderer-bundle
+
+      - name: Update renderer dependency
+        if: matrix.variant == 'extra'
+        run: cargo update -p ygo-card-renderer-rs --manifest-path src-tauri/Cargo.toml
 
       - name: Apply Tauri config for variant
         run: node scripts/write-tauri-config.mjs ${{ matrix.variant }} src-tauri/tauri.conf.json
@@ -96,7 +97,7 @@ jobs:
           $portableResourceDir = "$portableDir/resources"
           $zipPath = "src-tauri/target/release/DataEditorY-$($variantLabel)-windows-portable.zip"
           $sourceResourceDir = "static/resources"
-          $rendererResourceDir = "../ygo-card-renderer-rs/resources"
+          $rendererResourceDir = "src-tauri/resources"
 
           Remove-Item $portableDir -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $zipPath -Force -ErrorAction SilentlyContinue

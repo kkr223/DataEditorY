@@ -352,7 +352,7 @@ mod tests {
 
     fn renderer_bundle_path_for_test() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../ygo-card-renderer-rs/resources/yugioh_bundle.bin")
+            .join("resources/yugioh_bundle.bin")
     }
 
     fn unique_temp_png_path(label: &str) -> PathBuf {

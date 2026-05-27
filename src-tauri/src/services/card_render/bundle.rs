@@ -33,20 +33,10 @@ fn renderer_bundle_candidates(app: &AppHandle) -> Vec<PathBuf> {
     }
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    candidates.push(
-        manifest_dir
-            .join("../../ygo-card-renderer-rs/resources")
-            .join(BUNDLE_FILE_NAME),
-    );
     candidates.push(manifest_dir.join("resources").join(BUNDLE_FILE_NAME));
 
     if let Ok(current_dir) = std::env::current_dir() {
         candidates.push(current_dir.join("resources").join(BUNDLE_FILE_NAME));
-        candidates.push(
-            current_dir
-                .join("../ygo-card-renderer-rs/resources")
-                .join(BUNDLE_FILE_NAME),
-        );
     }
 
     dedupe_candidate_paths(candidates)

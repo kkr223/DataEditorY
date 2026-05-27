@@ -44,8 +44,11 @@ zip = { version = "2.2", default-features = false, features = ["deflate-flate2",
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 regex = "1"
 rusqlite = { version = "0.39.0", features = ["bundled"] }
-ygo-card-renderer-rs = { path = "../../ygo-card-renderer-rs", optional = true }
+ygo-card-renderer-rs = { git = "https://github.com/kkr223/ygo-card-renderer-rs", optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"], optional = true }
+
+[patch."https://github.com/kkr223/ygo-card-renderer-rs"]
+ygopro-cdb-encode-rs = { path = "../../ygopro-cdb-encode-rs" }
 
 [profile.release]
 # Faster linking with thin LTO
