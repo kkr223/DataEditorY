@@ -55,6 +55,7 @@ describe('script editor controller helpers', () => {
     expect(buildScriptEditorContextKey({
       activeScriptTab: {
         id: 'script-1',
+        sourceKind: 'card',
         cdbPath: 'D:/cards/main.cdb',
         sourceTabId: 'db-1',
         cardCode: 1000,

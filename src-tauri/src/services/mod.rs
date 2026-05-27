@@ -1,5 +1,9 @@
+#[cfg(feature = "ai")]
+pub mod ai;
 pub mod app_config;
 pub mod assets;
+#[cfg(feature = "card-render")]
+pub mod card_render;
 pub mod cdb_cards;
 pub mod cdb_session;
 pub mod crypto;

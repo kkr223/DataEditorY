@@ -1,5 +1,11 @@
 import { get } from 'svelte/store';
-import type { CardDataEntry } from '$lib/types';
+import type {
+  CardDataEntry,
+  DeleteCardsRequest,
+  GetCardsByIdsRequest,
+  ModifyCardsRequest,
+  QueryCardsRequest,
+} from '$lib/types';
 import { invokeCommand } from '$lib/infrastructure/tauri';
 import { cloneCard } from './cardUtils';
 import { clearSourceFilterCacheForTab, refreshCachedSearchForTab } from './search';
@@ -20,6 +26,13 @@ function syncCachedCardsInTab(tabId: string, cards: CardDataEntry[]) {
         : tab
     )
   );
+}
+
+function buildModifyCardsRequest(tabId: string, cards: CardDataEntry[]): ModifyCardsRequest {
+  return {
+    tabId,
+    cards: cards.map((card) => cloneCard(card)),
+  };
 }
 
 export async function getCardById(cardId: number): Promise<CardDataEntry | undefined> {
@@ -44,11 +57,12 @@ export async function getCardsByIdsInTab(tabId: string, cardIds: number[]): Prom
   }
 
   try {
+    const request: GetCardsByIdsRequest = {
+      tabId,
+      cardIds: safeIds,
+    };
     return await invokeCommand<CardDataEntry[]>('get_cards_by_ids', {
-      request: {
-        tabId,
-        cardIds: safeIds,
-      },
+      request,
     });
   } catch (err) {
     console.error('Failed to fetch cards by ids:', err);
@@ -76,10 +90,7 @@ export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): P
         .map((card) => [card.code, card] as const),
     );
     await invokeCommand('modify_cards', {
-      request: {
-        tabId: tab.id,
-        cards: cards.map((card) => cloneCard(card)),
-      },
+      request: buildModifyCardsRequest(tab.id, cards),
     });
     pushUndoOperation(tab.id, {
       kind: 'modify',
@@ -110,10 +121,7 @@ export async function modifyCardsWithSnapshotInTab(
 
   try {
     await invokeCommand('modify_cards', {
-      request: {
-        tabId: tab.id,
-        cards: cards.map((card) => cloneCard(card)),
-      },
+      request: buildModifyCardsRequest(tab.id, cards),
     });
     pushUndoOperation(tab.id, {
       kind: 'modify',
@@ -153,12 +161,13 @@ export async function deleteCards(cardIds: number[]): Promise<boolean> {
 
   try {
     const deletedCards = (await getCardsByIdsInTab(tab.id, cardIds)).map((card) => cloneCard(card));
+    const request: DeleteCardsRequest = {
+      tabId: tab.id,
+      cardIds,
+    };
 
     await invokeCommand('delete_cards', {
-      request: {
-        tabId: tab.id,
-        cardIds,
-      },
+      request,
     });
 
     if (deletedCards.length > 0) {
@@ -188,11 +197,12 @@ export async function deleteCardsWithSnapshotInTab(
   if (!tab) return false;
 
   try {
+    const request: DeleteCardsRequest = {
+      tabId: tab.id,
+      cardIds,
+    };
     await invokeCommand('delete_cards', {
-      request: {
-        tabId: tab.id,
-        cardIds,
-      },
+      request,
     });
 
     if (deletedCards.length > 0) {
@@ -215,12 +225,13 @@ export async function deleteCardsWithSnapshotInTab(
 
 export async function queryCardsRaw(tabId: string, queryClause: string, params: Record<string, string | number> = {}): Promise<CardDataEntry[]> {
   try {
+    const request: QueryCardsRequest = {
+      tabId,
+      queryClause,
+      params,
+    };
     return await invokeCommand<CardDataEntry[]>('query_cards_raw', {
-      request: {
-        tabId,
-        queryClause,
-        params,
-      },
+      request,
     });
   } catch (err) {
     console.error('Failed to query cards:', err);

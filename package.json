@@ -1,11 +1,12 @@
 {
   "name": "dataeditory",
-  "version": "2.5.0",
+  "version": "3.0.0",
   "description": "ygopro card database editor",
   "author": "kkr223",
   "type": "module",
   "scripts": {
     "build:lua-intel": "node scripts/build-lua-intel.mjs",
+    "download:renderer-bundle": "node scripts/download-renderer-bundle.mjs",
     "dev:raw": "bun run build:lua-intel && vite dev",
     "dev": "node scripts/run-variant-build.mjs dev-frontend",
     "dev:base": "node scripts/run-variant-build.mjs dev-frontend base",
@@ -29,20 +30,19 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-dialog": "~2",
-    "@tauri-apps/plugin-fs": "~2",
-    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
+    "@tauri-apps/plugin-fs": "^2.5.1",
+    "@tauri-apps/plugin-opener": "^2.5.4",
     "luaparse": "^0.3.1",
     "monaco-editor": "^0.55.1",
-    "svelte-i18n": "^4.0.1",
-    "yugioh-card": "^1.9.2"
+    "svelte-i18n": "^4.0.1"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",
     "@sveltejs/kit": "^2.9.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
-    "@tauri-apps/cli": "^2",
+    "@tauri-apps/cli": "^2.11.2",
     "@types/luaparse": "^0.2.13",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",

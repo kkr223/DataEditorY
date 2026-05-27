@@ -9,6 +9,7 @@
     onActivateWorkspace = (_tabId: string) => {},
     onCloseWorkspace = async (_tabId: string) => {},
     onOpenAnother = async () => {},
+    onReorderWorkspaces = (_ids: string[]) => {},
   }: {
     workspaces?: WorkspaceDocument[];
     activeWorkspaceId?: string | null;
@@ -16,35 +17,164 @@
     onActivateWorkspace?: (tabId: string) => void;
     onCloseWorkspace?: (tabId: string) => void | Promise<void>;
     onOpenAnother?: () => void | Promise<void>;
+    onReorderWorkspaces?: (orderedIds: string[]) => void;
   } = $props();
 
+  // ── Local ordered copy ──────────────────────────────────────────────
+
+  let ordered = $state<WorkspaceDocument[]>([]);
+  let prevWorkspaceIds = $state('');
+
+  $effect(() => {
+    const ids = workspaces.map((w) => w.id).join(',');
+    if (ids === prevWorkspaceIds) return;
+    prevWorkspaceIds = ids;
+
+    const propIds = new Set(workspaces.map((w) => w.id));
+    const currentIds = new Set(ordered.map((w) => w.id));
+
+    // Start from current order, drop removed items
+    let next = ordered.filter((w) => propIds.has(w.id));
+
+    // Append new items at the end
+    for (const ws of workspaces) {
+      if (!currentIds.has(ws.id)) {
+        next = [...next, ws];
+      }
+    }
+
+    // Only update when the ordered list actually changed
+    if (next.length !== ordered.length || next.some((w, i) => w.id !== ordered[i]?.id)) {
+      ordered = next;
+    }
+  });
+
+  function commitOrder() {
+    onReorderWorkspaces(ordered.map((w) => w.id));
+  }
+
+  // ── Drag-to-reorder ─────────────────────────────────────────────────
+
+  let draggedId = $state<string | null>(null);
+  let dragOverId = $state<string | null>(null);
+  let dragPointerId = $state(-1);
+  let listEl = $state<HTMLElement | null>(null);
+
+  function dragStart(id: string, event: PointerEvent) {
+    // Don't start drag from close button or interactive children
+    const target = event.target as HTMLElement;
+    if (target.closest('.tab-close')) return;
+
+    draggedId = id;
+    dragPointerId = event.pointerId;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event: PointerEvent) {
+    if (!draggedId || !listEl) return;
+
+    const items = listEl.querySelectorAll<HTMLElement>('.tab-item:not(.tab-add)');
+    let targetId: string | null = null;
+
+    for (const item of items) {
+      const rect = item.getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+      if (event.clientX < midX) {
+        targetId = item.dataset.tabId ?? null;
+        break;
+      }
+    }
+
+    // If pointer is past the last item, target after the last
+    if (targetId === null && items.length > 0) {
+      const lastItem = items[items.length - 1];
+      const lastRect = lastItem.getBoundingClientRect();
+      if (event.clientX > lastRect.right) {
+        targetId = '__end__';
+      }
+    }
+
+    dragOverId = targetId;
+  }
+
+  function onPointerUp(_event: PointerEvent) {
+    if (!draggedId) return;
+    commitDrag();
+  }
+
+  function commitDrag() {
+    if (!draggedId || dragOverId === null) {
+      draggedId = null;
+      dragOverId = null;
+      dragPointerId = -1;
+      return;
+    }
+
+    const fromIdx = ordered.findIndex((w) => w.id === draggedId);
+    if (fromIdx === -1) {
+      resetDrag();
+      return;
+    }
+
+    const dragged = ordered[fromIdx];
+    let next = ordered.filter((w) => w.id !== draggedId);
+
+    if (dragOverId === '__end__') {
+      next.push(dragged);
+    } else {
+      const toIdx = next.findIndex((w) => w.id === dragOverId);
+      if (toIdx === -1) {
+        resetDrag();
+        return;
+      }
+      next.splice(toIdx, 0, dragged);
+    }
+
+    ordered = next;
+    commitOrder();
+    resetDrag();
+  }
+
+  function resetDrag() {
+    draggedId = null;
+    dragOverId = null;
+    dragPointerId = -1;
+  }
+
   function getWorkspaceIcon(workspace: WorkspaceDocument) {
-    if (workspace.kind === 'settings') {
-      return 'settings';
-    }
-
-    if (workspace.kind === 'script') {
-      return 'script';
-    }
-
+    if (workspace.kind === 'settings') return 'settings';
+    if (workspace.kind === 'script') return 'script';
+    if (workspace.kind === 'card-image') return 'image';
     return 'db';
   }
 </script>
 
 {#if workspaces.length > 0}
-  <div class="tab-bar">
-    {#each workspaces as workspace (workspace.id)}
+  <div class="tab-bar" class:overflow-mode={workspaces.length > 10} bind:this={listEl}
+    role="application"
+    onpointermove={onPointerMove}
+    onpointerup={onPointerUp}
+    onpointercancel={resetDrag}
+  >
+    {#each ordered as workspace (workspace.id)}
       <button
+        data-tab-id={workspace.id}
         class="tab-item"
         class:active={activeWorkspaceId === workspace.id}
         class:script-tab={workspace.kind === 'script'}
+        class:image-tab={workspace.kind === 'card-image'}
+        class:dragging={draggedId === workspace.id}
+        class:drag-over={dragOverId === workspace.id}
         onclick={() => onActivateWorkspace(workspace.id)}
+        onpointerdown={(e) => dragStart(workspace.id, e)}
         title={workspace.subtitle}
       >
         {#if getWorkspaceIcon(workspace) === 'settings'}
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.3l.06.06A1.65 1.65 0 0 0 8.92 4a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v-.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 1 1 19.63 7l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.44.55.94 1.08 1H21a2 2 0 1 1 0 4h-.09c-.53.06-.94.56-1.08 1z"></path></svg>
         {:else if getWorkspaceIcon(workspace) === 'script'}
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M10 13h4"></path><path d="M10 17h4"></path><path d="M8 9h1"></path></svg>
+        {:else if getWorkspaceIcon(workspace) === 'image'}
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="M21 15l-5-5L5 21"></path></svg>
         {:else}
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
         {/if}
@@ -81,11 +211,35 @@
     overflow-x: auto;
     flex-shrink: 0;
     position: relative;
+    user-select: none;
+  }
+
+  .tab-bar:not(.overflow-mode) {
     scrollbar-width: none;
   }
 
-  .tab-bar::-webkit-scrollbar {
+  .tab-bar:not(.overflow-mode)::-webkit-scrollbar {
     display: none;
+  }
+
+  .tab-bar.overflow-mode {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+    padding-bottom: 2px;
+  }
+
+  .tab-bar.overflow-mode::-webkit-scrollbar {
+    height: 6px;
+    display: block;
+  }
+
+  .tab-bar.overflow-mode::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .tab-bar.overflow-mode::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
   }
 
   .tab-bar::after {
@@ -122,6 +276,12 @@
     font: inherit;
     transform: translateY(2px);
     box-shadow: none;
+    touch-action: none;
+  }
+
+  .tab-bar.overflow-mode .tab-item {
+    flex-shrink: 0;
+    min-width: 108px;
   }
 
   .tab-item::before {
@@ -163,6 +323,10 @@
 
   .script-tab.active {
     background: color-mix(in srgb, var(--accent-primary) 10%, var(--tab-surface-active));
+  }
+
+  .image-tab.active {
+    background: color-mix(in srgb, var(--feature-image-bg) 64%, var(--tab-surface-active));
   }
 
   .tab-item svg {
@@ -247,5 +411,17 @@
   .tab-add:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring-strong);
+  }
+
+  /* ── Drag states ────────────────────────────────────────────────── */
+
+  .tab-item.dragging {
+    opacity: 0.45;
+    transform: translateY(2px) scale(0.97);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+
+  .tab-item.drag-over {
+    box-shadow: inset 2px 0 0 var(--accent-primary);
   }
 </style>

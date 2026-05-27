@@ -2,11 +2,10 @@ import type { CardDataEntry } from '$lib/types';
 import type { ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { getCardsByIds, modifyCard } from '$lib/stores/db';
-import { setSingleSelectedCard } from '$lib/stores/editor.svelte';
+import { setSingleSelectedCard } from '$lib/stores/cardSelection.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
-import { cloneEditableCard, createEmptyCard } from '$lib/utils/card';
-import { toPersistableCard } from '$lib/domain/card/draft';
+import { cloneEditableCard, createEmptyCard, toPersistableCard } from '$lib/domain/card/draft';
 import { importCardImage, resolveCardImageSrc } from '$lib/services/cardImageService';
 import {
   ensureAiReady,
@@ -15,7 +14,7 @@ import {
   isAbortError,
 } from '$lib/services/scriptGeneration';
 import { createAiAppContext } from '$lib/services/aiAppContext';
-import { parseCardManuscript, runEditorInstruction } from '$lib/utils/ai';
+import { parseCardManuscript, runEditorInstruction } from '$lib/features/ai/service';
 import { createInitialParseManuscript } from '$lib/features/card-editor/controller';
 import { getValidatedCardCode } from '$lib/features/card-editor/useCases';
 
@@ -31,21 +30,31 @@ export async function pickCardImageFlow(input: {
   const targetCode = getValidatedCardCode(input.draftCard, input.t);
   if (!targetCode) return;
 
-  const selected = await tauriBridge.open({
-    multiple: false,
-    filters: [{ name: 'Images', extensions: ['jpg', 'png', 'jpeg'] }],
-  });
-  if (selected && typeof selected === 'string') {
-    try {
-      await importCardImage({
-        cdbPath: input.activeCdbPath,
-        cardCode: targetCode,
-        sourcePath: selected,
-      });
-      input.setImageSrc(await resolveCardImageSrc(input.activeCdbPath, targetCode, true));
-    } catch (error) {
-      console.error('Failed to copy image', error);
+  try {
+    const selected = await tauriBridge.open({
+      multiple: false,
+      filters: [{ name: 'Images', extensions: ['jpg', 'png', 'jpeg'] }],
+    });
+    if (selected && typeof selected === 'string') {
+      try {
+        await importCardImage({
+          cdbPath: input.activeCdbPath,
+          cardCode: targetCode,
+          sourcePath: selected,
+        });
+        input.setImageSrc(await resolveCardImageSrc(input.activeCdbPath, targetCode, true));
+      } catch (error) {
+        console.error('Failed to copy image', error);
+        void writeErrorLog({
+          source: 'editor.image.import',
+          error,
+          extra: { cdbPath: input.activeCdbPath, cardCode: targetCode, sourcePath: selected },
+        });
+        showToast(input.t('editor.card_image_import_failed'), 'error');
+      }
     }
+  } catch (error) {
+    console.error('Failed to open file dialog for image import', error);
   }
 }
 

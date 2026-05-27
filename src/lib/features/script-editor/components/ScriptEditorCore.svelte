@@ -15,7 +15,7 @@
     isLoading: boolean;
     items: Record<
       import('$lib/features/script-editor/controller').ScriptReferenceManualKind,
-      import('$lib/utils/luaReferenceManual').LuaReferenceManualItem[]
+      import('$lib/features/script-editor/lua/referenceInsert').LuaReferenceManualItem[]
     >;
   };
 </script>
@@ -26,7 +26,7 @@
   import { activeScriptTab, getActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
   import { appSettingsState } from '$lib/stores/appSettings.svelte';
-  import { collectLuaInlineHighlights } from '$lib/utils/luaScriptCalls';
+  import { collectLuaInlineHighlights } from '$lib/features/script-editor/lua/calls';
   import type { CardDataEntry } from '$lib/types';
   import type { editor as MonacoEditor } from 'monaco-editor';
   import { normalizeCardStrings } from '$lib/domain/card/draft';
@@ -49,7 +49,7 @@
     type ScriptMonacoModule as MonacoModule,
     type ScriptMonacoRuntime,
   } from '$lib/features/script-editor/runtime';
-  import { resolveReferenceManualInsertText, type LuaReferenceManualItem } from '$lib/utils/luaReferenceManual';
+  import { resolveReferenceManualInsertText, type LuaReferenceManualItem } from '$lib/features/script-editor/lua/referenceInsert';
 
   function createDefaultHintState(): ScriptEditorCoreHintState {
     return {
@@ -211,7 +211,7 @@
 
     updateReferenceState({ isLoading: true });
     try {
-      const module = await import('$lib/utils/luaReferenceManual');
+      const module = await import('$lib/features/script-editor/lua/reference');
       updateReferenceState({
         items: {
           ...referenceState.items,
@@ -681,6 +681,10 @@
     validateTimer = null;
     monacoRuntime?.dispose();
     monacoRuntime = null;
+    editorInstance = null;
+    monacoModule = null;
+    monacoApi = null;
+    isMonacoReady = false;
   });
 
   $effect(() => {

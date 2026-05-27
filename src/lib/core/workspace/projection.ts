@@ -1,6 +1,7 @@
 import type { CdbTab } from '$lib/stores/db';
-import type { ScriptWorkspaceState } from '$lib/types';
+import type { CardImageWorkspaceState, ScriptWorkspaceState } from '$lib/types';
 import type {
+  CardImageWorkspaceDocument,
   DbWorkspaceDocument,
   ScriptWorkspaceDocument,
   SettingsWorkspaceDocument,
@@ -40,19 +41,44 @@ export function toScriptWorkspaceDocument(
     id: tab.id,
     kind: 'script',
     title,
-    subtitle: tab.cardName || tab.scriptPath,
+    subtitle: tab.sourceKind === 'file' ? tab.scriptPath : tab.cardName || tab.scriptPath,
     dirty: tab.isDirty,
     status: 'ready',
     savePolicy: 'manual',
     closeGuard: 'confirm-dirty',
     source: {
-      path: tab.cdbPath,
+      path: tab.sourceKind === 'file' ? tab.scriptPath : tab.cdbPath,
       tabId: tab.sourceTabId,
     },
     viewState: {
       scriptPath: tab.scriptPath,
       cardCode: tab.cardCode,
       createdFromTemplate: tab.createdFromTemplate,
+    },
+    legacy: tab,
+  };
+}
+
+export function toCardImageWorkspaceDocument(
+  tab: CardImageWorkspaceState,
+  title: string,
+): CardImageWorkspaceDocument {
+  return {
+    id: tab.id,
+    kind: 'card-image',
+    title,
+    subtitle: tab.cardName || tab.cdbPath,
+    dirty: false,
+    status: 'ready',
+    savePolicy: 'none',
+    closeGuard: 'none',
+    source: {
+      path: tab.cdbPath,
+      tabId: tab.sourceTabId,
+    },
+    viewState: {
+      cardCode: tab.cardCode,
+      cardName: tab.cardName,
     },
     legacy: tab,
   };
@@ -79,8 +105,10 @@ export function createSettingsWorkspaceDocument(): SettingsWorkspaceDocument {
 export function buildWorkspaceDocuments(input: {
   dbTabs: CdbTab[];
   scriptTabs: ScriptWorkspaceState[];
+  cardImageTabs: CardImageWorkspaceState[];
   settingsOpen: boolean;
   getScriptTitle: (tab: ScriptWorkspaceState) => string;
+  getCardImageTitle: (tab: CardImageWorkspaceState) => string;
 }): WorkspaceDocument[] {
   const documents: WorkspaceDocument[] = [];
 
@@ -92,15 +120,19 @@ export function buildWorkspaceDocuments(input: {
   documents.push(
     ...input.scriptTabs.map((tab) => toScriptWorkspaceDocument(tab, input.getScriptTitle(tab))),
   );
+  documents.push(
+    ...input.cardImageTabs.map((tab) => toCardImageWorkspaceDocument(tab, input.getCardImageTitle(tab))),
+  );
 
   return documents;
 }
 
 export function resolveActiveWorkspaceId(input: {
-  mainView: 'editor' | 'settings' | 'script';
+  mainView: 'editor' | 'settings' | 'script' | 'card-image';
   settingsOpen: boolean;
   activeDbTabId: string | null;
   activeScriptTabId: string | null;
+  activeCardImageTabId: string | null;
 }) {
   if (input.mainView === 'settings' && input.settingsOpen) {
     return SETTINGS_WORKSPACE_ID;
@@ -108,6 +140,10 @@ export function resolveActiveWorkspaceId(input: {
 
   if (input.mainView === 'script') {
     return input.activeScriptTabId;
+  }
+
+  if (input.mainView === 'card-image') {
+    return input.activeCardImageTabId;
   }
 
   return input.activeDbTabId;

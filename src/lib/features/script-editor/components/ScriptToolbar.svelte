@@ -16,6 +16,7 @@
   export let checkDiagnosticsLabel = '';
   export let openExternalLabel = '';
   export let imageActionLabel = '';
+  export let canShareImage = true;
   export let saveLabel = '';
   export let isSharingImage = false;
   export let sharingImageLabel = '';
@@ -58,9 +59,11 @@
     <button class="btn-secondary" type="button" onclick={onOpenExternal}>
       {openExternalLabel}
     </button>
-    <button class="btn-secondary" type="button" onclick={onShareImage} disabled={isSharingImage}>
-      {isSharingImage ? sharingImageLabel : imageActionLabel}
-    </button>
+    {#if canShareImage}
+      <button class="btn-secondary" type="button" onclick={onShareImage} disabled={isSharingImage}>
+        {isSharingImage ? sharingImageLabel : imageActionLabel}
+      </button>
+    {/if}
     <button class="btn-primary" type="button" onclick={onSave} disabled={isSaving}>
       {isSaving ? savingLabel : saveLabel}
     </button>

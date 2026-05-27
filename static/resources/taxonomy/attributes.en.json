@@ -1,0 +1,32 @@
+{
+  "editorOptions": [
+    { "value": "0x0", "label": "N/A" },
+    { "value": "0x1", "label": "EARTH" },
+    { "value": "0x2", "label": "WATER" },
+    { "value": "0x4", "label": "FIRE" },
+    { "value": "0x8", "label": "WIND" },
+    { "value": "0x10", "label": "LIGHT" },
+    { "value": "0x20", "label": "DARK" },
+    { "value": "0x40", "label": "DIVINE" }
+  ],
+  "filterOptions": [
+    { "value": "", "label": "N/A" },
+    { "value": "earth", "label": "EARTH" },
+    { "value": "water", "label": "WATER" },
+    { "value": "fire", "label": "FIRE" },
+    { "value": "wind", "label": "WIND" },
+    { "value": "light", "label": "LIGHT" },
+    { "value": "dark", "label": "DARK" },
+    { "value": "divine", "label": "DIVINE" }
+  ],
+  "cardImageOptions": [
+    { "value": "", "label": "N/A" },
+    { "value": "dark", "label": "DARK" },
+    { "value": "light", "label": "LIGHT" },
+    { "value": "earth", "label": "EARTH" },
+    { "value": "water", "label": "WATER" },
+    { "value": "fire", "label": "FIRE" },
+    { "value": "wind", "label": "WIND" },
+    { "value": "divine", "label": "DIVINE" }
+  ]
+}

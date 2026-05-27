@@ -1,7 +1,3 @@
-declare module "yugioh-card" {
-  export const YugiohCard: any;
-}
-
 declare module 'monaco-editor/esm/vs/editor/editor.api' {
   export * from 'monaco-editor';
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SetcodeOption } from "$lib/utils/setcode";
+  import type { SetcodeOption } from "$lib/services/setcodeCatalog";
 
   let {
     index,

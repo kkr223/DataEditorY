@@ -13,14 +13,16 @@
     CARD_IMAGE_TYPE_OPTIONS,
     normalizeCardImageFormData,
     type CardImageFormData,
-  } from '$lib/utils/cardImage';
-  import type { ColorPreset } from '$lib/features/card-image/controller';
+  } from '$lib/features/card-image/layout';
   import {
     MAX_EXPORT_SCALE_PERCENT,
-    MAX_FOREGROUND_SCALE,
     MIN_EXPORT_SCALE_PERCENT,
+    type ColorPreset,
+  } from '$lib/features/card-image/form/controller';
+  import {
+    MAX_FOREGROUND_SCALE,
     MIN_FOREGROUND_SCALE,
-  } from '$lib/features/card-image/controller';
+  } from '$lib/features/card-image/foreground/geometry';
 
   let {
     variant,
@@ -207,6 +209,7 @@
       <label class="toggle"><input type="checkbox" bind:checked={form.firstLineCompress} /><span>{$_('editor.card_image_first_line_compress')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.descriptionAlign} /><span>{$_('editor.card_image_description_center')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.twentieth} /><span>{$_('editor.card_image_twentieth')}</span></label>
+      <label class="toggle"><input type="checkbox" bind:checked={form.twentyFifth} /><span>{$_('editor.card_image_twenty_fifth')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.radius} /><span>{$_('editor.card_image_round_corner')}</span></label>
     </div>
   </section>
@@ -218,6 +221,10 @@
       {$_('editor.card_image_foreground_empty')}
     {/if}
   </p>
+
+  <div class="toggle-grid">
+    <label class="toggle"><input type="checkbox" bind:checked={form.showNameBox} /><span>{$_('editor.card_image_show_name_box')}</span></label>
+  </div>
 
   <div class="drawer-section foreground-section">
     <div class="section-title">{$_('editor.card_image_foreground_transform')}</div>
@@ -234,9 +241,16 @@
   <div class="drawer-section foreground-section">
     <div class="effect-block-header">
       <div class="section-title">{$_('editor.card_image_effect_block')}</div>
-      <label class="toggle effect-block-toggle"><input type="checkbox" bind:checked={form.effectBlockEnabled} /><span>{$_('editor.card_image_effect_block_enable')}</span></label>
     </div>
-    <fieldset class="effect-block-fieldset" disabled={!form.effectBlockEnabled}>
+    <div class="field">
+      <span>{$_('editor.card_image_effect_block_type')}</span>
+      <select bind:value={form.effectBlockType}>
+        <option value="none">{$_('editor.card_image_effect_block_type_none')}</option>
+        <option value="type1">{$_('editor.card_image_effect_block_type_type1')}</option>
+        <option value="type2">{$_('editor.card_image_effect_block_type_type2')}</option>
+      </select>
+    </div>
+    <fieldset class="effect-block-fieldset" disabled={form.effectBlockType === 'none'}>
       <div class="field-grid">
         <label class="field"><span>{$_('editor.card_image_effect_block_opacity')}</span><input type="number" min="0" max="1" step="0.05" bind:value={form.effectBlockOpacity} /></label>
         <div class="field">

@@ -1,4 +1,17 @@
-import type { BitOption, LinkMarkerOption, SelectOption } from '$lib/types';
+import type { BitOption, LinkMarkerOption } from '$lib/types';
+
+// Re-export runtime-configurable options from the taxonomy config loader.
+// These are loaded from static/resources/taxonomy/*.json at app startup.
+export {
+  RACE_OPTIONS,
+  ATTRIBUTE_OPTIONS,
+  ATTRIBUTE_FILTER_OPTIONS,
+  CARD_IMAGE_ATTRIBUTE_OPTIONS,
+  PERMISSION_OPTIONS,
+  LEVEL_MIN,
+  LEVEL_MAX,
+  initTaxonomyConfig,
+} from '$lib/data/taxonomy-config';
 
 export const TYPE_MAP: Record<string, number> = {
   monster: 0x1,
@@ -123,57 +136,6 @@ export const LINK_MARKERS: LinkMarkerOption[] = [
   { bit: LINK_MARKER_NAME_TO_BIT.upleft, label: '↖', row: 0, col: 0 },
   { bit: LINK_MARKER_NAME_TO_BIT.up, label: '↑', row: 0, col: 1 },
   { bit: LINK_MARKER_NAME_TO_BIT.upright, label: '↗', row: 0, col: 2 },
-];
-
-export const RACE_OPTIONS: SelectOption<number>[] = [
-  { value: 0, key: 'search.na' },
-  { value: RACE_MAP.warrior, key: 'search.races.warrior' },
-  { value: RACE_MAP.spellcaster, key: 'search.races.spellcaster' },
-  { value: RACE_MAP.fairy, key: 'search.races.fairy' },
-  { value: RACE_MAP.fiend, key: 'search.races.fiend' },
-  { value: RACE_MAP.zombie, key: 'search.races.zombie' },
-  { value: RACE_MAP.machine, key: 'search.races.machine' },
-  { value: RACE_MAP.aqua, key: 'search.races.aqua' },
-  { value: RACE_MAP.pyro, key: 'search.races.pyro' },
-  { value: RACE_MAP.rock, key: 'search.races.rock' },
-  { value: RACE_MAP.wingedbeast, key: 'search.races.wingedbeast' },
-  { value: RACE_MAP.plant, key: 'search.races.plant' },
-  { value: RACE_MAP.insect, key: 'search.races.insect' },
-  { value: RACE_MAP.thunder, key: 'search.races.thunder' },
-  { value: RACE_MAP.dragon, key: 'search.races.dragon' },
-  { value: RACE_MAP.beast, key: 'search.races.beast' },
-  { value: RACE_MAP.beastwarrior, key: 'search.races.beastwarrior' },
-  { value: RACE_MAP.dinosaur, key: 'search.races.dinosaur' },
-  { value: RACE_MAP.fish, key: 'search.races.fish' },
-  { value: RACE_MAP.seaserpent, key: 'search.races.seaserpent' },
-  { value: RACE_MAP.reptile, key: 'search.races.reptile' },
-  { value: RACE_MAP.psychic, key: 'search.races.psychic' },
-  { value: RACE_MAP.divinebeast, key: 'search.races.divinebeast' },
-  { value: RACE_MAP.creatorgod, key: 'search.races.creatorgod' },
-  { value: RACE_MAP.wyrm, key: 'search.races.wyrm' },
-  { value: RACE_MAP.cyberse, key: 'search.races.cyberse' },
-  { value: RACE_MAP.illusion, key: 'search.races.illusion' },
-];
-
-export const PERMISSION_OPTIONS: SelectOption<number>[] = [
-  { value: 0, label: 'N/A' },
-  { value: 1, label: 'OCG' },
-  { value: 2, label: 'TCG' },
-  { value: 3, label: 'OCG/TCG' },
-  { value: 4, label: 'Custom' },
-  { value: 9, label: '简体中文' },
-  { value: 11, label: '简体中文/TCG' },
-];
-
-export const ATTRIBUTE_OPTIONS: SelectOption<number>[] = [
-  { value: 0, key: 'search.na' },
-  { value: ATTRIBUTE_MAP.earth, key: 'search.attributes.earth' },
-  { value: ATTRIBUTE_MAP.water, key: 'search.attributes.water' },
-  { value: ATTRIBUTE_MAP.fire, key: 'search.attributes.fire' },
-  { value: ATTRIBUTE_MAP.wind, key: 'search.attributes.wind' },
-  { value: ATTRIBUTE_MAP.light, key: 'search.attributes.light' },
-  { value: ATTRIBUTE_MAP.dark, key: 'search.attributes.dark' },
-  { value: ATTRIBUTE_MAP.divine, key: 'search.attributes.divine' },
 ];
 
 export function getCardTypeKey(type: number): string {

@@ -1,5 +1,10 @@
 import { get } from 'svelte/store';
-import type { CardDataEntry, SearchFilters } from '$lib/types';
+import type {
+  CardDataEntry,
+  SearchCardsPageRequest,
+  SearchCardsPageResponse,
+  SearchFilters,
+} from '$lib/types';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import { buildSearchQuery } from '$lib/domain/search/query';
 import { parseDeckTextToCardIds, splitSourceTerms } from '$lib/domain/search/sourceFilters';
@@ -18,11 +23,6 @@ export interface CachedSearchSnapshot {
   filters: SearchFilters;
 }
 
-interface SearchCardsPageResponse {
-  cards: CardDataEntry[];
-  total: number;
-}
-
 interface ResolvedSourceFilterIds {
   active: boolean;
   ids: number[];
@@ -31,6 +31,7 @@ interface ResolvedSourceFilterIds {
 const SEARCH_PAGE_SIZE = 50;
 const EXACT_NAME_CHUNK_SIZE = 100;
 const cachedSearchRefreshListeners = new Set<(snapshot: CachedSearchSnapshot) => void>();
+const activeSearchRequestTokens = new Map<string, number>();
 
 // Source-filter resolution caches (module-level, in-memory)
 // Key for deckTextCache:       trimmed deckText string
@@ -106,6 +107,16 @@ function updateCachedSearchSnapshot(snapshot: CachedSearchSnapshot) {
   }
 }
 
+function nextSearchRequestToken(tabId: string) {
+  const token = (activeSearchRequestTokens.get(tabId) ?? 0) + 1;
+  activeSearchRequestTokens.set(tabId, token);
+  return token;
+}
+
+function isLatestSearchRequestToken(tabId: string, token: number) {
+  return activeSearchRequestTokens.get(tabId) === token;
+}
+
 async function searchCardsPageInTab(
   tabId: string,
   filters: SearchFilters,
@@ -117,14 +128,15 @@ async function searchCardsPageInTab(
     sourceIds: resolvedSourceFilterIds.active ? resolvedSourceFilterIds.ids : undefined,
   });
   const safePage = Math.max(1, page);
+  const request: SearchCardsPageRequest = {
+    tabId,
+    whereClause,
+    params,
+    page: safePage,
+    pageSize,
+  };
   const response = await invokeCommand<SearchCardsPageResponse>('search_cards_page', {
-    request: {
-      tabId,
-      whereClause,
-      params,
-      page: safePage,
-      pageSize,
-    },
+    request,
   });
 
   return {
@@ -268,15 +280,22 @@ export async function searchCardsPage(
   const tab = get(activeTab);
   if (!tab) return { cards: [], total: 0 };
 
+  const requestToken = nextSearchRequestToken(tab.id);
+  const filtersSnapshot = { ...DEFAULT_SEARCH_FILTERS, ...filters };
+
   try {
     const safePage = Math.max(1, page);
-    const response = await searchCardsPageInTab(tab.id, filters, safePage, pageSize);
+    const response = await searchCardsPageInTab(tab.id, filtersSnapshot, safePage, pageSize);
+    if (!isLatestSearchRequestToken(tab.id, requestToken)) {
+      return response;
+    }
+
     updateCachedSearchSnapshot({
       tabId: tab.id,
       cards: response.cards,
       total: response.total,
       page: safePage,
-      filters,
+      filters: filtersSnapshot,
     });
     return response;
   } catch (err) {
@@ -284,6 +303,6 @@ export async function searchCardsPage(
       throw err;
     }
     console.error('Search failed:', err);
-    return { cards: [], total: 0 };
+    throw err;
   }
 }

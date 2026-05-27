@@ -52,5 +52,55 @@ describe('lua script diagnostics', () => {
     expect(diagnostics.some((item) => item.message.includes('Undefined global variable: MissingHelper'))).toBe(true);
     expect(diagnostics.some((item) => item.message.includes('Undefined global variable: c12345678'))).toBe(false);
   });
+
+  test('reports duplicate local definitions in the same scope', () => {
+    const diagnostics = analyzeLuaScript([
+      'local s,id=GetID()',
+      'function s.initial_effect(c)',
+      '\tlocal e1=Effect.CreateEffect(c)',
+      '\tlocal e1=Effect.CreateEffect(c)',
+      'end',
+      '',
+    ].join('\n'));
+
+    expect(diagnostics.some((item) => item.message.includes('Duplicate definition: e1'))).toBe(true);
+  });
+
+  test('reports duplicate function parameters', () => {
+    const diagnostics = analyzeLuaScript([
+      'local s,id=GetID()',
+      'function s.target(e,tp,e)',
+      '\treturn true',
+      'end',
+      '',
+    ].join('\n'));
+
+    expect(diagnostics.some((item) => item.message.includes('Duplicate definition: e'))).toBe(true);
+  });
+
+  test('reports duplicate script function declarations', () => {
+    const diagnostics = analyzeLuaScript([
+      'local s,id=GetID()',
+      'function s.target(e,tp)',
+      'end',
+      'function s.target(e,tp)',
+      'end',
+      '',
+    ].join('\n'));
+
+    expect(diagnostics.some((item) => item.message.includes('Duplicate definition: s.target'))).toBe(true);
+  });
+
+  test('reports duplicate global function declarations', () => {
+    const diagnostics = analyzeLuaScript([
+      'function helper(e,tp)',
+      'end',
+      'function helper(e,tp)',
+      'end',
+      '',
+    ].join('\n'));
+
+    expect(diagnostics.some((item) => item.message.includes('Duplicate definition: helper'))).toBe(true);
+  });
 });
 

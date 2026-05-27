@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
+  import { AI_CAPABILITY_ENABLED, isCapabilityEnabled } from '$lib/application/capabilities/registry';
   import {
     clearWorkspaceLifecycleMetadata,
     clearWorkspaceSaveHandler,
@@ -37,12 +37,8 @@
   let settingsAiCardModulePromise = $state<Promise<SettingsAiCardModule> | null>(null);
   let settingsExtraUseCasesPromise = $state<Promise<SettingsExtraUseCasesModule> | null>(null);
   const hasAiCapability = isCapabilityEnabled('ai');
-  const loadSettingsExtraUseCases = __APP_FEATURES__.ai
-    ? () => import('$lib/features/settings/extraUseCases')
-    : null;
-  const loadSettingsAiCardModule = __APP_FEATURES__.ai
-    ? () => import('$lib/features/settings/components/SettingsAiCard.svelte')
-    : null;
+  const loadSettingsExtraUseCases = AI_CAPABILITY_ENABLED ? () => import('$lib/features/settings/extraUseCases') : null;
+  const loadSettingsAiCardModule = AI_CAPABILITY_ENABLED ? () => import('$lib/features/settings/components/SettingsAiCard.svelte') : null;
 
   let settingsDescription = $derived($_(hasAiCapability ? 'settings.description_extra' : 'settings.description_base'));
   let connectionHint = $derived.by(() => {

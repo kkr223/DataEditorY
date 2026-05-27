@@ -52,6 +52,7 @@ export interface CardImageBaseData {
   rare: string;
   twentieth: boolean;
   radius: boolean;
+  showNameBox: boolean;
   scale: number;
 }
 

@@ -2,7 +2,8 @@ import { get, fromStore } from 'svelte/store';
 import { _, locale } from 'svelte-i18n';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { consumePendingOpenCdbPaths } from '$lib/infrastructure/tauri/commands';
+import { consumePendingExternalOpenPaths } from '$lib/infrastructure/tauri/commands';
+import type { ExternalOpenPaths } from '$lib/types';
 import {
   deleteCards,
   getCardsByIds,
@@ -27,21 +28,22 @@ import { isShortcutEvent } from '$lib/features/shortcuts/registry';
 import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
 import {
   clearSelection,
-  getAllCardsMap,
   getSelectedCardIds,
   getSelectedCards,
-  handleSearch,
   setSelectedCards,
-} from '$lib/stores/editor.svelte';
+} from '$lib/stores/cardSelection.svelte';
+import { getAllCardsMap, handleSearch } from '$lib/stores/searchStore.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { dispatchAppShortcut } from '$lib/utils/shortcuts';
 import { writeErrorLog } from '$lib/utils/errorLog';
+import { cloneCard } from '$lib/stores/cardUtils';
 import {
   type DragDropPayload,
+  classifyExternalOpenPaths,
   isCdbFilePath,
+  isExternalTextFilePath,
   isEditableTarget,
   isNativeTextUndoTarget,
-  normalizeExternalOpenPaths,
 } from '$lib/features/shell/controller';
 import {
   activateWorkspaceDocument,
@@ -56,9 +58,9 @@ import {
 } from '$lib/application/workspace/lifecycle';
 import { getEnabledCapabilities } from '$lib/application/capabilities/registry';
 import { SETTINGS_WORKSPACE_ID, workspaceState } from '$lib/core/workspace/store.svelte';
-import type { CardDataEntry } from '$lib/types';
 
 const PRELOAD_RETRY_KEY = 'dataeditory:preload-retry';
+const PRELOAD_MAX_RETRIES = 3;
 const OPEN_HISTORY_HIDE_DELAY_MS = 180;
 const MAX_DIRTY_DOCUMENT_NAMES = 5;
 
@@ -162,18 +164,25 @@ export function createShellLayoutController() {
     removeRecentCdbHistoryEntry(path);
   }
 
-  async function handleExternalOpenPaths(paths: string[]) {
-    const filteredPaths = normalizeExternalOpenPaths(paths);
-    if (filteredPaths.length === 0) {
+  async function handleClassifiedExternalOpenPaths(paths: ExternalOpenPaths) {
+    if (paths.cdbPaths.length === 0 && paths.textPaths.length === 0) {
       return;
     }
 
     let firstOpenedId: string | null = null;
-    for (const path of filteredPaths) {
+    for (const path of paths.cdbPaths) {
       const openedId = await openCdbPath(path);
       if (openedId && !firstOpenedId) {
         firstOpenedId = openedId;
       }
+    }
+
+    if (paths.textPaths.length > 0) {
+      const { openExternalScriptFileWorkspace } = await import('$lib/services/cardScriptService');
+      for (const path of paths.textPaths) {
+        await openExternalScriptFileWorkspace(path);
+      }
+      return;
     }
 
     if (firstOpenedId) {
@@ -181,10 +190,15 @@ export function createShellLayoutController() {
     }
   }
 
+  async function handleExternalOpenPaths(paths: string[]) {
+    await handleClassifiedExternalOpenPaths(classifyExternalOpenPaths(paths));
+  }
+
   function updateFileDragState(paths: string[] = []) {
     const hasCdb = paths.some((path) => isCdbFilePath(path));
-    state.isFileDragActive = hasCdb;
-    state.dragOverlayMessage = hasCdb ? 'Drop .cdb to open' : 'Unsupported file';
+    const hasText = paths.some((path) => isExternalTextFilePath(path));
+    state.isFileDragActive = hasCdb || hasText;
+    state.dragOverlayMessage = hasCdb || hasText ? 'Drop to open' : 'Unsupported file';
   }
 
   function clearFileDragState() {
@@ -240,11 +254,7 @@ export function createShellLayoutController() {
       if (!shouldOverwrite) return;
     }
 
-    const pastedCards = clipboardCards.map((card) => ({
-      ...card,
-      setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
-      strings: Array.isArray(card.strings) ? [...card.strings] : [],
-    } satisfies CardDataEntry));
+    const pastedCards = clipboardCards.map((card) => cloneCard(card));
     const ok = await modifyCards(pastedCards);
     if (!ok) {
       showToast('Paste failed', 'error');
@@ -445,15 +455,15 @@ export function createShellLayoutController() {
     const unlisteners: Array<() => void> = [];
 
     if (tauriBridge.isTauri()) {
-      void consumePendingOpenCdbPaths()
-        .then((paths) => handleExternalOpenPaths(paths))
+      void consumePendingExternalOpenPaths()
+        .then((paths) => handleClassifiedExternalOpenPaths(paths))
         .catch((error) => {
-          console.error('Failed to consume pending cdb paths:', error);
-          void writeErrorLog({ source: 'shell.consume-pending-open-cdb-paths', error });
+          console.error('Failed to consume pending external open paths:', error);
+          void writeErrorLog({ source: 'shell.consume-pending-external-open-paths', error });
         });
 
-      void tauriBridge.listen<string[]>('open-cdb-paths', (event) => {
-        void handleExternalOpenPaths(event.payload);
+      void tauriBridge.listen<ExternalOpenPaths>('open-external-paths', (event) => {
+        void handleClassifiedExternalOpenPaths(event.payload);
       }).then((unlisten) => {
         unlisteners.push(unlisten);
       });
@@ -506,13 +516,15 @@ export function createShellLayoutController() {
         error: preloadEvent.payload ?? 'Unknown preload error',
       });
 
-      if (sessionStorage.getItem(PRELOAD_RETRY_KEY) === '1') {
+      const retryCount = Number(sessionStorage.getItem(PRELOAD_RETRY_KEY) ?? '0');
+
+      if (retryCount >= PRELOAD_MAX_RETRIES) {
         sessionStorage.removeItem(PRELOAD_RETRY_KEY);
         showToast('Resource preload failed. Please reopen the current page.', 'error');
         return;
       }
 
-      sessionStorage.setItem(PRELOAD_RETRY_KEY, '1');
+      sessionStorage.setItem(PRELOAD_RETRY_KEY, String(retryCount + 1));
       window.location.reload();
     };
 
@@ -545,16 +557,15 @@ export function createShellLayoutController() {
       await getCurrentWindow().close();
     };
 
-    const preloadRetryResetTimer = window.setTimeout(() => {
-      sessionStorage.removeItem(PRELOAD_RETRY_KEY);
-    }, 8000);
-
     window.addEventListener('keydown', handleGlobalKeydown);
     window.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('error', handleWindowError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('vite:preloadError', handlePreloadError as EventListener);
+    setTimeout(() => {
+      sessionStorage.removeItem(PRELOAD_RETRY_KEY);
+    }, 5000);
     let closeRequestUnlisten: (() => void) | null = null;
     if (tauriBridge.isTauri()) {
       const appWindow = getCurrentWindow();
@@ -564,7 +575,6 @@ export function createShellLayoutController() {
     }
 
     return () => {
-      window.clearTimeout(preloadRetryResetTimer);
       if (openHistoryHideTimer) {
         clearTimeout(openHistoryHideTimer);
         openHistoryHideTimer = null;

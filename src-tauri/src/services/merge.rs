@@ -406,7 +406,10 @@ pub fn execute_cdb_merge_with_progress(
         .filter_map(|summary| {
             let winner_index = plan.winning_card_source_by_code.get(&summary.0)?;
             let source_path = plan.sources[*winner_index].path.as_str();
-            source_cards_by_path.get(source_path)?.get(&summary.0).cloned()
+            source_cards_by_path
+                .get(source_path)?
+                .get(&summary.0)
+                .cloned()
         })
         .collect();
 
@@ -471,8 +474,7 @@ pub fn execute_cdb_merge_with_progress(
             }
 
             if summary_has_field_subtype(card) {
-                if let Some(&winner_index) = plan.winning_field_image_source_by_code.get(&code)
-                {
+                if let Some(&winner_index) = plan.winning_field_image_source_by_code.get(&code) {
                     let winner_dir = &plan.sources[winner_index].dir;
                     let _ = copy_if_exists(
                         &field_image_path(winner_dir, code),
@@ -588,4 +590,123 @@ pub fn execute_cdb_merge_with_progress(
     Ok(ExecuteCdbMergeResponse {
         output_path: output_cdb_path.to_string_lossy().to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::{create_test_cdb, make_temp_dir};
+
+    fn create_source(root: &Path, name: &str, cards: &[(u32, i64)]) -> PathBuf {
+        let source_dir = root.join(name);
+        fs::create_dir_all(source_dir.join("pics").join("field")).unwrap();
+        fs::create_dir_all(source_dir.join("script")).unwrap();
+        let cdb_path = source_dir.join(format!("{name}.cdb"));
+        create_test_cdb(&cdb_path, cards);
+        cdb_path
+    }
+
+    fn write_source_asset(source_cdb_path: &Path, relative_path: &str, content: &[u8]) {
+        let source_dir = source_cdb_path.parent().unwrap();
+        let path = source_dir.join(relative_path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(path, content).unwrap();
+    }
+
+    #[test]
+    fn merge_plan_prefers_later_sources_for_card_and_asset_conflicts() {
+        let root = make_temp_dir("merge-plan-conflicts");
+        let source_a = create_source(
+            &root,
+            "alpha",
+            &[
+                (100, 0x1),
+                (200, (TYPE_SPELL | SUBTYPE_FIELD) as i64),
+                (300, 0x1),
+            ],
+        );
+        let source_b = create_source(
+            &root,
+            "beta",
+            &[
+                (200, (TYPE_SPELL | SUBTYPE_FIELD) as i64),
+                (400, (TYPE_SPELL | SUBTYPE_FIELD) as i64),
+            ],
+        );
+
+        write_source_asset(&source_a, "pics/100.jpg", b"a-main-100");
+        write_source_asset(&source_a, "pics/200.jpg", b"a-main-200");
+        write_source_asset(&source_a, "pics/field/200.jpg", b"a-field-200");
+        write_source_asset(&source_a, "script/c100.lua", b"a-script-100");
+        write_source_asset(&source_a, "script/c200.lua", b"a-script-200");
+        write_source_asset(&source_b, "pics/200.jpg", b"b-main-200");
+        write_source_asset(&source_b, "pics/400.jpg", b"b-main-400");
+        write_source_asset(&source_b, "pics/field/200.jpg", b"b-field-200");
+        write_source_asset(&source_b, "pics/field/400.jpg", b"b-field-400");
+        write_source_asset(&source_b, "script/c200.lua", b"b-script-200");
+        write_source_asset(&source_b, "script/c400.lua", b"b-script-400");
+
+        let paths = vec![
+            source_a.to_string_lossy().to_string(),
+            source_b.to_string_lossy().to_string(),
+        ];
+        let plan = build_merge_plan(&paths, true, true).unwrap();
+        let response = build_analysis_response(&plan);
+
+        assert_eq!(plan.duplicate_card_total, 1);
+        assert_eq!(
+            plan.merged_cards,
+            vec![
+                (100, 0x1),
+                (200, TYPE_SPELL | SUBTYPE_FIELD),
+                (300, 0x1),
+                (400, TYPE_SPELL | SUBTYPE_FIELD)
+            ]
+        );
+        assert_eq!(plan.winning_card_source_by_code.get(&200), Some(&1));
+        assert_eq!(plan.winning_main_image_source_by_code.get(&200), Some(&1));
+        assert_eq!(plan.winning_field_image_source_by_code.get(&200), Some(&1));
+        assert_eq!(plan.winning_script_source_by_code.get(&200), Some(&1));
+
+        assert_eq!(response.source_count, 2);
+        assert_eq!(response.merged_total, 4);
+        assert_eq!(response.duplicate_card_total, 1);
+        assert_eq!(response.main_image_total, 3);
+        assert_eq!(response.field_image_total, 2);
+        assert_eq!(response.script_total, 3);
+        assert_eq!(response.sources[0].winning_card_count, 2);
+        assert_eq!(response.sources[0].winning_main_image_count, 1);
+        assert_eq!(response.sources[0].winning_field_image_count, 0);
+        assert_eq!(response.sources[0].winning_script_count, 1);
+        assert_eq!(response.sources[1].winning_card_count, 2);
+        assert_eq!(response.sources[1].winning_main_image_count, 2);
+        assert_eq!(response.sources[1].winning_field_image_count, 2);
+        assert_eq!(response.sources[1].winning_script_count, 2);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn merge_plan_respects_asset_include_flags() {
+        let root = make_temp_dir("merge-plan-include-flags");
+        let source = create_source(&root, "only", &[(100, (TYPE_SPELL | SUBTYPE_FIELD) as i64)]);
+        write_source_asset(&source, "pics/100.jpg", b"main");
+        write_source_asset(&source, "pics/field/100.jpg", b"field");
+        write_source_asset(&source, "script/c100.lua", b"script");
+
+        let paths = vec![source.to_string_lossy().to_string()];
+        let response = analyze_cdb_merge_paths(&paths, false, false).unwrap();
+
+        assert_eq!(response.merged_total, 1);
+        assert_eq!(response.main_image_total, 0);
+        assert_eq!(response.field_image_total, 0);
+        assert_eq!(response.script_total, 0);
+        assert_eq!(response.sources[0].winning_main_image_count, 0);
+        assert_eq!(response.sources[0].winning_field_image_count, 0);
+        assert_eq!(response.sources[0].winning_script_count, 0);
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }

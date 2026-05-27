@@ -1,8 +1,7 @@
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import type { CardDataEntry, SearchFilters } from '$lib/types';
 import type { ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
-import { cloneEditableCard, cloneLoadedCardForEditing, createEmptyCard } from '$lib/utils/card';
-import { createCardSnapshot } from '$lib/domain/card/draft';
+import { cloneEditableCard, cloneLoadedCardForEditing, createCardSnapshot, createEmptyCard } from '$lib/domain/card/draft';
 import { ATTRIBUTE_MAP, LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
 import { isShortcutEvent } from '$lib/features/shortcuts/registry';
 
@@ -122,7 +121,7 @@ export function createCardImageInteractionController(input: {
   hasImageSrc: () => boolean;
   hasCardImageCapability: () => boolean;
   setPreviewOpen: (value: boolean) => void;
-  setDrawerOpen: (value: boolean) => void;
+  onOpenEditor: () => void | Promise<void>;
 }) {
   let clickTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -160,15 +159,12 @@ export function createCardImageInteractionController(input: {
     closePreview() {
       input.setPreviewOpen(false);
     },
-    openDrawer() {
+    openEditor() {
       if (!input.hasCardImageCapability()) {
         return false;
       }
-      input.setDrawerOpen(true);
+      void input.onOpenEditor();
       return true;
-    },
-    closeDrawer() {
-      input.setDrawerOpen(false);
     },
   };
 }
@@ -375,7 +371,6 @@ export function shouldIgnoreArrowNavigation(input: {
   event: KeyboardEvent;
   isKeyboardNavigating: boolean;
   isParseModalOpen: boolean;
-  isCardImageDrawerOpen: boolean;
   isImagePreviewOpen: boolean;
   isEditableTarget: (target: EventTarget | null) => boolean;
 }) {
@@ -386,7 +381,6 @@ export function shouldIgnoreArrowNavigation(input: {
     || input.isEditableTarget(input.event.target)
     || input.isKeyboardNavigating
     || input.isParseModalOpen
-    || input.isCardImageDrawerOpen
     || input.isImagePreviewOpen
   );
 }
@@ -436,7 +430,6 @@ export async function handleCardEditorKeydown(
     isDbLoaded: boolean;
     isKeyboardNavigating: boolean;
     isParseModalOpen: boolean;
-    isCardImageDrawerOpen: boolean;
     isImagePreviewOpen: boolean;
     isEditableTarget: (target: EventTarget | null) => boolean;
     confirmDiscardDraft: () => Promise<boolean>;
@@ -458,7 +451,6 @@ export async function handleCardEditorKeydown(
     isShortcutEvent('cardEditor.modify', event, input.shortcutBindings)
     && !input.isKeyboardNavigating
     && !input.isParseModalOpen
-    && !input.isCardImageDrawerOpen
     && !input.isImagePreviewOpen
   ) {
     event.preventDefault();
@@ -471,11 +463,33 @@ export async function handleCardEditorKeydown(
     return;
   }
 
+  if (
+    (isShortcutEvent('cardEditor.selectPreviousGlobal', event, input.shortcutBindings)
+     || isShortcutEvent('cardEditor.selectNextGlobal', event, input.shortcutBindings))
+    && !input.isKeyboardNavigating
+    && !input.isParseModalOpen
+    && !input.isImagePreviewOpen
+  ) {
+    const delta = isShortcutEvent('cardEditor.selectPreviousGlobal', event, input.shortcutBindings) ? -1 : 1;
+    event.preventDefault();
+    const nextCardCode = input.getSelectionTarget(delta);
+    if (nextCardCode !== null) {
+      input.setKeyboardNavigating(true);
+      try {
+        if (await input.confirmDiscardDraft()) {
+          input.selectCard(nextCardCode);
+        }
+      } finally {
+        input.setKeyboardNavigating(false);
+      }
+    }
+    return;
+  }
+
   if (shouldIgnoreArrowNavigation({
     event,
     isKeyboardNavigating: input.isKeyboardNavigating,
     isParseModalOpen: input.isParseModalOpen,
-    isCardImageDrawerOpen: input.isCardImageDrawerOpen,
     isImagePreviewOpen: input.isImagePreviewOpen,
     isEditableTarget: input.isEditableTarget,
   })) {

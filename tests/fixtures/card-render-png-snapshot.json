@@ -1,0 +1,61 @@
+{
+  "width": 599,
+  "height": 873,
+  "samples": [
+    {
+      "label": "upper-frame",
+      "x": 300,
+      "y": 56,
+      "rgba": [
+        190,
+        159,
+        96,
+        255
+      ]
+    },
+    {
+      "label": "art-window",
+      "x": 300,
+      "y": 275,
+      "rgba": [
+        255,
+        255,
+        255,
+        255
+      ]
+    },
+    {
+      "label": "foreground-center",
+      "x": 300,
+      "y": 437,
+      "rgba": [
+        255,
+        35,
+        35,
+        255
+      ]
+    },
+    {
+      "label": "effect-box",
+      "x": 150,
+      "y": 662,
+      "rgba": [
+        243,
+        238,
+        225,
+        255
+      ]
+    },
+    {
+      "label": "lower-right-frame",
+      "x": 520,
+      "y": 812,
+      "rgba": [
+        0,
+        0,
+        0,
+        255
+      ]
+    }
+  ]
+}

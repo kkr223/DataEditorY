@@ -2,21 +2,23 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
-  import { readTextFile } from '$lib/infrastructure/tauri/commands';
+  import { pickDeckText } from '$lib/infrastructure/tauri/commands';
   import { tauriBridge } from '$lib/infrastructure/tauri';
   import {
     clearSearchError,
-    editorState,
     getAllCards,
     getTotalCards,
-    handleSearch,
     handleReset,
+    handleSearch,
+    searchState,
+  } from '$lib/stores/searchStore.svelte';
+  import {
+    cardSelectionState,
     selectCardRange,
     setSingleSelectedCard,
     toggleCardSelection
-  } from '$lib/stores/editor.svelte';
-  import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
-  import { SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
+  } from '$lib/stores/cardSelection.svelte';
+  import { getCardTypeKey, RACE_OPTIONS, ATTRIBUTE_FILTER_OPTIONS, SUBTYPE_MAP, TYPE_MAP, RACE_MAP } from '$lib/domain/card/taxonomy';
   import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from '$lib/utils/shortcuts';
   import { disableAutofill } from '$lib/actions/disableAutofill';
   import { appSettingsState } from '$lib/stores/appSettings.svelte';
@@ -24,51 +26,54 @@
 
   const PAGE_SIZE = 50;
   const RACE_FILTER_OPTIONS = RACE_OPTIONS
-    .filter((option) => option.value !== 0 && option.key)
-    .map((option) => ({
-      value: option.key!.replace('search.races.', ''),
-      key: option.key!,
-    }));
+    .filter((option) => option.value !== 0 && option.label)
+    .map((option) => {
+      const raceName = Object.entries(RACE_MAP).find(([, v]) => v === option.value)?.[0] ?? '';
+      return {
+        value: raceName,
+        label: option.label!,
+      };
+    });
 
   let pageCards = $derived(getAllCards());
   let totalCards = $derived(getTotalCards());
   let totalPages = $derived(Math.max(1, Math.ceil(totalCards / PAGE_SIZE)));
 
   let hasActiveFilters = $derived(
-    editorState.searchFilters.id !== '' ||
-    editorState.searchFilters.desc !== '' ||
-    editorState.searchFilters.nameOrDesc !== '' ||
-    editorState.searchFilters.imageFolderPath !== '' ||
-    editorState.searchFilters.deckText !== '' ||
-    editorState.searchFilters.rule !== '' ||
-    editorState.searchFilters.atkMin !== '' ||
-    editorState.searchFilters.atkMax !== '' ||
-    editorState.searchFilters.defMin !== '' ||
-    editorState.searchFilters.defMax !== '' ||
-    editorState.searchFilters.type !== '' ||
-    editorState.searchFilters.subtype !== '' ||
-    editorState.searchFilters.attribute !== '' ||
-    editorState.searchFilters.race !== '' ||
-    editorState.searchFilters.setcode1 !== '' ||
-    editorState.searchFilters.setcode2 !== '' ||
-    editorState.searchFilters.setcode3 !== '' ||
-    editorState.searchFilters.setcode4 !== ''
+    searchState.filters.id !== '' ||
+    searchState.filters.desc !== '' ||
+    searchState.filters.nameOrDesc !== '' ||
+    searchState.filters.imageFolderPath !== '' ||
+    searchState.filters.deckText !== '' ||
+    searchState.filters.rule !== '' ||
+    searchState.filters.atkMin !== '' ||
+    searchState.filters.atkMax !== '' ||
+    searchState.filters.defMin !== '' ||
+    searchState.filters.defMax !== '' ||
+    searchState.filters.type !== '' ||
+    searchState.filters.subtype !== '' ||
+    searchState.filters.attribute !== '' ||
+    searchState.filters.race !== '' ||
+    searchState.filters.setcode1 !== '' ||
+    searchState.filters.setcode2 !== '' ||
+    searchState.filters.setcode3 !== '' ||
+    searchState.filters.setcode4 !== ''
   );
 
-  let selectedIdsSet = $derived(new Set(editorState.selectedIds));
+  let selectedIdsSet = $derived(new Set(cardSelectionState.selectedIds));
 
   function toggleFilter() {
-    editorState.isFilterOpen = !editorState.isFilterOpen;
+    searchState.isFilterOpen = !searchState.isFilterOpen;
   }
 
   function closeFilter() {
-    editorState.isFilterOpen = false;
+    searchState.isFilterOpen = false;
   }
 
   function goToPage(page: number) {
     const nextPage = Math.max(1, Math.min(page, totalPages));
-    if (nextPage === editorState.currentPage) return;
-    editorState.currentPage = nextPage;
+    if (nextPage === searchState.currentPage) return;
+    searchState.currentPage = nextPage;
     void handleSearch(true);
   }
 
@@ -114,22 +119,17 @@
       return;
     }
 
-    editorState.searchFilters.imageFolderPath = selected;
+    searchState.filters.imageFolderPath = selected;
     void runSearch();
   }
 
   async function importDeckText() {
-    const selected = await tauriBridge.open({
-      multiple: false,
-      filters: [
-        { name: 'YDK / Text', extensions: ['ydk', 'txt'] },
-      ],
-    });
-    if (!selected || typeof selected !== 'string') {
+    const selected = await pickDeckText();
+    if (!selected) {
       return;
     }
 
-    editorState.searchFilters.deckText = await readTextFile(selected);
+    searchState.filters.deckText = selected.content;
     void runSearch();
   }
 
@@ -188,7 +188,7 @@
   <div class="list-header-complex">
     <div class="search-row">
       <div class="search-input-wrapper">
-        <input bind:this={searchInput} type="text" placeholder={$_('search.name_placeholder')} bind:value={editorState.searchFilters.nameOrDesc} onkeydown={handleSearchKeydown} />
+        <input bind:this={searchInput} type="text" placeholder={$_('search.name_placeholder')} bind:value={searchState.filters.nameOrDesc} onkeydown={handleSearchKeydown} />
       </div>
       <button class="btn-primary" onclick={() => void runSearch()} disabled={!$isDbLoaded} title={$_('search.title')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -196,7 +196,7 @@
       <button class="btn-secondary btn-icon" onclick={() => void handleResetAll()} disabled={!$isDbLoaded} title={$_('search.reset')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 3v6h6"></path></svg>
       </button>
-      <button class="btn-secondary btn-icon" class:active={editorState.isFilterOpen} class:has-filters={hasActiveFilters} onclick={toggleFilter} title="Filters">
+      <button class="btn-secondary btn-icon" class:active={searchState.isFilterOpen} class:has-filters={hasActiveFilters} onclick={toggleFilter} title="Filters">
         {#if hasActiveFilters}
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
         {:else}
@@ -205,16 +205,16 @@
       </button>
     </div>
 
-    {#if editorState.isFilterOpen}
+    {#if searchState.isFilterOpen}
     <div class="advanced-filters">
       <div class="form-row">
         <div class="form-group">
           <label for="search-id">{$_('search.id_alias')}</label>
-          <input type="text" id="search-id" bind:value={editorState.searchFilters.id} onkeydown={handleSearchKeydown} />
+          <input type="text" id="search-id" bind:value={searchState.filters.id} onkeydown={handleSearchKeydown} />
         </div>
         <div class="form-group flex-2">
           <label for="search-desc">{$_('search.desc')}</label>
-          <input type="text" id="search-desc" bind:value={editorState.searchFilters.desc} onkeydown={handleSearchKeydown} />
+          <input type="text" id="search-desc" bind:value={searchState.filters.desc} onkeydown={handleSearchKeydown} />
         </div>
       </div>
 
@@ -225,13 +225,13 @@
             type="text"
             id="search-rule"
             placeholder={$_('search.rule_placeholder')}
-            bind:value={editorState.searchFilters.rule}
-            class:input-error={editorState.searchError !== ''}
+            bind:value={searchState.filters.rule}
+            class:input-error={searchState.error !== ''}
             oninput={() => clearSearchError()}
             onkeydown={handleSearchKeydown}
           />
-          {#if editorState.searchError !== ''}
-            <div class="input-error-bubble" role="alert">{editorState.searchError}</div>
+          {#if searchState.error !== ''}
+            <div class="input-error-bubble" role="alert">{searchState.error}</div>
           {/if}
         </div>
       </div>
@@ -240,17 +240,17 @@
         <div class="form-group">
           <span class="group-label">{$_('search.atk')}</span>
           <div class="range-inputs">
-            <input type="text" inputmode="numeric" placeholder={$_('search.atk_min')} bind:value={editorState.searchFilters.atkMin} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.atk_min')} bind:value={searchState.filters.atkMin} />
             <span class="range-sep">~</span>
-            <input type="text" inputmode="numeric" placeholder={$_('search.atk_max')} bind:value={editorState.searchFilters.atkMax} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.atk_max')} bind:value={searchState.filters.atkMax} />
           </div>
         </div>
         <div class="form-group">
           <span class="group-label">{$_('search.def')}</span>
           <div class="range-inputs">
-            <input type="text" inputmode="numeric" placeholder={$_('search.def_min')} bind:value={editorState.searchFilters.defMin} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.def_min')} bind:value={searchState.filters.defMin} />
             <span class="range-sep">~</span>
-            <input type="text" inputmode="numeric" placeholder={$_('search.def_max')} bind:value={editorState.searchFilters.defMax} />
+            <input type="text" inputmode="numeric" placeholder={$_('search.def_max')} bind:value={searchState.filters.defMax} />
           </div>
         </div>
       </div>
@@ -258,7 +258,7 @@
       <div class="form-row">
         <div class="form-group">
           <label for="search-type">{$_('search.type')}</label>
-          <select id="search-type" bind:value={editorState.searchFilters.type} onchange={() => { editorState.searchFilters.subtype = ''; }}>
+          <select id="search-type" bind:value={searchState.filters.type} onchange={() => { searchState.filters.subtype = ''; }}>
             <option value="">{$_('search.na')}</option>
             <option value="monster">{$_('search.types.monster')}</option>
             <option value="spell">{$_('search.types.spell')}</option>
@@ -267,9 +267,9 @@
         </div>
         <div class="form-group">
           <label for="search-subtype">{$_('search.subtype')}</label>
-          <select id="search-subtype" bind:value={editorState.searchFilters.subtype}>
+          <select id="search-subtype" bind:value={searchState.filters.subtype}>
             <option value="">{$_('search.na')}</option>
-            {#if editorState.searchFilters.type === 'monster'}
+            {#if searchState.filters.type === 'monster'}
               <option value="normal">{$_('search.subtypes_monster.normal')}</option>
               <option value="effect">{$_('search.subtypes_monster.effect')}</option>
               <option value="ritual">{$_('search.subtypes_monster.ritual')}</option>
@@ -286,14 +286,14 @@
               <option value="toon">{$_('search.subtypes_monster.toon')}</option>
               <option value="token">{$_('search.subtypes_monster.token')}</option>
               <option value="spssummon">{$_('search.subtypes_monster.spssummon')}</option>
-            {:else if editorState.searchFilters.type === 'spell'}
+            {:else if searchState.filters.type === 'spell'}
               <option value="normal">{$_('search.subtypes_spell.normal')}</option>
               <option value="quickplay">{$_('search.subtypes_spell.quickplay')}</option>
               <option value="continuous_spell">{$_('search.subtypes_spell.continuous')}</option>
               <option value="equip">{$_('search.subtypes_spell.equip')}</option>
               <option value="field">{$_('search.subtypes_spell.field')}</option>
               <option value="ritual_spell">{$_('search.subtypes_spell.ritual')}</option>
-            {:else if editorState.searchFilters.type === 'trap'}
+            {:else if searchState.filters.type === 'trap'}
               <option value="normal">{$_('search.subtypes_trap.normal')}</option>
               <option value="continuous_trap">{$_('search.subtypes_trap.continuous')}</option>
               <option value="counter">{$_('search.subtypes_trap.counter')}</option>
@@ -305,23 +305,18 @@
       <div class="form-row">
         <div class="form-group">
           <label for="search-attribute">{$_('search.attribute')}</label>
-          <select id="search-attribute" bind:value={editorState.searchFilters.attribute}>
-            <option value="">{$_('search.na')}</option>
-            <option value="light">{$_('search.attributes.light')}</option>
-            <option value="dark">{$_('search.attributes.dark')}</option>
-            <option value="water">{$_('search.attributes.water')}</option>
-            <option value="fire">{$_('search.attributes.fire')}</option>
-            <option value="earth">{$_('search.attributes.earth')}</option>
-            <option value="wind">{$_('search.attributes.wind')}</option>
-            <option value="divine">{$_('search.attributes.divine')}</option>
+          <select id="search-attribute" bind:value={searchState.filters.attribute}>
+            {#each ATTRIBUTE_FILTER_OPTIONS as opt}
+              <option value={opt.value}>{opt.label}</option>
+            {/each}
           </select>
         </div>
         <div class="form-group">
           <label for="search-race">{$_('search.race')}</label>
-          <select id="search-race" bind:value={editorState.searchFilters.race}>
+          <select id="search-race" bind:value={searchState.filters.race}>
             <option value="">{$_('search.na')}</option>
             {#each RACE_FILTER_OPTIONS as r}
-              <option value={r.value}>{$_(r.key)}</option>
+              <option value={r.value}>{r.label}</option>
             {/each}
           </select>
         </div>
@@ -335,17 +330,17 @@
               <input
                 type="text"
                 value={
-                  idx === 0 ? editorState.searchFilters.setcode1 :
-                  idx === 1 ? editorState.searchFilters.setcode2 :
-                  idx === 2 ? editorState.searchFilters.setcode3 :
-                  editorState.searchFilters.setcode4
+                  idx === 0 ? searchState.filters.setcode1 :
+                  idx === 1 ? searchState.filters.setcode2 :
+                  idx === 2 ? searchState.filters.setcode3 :
+                  searchState.filters.setcode4
                 }
                 oninput={(event) => {
                   const value = (event.target as HTMLInputElement).value;
-                  if (idx === 0) editorState.searchFilters.setcode1 = value;
-                  else if (idx === 1) editorState.searchFilters.setcode2 = value;
-                  else if (idx === 2) editorState.searchFilters.setcode3 = value;
-                  else editorState.searchFilters.setcode4 = value;
+                  if (idx === 0) searchState.filters.setcode1 = value;
+                  else if (idx === 1) searchState.filters.setcode2 = value;
+                  else if (idx === 2) searchState.filters.setcode3 = value;
+                  else searchState.filters.setcode4 = value;
                 }}
                 maxlength="4"
                 placeholder="0000"
@@ -361,7 +356,7 @@
             <input
               type="text"
               id="search-image-folder"
-              bind:value={editorState.searchFilters.imageFolderPath}
+              bind:value={searchState.filters.imageFolderPath}
               placeholder={$_('search.image_folder_placeholder')}
             />
             <button class="btn-secondary source-picker" type="button" onclick={() => void pickImageFolder()}>
@@ -378,7 +373,7 @@
             <textarea
               id="search-deck-text"
               rows="5"
-              bind:value={editorState.searchFilters.deckText}
+              bind:value={searchState.filters.deckText}
               placeholder={$_('search.deck_text_placeholder')}
             ></textarea>
             <button class="btn-secondary source-picker" type="button" onclick={() => void importDeckText()}>
@@ -414,7 +409,7 @@
         {#each pageCards as card (card.code)}
           <tr
             class:selected={selectedIdsSet.has(card.code)}
-            class:primary-selected={editorState.selectedId === card.code}
+            class:primary-selected={cardSelectionState.selectedId === card.code}
             onclick={(event) => handleRowClick(event, card.code)}
           >
             <td class="id-col">{card.code}</td>
@@ -436,17 +431,17 @@
   <!-- Pagination Bar -->
   {#if totalCards > 0}
   <div class="pagination-bar">
-    <button class="page-btn" onclick={() => goToPage(1)} disabled={editorState.currentPage === 1} aria-label="First page">
+    <button class="page-btn" onclick={() => goToPage(1)} disabled={searchState.currentPage === 1} aria-label="First page">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
     </button>
-    <button class="page-btn" onclick={() => goToPage(editorState.currentPage - 1)} disabled={editorState.currentPage === 1} aria-label="Previous page">
+    <button class="page-btn" onclick={() => goToPage(searchState.currentPage - 1)} disabled={searchState.currentPage === 1} aria-label="Previous page">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
-    <span class="page-info">{editorState.currentPage} / {totalPages}</span>
-    <button class="page-btn" onclick={() => goToPage(editorState.currentPage + 1)} disabled={editorState.currentPage === totalPages} aria-label="Next page">
+    <span class="page-info">{searchState.currentPage} / {totalPages}</span>
+    <button class="page-btn" onclick={() => goToPage(searchState.currentPage + 1)} disabled={searchState.currentPage === totalPages} aria-label="Next page">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
     </button>
-    <button class="page-btn" onclick={() => goToPage(totalPages)} disabled={editorState.currentPage === totalPages} aria-label="Last page">
+    <button class="page-btn" onclick={() => goToPage(totalPages)} disabled={searchState.currentPage === totalPages} aria-label="Last page">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
     </button>
     <span class="page-divider"></span>

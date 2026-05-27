@@ -487,6 +487,62 @@ mod tests {
     }
 
     #[test]
+    fn collects_recursive_script_dependencies_once_and_blocks_workspace_escape() {
+        let cdb_dir = make_temp_dir("script-deps-recursive");
+        let script_dir = cdb_dir.join("script");
+        let shared_dir = script_dir.join("shared");
+        fs::create_dir_all(&shared_dir).unwrap();
+
+        fs::write(
+            script_dir.join("c111.lua"),
+            r#"
+                Duel.LoadScript("shared/a.lua")
+                Duel.LoadScript("script/shared/b.lua")
+                Duel.LoadScript("shared\windows.lua")
+                Duel.LoadScript("../../dataeditory-outside.lua")
+            "#,
+        )
+        .unwrap();
+        fs::write(
+            shared_dir.join("a.lua"),
+            r#"Duel.LoadScript("shared/b.lua")"#,
+        )
+        .unwrap();
+        fs::write(
+            shared_dir.join("b.lua"),
+            r#"Duel.LoadScript("shared/a.lua")"#,
+        )
+        .unwrap();
+        fs::write(shared_dir.join("windows.lua"), "-- windows slash").unwrap();
+
+        let escaped_path = cdb_dir.parent().unwrap().join("dataeditory-outside.lua");
+        fs::write(&escaped_path, "-- outside").unwrap();
+
+        let dependencies =
+            collect_script_dependency_paths_for_package(&cdb_dir, &[script_dir.join("c111.lua")])
+                .unwrap();
+        let mut entries = dependencies
+            .iter()
+            .map(|path| path_to_zip_entry(path, &cdb_dir).unwrap())
+            .collect::<Vec<_>>();
+        entries.sort();
+
+        assert_eq!(
+            entries,
+            vec![
+                "script/c111.lua".to_string(),
+                "script/shared/a.lua".to_string(),
+                "script/shared/b.lua".to_string(),
+                "script/shared/windows.lua".to_string(),
+            ]
+        );
+        assert!(!entries.iter().any(|entry| entry.contains("outside")));
+
+        let _ = fs::remove_file(&escaped_path);
+        let _ = fs::remove_dir_all(&cdb_dir);
+    }
+
+    #[test]
     fn packages_only_current_cdb_card_assets() {
         let root = make_temp_dir("package-assets");
         let cdb_path = root.join("cards.cdb");

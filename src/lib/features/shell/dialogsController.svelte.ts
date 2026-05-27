@@ -1,6 +1,7 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { APP_BUILD_LABEL } from '$lib/config/build';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import {
   type BackgroundTaskProgressEvent,
@@ -55,7 +56,7 @@ export function createShellDialogsController() {
     mergeAnalysisKey: '',
   });
 
-  let baseWindowTitle = 'DataEditorY Extra';
+  let baseWindowTitle = `DataEditorY ${APP_BUILD_LABEL}`;
   let nextBackgroundTaskId = 1;
   const pendingBackgroundTasks: PendingBackgroundTask[] = [];
   let isProcessingBackgroundTasks = false;

@@ -16,6 +16,8 @@ export type ShortcutActionId =
   | 'cardEditor.modify'
   | 'cardEditor.selectPrevious'
   | 'cardEditor.selectNext'
+  | 'cardEditor.selectPreviousGlobal'
+  | 'cardEditor.selectNextGlobal'
   | 'cardEditor.pagePrevious'
   | 'cardEditor.pageNext'
   | 'cardEditor.dismissOverlay'
@@ -162,6 +164,22 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     labelKey: 'settings.shortcut_select_next_card',
     descriptionKey: 'settings.shortcut_select_next_card_desc',
     defaultBinding: 'ArrowDown',
+  },
+  {
+    id: 'cardEditor.selectPreviousGlobal',
+    scope: 'cardEditor',
+    categoryKey: 'settings.shortcuts_category_card_editor',
+    labelKey: 'settings.shortcut_select_previous_card_global',
+    descriptionKey: 'settings.shortcut_select_previous_card_global_desc',
+    defaultBinding: 'Primary+ArrowUp',
+  },
+  {
+    id: 'cardEditor.selectNextGlobal',
+    scope: 'cardEditor',
+    categoryKey: 'settings.shortcuts_category_card_editor',
+    labelKey: 'settings.shortcut_select_next_card_global',
+    descriptionKey: 'settings.shortcut_select_next_card_global_desc',
+    defaultBinding: 'Primary+ArrowDown',
   },
   {
     id: 'cardEditor.pagePrevious',

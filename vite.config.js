@@ -8,59 +8,113 @@ const DEFAULT_DEV_PORT = 43127;
 const DEFAULT_HMR_PORT = 43128;
 const host = globalThis.process?.env?.TAURI_DEV_HOST || DEFAULT_DEV_HOST;
 const variant = getBuildVariantConfig(globalThis.process?.env?.APP_VARIANT);
+
+/**
+ * @typedef {{ find: string; replacement: string }} BaseStubAlias
+ */
+
+/** @param {string} relativePath */
+function filePath(relativePath) {
+  return fileURLToPath(new URL(relativePath, import.meta.url));
+}
+
+/**
+ * @param {string} sourcePath
+ * @returns {string[]}
+ */
+function aliasCandidates(sourcePath) {
+  const sourceFsPath = filePath(`./src/lib/${sourcePath}`);
+  const normalizedSourcePath = sourceFsPath.replaceAll("\\", "/");
+  const candidates = new Set([
+    `$lib/${sourcePath}`,
+    sourceFsPath,
+    normalizedSourcePath,
+  ]);
+
+  if (!sourcePath.endsWith(".svelte") && !sourcePath.endsWith(".ts")) {
+    candidates.add(`${sourceFsPath}.ts`);
+    candidates.add(`${normalizedSourcePath}.ts`);
+  }
+
+  return Array.from(candidates);
+}
+
+/**
+ * @param {string} sourcePath
+ * @param {string} stubPath
+ * @returns {BaseStubAlias[]}
+ */
+function baseStubAliases(sourcePath, stubPath) {
+  const replacement = filePath(stubPath);
+  return aliasCandidates(sourcePath).map((find) => ({
+    find,
+    replacement,
+  }));
+}
+
+/**
+ * @param {BaseStubAlias[]} aliases
+ * @returns {import("vite").Plugin}
+ */
+function baseStubAliasPlugin(aliases) {
+  const replacements = new Map();
+
+  for (const alias of aliases) {
+    replacements.set(alias.find, alias.replacement);
+    replacements.set(alias.find.replaceAll("\\", "/"), alias.replacement);
+  }
+
+  return {
+    name: "dataeditory-base-stub-aliases",
+    enforce: "pre",
+    /** @param {string} source */
+    resolveId(source) {
+      const queryIndex = source.indexOf("?");
+      const bareSource = queryIndex >= 0 ? source.slice(0, queryIndex) : source;
+      const query = queryIndex >= 0 ? source.slice(queryIndex) : "";
+      const replacement = replacements.get(bareSource) ?? replacements.get(bareSource.replaceAll("\\", "/"));
+
+      if (!replacement) {
+        return null;
+      }
+
+      return `${replacement}${query}`;
+    },
+  };
+}
+
 const baseExtraStubAliases = variant.key === "base"
   ? [
-      {
-        find: "$lib/features/card-editor/extraUseCases",
-        replacement: fileURLToPath(
-          new URL("./src/lib/build-stubs/base/features/card-editor/extraUseCases.ts", import.meta.url),
-        ),
-      },
-      {
-        find: "$lib/features/card-editor/components/CardParseDialog.svelte",
-        replacement: fileURLToPath(
-          new URL(
-            "./src/lib/build-stubs/base/features/card-editor/components/CardParseDialog.svelte",
-            import.meta.url,
-          ),
-        ),
-      },
-      {
-        find: "$lib/features/card-editor/components/CardImageDrawerHost.svelte",
-        replacement: fileURLToPath(
-          new URL(
-            "./src/lib/build-stubs/base/features/card-editor/components/CardImageDrawerHost.svelte",
-            import.meta.url,
-          ),
-        ),
-      },
-      {
-        find: "$lib/features/script-editor/extraUseCases",
-        replacement: fileURLToPath(
-          new URL("./src/lib/build-stubs/base/features/script-editor/extraUseCases.ts", import.meta.url),
-        ),
-      },
-      {
-        find: "$lib/features/settings/extraUseCases",
-        replacement: fileURLToPath(
-          new URL("./src/lib/build-stubs/base/features/settings/extraUseCases.ts", import.meta.url),
-        ),
-      },
-      {
-        find: "$lib/features/settings/components/SettingsAiCard.svelte",
-        replacement: fileURLToPath(
-          new URL(
-            "./src/lib/build-stubs/base/features/settings/components/SettingsAiCard.svelte",
-            import.meta.url,
-          ),
-        ),
-      },
+      ...baseStubAliases(
+        "features/card-editor/extraUseCases",
+        "./src/lib/build-stubs/base/features/card-editor/extraUseCases.ts",
+      ),
+      ...baseStubAliases(
+        "features/card-editor/components/CardParseDialog.svelte",
+        "./src/lib/build-stubs/base/features/card-editor/components/CardParseDialog.svelte",
+      ),
+      ...baseStubAliases(
+        "features/card-editor/components/CardImageDrawerHost.svelte",
+        "./src/lib/build-stubs/base/features/card-editor/components/CardImageDrawerHost.svelte",
+      ),
+      ...baseStubAliases(
+        "features/script-editor/extraUseCases",
+        "./src/lib/build-stubs/base/features/script-editor/extraUseCases.ts",
+      ),
+      ...baseStubAliases(
+        "features/settings/extraUseCases",
+        "./src/lib/build-stubs/base/features/settings/extraUseCases.ts",
+      ),
+      ...baseStubAliases(
+        "features/settings/components/SettingsAiCard.svelte",
+        "./src/lib/build-stubs/base/features/settings/components/SettingsAiCard.svelte",
+      ),
     ]
   : [];
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [sveltekit()],
+  plugins: [baseStubAliasPlugin(baseExtraStubAliases), sveltekit()],
   resolve: {
     alias: baseExtraStubAliases,
   },
@@ -87,10 +141,6 @@ export default defineConfig(async () => ({
 
           if (normalizedId.includes("/node_modules/monaco-editor/")) {
             return "vendor-monaco";
-          }
-
-          if (normalizedId.includes("/node_modules/yugioh-card/")) {
-            return "vendor-yugioh-card";
           }
 
           if (normalizedId.includes("/node_modules/@tauri-apps/")) {

@@ -3,13 +3,13 @@ import { tauriBridge } from '$lib/infrastructure/tauri';
 import { getCardByIdInTab, modifyCardsInTab } from '$lib/stores/db';
 import { reloadActiveScriptTab, saveActiveScriptTab } from '$lib/stores/scriptEditor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
-import { updateVisibleCards } from '$lib/stores/editor.svelte';
+import { updateVisibleCards } from '$lib/stores/searchStore.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { normalizeCardStrings } from '$lib/domain/card/draft';
 import { buildScriptImagePath } from '$lib/domain/script/workspace';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import { openScriptExternally } from '$lib/services/cardScriptService';
-import { writeBinaryFile } from '$lib/infrastructure/tauri/commands';
+import { saveScriptImage } from '$lib/infrastructure/tauri/commands';
 import { normalizeScriptCardContext } from '$lib/features/script-editor/controller';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -19,7 +19,7 @@ export async function loadScriptCardContextFlow(input: {
   dbTabs: Array<{ id: string; path: string }>;
   loadToken: number;
 }) {
-  if (!input.tab) {
+  if (!input.tab || input.tab.sourceKind === 'file') {
     return {
       loadToken: input.loadToken,
       cardContext: null,
@@ -61,7 +61,7 @@ export async function saveScriptStringFlow(input: {
   activeDbTabId: string | null;
   t: Translate;
 }) {
-  if (!input.tab || !input.cardContext) {
+  if (!input.tab || input.tab.sourceKind === 'file' || !input.cardContext) {
     return null;
   }
 
@@ -230,7 +230,7 @@ async function buildScriptImageBlob(input: {
   lineNumberStart?: number;
   renderInfo: ScriptImageRenderInfo;
 }) {
-  const imageRenderer = await import('$lib/utils/luaScriptImageRenderer');
+  const imageRenderer = await import('$lib/features/card-image/scriptRenderer');
   return imageRenderer.renderLuaCodeImageBlob(input.content, {
     title: input.renderInfo.title,
     metaLines: input.renderInfo.metaLines,
@@ -267,8 +267,8 @@ export async function shareScriptImageFlow(input: {
     await writeImageBlobToClipboard(blob);
 
     if (appSettingsState.values.saveScriptImageToLocal && outputPath) {
-      await writeBinaryFile(outputPath, await blobToUint8Array(blob));
-      showToast(input.t('editor.script_export_image_success', { values: { path: outputPath } }), 'success');
+      const savedPath = await saveScriptImage(tab.cdbPath, tab.cardCode, await blobToUint8Array(blob));
+      showToast(input.t('editor.script_export_image_success', { values: { path: savedPath } }), 'success');
       return true;
     }
 

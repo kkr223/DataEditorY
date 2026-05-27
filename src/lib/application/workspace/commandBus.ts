@@ -18,6 +18,11 @@ import {
   scriptTabs,
 } from '$lib/stores/scriptEditor.svelte';
 import {
+  activateCardImageTab,
+  cardImageTabs,
+  closeCardImageTab,
+} from '$lib/stores/cardImageEditor.svelte';
+import {
   SETTINGS_WORKSPACE_ID,
   getActiveWorkspaceDocument,
   getWorkspaceDocument,
@@ -26,6 +31,10 @@ import { tryRunWorkspaceSaveHandler } from '$lib/application/workspace/lifecycle
 
 function isScriptWorkspace(id: string) {
   return get(scriptTabs).some((tab) => tab.id === id);
+}
+
+function isCardImageWorkspace(id: string) {
+  return get(cardImageTabs).some((tab) => tab.id === id);
 }
 
 export async function openDbWorkspace() {
@@ -55,6 +64,11 @@ export function activateWorkspaceDocument(id: string) {
     return;
   }
 
+  if (isCardImageWorkspace(id)) {
+    activateCardImageTab(id);
+    return;
+  }
+
   activeTabId.set(id);
   activateEditorView();
 }
@@ -67,6 +81,11 @@ export async function closeWorkspaceDocument(id: string) {
 
   if (isScriptWorkspace(id)) {
     closeScriptTab(id);
+    return;
+  }
+
+  if (isCardImageWorkspace(id)) {
+    closeCardImageTab(id);
     return;
   }
 
@@ -85,6 +104,10 @@ export async function saveWorkspaceDocument(id: string) {
 
   if (isScriptWorkspace(id)) {
     return saveScriptTab(id);
+  }
+
+  if (isCardImageWorkspace(id)) {
+    return true;
   }
 
   return saveCdbTab(id);

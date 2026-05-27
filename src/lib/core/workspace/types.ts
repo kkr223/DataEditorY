@@ -1,7 +1,8 @@
 import type { CdbTab } from '$lib/stores/db';
 import type { ScriptWorkspaceState } from '$lib/types';
+import type { CardImageWorkspaceState } from '$lib/types/card-image-workspace';
 
-export type WorkspaceKind = 'db' | 'script' | 'settings';
+export type WorkspaceKind = 'db' | 'script' | 'card-image' | 'settings';
 export type WorkspaceStatus = 'ready' | 'busy';
 export type WorkspaceSavePolicy = 'manual' | 'none';
 export type WorkspaceCloseGuard = 'confirm-dirty' | 'none';
@@ -40,6 +41,15 @@ export interface ScriptWorkspaceDocument extends WorkspaceDocumentBase {
   legacy: ScriptWorkspaceState;
 }
 
+export interface CardImageWorkspaceDocument extends WorkspaceDocumentBase {
+  kind: 'card-image';
+  source: {
+    path: string;
+    tabId: string | null;
+  };
+  legacy: CardImageWorkspaceState;
+}
+
 export interface SettingsWorkspaceDocument extends WorkspaceDocumentBase {
   kind: 'settings';
 }
@@ -47,6 +57,7 @@ export interface SettingsWorkspaceDocument extends WorkspaceDocumentBase {
 export type WorkspaceDocument =
   | DbWorkspaceDocument
   | ScriptWorkspaceDocument
+  | CardImageWorkspaceDocument
   | SettingsWorkspaceDocument;
 
 export interface WorkspaceSnapshot {

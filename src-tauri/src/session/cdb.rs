@@ -74,7 +74,10 @@ pub(crate) fn with_session_meta<T>(
     f: impl FnOnce(&CdbSessionMeta) -> Result<T, String>,
 ) -> Result<T, String> {
     let session = {
-        let sessions = sessions.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let sessions = sessions
+            .0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         sessions
             .get(tab_id)
             .cloned()
@@ -88,7 +91,10 @@ pub(crate) fn replace_session(
     tab_id: String,
     session: CdbSessionMeta,
 ) -> Result<Option<CdbSessionMeta>, String> {
-    let mut sessions = sessions.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut sessions = sessions
+        .0
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     Ok(sessions.insert(tab_id, session))
 }
 
@@ -96,6 +102,9 @@ pub(crate) fn remove_session(
     sessions: &OpenCdbSessions,
     tab_id: &str,
 ) -> Result<Option<CdbSessionMeta>, String> {
-    let mut sessions = sessions.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut sessions = sessions
+        .0
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     Ok(sessions.remove(tab_id))
 }

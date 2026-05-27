@@ -1,13 +1,15 @@
 import {
   ATTRIBUTE_OPTIONS,
   getCardTypeKey,
-  getPackedLScale,
-  getPackedLevel,
-  getPackedRScale,
   LINK_MARKERS,
   RACE_OPTIONS,
   TYPE_BITS,
-} from '$lib/utils/card';
+} from '$lib/domain/card/taxonomy';
+import {
+  getPackedLScale,
+  getPackedLevel,
+  getPackedRScale,
+} from '$lib/domain/card/draft';
 import type { CardDataEntry } from '$lib/types';
 import type { ScriptImageRenderInfo } from '$lib/features/script-editor/useCases';
 
@@ -22,12 +24,10 @@ export function getScriptCardMetaLines(card: CardDataEntry | null, fallbackCode:
     .filter((item) => (card.type & item.bit) !== 0)
     .map((item) => t(item.key))
     .join(' / ') || t('search.na');
-  const attributeText = ATTRIBUTE_OPTIONS.find((item) => item.value === card.attribute)?.key
-    ? t(ATTRIBUTE_OPTIONS.find((item) => item.value === card.attribute)?.key as string)
-    : t('search.na');
-  const raceText = RACE_OPTIONS.find((item) => item.value === card.race)?.key
-    ? t(RACE_OPTIONS.find((item) => item.value === card.race)?.key as string)
-    : t('search.na');
+  const attributeText = ATTRIBUTE_OPTIONS.find((item) => item.value === card.attribute)?.label
+    ?? '无';
+  const raceText = RACE_OPTIONS.find((item) => item.value === card.race)?.label
+    ?? '无';
   const mainType = t(getCardTypeKey(card.type));
   const levelValue = getPackedLevel(card.level);
   const leftScale = getPackedLScale(card.level);

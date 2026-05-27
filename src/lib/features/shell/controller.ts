@@ -18,6 +18,32 @@ export function isCdbFilePath(path: string) {
   return path.trim().toLowerCase().endsWith('.cdb');
 }
 
+export function isExternalTextFilePath(path: string) {
+  const normalized = path.trim().toLowerCase();
+  return normalized.endsWith('.lua') || normalized.endsWith('.txt') || normalized.endsWith('.conf');
+}
+
+export function classifyExternalOpenPaths(paths: string[] = []) {
+  const cdbPaths: string[] = [];
+  const textPaths: string[] = [];
+
+  for (const item of paths) {
+    const path = item.trim();
+    if (!path) continue;
+
+    if (isCdbFilePath(path)) {
+      if (!cdbPaths.includes(path)) cdbPaths.push(path);
+      continue;
+    }
+
+    if (isExternalTextFilePath(path) && !textPaths.includes(path)) {
+      textPaths.push(path);
+    }
+  }
+
+  return { cdbPaths, textPaths };
+}
+
 export function normalizeExternalOpenPaths(paths: string[] = []) {
   return Array.from(
     new Set(
@@ -34,6 +60,10 @@ function toElement(target: EventTarget | null): HTMLElement | null {
     return target.parentElement;
   }
   return null;
+}
+
+export function getShortcutTargetElement(target: EventTarget | null): HTMLElement | null {
+  return toElement(target) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
 }
 
 function describeUndoTarget(element: HTMLElement | null): UndoTargetDescriptor | null {

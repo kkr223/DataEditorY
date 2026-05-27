@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { HAS_AI_FEATURE, HAS_EXTRA_BUILD } from '$lib/config/build';
+  import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
 
   let {
     mode,
@@ -47,13 +47,16 @@
     onSaveJpg?: () => void | Promise<void>;
     onDownload?: () => void | Promise<void>;
   } = $props();
+
+  const hasAiCapability = isCapabilityEnabled('ai');
+  const hasCardImageCapability = isCapabilityEnabled('card-image');
 </script>
 
 {#if mode === 'toolbar'}
   <div class="form-toolbar">
     <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" bind:this={fileInput} onchange={onImageUpload} />
     <input class="sr-only" type="file" accept="application/json,.json" bind:this={configFileInput} onchange={onConfigFileUpload} />
-    {#if HAS_EXTRA_BUILD}
+    {#if hasCardImageCapability}
       <input class="sr-only" type="file" accept="image/png,image/webp" bind:this={foregroundFileInput} onchange={onForegroundImageUpload} />
     {/if}
     <button class="btn-primary btn-sm upload-btn" type="button" onclick={onOpenFilePicker}>
@@ -65,12 +68,12 @@
     <button class="btn-secondary btn-sm" type="button" onclick={onConfigExport}>
       {$_('editor.card_image_config_export')}
     </button>
-    {#if HAS_EXTRA_BUILD}
+    {#if hasCardImageCapability}
       <button class="btn-secondary btn-sm" type="button" onclick={onOpenForegroundEditor}>
         {$_('editor.card_image_foreground_button')}
       </button>
     {/if}
-    {#if HAS_AI_FEATURE}
+    {#if hasAiCapability}
       <button class="btn-secondary btn-sm" type="button" onclick={onAiTranslate} disabled={isTranslating}>
         {isTranslating ? $_('editor.ai_translating') : $_('editor.card_image_ai_translate')}
       </button>

@@ -2,16 +2,28 @@
   import { onDestroy, onMount, tick, untrack } from "svelte";
   import { _ } from "svelte-i18n";
   import { activeTab, activeTabId, isDbLoaded, saveCdbFile } from "$lib/stores/db";
-  import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleReset, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
+  import {
+    getAllCards,
+    getAllCardsMap,
+    getTotalCards,
+    handleReset,
+    handleSearch,
+    searchState,
+  } from "$lib/stores/searchStore.svelte";
+  import { cardSelectionState, clearSelection, setSingleSelectedCard } from "$lib/stores/cardSelection.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
+  import { openOrActivateCardImageTab } from "$lib/stores/cardImageEditor.svelte";
   import type { CardDataEntry } from "$lib/types";
-  import { normalizeSetcodeHex, updateSetcode } from "$lib/utils/setcode";
-  import { cloneEditableCard, createEmptyCard, getPackedLevel, normalizeEditableScaleValue, setPackedLevel } from "$lib/utils/card";
-  import { createCardSnapshot } from "$lib/domain/card/draft";
+  import { normalizeSetcodeHex, updateSetcode } from "$lib/domain/card/setcode";
+  import { cloneEditableCard, createCardSnapshot, createEmptyCard, getPackedLevel, normalizeEditableScaleValue, setPackedLevel } from "$lib/domain/card/draft";
   import { dispatchAppShortcut } from "$lib/utils/shortcuts";
-  import { isEditableTarget } from "$lib/features/shell/controller";
+  import { getShortcutTargetElement, isEditableTarget, isNativeTextUndoTarget } from "$lib/features/shell/controller";
   import { shellBackgroundTaskState } from "$lib/features/shell/dialogsController.svelte";
-  import { isCapabilityEnabled } from "$lib/application/capabilities/registry";
+  import {
+    AI_CAPABILITY_ENABLED,
+    CARD_EDITOR_EXTRA_CAPABILITY_ENABLED,
+    isCapabilityEnabled,
+  } from "$lib/application/capabilities/registry";
   import { appSettingsState } from "$lib/stores/appSettings.svelte";
   import { isShortcutEvent } from "$lib/features/shortcuts/registry";
   import { getScriptGenerationStageLabel } from "$lib/services/scriptGenerationStages";
@@ -39,14 +51,12 @@
 
   type CardEditorExtraUseCasesModule = typeof import("$lib/features/card-editor/extraUseCases");
   type CardParseDialogModule = typeof import("$lib/features/card-editor/components/CardParseDialog.svelte");
-  type CardImageDrawerHostModule = typeof import("$lib/features/card-editor/components/CardImageDrawerHost.svelte");
 
   const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
   const hasAiCapability = isCapabilityEnabled("ai");
   const hasCardImageCapability = isCapabilityEnabled("card-image");
-  const loadCardEditorExtraUseCases = __APP_FEATURES__.ai || __APP_FEATURES__.cardImage ? () => import("$lib/features/card-editor/extraUseCases") : null;
-  const loadCardParseDialogModule = __APP_FEATURES__.ai ? () => import("$lib/features/card-editor/components/CardParseDialog.svelte") : null;
-  const loadCardImageDrawerHostModule = __APP_FEATURES__.cardImage ? () => import("$lib/features/card-editor/components/CardImageDrawerHost.svelte") : null;
+  const loadCardEditorExtraUseCases = CARD_EDITOR_EXTRA_CAPABILITY_ENABLED ? () => import("$lib/features/card-editor/extraUseCases") : null;
+  const loadCardParseDialogModule = AI_CAPABILITY_ENABLED ? () => import("$lib/features/card-editor/components/CardParseDialog.svelte") : null;
   const initialDraftCard = createEmptyCard();
 
   let editorRoot = $state<HTMLDivElement | null>(null);
@@ -56,7 +66,7 @@
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
   let imageRequestToken = 0;
-  const imageInteraction = $state({ isPreviewOpen: false, isDrawerOpen: false });
+  const imageInteraction = $state({ isPreviewOpen: false });
   let lastSyncedSelectedId: number | null = null;
   let lastLoadedCardSnapshot = $state("");
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
@@ -67,7 +77,6 @@
   let aiInteractionResult = $state("");
   let cardEditorExtraUseCasesPromise = $state<Promise<CardEditorExtraUseCasesModule> | null>(null);
   let cardParseDialogModulePromise = $state<Promise<CardParseDialogModule> | null>(null);
-  let cardImageDrawerHostModulePromise = $state<Promise<CardImageDrawerHostModule> | null>(null);
   const scriptGeneration = $state(createCardScriptGenerationState());
   let isKeyboardNavigating = $state(false);
   let draftUndoHistory = $state.raw<DraftUndoEntry[]>(createDraftUndoHistory(initialDraftCard));
@@ -81,9 +90,7 @@
     setPreviewOpen: (value) => {
       imageInteraction.isPreviewOpen = value;
     },
-    setDrawerOpen: (value) => {
-      imageInteraction.isDrawerOpen = value;
-    },
+    onOpenEditor: openCardImageEditor,
   });
 
   const scriptGenerationController = createCardScriptGenerationController(scriptGeneration);
@@ -156,33 +163,9 @@
     return cardParseDialogModulePromise;
   }
 
-  function ensureCardImageDrawerHostModule() {
-    if (!loadCardImageDrawerHostModule || !hasCardImageCapability) return null;
-    cardImageDrawerHostModulePromise ??= loadCardImageDrawerHostModule();
-    return cardImageDrawerHostModulePromise;
-  }
-
-  function toShortcutElement(target: EventTarget | null) {
-    if (target instanceof HTMLElement) return target;
-    if (target instanceof Node) return target.parentElement;
-    return null;
-  }
-
-  function isNativeTextUndoTarget(target: EventTarget | null) {
-    const candidate = toShortcutElement(target) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    if (!candidate) return false;
-    if (candidate.closest(".monaco-editor, .monaco-diff-editor")) return true;
-    if (candidate instanceof HTMLTextAreaElement || candidate.isContentEditable) return true;
-    if (candidate instanceof HTMLInputElement) {
-      const type = candidate.type.toLowerCase();
-      return !["button", "checkbox", "color", "file", "image", "radio", "range", "reset", "submit"].includes(type);
-    }
-    return Boolean(candidate.closest('[contenteditable="true"]'));
-  }
-
   function isCardEditorShortcutTarget(target: EventTarget | null) {
     if (!editorRoot) return false;
-    const candidate = toShortcutElement(target) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    const candidate = getShortcutTargetElement(target);
     return Boolean(candidate && editorRoot.contains(candidate));
   }
 
@@ -246,7 +229,7 @@
   }
 
   async function handleEditorKeydown(event: KeyboardEvent) {
-    if (isShortcutEvent('cardEditor.undoDraft', event, appSettingsState.values.shortcutBindings) && !isParseModalOpen && !imageInteraction.isDrawerOpen && !imageInteraction.isPreviewOpen && isCardEditorShortcutTarget(event.target) && !isNativeTextUndoTarget(event.target)) {
+    if (isShortcutEvent('cardEditor.undoDraft', event, appSettingsState.values.shortcutBindings) && !isParseModalOpen && !imageInteraction.isPreviewOpen && isCardEditorShortcutTarget(event.target) && !isNativeTextUndoTarget(event.target)) {
       if (handleDraftUndo()) event.preventDefault();
       return;
     }
@@ -255,16 +238,15 @@
       isDbLoaded: $isDbLoaded,
       isKeyboardNavigating,
       isParseModalOpen,
-      isCardImageDrawerOpen: imageInteraction.isDrawerOpen,
       isImagePreviewOpen: imageInteraction.isPreviewOpen,
       isEditableTarget,
       confirmDiscardDraft: confirmDiscardDraftForKeyboardNavigation,
       onModify: handleModify,
-      getSelectionTarget: (delta) => resolveSelectionNavigationTarget({ cards: getAllCards(), selectedId: editorState.selectedId, delta }),
+      getSelectionTarget: (delta) => resolveSelectionNavigationTarget({ cards: getAllCards(), selectedId: cardSelectionState.selectedId, delta }),
       selectCard: setSingleSelectedCard,
-      getPageTarget: (delta) => resolvePageNavigationTarget({ totalCards: getTotalCards(), currentPage: editorState.currentPage, delta, pageSize: CARD_LIST_PAGE_SIZE }),
+      getPageTarget: (delta) => resolvePageNavigationTarget({ totalCards: getTotalCards(), currentPage: searchState.currentPage, delta, pageSize: CARD_LIST_PAGE_SIZE }),
       setCurrentPage: (page) => {
-        editorState.currentPage = page;
+        searchState.currentPage = page;
       },
       runSearch: async () => {
         await handleSearch();
@@ -326,7 +308,7 @@
       isDbLoaded: $isDbLoaded,
       draftCard,
       setSearchFilters: (filters) => {
-        editorState.searchFilters = filters;
+        searchState.filters = filters;
       },
       runSearch: handleSearch,
     });
@@ -359,7 +341,10 @@
 
   async function handleImagePick() {
     const extraModule = ensureCardEditorExtraUseCases();
-    if (!extraModule) return;
+    if (!extraModule) {
+      showToast($_("editor.card_image_import_unavailable"), "info");
+      return;
+    }
 
     await (await extraModule).pickCardImageFlow({
       activeCdbPath: $activeTab?.path ?? null,
@@ -383,18 +368,17 @@
     imageInteractionController.closePreview();
   }
 
-  function openCardImageDrawer() {
-    imageInteractionController.openDrawer();
-  }
+  function openCardImageEditor() {
+    if (!$activeTab?.path) {
+      showToast($_("editor.card_image_save_jpg_missing_cdb"), "error");
+      return;
+    }
 
-  function closeCardImageDrawer() {
-    imageInteractionController.closeDrawer();
-  }
-
-  async function handleCardImageSaved() {
-    const targetCode = Number(draftCard.code ?? 0);
-    if (!Number.isInteger(targetCode) || targetCode <= 0) return;
-    await lifecycleController.refreshDraftImage(targetCode, true);
+    openOrActivateCardImageTab({
+      cdbPath: $activeTab.path,
+      sourceTabId: $activeTabId,
+      card: draftCard,
+    });
   }
 
   async function handleOpenScript() {
@@ -550,8 +534,8 @@
   $effect(() => {
     syncLoadedDraftEffect({
       isDbLoaded: $isDbLoaded,
-      selectedId: editorState.selectedId,
-      selectedCard: getAllCardsMap().get(editorState.selectedId ?? -1) ?? null,
+      selectedId: cardSelectionState.selectedId,
+      selectedCard: getAllCardsMap().get(cardSelectionState.selectedId ?? -1) ?? null,
       lastSyncedSelectedId,
       lastLoadedCardSnapshot,
       originalCardCode,
@@ -585,10 +569,6 @@
 
   $effect(() => {
     ensureCapabilityModuleEffect({ enabled: hasAiCapability, open: isParseModalOpen, ensureModule: ensureCardParseDialogModule });
-  });
-
-  $effect(() => {
-    ensureCapabilityModuleEffect({ enabled: hasCardImageCapability, open: imageInteraction.isDrawerOpen, ensureModule: ensureCardImageDrawerHostModule });
   });
 
   $effect(() => {
@@ -669,7 +649,7 @@
       onOpenScript={handleOpenScript}
       onGenerateScript={handleGenerateScript}
       onCancelGenerateScript={handleCancelGenerateScript}
-      onOpenCardImageDrawer={openCardImageDrawer}
+      onOpenCardImageEditor={() => imageInteractionController.openEditor()}
       onResetSearch={runResetSearch}
       onSearch={() => dispatchAppShortcut("search-from-draft")}
       onSaveAs={handleSaveAs}
@@ -677,12 +657,6 @@
       onDelete={handleDelete}
     />
   </div>
-{/if}
-
-{#if hasCardImageCapability && cardImageDrawerHostModulePromise}
-  {#await cardImageDrawerHostModulePromise then module}
-    <module.default open={imageInteraction.isDrawerOpen} card={draftCard} cdbPath={$activeTab?.path ?? ""} onSavedJpg={handleCardImageSaved} onClose={closeCardImageDrawer} />
-  {/await}
 {/if}
 
 {#if hasAiCapability && cardParseDialogModulePromise}

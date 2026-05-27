@@ -16,11 +16,6 @@ pub(crate) fn save_app_settings(
 }
 
 #[tauri::command]
-pub(crate) fn load_secret_key(app: AppHandle) -> Result<Option<String>, String> {
-    services::settings::load_secret_key(&app)
-}
-
-#[tauri::command]
 pub(crate) fn set_cover_image(app: AppHandle, source_path: String) -> Result<String, String> {
     services::settings::set_cover_image(&app, source_path)
 }

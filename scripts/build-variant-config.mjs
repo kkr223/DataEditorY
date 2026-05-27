@@ -42,7 +42,7 @@ const REQUIRED_BUNDLE_RESOURCES = {
 };
 
 const CARD_IMAGE_BUNDLE_RESOURCE = {
-  '../static/resources/yugioh-card': 'resources/yugioh-card',
+  'resources/yugioh_bundle.bin': 'resources/yugioh_bundle.bin',
 };
 
 export function getPackageVersion() {
@@ -74,7 +74,7 @@ export function createTauriVariantConfig(baseConfig, rawVariant = process.env.AP
   if (variant.features.cardImage) {
     Object.assign(resources, CARD_IMAGE_BUNDLE_RESOURCE);
   } else {
-    delete resources['../static/resources/yugioh-card'];
+    delete resources['resources/yugioh_bundle.bin'];
   }
 
   return {

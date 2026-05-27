@@ -9,8 +9,8 @@
     "core:default",
     "core:window:allow-close",
     "core:window:allow-destroy",
+    "core:window:allow-set-title",
     "opener:default",
-    "fs:default",
     "dialog:default"
   ]
 }

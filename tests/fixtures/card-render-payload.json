@@ -1,0 +1,124 @@
+{
+  "base": {
+    "kind": "yugioh",
+    "code": 89631139,
+    "alias": 0,
+    "ruleCode": 0,
+    "setcode": [12296],
+    "type": 17,
+    "attack": 3000,
+    "defense": 2500,
+    "level": 8,
+    "race": 8192,
+    "attribute": 16,
+    "category": 0,
+    "ot": 0,
+    "name": "Blue-Eyes White Dragon",
+    "desc": "A white dragon.",
+    "strings": ["first"],
+    "lscale": 0,
+    "rscale": 0,
+    "linkMarker": 0,
+    "rare": "ur",
+    "language": "en",
+    "font": "custom1",
+    "scale": 0.43,
+    "twentieth": true,
+    "twentyFifth": true,
+    "outFrame": true,
+    "outFrameNameBlockEnabled": true,
+    "outFrameEffectEnabled": true,
+    "outFrameEffectBox": "eblock-border",
+    "outFrameEffectBackgroundColor": "#f6f2e8",
+    "outFrameEffectOpacity": 0.78,
+    "radius": true,
+    "atkBar": true,
+    "align": "left",
+    "descriptionAlign": "center"
+  },
+  "edits": [
+    {
+      "kind": "setText",
+      "node_id": "title",
+      "text": "Blue-Eyes White Dragon"
+    },
+    {
+      "kind": "setText",
+      "node_id": "description",
+      "text": "A white dragon."
+    },
+    {
+      "kind": "setFirstLineCompress",
+      "node_id": "description",
+      "enabled": true
+    },
+    {
+      "kind": "setText",
+      "node_id": "password",
+      "text": "89631139"
+    },
+    {
+      "kind": "setText",
+      "node_id": "package",
+      "text": "LOB"
+    },
+    {
+      "kind": "setText",
+      "node_id": "copyright",
+      "text": "en"
+    },
+    {
+      "kind": "setText",
+      "node_id": "laser",
+      "text": "laser1"
+    },
+    {
+      "kind": "setText",
+      "node_id": "stats-atk",
+      "text": "3000"
+    },
+    {
+      "kind": "setText",
+      "node_id": "stats-def",
+      "text": "2500"
+    },
+    {
+      "kind": "setTextFill",
+      "node_id": "title",
+      "fill": {
+        "gradient": {
+          "start": "#8a5d17",
+          "end": "#f8e6a2"
+        }
+      }
+    },
+    {
+      "kind": "setForegroundLayout",
+      "node_id": "foreground",
+      "layout": {
+        "x": 572,
+        "y": 915.5,
+        "width": 500,
+        "height": 400,
+        "scale": 0.5,
+        "rotation": 15
+      }
+    },
+    {
+      "kind": "setFillRect",
+      "node_id": "out-frame-effect-bg",
+      "color": "#f6f2e8",
+      "opacity": 0.78
+    }
+  ],
+  "resources": {
+    "artImage": {
+      "kind": "dataUrl",
+      "dataUrl": "data:image/png;base64,AAA"
+    },
+    "foregroundImage": {
+      "kind": "dataUrl",
+      "dataUrl": "data:image/png;base64,BBB"
+    }
+  }
+}

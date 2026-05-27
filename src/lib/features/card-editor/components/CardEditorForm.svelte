@@ -5,17 +5,22 @@
   import CardCategoryPopover from "$lib/features/card-editor/components/CardCategoryPopover.svelte";
   import type { CardDataEntry } from "$lib/types";
   import {
-    ATTRIBUTE_OPTIONS,
     formatEditableScaleValue,
     formatEditableStatValue,
     getPackedLevel,
-    LINK_MARKERS,
     parseEditableScaleInput,
     parseEditableStatInput,
+  } from "$lib/domain/card/draft";
+  import {
+    ATTRIBUTE_OPTIONS,
+    LEVEL_MAX,
+    LEVEL_MIN,
+    LINK_MARKERS,
     PERMISSION_OPTIONS,
     RACE_OPTIONS,
-  } from "$lib/utils/card";
-  import { SUBTYPE_MAP, TYPE_MAP } from "$lib/domain/card/taxonomy";
+    SUBTYPE_MAP,
+    TYPE_MAP,
+  } from "$lib/domain/card/taxonomy";
 
   export let draftCard: CardDataEntry;
   export let imageSrc = "";
@@ -177,7 +182,7 @@
           <label for="edit-attribute">{attributeLabel}</label>
           <select id="edit-attribute" bind:value={draftCard.attribute}>
             {#each ATTRIBUTE_OPTIONS as opt}
-              <option value={opt.value}>{opt.key ? $_(opt.key) : opt.label}</option>
+              <option value={opt.value}>{opt.label}</option>
             {/each}
           </select>
         </div>
@@ -185,7 +190,7 @@
           <label for="edit-race">{raceLabel}</label>
           <select id="edit-race" bind:value={draftCard.race}>
             {#each RACE_OPTIONS as r}
-              <option value={r.value}>{r.key ? $_(r.key) : ""}</option>
+              <option value={r.value}>{r.label}</option>
             {/each}
           </select>
         </div>
@@ -200,7 +205,7 @@
             }}
           >
             <option value={0}>{levelNoneLabel}</option>
-            {#each Array.from({ length: 13 }, (_, i) => i + 1) as lvl}
+            {#each Array.from({ length: LEVEL_MAX - LEVEL_MIN + 1 }, (_, i) => i + LEVEL_MIN) as lvl}
               <option value={lvl}>{lvl}</option>
             {/each}
           </select>

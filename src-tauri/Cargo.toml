@@ -1,6 +1,6 @@
 [package]
 name = "dataeditory"
-version = "2.5.0"
+version = "3.0.0"
 description = "ygocore card database editor y"
 authors = ["kkr223"]
 edition = "2021"
@@ -14,29 +14,41 @@ edition = "2021"
 name = "dataeditory_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+default = []
+ai = ["dep:reqwest", "dep:sha2"]
+card-render = ["dep:ygo-card-renderer-rs"]
+extra = ["ai", "card-render"]
+
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset"] }
-tauri-plugin-opener = "2"
-tauri-plugin-single-instance = "2"
+tauri = { version = "2.11.2", features = ["protocol-asset"] }
+tauri-plugin-opener = "2.5.4"
+tauri-plugin-single-instance = "2.4.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri-plugin-fs = "2"
-tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2.5.1"
+tauri-plugin-dialog = "2.7.1"
 aes-gcm = "0.10"
 base64 = "0.22"
 rand = "0.8"
-sha2 = "0.10"
+sha2 = { version = "0.10", optional = true }
 ygopro-cdb-encode-rs = { path = "../../ygopro-cdb-encode-rs" }
 mime_guess = "2"
 percent-encoding = "2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"] }
-zip = { version = "2.2", default-features = false, features = ["deflate"] }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+zip = { version = "2.2", default-features = false, features = ["deflate-flate2", "flate2"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 regex = "1"
 rusqlite = { version = "0.39.0", features = ["bundled"] }
+ygo-card-renderer-rs = { git = "https://github.com/kkr223/ygo-card-renderer-rs", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"], optional = true }
+
+[patch."https://github.com/kkr223/ygo-card-renderer-rs"]
+ygopro-cdb-encode-rs = { path = "../../ygopro-cdb-encode-rs" }
 
 [profile.release]
 # Faster linking with thin LTO
@@ -47,3 +59,6 @@ codegen-units = 16
 debug = false
 strip = true
 panic = "abort" # Optional: reduces size and slightly speeds up build
+
+[dev-dependencies]
+ts-rs = "11.1.0"

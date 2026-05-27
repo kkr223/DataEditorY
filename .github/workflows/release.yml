@@ -27,7 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Checkout local Rust dependency
+      - name: Checkout ygopro-cdb-encode-rs dependency
         shell: bash
         run: |
           DEP_DIR="$GITHUB_WORKSPACE/../ygopro-cdb-encode-rs"
@@ -60,11 +60,19 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
+      - name: Download renderer bundle
+        if: matrix.variant == 'extra'
+        run: bun run download:renderer-bundle
+
+      - name: Update renderer dependency
+        if: matrix.variant == 'extra'
+        run: cargo update -p ygo-card-renderer-rs --manifest-path src-tauri/Cargo.toml
+
       - name: Apply Tauri config for variant
         run: node scripts/write-tauri-config.mjs ${{ matrix.variant }} src-tauri/tauri.conf.json
 
       - name: Build Tauri app and upload release assets
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_VARIANT: ${{ matrix.variant }}
@@ -77,6 +85,7 @@ jobs:
             Built from GitHub Actions using Tauri 2.
           releaseDraft: true
           prerelease: false
+          args: ${{ matrix.variant == 'extra' && '--features extra' || '' }}
 
       - name: Pack Windows portable bundle
         if: matrix.platform == 'windows-latest'
@@ -88,6 +97,7 @@ jobs:
           $portableResourceDir = "$portableDir/resources"
           $zipPath = "src-tauri/target/release/DataEditorY-$($variantLabel)-windows-portable.zip"
           $sourceResourceDir = "static/resources"
+          $rendererResourceDir = "src-tauri/resources"
 
           Remove-Item $portableDir -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
@@ -123,7 +133,7 @@ jobs:
           )
 
           if ("${{ matrix.variant }}" -eq "extra") {
-            $requiredResources += @{ RelativePath = "yugioh-card"; SourcePath = "$sourceResourceDir/yugioh-card" }
+            $requiredResources += @{ RelativePath = "yugioh_bundle.bin"; SourcePath = "$rendererResourceDir/yugioh_bundle.bin" }
           }
 
           foreach ($resource in $requiredResources) {

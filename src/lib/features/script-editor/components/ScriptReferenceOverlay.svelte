@@ -3,7 +3,7 @@
   import { disableAutofill } from '$lib/actions/disableAutofill';
   import { appSettingsState } from '$lib/stores/appSettings.svelte';
   import { isShortcutEvent } from '$lib/features/shortcuts/registry';
-  import type { LuaReferenceManualItem, LuaReferenceManualKind } from '$lib/utils/luaReferenceManual';
+  import type { LuaReferenceManualItem, LuaReferenceManualKind } from '$lib/features/script-editor/lua/referenceInsert';
 
   export let open = false;
   export let kind: LuaReferenceManualKind = 'constants';

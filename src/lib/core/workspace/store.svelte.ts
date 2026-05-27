@@ -1,4 +1,5 @@
-import { fromStore } from 'svelte/store';
+import { fromStore, get } from 'svelte/store';
+import { _ } from 'svelte-i18n';
 import { appShellState } from '$lib/stores/appShell.svelte';
 import { activeTabId, tabs, type CdbTab } from '$lib/stores/db';
 import {
@@ -6,6 +7,10 @@ import {
   getScriptTabDisplayName,
   scriptTabs,
 } from '$lib/stores/scriptEditor.svelte';
+import {
+  activeCardImageTabId,
+  cardImageTabs,
+} from '$lib/stores/cardImageEditor.svelte';
 import type {
   WorkspaceDocument,
   WorkspaceSnapshot,
@@ -24,7 +29,17 @@ const tabsState = fromStore(tabs);
 const activeTabIdState = fromStore(activeTabId);
 const scriptTabsState = fromStore(scriptTabs);
 const activeScriptTabIdState = fromStore(activeScriptTabId);
+const cardImageTabsState = fromStore(cardImageTabs);
+const activeCardImageTabIdState = fromStore(activeCardImageTabId);
 const workspaceLifecycleVersionState = fromStore(getWorkspaceLifecycleVersionStore());
+
+function getCardImageTitle(tab: { cardCode: number }) {
+  return String(get(_)('editor.card_image_tab_title', {
+    values: {
+      code: tab.cardCode > 0 ? String(tab.cardCode) : 'new',
+    },
+  } as never));
+}
 
 function resolveWorkspaceDocuments() {
   workspaceLifecycleVersionState.current;
@@ -32,8 +47,10 @@ function resolveWorkspaceDocuments() {
   return resolveWorkspaceLifecycleDocuments(buildWorkspaceDocuments({
     dbTabs: tabsState.current,
     scriptTabs: scriptTabsState.current,
+    cardImageTabs: cardImageTabsState.current,
     settingsOpen: appShellState.settingsOpen,
     getScriptTitle: getScriptTabDisplayName,
+    getCardImageTitle,
   }));
 }
 
@@ -43,6 +60,7 @@ function resolveActiveWorkspace() {
     settingsOpen: appShellState.settingsOpen,
     activeDbTabId: activeTabIdState.current,
     activeScriptTabId: activeScriptTabIdState.current,
+    activeCardImageTabId: activeCardImageTabIdState.current,
   });
 }
 

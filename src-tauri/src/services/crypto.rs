@@ -4,11 +4,14 @@ use aes_gcm::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
 use rand::RngCore;
+#[cfg(feature = "ai")]
 use sha2::{Digest, Sha256};
 use std::fs;
 use tauri::AppHandle;
 
-use crate::{APP_IDENTIFIER, CIPHER_KEY_FILE_NAME, SECRET_VERSION_PREFIX};
+#[cfg(feature = "ai")]
+use crate::APP_IDENTIFIER;
+use crate::{CIPHER_KEY_FILE_NAME, SECRET_VERSION_PREFIX};
 
 /// Returns a persistent random cipher key, creating one on first use.
 /// This replaces the old environment-variable-based derivation so that
@@ -23,7 +26,11 @@ pub(crate) fn get_or_create_cipher_key(app: &AppHandle) -> Result<[u8; 32], Stri
             key.copy_from_slice(&bytes);
             return Ok(key);
         }
-        // File is corrupt / wrong size 鈥?regenerate below.
+        return Err(format!(
+            "Cipher key file is invalid: expected 32 bytes, found {} bytes at {}. The file was left unchanged to avoid losing encrypted secrets.",
+            bytes.len(),
+            key_path.display(),
+        ));
     }
 
     let mut key = [0u8; 32];
@@ -34,6 +41,7 @@ pub(crate) fn get_or_create_cipher_key(app: &AppHandle) -> Result<[u8; 32], Stri
 
 /// Legacy key derivation (pre-stable-key migration).  Kept only so that
 /// secrets encrypted before the migration can still be decrypted once.
+#[cfg(feature = "ai")]
 fn legacy_cipher_key(app: &AppHandle) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update("DataEditorY::secret-key");
@@ -75,6 +83,7 @@ fn encrypt_with_key(key: &[u8; 32], secret_key: &str) -> Result<String, String> 
     ))
 }
 
+#[cfg(feature = "ai")]
 fn decrypt_with_key(key: &[u8; 32], encrypted_secret_key: &str) -> Result<String, String> {
     let parts: Vec<&str> = encrypted_secret_key.splitn(3, ':').collect();
     if parts.len() != 3 || parts[0] != SECRET_VERSION_PREFIX {
@@ -103,6 +112,7 @@ pub(crate) fn encrypt_secret_key(app: &AppHandle, secret_key: &str) -> Result<St
 
 /// Tries the stable cipher key first; falls back to the legacy
 /// environment-variable-based key for transparent migration.
+#[cfg(feature = "ai")]
 pub(crate) fn decrypt_secret_key(
     app: &AppHandle,
     encrypted_secret_key: &str,

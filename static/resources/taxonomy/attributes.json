@@ -1,0 +1,32 @@
+{
+  "editorOptions": [
+    { "value": "0x0", "label": "无" },
+    { "value": "0x1", "label": "地" },
+    { "value": "0x2", "label": "水" },
+    { "value": "0x4", "label": "炎" },
+    { "value": "0x8", "label": "风" },
+    { "value": "0x10", "label": "光" },
+    { "value": "0x20", "label": "暗" },
+    { "value": "0x40", "label": "神" }
+  ],
+  "filterOptions": [
+    { "value": "", "label": "无" },
+    { "value": "earth", "label": "地" },
+    { "value": "water", "label": "水" },
+    { "value": "fire", "label": "炎" },
+    { "value": "wind", "label": "风" },
+    { "value": "light", "label": "光" },
+    { "value": "dark", "label": "暗" },
+    { "value": "divine", "label": "神" }
+  ],
+  "cardImageOptions": [
+    { "value": "", "label": "无" },
+    { "value": "dark", "label": "暗" },
+    { "value": "light", "label": "光" },
+    { "value": "earth", "label": "地" },
+    { "value": "water", "label": "水" },
+    { "value": "fire", "label": "炎" },
+    { "value": "wind", "label": "风" },
+    { "value": "divine", "label": "神" }
+  ]
+}

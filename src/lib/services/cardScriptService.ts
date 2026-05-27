@@ -1,4 +1,4 @@
-import { buildScriptFileName, normalizeScriptContent } from '$lib/domain/script/workspace';
+import { applyScriptTemplate, buildScriptFileName, normalizeScriptContent } from '$lib/domain/script/workspace';
 import {
   getCardScriptInfo,
   openInDefaultApp,
@@ -6,8 +6,12 @@ import {
   readCardScriptDocument,
   saveCardScriptDocument,
 } from '$lib/infrastructure/tauri/commands';
-import { openOrCreateScriptTab } from '$lib/stores/scriptEditor.svelte';
-import { buildTemplateContent } from '$lib/services/scriptTemplate';
+import { openExternalScriptFileTab, openOrCreateScriptTab } from '$lib/stores/scriptEditor.svelte';
+import { appSettingsState } from '$lib/stores/appSettings.svelte';
+
+function buildTemplateContent(cardName: string, cardCode: number) {
+  return applyScriptTemplate(appSettingsState.values.scriptTemplate, cardName, cardCode);
+}
 
 export async function getExistingCardScriptInfo(cdbPath: string, cardCode: number) {
   return getCardScriptInfo(cdbPath, cardCode);
@@ -26,6 +30,10 @@ export async function openCardScriptWorkspace(input: {
     cardName: input.cardName,
     templateContent: buildTemplateContent(input.cardName, input.cardCode),
   });
+}
+
+export async function openExternalScriptFileWorkspace(path: string) {
+  return openExternalScriptFileTab(path);
 }
 
 export async function ensureCardScriptFile(input: {

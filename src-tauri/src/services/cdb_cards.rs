@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{error::Error, fmt, path::Path};
 
 use crate::{
     models::cdb::{
@@ -7,17 +7,85 @@ use crate::{
         UndoModifyOperationRequest,
     },
     repository::cdb as cdb_repository,
-    session::cdb::{with_session_meta, OpenCdbSessions},
+    session::cdb::{CdbSessionMeta, OpenCdbSessions},
 };
 
 const PAGE_SIZE_DEFAULT: u32 = 50;
 const PAGE_SIZE_MAX: u32 = 200;
 
+pub(crate) type CdbCardsResult<T> = Result<T, CdbCardsError>;
+
+#[derive(Debug)]
+pub(crate) enum CdbCardsError {
+    UnknownTab {
+        tab_id: String,
+    },
+    Database {
+        action: &'static str,
+        message: String,
+    },
+    Repository {
+        action: &'static str,
+        message: String,
+    },
+}
+
+impl CdbCardsError {
+    fn database(action: &'static str, message: impl Into<String>) -> Self {
+        Self::Database {
+            action,
+            message: message.into(),
+        }
+    }
+
+    fn repository(action: &'static str, message: impl Into<String>) -> Self {
+        Self::Repository {
+            action,
+            message: message.into(),
+        }
+    }
+}
+
+impl fmt::Display for CdbCardsError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnknownTab { tab_id } => write!(formatter, "Unknown cdb tab: {tab_id}"),
+            Self::Database { action, message } | Self::Repository { action, message } => {
+                let _ = action;
+                formatter.write_str(message)
+            }
+        }
+    }
+}
+
+impl Error for CdbCardsError {}
+
+fn with_cdb_cards_session<T>(
+    sessions: &OpenCdbSessions,
+    tab_id: &str,
+    f: impl FnOnce(&CdbSessionMeta) -> CdbCardsResult<T>,
+) -> CdbCardsResult<T> {
+    let session = {
+        let sessions = sessions
+            .0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        sessions
+            .get(tab_id)
+            .cloned()
+            .ok_or_else(|| CdbCardsError::UnknownTab {
+                tab_id: tab_id.to_string(),
+            })?
+    };
+
+    f(&session)
+}
+
 pub fn search_cards_page(
     sessions: &OpenCdbSessions,
     request: SearchCardsPageRequest,
-) -> Result<SearchCardsPageResponse, String> {
-    with_session_meta(sessions, &request.tab_id, |session| {
+) -> CdbCardsResult<SearchCardsPageResponse> {
+    with_cdb_cards_session(sessions, &request.tab_id, |session| {
         let cdb = session
             .cdb
             .lock()
@@ -29,7 +97,9 @@ pub fn search_cards_page(
             .clamp(1, PAGE_SIZE_MAX);
         let (cards, total) = cdb
             .query_raw_page(&request.where_clause, &request.params, page, page_size)
-            .map_err(|err| err.to_string())?;
+            .map_err(|err| {
+                CdbCardsError::database("Failed to search cards page", err.to_string())
+            })?;
         Ok(SearchCardsPageResponse { cards, total })
     })
 }
@@ -37,14 +107,14 @@ pub fn search_cards_page(
 pub fn query_cards_raw(
     sessions: &OpenCdbSessions,
     request: QueryCardsRequest,
-) -> Result<Vec<CardDto>, String> {
-    with_session_meta(sessions, &request.tab_id, |session| {
+) -> CdbCardsResult<Vec<CardDto>> {
+    with_cdb_cards_session(sessions, &request.tab_id, |session| {
         let cdb = session
             .cdb
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         cdb.query_raw(&request.query_clause, &request.params)
-            .map_err(|err| err.to_string())
+            .map_err(|err| CdbCardsError::database("Failed to query cards", err.to_string()))
     })
 }
 
@@ -52,66 +122,71 @@ pub fn get_card_by_id(
     sessions: &OpenCdbSessions,
     tab_id: String,
     card_id: u32,
-) -> Result<Option<CardDto>, String> {
-    with_session_meta(sessions, &tab_id, |session| {
+) -> CdbCardsResult<Option<CardDto>> {
+    with_cdb_cards_session(sessions, &tab_id, |session| {
         let cdb = session
             .cdb
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        cdb.find_by_id(card_id).map_err(|err| err.to_string())
+        cdb.find_by_id(card_id)
+            .map_err(|err| CdbCardsError::database("Failed to get card by id", err.to_string()))
     })
 }
 
 pub fn get_cards_by_ids(
     sessions: &OpenCdbSessions,
     request: GetCardsByIdsRequest,
-) -> Result<Vec<CardDto>, String> {
-    with_session_meta(sessions, &request.tab_id, |session| {
+) -> CdbCardsResult<Vec<CardDto>> {
+    with_cdb_cards_session(sessions, &request.tab_id, |session| {
         let cdb = session
             .cdb
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         cdb.find_by_ids(&request.card_ids)
-            .map_err(|err| err.to_string())
+            .map_err(|err| CdbCardsError::database("Failed to get cards by ids", err.to_string()))
     })
 }
 
-pub fn modify_cards(sessions: &OpenCdbSessions, request: ModifyCardsRequest) -> Result<(), String> {
-    with_session_meta(sessions, &request.tab_id, |session| {
+pub fn modify_cards(sessions: &OpenCdbSessions, request: ModifyCardsRequest) -> CdbCardsResult<()> {
+    with_cdb_cards_session(sessions, &request.tab_id, |session| {
         let mut cdb = session
             .cdb
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        cdb.add_cards(&request.cards).map_err(|err| err.to_string())
+        cdb.add_cards(&request.cards)
+            .map_err(|err| CdbCardsError::database("Failed to modify cards", err.to_string()))
     })
 }
 
-pub fn delete_cards(sessions: &OpenCdbSessions, request: DeleteCardsRequest) -> Result<(), String> {
-    with_session_meta(sessions, &request.tab_id, |session| {
+pub fn delete_cards(sessions: &OpenCdbSessions, request: DeleteCardsRequest) -> CdbCardsResult<()> {
+    with_cdb_cards_session(sessions, &request.tab_id, |session| {
         let mut cdb = session
             .cdb
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         cdb.remove_cards(&request.card_ids)
-            .map_err(|err| err.to_string())
+            .map_err(|err| CdbCardsError::database("Failed to delete cards", err.to_string()))
     })
 }
 
-pub fn create_cdb_from_cards(request: CreateCdbFromCardsRequest) -> Result<(), String> {
+pub fn create_cdb_from_cards(request: CreateCdbFromCardsRequest) -> CdbCardsResult<()> {
     cdb_repository::recreate_cdb_with_cards(Path::new(&request.output_path), &request.cards)
+        .map_err(|err| CdbCardsError::repository("Failed to create CDB from cards", err))
 }
 
 pub fn undo_modify_operation(
     sessions: &OpenCdbSessions,
     request: UndoModifyOperationRequest,
-) -> Result<(), String> {
-    with_session_meta(sessions, &request.tab_id, |session| {
+) -> CdbCardsResult<()> {
+    with_cdb_cards_session(sessions, &request.tab_id, |session| {
         let mut cdb = session
             .cdb
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         cdb.undo_modify(&request.cards_to_restore, &request.ids_to_delete)
-            .map_err(|err| err.to_string())
+            .map_err(|err| {
+                CdbCardsError::database("Failed to undo card modification", err.to_string())
+            })
     })
 }
 
