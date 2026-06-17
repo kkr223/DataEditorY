@@ -68,23 +68,35 @@
     const input = value && typeof value === 'object'
       ? value as Partial<CardImageConfigDocument>
       : {};
+    const meta = input.meta && typeof input.meta === 'object'
+      ? input.meta
+      : undefined;
     return {
       kind: 'dataeditory-card-image-config',
       version: 1,
       form: normalizeCardImageFormData(input.form ?? {}),
       exportScalePercent: input.exportScalePercent,
-      meta: input.meta,
+      meta: meta
+        ? {
+            cardCode: Number.isFinite(Number(meta.cardCode)) ? Number(meta.cardCode) : undefined,
+            cardName: typeof meta.cardName === 'string' && meta.cardName.trim()
+              ? meta.cardName
+              : undefined,
+            exportedAt: typeof meta.exportedAt === 'string' ? meta.exportedAt : undefined,
+          }
+        : undefined,
     };
   };
 
   const persistDocument = (document: CardImageConfigDocument) => {
     if (!activeDocument || activeDocument.typeId !== CARD_IMAGE_CONFIG_TYPE) return;
-    documentData = normalizeDocument(document);
+    const nextDocument = normalizeDocument(document);
+    documentData = nextDocument;
     const documentId = activeDocument.id;
     const sequence = ++saveSequence;
     void documentRuntime.execute(documentId, {
       kind: 'replace',
-      value: documentData,
+      value: nextDocument,
     }).catch((error) => {
       if (sequence !== saveSequence) return;
       loadError = error instanceof Error ? error.message : String(error);
