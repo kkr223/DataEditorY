@@ -1,5 +1,6 @@
 import { get } from 'svelte/store';
 import {
+  appShellState,
   activateEditorView,
   closeSettingsView,
   openSettingsView,
@@ -16,6 +17,7 @@ import {
   closeScriptTab,
   saveScriptTab,
   scriptTabs,
+  activeScriptTabId,
 } from '$lib/stores/scriptEditor.svelte';
 import {
   SETTINGS_WORKSPACE_ID,
@@ -23,9 +25,34 @@ import {
   getWorkspaceDocument,
 } from '$lib/core/workspace/store.svelte';
 import { tryRunWorkspaceSaveHandler } from '$lib/application/workspace/lifecycle';
+import { documentRuntime } from '$lib/platform/appRuntime';
+import {
+  SETTINGS_PROVIDER_ID,
+  SETTINGS_TYPE,
+} from '$lib/modules/settings';
 
 function isScriptWorkspace(id: string) {
   return get(scriptTabs).some((tab) => tab.id === id);
+}
+
+function getSettingsDocumentId() {
+  return documentRuntime.snapshot.documents
+    .find((document) => document.typeId === SETTINGS_TYPE)?.id ?? null;
+}
+
+export async function openSettingsWorkspace() {
+  const existingId = getSettingsDocumentId();
+  if (existingId) {
+    documentRuntime.activate(existingId);
+  } else {
+    await documentRuntime.createDocument({
+      typeId: SETTINGS_TYPE,
+      providerId: SETTINGS_PROVIDER_ID,
+      title: 'Settings',
+      initialData: {},
+    });
+  }
+  openSettingsView();
 }
 
 export async function openDbWorkspace() {
@@ -46,7 +73,7 @@ export async function createDbWorkspace() {
 
 export function activateWorkspaceDocument(id: string) {
   if (id === SETTINGS_WORKSPACE_ID) {
-    openSettingsView();
+    void openSettingsWorkspace();
     return;
   }
 
@@ -61,7 +88,22 @@ export function activateWorkspaceDocument(id: string) {
 
 export async function closeWorkspaceDocument(id: string) {
   if (id === SETTINGS_WORKSPACE_ID) {
+    const settingsDocumentId = getSettingsDocumentId();
+    if (settingsDocumentId) {
+      await documentRuntime.close(settingsDocumentId, true);
+    }
     closeSettingsView();
+    if (appShellState.mainView === 'script') {
+      const scriptId = get(activeScriptTabId);
+      if (scriptId && documentRuntime.getDocument(scriptId)) {
+        documentRuntime.activate(scriptId);
+      }
+    } else {
+      const dbId = get(activeTabId);
+      if (dbId && documentRuntime.getDocument(dbId)) {
+        documentRuntime.activate(dbId);
+      }
+    }
     return;
   }
 

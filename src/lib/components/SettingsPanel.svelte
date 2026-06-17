@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
   import {
     clearWorkspaceLifecycleMetadata,
     clearWorkspaceSaveHandler,
@@ -12,7 +11,6 @@
     createSettingsFormState,
     hydrateSettingsForm,
     isSettingsFormDirty,
-    shouldAutoConnectSettings,
   } from '$lib/features/settings/controller';
   import {
     clearCoverImageFlow,
@@ -25,66 +23,22 @@
   import SettingsPackageCard from '$lib/features/settings/components/SettingsPackageCard.svelte';
   import SettingsShortcutsCard from '$lib/features/settings/components/SettingsShortcutsCard.svelte';
   import SettingsTemplateCard from '$lib/features/settings/components/SettingsTemplateCard.svelte';
+  import SettingsSections from '$lib/platform/components/SettingsSections.svelte';
+  import { documentRuntime } from '$lib/platform/appRuntime';
+  import type { SettingsWorkbenchContext } from '$lib/modules/settings/workbench/context';
   import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
   import { SETTINGS_WORKSPACE_ID } from '$lib/core/workspace/store.svelte';
 
-  type SettingsAiCardModule = typeof import('$lib/features/settings/components/SettingsAiCard.svelte');
-  type SettingsExtraUseCasesModule = typeof import('$lib/features/settings/extraUseCases');
-
   const form = $state(createSettingsFormState());
   let isHydrated = $state(false);
-  let triedAutoConnect = $state(false);
-  let settingsAiCardModulePromise = $state<Promise<SettingsAiCardModule> | null>(null);
-  let settingsExtraUseCasesPromise = $state<Promise<SettingsExtraUseCasesModule> | null>(null);
-  const hasAiCapability = isCapabilityEnabled('ai');
-  const loadSettingsExtraUseCases = __APP_FEATURES__.ai
-    ? () => import('$lib/features/settings/extraUseCases')
-    : null;
-  const loadSettingsAiCardModule = __APP_FEATURES__.ai
-    ? () => import('$lib/features/settings/components/SettingsAiCard.svelte')
-    : null;
-
-  let settingsDescription = $derived($_(hasAiCapability ? 'settings.description_extra' : 'settings.description_base'));
-  let connectionHint = $derived.by(() => {
-    if (appSettingsState.connectionError) {
-      return `${$_('settings.connect_error')}: ${appSettingsState.connectionError}`;
-    }
-
-    if (appSettingsState.modelOptions.length > 0) {
-      return $_('settings.connect_ready', {
-        values: { count: String(appSettingsState.modelOptions.length) },
-      });
-    }
-
-    return $_('settings.connect_hint');
-  });
-  let hasConnectionError = $derived(appSettingsState.connectionError !== '');
-  let secretBadgeLabel = $derived(
-    $_(appSettingsState.values.hasSecretKey ? 'settings.secret_saved' : 'settings.secret_missing'),
-  );
-  let secretPlaceholder = $derived(
-    $_(
-      appSettingsState.values.hasSecretKey
-        ? 'settings.secret_placeholder_saved'
-        : 'settings.secret_placeholder_empty',
-    ),
-  );
-
-  function ensureSettingsExtraUseCases() {
-    if (!loadSettingsExtraUseCases || !hasAiCapability) {
-      return null;
-    }
-    settingsExtraUseCasesPromise ??= loadSettingsExtraUseCases();
-    return settingsExtraUseCasesPromise;
-  }
-
-  function ensureSettingsAiCardModule() {
-    if (!loadSettingsAiCardModule || !hasAiCapability) {
-      return null;
-    }
-    settingsAiCardModulePromise ??= loadSettingsAiCardModule();
-    return settingsAiCardModulePromise;
-  }
+  const hasContributedSettings = documentRuntime.registry.findSettingsSections().length > 0;
+  let settingsDescription = $derived($_(hasContributedSettings
+    ? 'settings.description_extra'
+    : 'settings.description_base'));
+  const settingsWorkbenchContext = $derived.by((): SettingsWorkbenchContext => ({
+    form,
+    t: (key, options) => $_(key, options as never),
+  }));
 
   async function handlePickCover() {
     await pickCoverImageFlow({ t: $_ });
@@ -98,24 +52,6 @@
     await saveSettingsFlow({ form, t: $_ });
   }
 
-  async function handleConnect() {
-    const extraModule = ensureSettingsExtraUseCases();
-    if (!extraModule) return;
-    await (await extraModule).connectSettingsAiFlow({ form, hasAiCapability, t: $_ });
-  }
-
-  async function handleModelChange() {
-    const extraModule = ensureSettingsExtraUseCases();
-    if (!extraModule) return;
-    await (await extraModule).saveSelectedModelFlow({ form, hasAiCapability, t: $_ });
-  }
-
-  async function handleClearSecretKey() {
-    const extraModule = ensureSettingsExtraUseCases();
-    if (!extraModule) return;
-    await (await extraModule).clearSecretKeyFlow({ form, hasAiCapability, t: $_ });
-  }
-
   async function handleOpenErrorLog() {
     await openErrorLogFlow({
       errorLogPath: appSettingsState.values.errorLogPath,
@@ -123,8 +59,8 @@
     });
   }
 
-  $effect(() => {
-    void loadAppSettings();
+  onMount(() => {
+    void loadAppSettings().catch(() => undefined);
   });
 
   $effect(() => {
@@ -134,35 +70,6 @@
 
     const nextState = hydrateSettingsForm(form, appSettingsState.values, { isHydrated });
     isHydrated = nextState.isHydrated;
-
-    if (
-      shouldAutoConnectSettings({
-        hasAiCapability,
-        triedAutoConnect,
-        loading: appSettingsState.loading,
-        loaded: appSettingsState.loaded,
-        hasSecretKey: appSettingsState.values.hasSecretKey,
-        apiBaseUrl: appSettingsState.values.apiBaseUrl,
-      })
-    ) {
-      triedAutoConnect = true;
-      const extraModule = ensureSettingsExtraUseCases();
-      if (extraModule) {
-        void extraModule.then((module) => module.autoConnectSettingsFlow({
-          values: appSettingsState.values,
-          hasAiCapability,
-          setModel: (model) => {
-            form.model = model;
-          },
-        }));
-      }
-    }
-  });
-
-  $effect(() => {
-    if (hasAiCapability) {
-      ensureSettingsAiCardModule();
-    }
   });
 
   $effect(() => {
@@ -262,49 +169,7 @@
       }}
     />
 
-    {#if hasAiCapability && settingsAiCardModulePromise}
-      {#await settingsAiCardModulePromise then module}
-        <module.default
-          title={$_('settings.ai_title')}
-          description={$_('settings.ai_description')}
-          badgeLabel={secretBadgeLabel}
-          hasSecretKey={appSettingsState.values.hasSecretKey}
-          baseUrlLabel={$_('settings.base_url')}
-          secretKeyLabel={$_('settings.secret_key')}
-          modelLabel={$_('settings.model')}
-          temperatureLabel={$_('settings.temperature')}
-          temperatureHint={$_('settings.temperature_hint')}
-          connectHint={connectionHint}
-          connectHintError={hasConnectionError}
-          connectLabel={$_('settings.connect')}
-          connectingLabel={$_('settings.connecting')}
-          secretClearLabel={$_('settings.secret_clear')}
-          modelPlaceholder={$_('settings.model_placeholder')}
-          apiBaseUrl={form.apiBaseUrl}
-          secretKey={form.secretKey}
-          model={form.model}
-          temperature={form.temperature}
-          modelOptions={appSettingsState.modelOptions}
-          connecting={appSettingsState.connecting}
-          secretPlaceholder={secretPlaceholder}
-          onApiBaseUrlInput={(value) => {
-            form.apiBaseUrl = value;
-          }}
-          onSecretKeyInput={(value) => {
-            form.secretKey = value;
-          }}
-          onModelInput={(value) => {
-            form.model = value;
-          }}
-          onModelChange={handleModelChange}
-          onTemperatureInput={(value) => {
-            form.temperature = value;
-          }}
-          onConnect={handleConnect}
-          onClearSecretKey={handleClearSecretKey}
-        />
-      {/await}
-    {/if}
+    <SettingsSections context={settingsWorkbenchContext} />
   </div>
 </section>
 

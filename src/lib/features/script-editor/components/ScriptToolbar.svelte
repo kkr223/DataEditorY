@@ -1,16 +1,13 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
+
   export let title = '';
   export let cardCodeLabel = '';
   export let cardName = '';
   export let cdbPath = '';
-  export let hasAiCapability = false;
-  export let isGeneratingScript = false;
   export let isReloading = false;
   export let isSaving = false;
-  export let stageLabel = '';
-  export let generateLabel = '';
-  export let generatingLabel = '';
-  export let cancelLabel = '';
+  export let extensionActions: Snippet | null = null;
   export let reloadLabel = '';
   export let reloadingLabel = '';
   export let checkDiagnosticsLabel = '';
@@ -20,8 +17,6 @@
   export let isSharingImage = false;
   export let sharingImageLabel = '';
   export let savingLabel = '';
-  export let onGenerate: () => void | Promise<void> = () => {};
-  export let onCancelGenerate: () => void = () => {};
   export let onReload: () => void | Promise<void> = () => {};
   export let onCheckDiagnostics: () => void | Promise<void> = () => {};
   export let onOpenExternal: () => void | Promise<void> = () => {};
@@ -39,16 +34,7 @@
     </div>
   </div>
   <div class="script-toolbar-actions">
-    {#if hasAiCapability}
-      <button class="btn-secondary" type="button" onclick={onGenerate} disabled={isGeneratingScript}>
-        {isGeneratingScript ? generatingLabel : generateLabel}
-      </button>
-      {#if isGeneratingScript}
-        <button class="btn-secondary" type="button" onclick={onCancelGenerate}>
-          {cancelLabel}
-        </button>
-      {/if}
-    {/if}
+    {@render extensionActions?.()}
     <button class="btn-secondary" type="button" onclick={onReload} disabled={isReloading}>
       {isReloading ? reloadingLabel : reloadLabel}
     </button>
@@ -66,10 +52,6 @@
     </button>
   </div>
 </div>
-
-{#if hasAiCapability && isGeneratingScript}
-  <div class="script-stage-banner">{stageLabel}</div>
-{/if}
 
 <style>
   .script-toolbar {
@@ -115,15 +97,6 @@
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
-  }
-
-  .script-stage-banner {
-    padding: 4px 10px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    color: var(--text-secondary);
-    font-size: 0.72rem;
-    line-height: 1.2;
-    background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
   }
 
   button {

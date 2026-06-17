@@ -16,6 +16,8 @@
     "build:extra": "node scripts/run-variant-build.mjs frontend extra",
     "preview": "vite preview",
     "check": "bun run build:lua-intel && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:base": "node scripts/run-variant-build.mjs check base",
+    "check:extra": "node scripts/run-variant-build.mjs check extra",
     "check:watch": "bun run build:lua-intel && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test": "bun test",
     "tauri": "node scripts/run-variant-build.mjs tauri",
@@ -33,10 +35,13 @@
     "@tauri-apps/plugin-dialog": "~2",
     "@tauri-apps/plugin-fs": "~2",
     "@tauri-apps/plugin-opener": "^2",
+    "css-line-break": "^2.1.0",
+    "leafer": "^2.0.4",
+    "leafer-unified": "^1.0.3",
     "luaparse": "^0.3.1",
     "monaco-editor": "^0.55.1",
     "svelte-i18n": "^4.0.1",
-    "yugioh-card": "^1.9.2"
+    "yugioh-card-ts": "link:../yugioh-card-ts/dist"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",

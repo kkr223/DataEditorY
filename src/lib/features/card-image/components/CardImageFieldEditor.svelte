@@ -4,6 +4,7 @@
     CARD_IMAGE_ATTRIBUTE_OPTIONS,
     CARD_IMAGE_CARD_TYPE_OPTIONS,
     CARD_IMAGE_COPYRIGHT_OPTIONS,
+    CARD_IMAGE_EFFECT_BLOCK_BORDER_STYLE_OPTIONS,
     CARD_IMAGE_FONT_OPTIONS,
     CARD_IMAGE_ICON_OPTIONS,
     CARD_IMAGE_LANGUAGE_OPTIONS,
@@ -207,6 +208,8 @@
       <label class="toggle"><input type="checkbox" bind:checked={form.firstLineCompress} /><span>{$_('editor.card_image_first_line_compress')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.descriptionAlign} /><span>{$_('editor.card_image_description_center')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.twentieth} /><span>{$_('editor.card_image_twentieth')}</span></label>
+      <label class="toggle"><input type="checkbox" bind:checked={form.mark25th} /><span>{$_('editor.card_image_mark25th')}</span></label>
+      <label class="toggle"><input type="checkbox" bind:checked={form.nameBlock} /><span>{$_('editor.card_image_name_block')}</span></label>
       <label class="toggle"><input type="checkbox" bind:checked={form.radius} /><span>{$_('editor.card_image_round_corner')}</span></label>
     </div>
   </section>
@@ -228,6 +231,7 @@
       <label class="field"><span>{$_('editor.card_image_foreground_rotation')}</span><input type="number" step="1" bind:value={form.foregroundRotation} /></label>
       <label class="field"><span>{$_('editor.card_image_foreground_width')}</span><input type="number" min="1" step="1" bind:value={form.foregroundWidth} /></label>
       <label class="field"><span>{$_('editor.card_image_foreground_height')}</span><input type="number" min="1" step="1" bind:value={form.foregroundHeight} /></label>
+      <label class="toggle field-span-2"><input type="checkbox" bind:checked={form.foregroundCoverLevel} /><span>{$_('editor.card_image_foreground_cover_level')}</span></label>
     </div>
   </div>
 
@@ -239,6 +243,7 @@
     <fieldset class="effect-block-fieldset" disabled={!form.effectBlockEnabled}>
       <div class="field-grid">
         <label class="field"><span>{$_('editor.card_image_effect_block_opacity')}</span><input type="number" min="0" max="1" step="0.05" bind:value={form.effectBlockOpacity} /></label>
+        <label class="field"><span>{$_('editor.card_image_effect_block_border')}</span><select bind:value={form.effectBlockBorderStyle}>{#each CARD_IMAGE_EFFECT_BLOCK_BORDER_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
         <div class="field">
           <span>{$_('editor.card_image_effect_block_color')}</span>
           <div class="color-input-row color-input-row-compact">

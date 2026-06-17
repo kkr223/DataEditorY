@@ -11,12 +11,7 @@
   } from '$lib/stores/db';
   import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
   import { clearSearchError, clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSelectedCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
-  import { appShellState } from '$lib/stores/appShell.svelte';
-
-  type CardListModule = typeof import('$lib/components/CardList.svelte');
-  type CardEditorModule = typeof import('$lib/components/CardEditor.svelte');
-  type LuaScriptEditorModule = typeof import('$lib/components/LuaScriptEditor.svelte');
-  type SettingsPanelModule = typeof import('$lib/components/SettingsPanel.svelte');
+  import WorkbenchHost from '$lib/platform/components/WorkbenchHost.svelte';
 
   function restoreSearchFilters() {
     const cached = getCachedFilters();
@@ -41,24 +36,6 @@
       setcode3: cached.setcode3?.toString() ?? '',
       setcode4: cached.setcode4?.toString() ?? '',
     };
-  }
-
-  let cardListModulePromise = $state<Promise<CardListModule> | null>(null);
-  let cardEditorModulePromise = $state<Promise<CardEditorModule> | null>(null);
-  let luaScriptEditorModulePromise = $state<Promise<LuaScriptEditorModule> | null>(null);
-  let settingsPanelModulePromise = $state<Promise<SettingsPanelModule> | null>(null);
-
-  function ensureEditorModules() {
-    cardListModulePromise ??= import('$lib/components/CardList.svelte');
-    cardEditorModulePromise ??= import('$lib/components/CardEditor.svelte');
-  }
-
-  function ensureScriptEditorModule() {
-    luaScriptEditorModulePromise ??= import('$lib/components/LuaScriptEditor.svelte');
-  }
-
-  function ensureSettingsPanelModule() {
-    settingsPanelModulePromise ??= import('$lib/components/SettingsPanel.svelte');
   }
 
   // React to tab changes: use cached results for instant switching
@@ -92,53 +69,6 @@
       }
     }
   });
-
-  $effect(() => {
-    if (appShellState.mainView === 'settings') {
-      ensureSettingsPanelModule();
-      return;
-    }
-
-    if (appShellState.mainView === 'script') {
-      ensureScriptEditorModule();
-      return;
-    }
-
-    ensureEditorModules();
-  });
 </script>
 
-{#if appShellState.mainView === 'settings'}
-  {#if settingsPanelModulePromise}
-    {#await settingsPanelModulePromise then module}
-      <module.default />
-    {/await}
-  {/if}
-{:else if appShellState.mainView === 'script'}
-  {#if luaScriptEditorModulePromise}
-    {#await luaScriptEditorModulePromise then module}
-      <module.default />
-    {/await}
-  {/if}
-{:else}
-  <div class="editor-layout">
-    {#if cardListModulePromise}
-      {#await cardListModulePromise then module}
-        <module.default />
-      {/await}
-    {/if}
-    {#if cardEditorModulePromise}
-      {#await cardEditorModulePromise then module}
-        <module.default />
-      {/await}
-    {/if}
-  </div>
-{/if}
-
-<style>
-  .editor-layout {
-    display: flex;
-    height: 100%;
-    overflow: hidden;
-  }
-</style>
+<WorkbenchHost />

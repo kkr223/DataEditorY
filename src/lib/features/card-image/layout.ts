@@ -7,6 +7,7 @@ import {
 export type { CardImageLanguage } from "./adapter";
 
 export type CardImageFormData = CardImageBaseData & {
+  nameBlock: boolean;
   foregroundImage: string;
   foregroundWidth: number;
   foregroundHeight: number;
@@ -14,6 +15,7 @@ export type CardImageFormData = CardImageBaseData & {
   foregroundY: number;
   foregroundScale: number;
   foregroundRotation: number;
+  foregroundCoverLevel: boolean;
   effectBlockEnabled: boolean;
   effectBlockX: number;
   effectBlockY: number;
@@ -21,10 +23,12 @@ export type CardImageFormData = CardImageBaseData & {
   effectBlockHeight: number;
   effectBlockColor: string;
   effectBlockOpacity: number;
+  effectBlockBorderStyle: "none" | "default" | "colored";
   nameShadowColor: string;
   nameShadowGradient: boolean;
   nameShadowGradientColor1: string;
   nameShadowGradientColor2: string;
+  mark25th: boolean;
 };
 
 export type CardImageConfigDocument = {
@@ -82,6 +86,7 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   twentieth: false,
   radius: true,
   scale: 1,
+  nameBlock: false,
   foregroundImage: "",
   foregroundWidth: 0,
   foregroundHeight: 0,
@@ -89,17 +94,20 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   foregroundY: 1015.5,
   foregroundScale: 1,
   foregroundRotation: 0,
+  foregroundCoverLevel: true,
   effectBlockEnabled: false,
-  effectBlockX: 76,
-  effectBlockY: 1503,
+  effectBlockX: 77,
+  effectBlockY: 1501,
   effectBlockWidth: 1239,
-  effectBlockHeight: 428,
+  effectBlockHeight: 427,
   effectBlockColor: "#f6f2e8",
   effectBlockOpacity: 0.78,
+  effectBlockBorderStyle: "default",
   nameShadowColor: "",
   nameShadowGradient: false,
   nameShadowGradientColor1: "#1f2937",
   nameShadowGradientColor2: "#0f172a",
+  mark25th: false,
 };
 
 export const CARD_IMAGE_LANGUAGE_OPTIONS: StringOption[] = [
@@ -191,6 +199,12 @@ export const CARD_IMAGE_COPYRIGHT_OPTIONS: StringOption[] = [
   { value: "en", labelKey: "editor.card_image_option.copyright.en" },
 ];
 
+export const CARD_IMAGE_EFFECT_BLOCK_BORDER_STYLE_OPTIONS: StringOption[] = [
+  { value: "default", labelKey: "editor.card_image_effect_block_border_default" },
+  { value: "colored", labelKey: "editor.card_image_effect_block_border_colored" },
+  { value: "none", labelKey: "editor.card_image_effect_block_border_none" },
+];
+
 function coerceNumber(value: unknown, fallback: number): number {
   const next = Number(value);
   return Number.isFinite(next) ? next : fallback;
@@ -240,6 +254,7 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     twentieth: Boolean(data.twentieth ?? DEFAULT_CARD_IMAGE_FORM_DATA.twentieth),
     radius: Boolean(data.radius ?? DEFAULT_CARD_IMAGE_FORM_DATA.radius),
     scale: coerceNumber(data.scale, DEFAULT_CARD_IMAGE_FORM_DATA.scale),
+    nameBlock: Boolean(data.nameBlock ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameBlock),
     foregroundImage: String(data.foregroundImage ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundImage),
     foregroundWidth: coerceNumber(data.foregroundWidth, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundWidth),
     foregroundHeight: coerceNumber(data.foregroundHeight, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundHeight),
@@ -247,6 +262,7 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     foregroundY: coerceNumber(data.foregroundY, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundY),
     foregroundScale: coerceNumber(data.foregroundScale, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundScale),
     foregroundRotation: coerceNumber(data.foregroundRotation, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundRotation),
+    foregroundCoverLevel: Boolean(data.foregroundCoverLevel ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundCoverLevel),
     effectBlockEnabled: Boolean(data.effectBlockEnabled ?? DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockEnabled),
     effectBlockX: coerceNumber(data.effectBlockX, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockX),
     effectBlockY: coerceNumber(data.effectBlockY, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockY),
@@ -254,10 +270,14 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     effectBlockHeight: coerceNumber(data.effectBlockHeight, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockHeight),
     effectBlockColor: String(data.effectBlockColor ?? DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockColor),
     effectBlockOpacity: coerceNumber(data.effectBlockOpacity, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockOpacity),
+    effectBlockBorderStyle: ["none", "default", "colored"].includes(String(data.effectBlockBorderStyle))
+      ? data.effectBlockBorderStyle as CardImageFormData["effectBlockBorderStyle"]
+      : DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockBorderStyle,
     nameShadowColor: String(data.nameShadowColor ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowColor),
     nameShadowGradient: Boolean(data.nameShadowGradient ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradient),
     nameShadowGradientColor1: String(data.nameShadowGradientColor1 ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradientColor1),
     nameShadowGradientColor2: String(data.nameShadowGradientColor2 ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradientColor2),
+    mark25th: Boolean(data.mark25th ?? DEFAULT_CARD_IMAGE_FORM_DATA.mark25th),
   };
 }
 

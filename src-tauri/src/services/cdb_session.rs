@@ -14,7 +14,7 @@ use crate::{
     session::cdb::{
         app_temp_dir, basename, build_temp_path_in_dir, canonicalize_path, cleanup_temp_path,
         ensure_parent_dir, remove_session, replace_session, with_session_meta, CdbSessionMeta,
-        OpenCdbSessions,
+        update_session_path, OpenCdbSessions,
     },
 };
 
@@ -49,8 +49,21 @@ pub fn close_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), S
 }
 
 pub fn save_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), String> {
+    save_cdb_tab_to(sessions, tab_id, None).map(|_| ())
+}
+
+pub fn save_cdb_tab_to(
+    sessions: &OpenCdbSessions,
+    tab_id: String,
+    destination: Option<String>,
+) -> Result<String, String> {
+    let target = destination.or_else(|| {
+        with_session_meta(sessions, &tab_id, |session| Ok(session.path.clone())).ok()
+    }).filter(|path| !path.trim().is_empty())
+      .ok_or_else(|| "A destination path is required for this document".to_string())?;
+
     with_session_meta(sessions, &tab_id, |session| {
-        let target_path = Path::new(&session.path);
+        let target_path = Path::new(&target);
         ensure_parent_dir(target_path)?;
         // Lock the CDB to ensure no write transaction is in flight
         let _cdb_guard = session
@@ -65,6 +78,33 @@ pub fn save_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), St
         // Best-effort cleanup of stale tmp file from a previous crash
         let _ = fs::remove_file(target_path.with_extension("cdb.tmp"));
         Ok(())
+    })?;
+    update_session_path(sessions, &tab_id, canonicalize_path(&target))?;
+    Ok(target)
+}
+
+pub fn create_unsaved_cdb_tab(
+    app: &AppHandle,
+    sessions: &OpenCdbSessions,
+    tab_id: String,
+) -> Result<OpenCdbTabResponse, String> {
+    let session_dir = app_temp_dir(app)?;
+    let temp_path = build_temp_path_in_dir(&session_dir, &tab_id)?;
+    ensure_parent_dir(&temp_path)?;
+    let cdb = cdb_repository::create_cdb(&temp_path)?;
+    register_session(
+        sessions,
+        tab_id,
+        CdbSessionMeta {
+            path: String::new(),
+            working_path: temp_path,
+            cdb: Arc::new(Mutex::new(cdb)),
+        },
+    )?;
+    Ok(OpenCdbTabResponse {
+        name: "Untitled.cdb".to_string(),
+        cached_cards: Vec::new(),
+        cached_total: 0,
     })
 }
 

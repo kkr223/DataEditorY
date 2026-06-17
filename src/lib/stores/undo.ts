@@ -15,6 +15,7 @@ export type UndoOperation =
     };
 
 const undoHistory = new Map<string, UndoOperation[]>();
+const undoLabels = new Map<string, string[]>();
 
 export function getUndoStack(tabId: string): UndoOperation[] {
   let stack = undoHistory.get(tabId);
@@ -35,4 +36,22 @@ export function pushUndoOperation(tabId: string, operation: UndoOperation): void
 
 export function clearUndoHistory(tabId: string): void {
   undoHistory.delete(tabId);
+  undoLabels.delete(tabId);
+}
+
+export function pushUndoLabel(tabId: string, label: string): void {
+  const stack = undoLabels.get(tabId) ?? [];
+  stack.push(label);
+  if (stack.length > 100) {
+    stack.shift();
+  }
+  undoLabels.set(tabId, stack);
+}
+
+export function popUndoLabel(tabId: string): string | null {
+  return undoLabels.get(tabId)?.pop() ?? null;
+}
+
+export function getUndoLabels(tabId: string): string[] {
+  return undoLabels.get(tabId) ?? [];
 }

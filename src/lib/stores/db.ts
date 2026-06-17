@@ -58,5 +58,4 @@ export {
   deleteCard,
   deleteCards,
   deleteCardsWithSnapshotInTab,
-  queryCardsRaw,
 } from './cardOperations';

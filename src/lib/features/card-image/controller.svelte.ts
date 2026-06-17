@@ -2,7 +2,6 @@ import { tick } from 'svelte';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import type { CardDataEntry } from '$lib/types';
-import { HAS_AI_FEATURE, HAS_EXTRA_BUILD } from '$lib/config/build';
 import { showToast } from '$lib/stores/toast.svelte';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from '$lib/infrastructure/tauri/commands';
@@ -21,62 +20,23 @@ import {
 } from '$lib/utils/cardImage';
 import { writeErrorLog } from '$lib/utils/errorLog';
 
+type CardImageRenderData = CardImageFormData & {
+  effectBlockBorderStyle: 'none' | 'default' | 'colored';
+};
+
 export type YugiohCardConstructor = new (options: {
   view: HTMLElement;
-  data: CardImageFormData;
+  data: CardImageRenderData;
   resourcePath: string;
 }) => {
-  imageLeaf?: {
-    constructor?: new () => { set?: (data: Record<string, unknown>) => void };
-    set?: (data: Record<string, unknown>) => void;
-    zIndex?: number;
-  };
-  maskLeaf?: {
-    constructor?: new () => { set?: (data: Record<string, unknown>) => void };
-    set?: (data: Record<string, unknown>) => void;
-    zIndex?: number;
-  };
   leafer?: {
     destroy?: () => void;
     export: (type: string, options?: Record<string, unknown>) => Promise<unknown>;
-    add?: (child: unknown) => void;
   };
-  setData?: (data: CardImageFormData) => void;
-  nameLeaf?: {
-    constructor?: new () => { set?: (data: Record<string, unknown>) => void };
-    set?: (data: Record<string, unknown>) => void;
-    text?: string;
-    fontFamily?: string;
-    fontSize?: number;
-    letterSpacing?: number;
-    wordSpacing?: number;
-    textAlign?: string;
-    rtFontSize?: number;
-    rtTop?: number;
-    rtColor?: string;
-    width?: number;
-    height?: number;
-    x?: number;
-    y?: number;
-    zIndex?: number;
-    visible?: boolean;
-    opacity?: number;
-    scaleX?: number;
-    scaleY?: number;
-    strokeWidth?: number;
-  };
-  __customNameShadowLeaf?: {
-    set?: (data: Record<string, unknown>) => void;
-  } | null;
-  __customForegroundLeaf?: {
-    set?: (data: Record<string, unknown>) => void;
-  } | null;
-  __customEffectBlockFillLeaf?: {
-    set?: (data: Record<string, unknown>) => void;
-  } | null;
-  __customEffectBlockBorderLeaf?: {
-    set?: (data: Record<string, unknown>) => void;
-  } | null;
+  setData?: (data: CardImageRenderData) => void;
+  whenReady?: () => Promise<void>;
+  export?: (type: string, options?: Record<string, unknown>) => Promise<unknown>;
+  destroy?: () => void;
 };
 
 export type CropBox = { x: number; y: number; size: number };
@@ -94,19 +54,9 @@ const CARD_HEIGHT = 2079;
 export const FOREGROUND_EDITOR_CARD_WIDTH = 1394;
 export const FOREGROUND_EDITOR_CARD_HEIGHT = 2031;
 const FOREGROUND_EDITOR_PADDING = 32;
-const EFFECT_BLOCK_X = 76;
-const EFFECT_BLOCK_Y = 1503;
-const EFFECT_BLOCK_WIDTH = 1236;
-const EFFECT_BLOCK_HEIGHT = 430;
-const EFFECT_BLOCK_FILL_INSET_X = 16;
-const EFFECT_BLOCK_FILL_INSET_Y = 16;
-const EFFECT_BLOCK_FILL_INSET_RIGHT = 16;
-const EFFECT_BLOCK_FILL_INSET_BOTTOM = 20;
 const CROPPED_IMAGE_SIZE = 1024;
 const MAX_CROP_PREVIEW_WIDTH = 900;
 const MAX_CROP_PREVIEW_HEIGHT = 680;
-const FOREGROUND_OVERLAY_Z_INDEX = 21;
-const FOREGROUND_TOP_LAYER_Z_INDEX = 30;
 const FIELD_SPELL_ART_SIZE = 512;
 const MIN_CROP_SIZE = 80;
 const CROP_LAYOUT_BREAKPOINT = 980;
@@ -137,6 +87,7 @@ type CardImageControllerSource = {
   open: () => boolean;
   card: () => CardDataEntry;
   cdbPath: () => string;
+  aiEnabled: () => boolean;
   onSavedJpg: () => void | Promise<void>;
   onClose: () => void;
 };
@@ -219,7 +170,6 @@ export function createCardImageController(source: CardImageControllerSource) {
   let foregroundResizeObserver: ResizeObserver | null = null;
   let lastForegroundRendererSignature = '';
   let yugiohCardConstructorPromise: Promise<YugiohCardConstructor> | null = null;
-  let hasPatchedYugiohCardConstructor = false;
   let resourcePathPromise: Promise<string> | null = null;
   let previewResizeObserver: ResizeObserver | null = null;
 
@@ -267,103 +217,25 @@ export function createCardImageController(source: CardImageControllerSource) {
     return state.resolvedResourcePath;
   }
 
-  function patchYugiohCardConstructor(YugiohCard: YugiohCardConstructor) {
-    if (hasPatchedYugiohCardConstructor) {
-      return YugiohCard;
-    }
-
-    const prototype = YugiohCard.prototype as YugiohCardConstructor['prototype'] & {
-      draw?: () => void;
-      drawSpellTrap?: () => void;
-      updateScale?: () => void;
-      spellTrapLeaf?: { set?: (data: Record<string, unknown>) => void } | null;
-      pendulumLeaf?: { set?: (data: Record<string, unknown>) => void } | null;
-      pendulumDescriptionLeaf?: { set?: (data: Record<string, unknown>) => void } | null;
-      data?: CardImageFormData;
-      [key: string]: unknown;
-    };
-    const originalDraw = prototype.draw;
-    const originalDrawSpellTrap = prototype.drawSpellTrap;
-    const drawSequence = [
-      'drawCard',
-      'drawName',
-      'drawAttribute',
-      'drawLevel',
-      'drawRank',
-      'drawSpellTrap',
-      'drawImage',
-      'drawMask',
-      'drawPendulum',
-      'drawPendulumDescription',
-      'drawPackage',
-      'drawLinkArrow',
-      'drawEffect',
-      'drawDescription',
-      'drawAtkDefLink',
-      'drawPassword',
-      'drawCopyright',
-      'drawLaser',
-      'drawRare',
-      'drawAttributeRare',
-      'drawTwentieth',
-    ] as const;
-    const fallbackLeafByMethod: Partial<Record<(typeof drawSequence)[number], keyof typeof prototype>> = {
-      drawSpellTrap: 'spellTrapLeaf',
-      drawPendulum: 'pendulumLeaf',
-      drawPendulumDescription: 'pendulumDescriptionLeaf',
-    };
-
-    if (typeof originalDraw === 'function') {
-      prototype.draw = function patchedDraw(this: typeof prototype) {
-        try {
-          originalDraw.call(this);
-        } catch {
-          for (const methodName of drawSequence) {
-            const method = this[methodName];
-            if (typeof method !== 'function') continue;
-
-            try {
-              (method as () => void).call(this);
-            } catch {
-              const fallbackLeafKey = fallbackLeafByMethod[methodName];
-              const fallbackLeaf = fallbackLeafKey
-                ? this[fallbackLeafKey] as { set?: (data: Record<string, unknown>) => void } | null | undefined
-                : null;
-              fallbackLeaf?.set?.({ visible: false });
-            }
-          }
-
-          this.updateScale?.();
-        }
-      };
-    }
-
-    if (typeof originalDrawSpellTrap !== 'function') {
-      hasPatchedYugiohCardConstructor = true;
-      return YugiohCard;
-    }
-
-    prototype.drawSpellTrap = function patchedDrawSpellTrap(this: typeof prototype) {
-      try {
-        originalDrawSpellTrap.call(this);
-      } catch {
-        this.spellTrapLeaf?.set?.({ visible: false });
-      }
-    };
-
-    hasPatchedYugiohCardConstructor = true;
-    return YugiohCard;
-  }
-
   async function getYugiohCardConstructor(): Promise<YugiohCardConstructor> {
     if (!yugiohCardConstructorPromise) {
-      yugiohCardConstructorPromise = import('yugioh-card').then((module) => patchYugiohCardConstructor(module.YugiohCard as YugiohCardConstructor));
+      yugiohCardConstructorPromise = import('yugioh-card-ts')
+        .then((module) => module.YugiohCard as YugiohCardConstructor);
     }
     return yugiohCardConstructorPromise;
   }
 
+  function destroyRenderer(card: InstanceType<YugiohCardConstructor> | null | undefined) {
+    if (!card) return;
+    if (card.destroy) {
+      card.destroy();
+      return;
+    }
+    card.leafer?.destroy?.();
+  }
+
   function destroyPreview() {
-    state.previewCard?.leafer?.destroy?.();
+    destroyRenderer(state.previewCard);
     state.previewCard = null;
     lastPreviewRendererSignature = '';
     if (state.previewHost) {
@@ -372,7 +244,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function destroyForegroundPreview() {
-    state.foregroundPreviewCard?.leafer?.destroy?.();
+    destroyRenderer(state.foregroundPreviewCard);
     state.foregroundPreviewCard = null;
     lastForegroundRendererSignature = '';
     if (state.foregroundPreviewHost) {
@@ -459,12 +331,10 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function openForegroundFilePicker() {
-    if (!HAS_EXTRA_BUILD) return;
     state.foregroundFileInput?.click();
   }
 
   function openForegroundEditor() {
-    if (!HAS_EXTRA_BUILD) return;
     state.foregroundEditorOpen = true;
   }
 
@@ -750,7 +620,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   async function ensureAiReady() {
-    if (!HAS_AI_FEATURE) {
+    if (!source.aiEnabled()) {
       return false;
     }
 
@@ -1096,7 +966,6 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   async function handleForegroundImageUpload(event: Event) {
-    if (!HAS_EXTRA_BUILD) return;
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
@@ -1309,7 +1178,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function buildPreviewData(): CardImageFormData {
-    return applyAutoRarityStyle(applyExtraBuildIsolation(normalizeCardImageFormData({
+    return applyAutoRarityStyle(normalizeModuleData(normalizeCardImageFormData({
       ...state.form,
       image: state.croppedImageDataUrl,
       scale: Math.max(getPreviewScale(), 0.1),
@@ -1317,7 +1186,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function buildJpgData(): CardImageFormData {
-    return applyAutoRarityStyle(applyExtraBuildIsolation(normalizeCardImageFormData({
+    return applyAutoRarityStyle(normalizeModuleData(normalizeCardImageFormData({
       ...state.form,
       image: state.croppedImageDataUrl,
       scale: state.exportScalePercent / 100,
@@ -1325,7 +1194,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function buildPngData(): CardImageFormData {
-    return applyAutoRarityStyle(applyExtraBuildIsolation(normalizeCardImageFormData({
+    return applyAutoRarityStyle(normalizeModuleData(normalizeCardImageFormData({
       ...state.form,
       image: state.croppedImageDataUrl,
       scale: 1,
@@ -1398,24 +1267,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     });
   }
 
-  function applyExtraBuildIsolation(data: CardImageFormData): CardImageFormData {
-    if (HAS_EXTRA_BUILD) {
-      return data;
-    }
-
-    return normalizeCardImageFormData({
-      ...data,
-      foregroundImage: '',
-      foregroundWidth: 0,
-      foregroundHeight: 0,
-      foregroundScale: 1,
-      foregroundRotation: 0,
-      foregroundX: FOREGROUND_EDITOR_CARD_WIDTH / 2,
-      foregroundY: FOREGROUND_EDITOR_CARD_HEIGHT / 2,
-      effectBlockEnabled: false,
-      effectBlockColor: '#f6f2e8',
-      effectBlockOpacity: 0.78,
-    });
+  function normalizeModuleData(data: CardImageFormData): CardImageFormData {
+    return data;
   }
 
   async function renderSquareJpgBlob(dataUrl: string, size: number, quality = 0.92) {
@@ -1446,203 +1299,26 @@ export function createCardImageController(source: CardImageControllerSource) {
     return dataUrlToBlob(canvas.toDataURL('image/jpeg', quality));
   }
 
-  function hasCustomNameShadowStyle(data: CardImageFormData) {
-    return Boolean(
-      data.nameShadowGradient
-        ? data.nameShadowGradientColor1.trim() && data.nameShadowGradientColor2.trim()
-        : data.nameShadowColor.trim(),
-    );
+  function buildYugiohCardData(data: CardImageFormData): CardImageRenderData {
+    return {
+      ...data,
+      foregroundImage: state.foregroundRenderableUrl.trim() || data.foregroundImage,
+      effectBlockBorderStyle: data.effectBlockEnabled
+        ? data.effectBlockBorderStyle
+        : 'none',
+    };
   }
 
-  function hasEffectBlock(data: CardImageFormData) {
-    return Boolean(
-      data.effectBlockEnabled
-      && data.effectBlockWidth > 0
-      && data.effectBlockHeight > 0
-      && data.effectBlockOpacity > 0,
-    );
-  }
-
-  function hasForegroundOverlay(data: CardImageFormData) {
-    return Boolean(
-      HAS_EXTRA_BUILD
-      && data.foregroundImage.trim()
-      && data.foregroundWidth > 0
-      && data.foregroundHeight > 0
-      && data.foregroundScale > 0,
-    );
-  }
-
-  function createSolidRectSvgDataUrl(width: number, height: number, color: string, opacity: number) {
-    const safeWidth = Math.max(1, Math.round(width));
-    const safeHeight = Math.max(1, Math.round(height));
-    const safeOpacity = Math.max(0, Math.min(opacity, 1));
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${safeWidth}" height="${safeHeight}" viewBox="0 0 ${safeWidth} ${safeHeight}"><rect width="${safeWidth}" height="${safeHeight}" fill="${color}" fill-opacity="${safeOpacity}"/></svg>`;
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  }
-
-  function applyNameLeafEnhancements(cardInstance: InstanceType<YugiohCardConstructor> | null, data: CardImageFormData) {
-    if (!cardInstance?.nameLeaf) return;
-
-    const mainNameLeaf = cardInstance.nameLeaf;
-    if (data.color.trim() || data.gradient) {
-      mainNameLeaf.set?.({
-        color: data.color,
-        gradient: data.gradient,
-        gradientColor1: data.gradientColor1,
-        gradientColor2: data.gradientColor2,
-      });
-    }
-
-    if (!hasCustomNameShadowStyle(data)) {
-      cardInstance.__customNameShadowLeaf?.set?.({ visible: false });
-      return;
-    }
-
-    const ShadowLeaf = mainNameLeaf.constructor;
-    if (!ShadowLeaf) return;
-
-    if (!cardInstance.__customNameShadowLeaf) {
-      cardInstance.__customNameShadowLeaf = new ShadowLeaf();
-      cardInstance.leafer?.add?.(cardInstance.__customNameShadowLeaf);
-    }
-
-    cardInstance.__customNameShadowLeaf?.set?.({
-      text: mainNameLeaf.text,
-      fontFamily: mainNameLeaf.fontFamily,
-      fontSize: mainNameLeaf.fontSize,
-      letterSpacing: mainNameLeaf.letterSpacing,
-      wordSpacing: mainNameLeaf.wordSpacing,
-      textAlign: mainNameLeaf.textAlign,
-      rtFontSize: mainNameLeaf.rtFontSize,
-      rtTop: mainNameLeaf.rtTop,
-      rtColor: data.nameShadowGradient ? data.nameShadowGradientColor1 : data.nameShadowColor,
-      width: mainNameLeaf.width,
-      height: mainNameLeaf.height,
-      x: (mainNameLeaf.x ?? 0) + 7,
-      y: (mainNameLeaf.y ?? 0) + 7,
-      zIndex: (mainNameLeaf.zIndex ?? 30) - 1,
-      visible: mainNameLeaf.visible !== false,
-      opacity: mainNameLeaf.opacity ?? 0.92,
-      scaleX: mainNameLeaf.scaleX,
-      scaleY: mainNameLeaf.scaleY,
-      strokeWidth: mainNameLeaf.strokeWidth,
-      color: data.nameShadowColor,
-      gradient: data.nameShadowGradient,
-      gradientColor1: data.nameShadowGradientColor1,
-      gradientColor2: data.nameShadowGradientColor2,
-    });
-  }
-
-  function setLeafMinimumZIndex(
-    leaf: { set?: (data: Record<string, unknown>) => void; zIndex?: number } | null | undefined,
-    zIndex: number,
+  async function exportYugiohCard(
+    card: InstanceType<YugiohCardConstructor>,
+    type: 'png' | 'jpg',
+    options: Record<string, unknown>,
   ) {
-    if (!leaf?.set) return;
-    if (typeof leaf.zIndex === 'number' && leaf.zIndex >= zIndex) return;
-    leaf.set({ zIndex });
-  }
-
-  function applyForegroundLayerOrdering(cardInstance: InstanceType<YugiohCardConstructor> | null) {
-    if (!cardInstance) return;
-
-    const layeredLeafKeys = [
-      'nameLeaf', 'attributeLeaf', 'levelLeaf', 'rankLeaf', 'spellTrapLeaf', 'pendulumLeaf', 'pendulumDescriptionLeaf',
-      'packageLeaf', 'effectLeaf', 'descriptionLeaf', 'maximumAtkLeaf', 'atkDefLeaf', 'atkDefLinkLeaf', 'passwordLeaf',
-      'copyrightLeaf', 'attributeRareLeaf', 'legendLeaf', 'linkArrowLeaf', 'rareLeaf', 'laserLeaf', 'twentiethLeaf',
-    ] as const;
-
-    for (const key of layeredLeafKeys) {
-      const leaf = (cardInstance as unknown as Record<string, { set?: (data: Record<string, unknown>) => void; zIndex?: number } | null | undefined>)[key];
-      setLeafMinimumZIndex(leaf, FOREGROUND_TOP_LAYER_Z_INDEX);
+    if (card.export) {
+      return card.export(type, options);
     }
-  }
-
-  function applyForegroundOverlay(
-    cardInstance: InstanceType<YugiohCardConstructor> | null,
-    data: CardImageFormData,
-    renderableUrl = '',
-  ) {
-    const LeafConstructor = cardInstance?.maskLeaf?.constructor;
-    if (!cardInstance?.leafer?.add || !LeafConstructor) return;
-
-    if (!cardInstance.__customForegroundLeaf) {
-      cardInstance.__customForegroundLeaf = new LeafConstructor();
-      cardInstance.leafer.add(cardInstance.__customForegroundLeaf);
-    }
-
-    if (!hasForegroundOverlay(data)) {
-      cardInstance.__customForegroundLeaf?.set?.({ visible: false });
-      return;
-    }
-
-    const overlayUrl = renderableUrl.trim() || data.foregroundImage;
-
-    cardInstance.__customForegroundLeaf?.set?.({
-      url: overlayUrl,
-      width: data.foregroundWidth,
-      height: data.foregroundHeight,
-      x: data.foregroundX,
-      y: data.foregroundY,
-      scaleX: data.foregroundScale,
-      scaleY: data.foregroundScale,
-      rotation: data.foregroundRotation,
-      around: { type: 'percent', x: 0.5, y: 0.5 },
-      visible: true,
-      zIndex: Math.max((cardInstance.maskLeaf?.zIndex ?? 20) + 1, FOREGROUND_OVERLAY_Z_INDEX),
-    });
-  }
-
-  function applyEffectBlockOverlay(
-    cardInstance: InstanceType<YugiohCardConstructor> | null,
-    data: CardImageFormData,
-    resourcePath: string,
-  ) {
-    const LeafConstructor = cardInstance?.maskLeaf?.constructor;
-    if (!cardInstance?.leafer?.add || !LeafConstructor) return;
-
-    if (!cardInstance.__customEffectBlockFillLeaf) {
-      cardInstance.__customEffectBlockFillLeaf = new LeafConstructor();
-      cardInstance.leafer.add(cardInstance.__customEffectBlockFillLeaf);
-    }
-
-    if (!cardInstance.__customEffectBlockBorderLeaf) {
-      cardInstance.__customEffectBlockBorderLeaf = new LeafConstructor();
-      cardInstance.leafer.add(cardInstance.__customEffectBlockBorderLeaf);
-    }
-
-    if (!hasEffectBlock(data)) {
-      cardInstance.__customEffectBlockFillLeaf?.set?.({ visible: false });
-      cardInstance.__customEffectBlockBorderLeaf?.set?.({ visible: false });
-      return;
-    }
-
-    const fillUrl = createSolidRectSvgDataUrl(
-      EFFECT_BLOCK_WIDTH - EFFECT_BLOCK_FILL_INSET_X - EFFECT_BLOCK_FILL_INSET_RIGHT,
-      EFFECT_BLOCK_HEIGHT - EFFECT_BLOCK_FILL_INSET_Y - EFFECT_BLOCK_FILL_INSET_BOTTOM,
-      data.effectBlockColor,
-      data.effectBlockOpacity,
-    );
-    const borderUrl = `${resourcePath}/yugioh/image/eblock-border.png`;
-
-    cardInstance.__customEffectBlockFillLeaf?.set?.({
-      url: fillUrl,
-      x: EFFECT_BLOCK_X + EFFECT_BLOCK_FILL_INSET_X,
-      y: EFFECT_BLOCK_Y + EFFECT_BLOCK_FILL_INSET_Y,
-      width: EFFECT_BLOCK_WIDTH - EFFECT_BLOCK_FILL_INSET_X - EFFECT_BLOCK_FILL_INSET_RIGHT,
-      height: EFFECT_BLOCK_HEIGHT - EFFECT_BLOCK_FILL_INSET_Y - EFFECT_BLOCK_FILL_INSET_BOTTOM,
-      visible: true,
-      zIndex: 28,
-    });
-    cardInstance.__customEffectBlockBorderLeaf?.set?.({
-      url: borderUrl,
-      x: EFFECT_BLOCK_X,
-      y: EFFECT_BLOCK_Y,
-      width: EFFECT_BLOCK_WIDTH,
-      height: EFFECT_BLOCK_HEIGHT,
-      visible: true,
-      zIndex: 29,
-    });
+    await card.whenReady?.();
+    return card.leafer?.export(type, options);
   }
 
   function handlePreviewWheel(event: WheelEvent) {
@@ -1686,7 +1362,9 @@ export function createCardImageController(source: CardImageControllerSource) {
     void state.form.laser;
     void state.form.rare;
     void state.form.twentieth;
+    void state.form.mark25th;
     void state.form.radius;
+    void state.form.nameBlock;
     void state.form.foregroundImage;
     void state.form.foregroundWidth;
     void state.form.foregroundHeight;
@@ -1694,6 +1372,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     void state.form.foregroundY;
     void state.form.foregroundScale;
     void state.form.foregroundRotation;
+    void state.form.foregroundCoverLevel;
     void state.form.effectBlockEnabled;
     void state.form.effectBlockX;
     void state.form.effectBlockY;
@@ -1701,6 +1380,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     void state.form.effectBlockHeight;
     void state.form.effectBlockColor;
     void state.form.effectBlockOpacity;
+    void state.form.effectBlockBorderStyle;
     void state.form.nameShadowColor;
     void state.form.nameShadowGradient;
     void state.form.nameShadowGradientColor1;
@@ -1733,24 +1413,19 @@ export function createCardImageController(source: CardImageControllerSource) {
     try {
       const resourcePath = await getResourcePath();
       state.resolvedResourcePath = resourcePath;
+      const renderData = buildYugiohCardData(data);
       exportCard = new YugiohCard({
         view: host,
-        data,
+        data: renderData,
         resourcePath,
       });
 
       await tick();
-      if (hasForegroundOverlay(data)) {
-        applyForegroundLayerOrdering(exportCard);
-      }
-      applyForegroundOverlay(exportCard, data, state.foregroundRenderableUrl);
-      applyEffectBlockOverlay(exportCard, data, resourcePath);
-      applyNameLeafEnhancements(exportCard, data);
       if (!exportCard.leafer) {
         throw new Error('Export renderer unavailable');
       }
 
-      const exported = await exportCard.leafer.export(type, {
+      const exported = await exportYugiohCard(exportCard, type, {
         screenshot: true,
         pixelRatio: 1,
         blob: true,
@@ -1771,7 +1446,7 @@ export function createCardImageController(source: CardImageControllerSource) {
 
       throw new Error('Export did not return a Blob');
     } finally {
-      exportCard?.leafer?.destroy?.();
+      destroyRenderer(exportCard);
       host.remove();
     }
   }
@@ -1789,7 +1464,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     if (!state.previewCard) {
       state.previewCard = new YugiohCard({
         view: state.previewHost,
-        data: buildBootstrapPreviewData(initialData),
+        data: buildYugiohCardData(buildBootstrapPreviewData(initialData)),
         resourcePath: await ensureResolvedResourcePath(),
       });
     }
@@ -1805,7 +1480,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     if (!state.foregroundPreviewCard) {
       state.foregroundPreviewCard = new YugiohCard({
         view: state.foregroundPreviewHost,
-        data: buildBootstrapPreviewData(initialData),
+        data: buildYugiohCardData(buildBootstrapPreviewData(initialData)),
         resourcePath: await ensureResolvedResourcePath(),
       });
     }
@@ -1818,9 +1493,10 @@ export function createCardImageController(source: CardImageControllerSource) {
 
     try {
       state.errorMessage = '';
-      const resourcePath = await ensureResolvedResourcePath();
+      await ensureResolvedResourcePath();
       const previewData = buildPreviewData();
-      const rendererSignature = getRendererSignature(previewData);
+      const renderData = buildYugiohCardData(previewData);
+      const rendererSignature = getRendererSignature(renderData);
       if (rendererSignature !== lastPreviewRendererSignature) {
         destroyPreview();
         lastPreviewRendererSignature = rendererSignature;
@@ -1828,20 +1504,15 @@ export function createCardImageController(source: CardImageControllerSource) {
 
       let cardInstance = await ensurePreviewCard(previewData);
       try {
-        cardInstance?.setData?.(previewData);
+        cardInstance?.setData?.(renderData);
       } catch {
         destroyPreview();
         lastPreviewRendererSignature = rendererSignature;
         cardInstance = await ensurePreviewCard(previewData);
-        cardInstance?.setData?.(previewData);
+        cardInstance?.setData?.(renderData);
       }
 
-      if (hasForegroundOverlay(previewData)) {
-        applyForegroundLayerOrdering(cardInstance);
-      }
-      applyForegroundOverlay(cardInstance, previewData, state.foregroundRenderableUrl);
-      applyEffectBlockOverlay(cardInstance, previewData, resourcePath);
-      applyNameLeafEnhancements(cardInstance, previewData);
+      await cardInstance?.whenReady?.();
 
       if (state.shouldRunInitialPostRenderRefresh && !hasRunInitialPostRenderRefresh) {
         state.shouldRunInitialPostRenderRefresh = false;
@@ -1863,9 +1534,10 @@ export function createCardImageController(source: CardImageControllerSource) {
     if (!getOpen() || !state.foregroundEditorOpen || !state.foregroundPreviewHost || !state.previewFontsReady) return;
 
     try {
-      const resourcePath = await ensureResolvedResourcePath();
+      await ensureResolvedResourcePath();
       const previewData = buildForegroundPreviewData();
-      const rendererSignature = getRendererSignature(previewData);
+      const renderData = buildYugiohCardData(previewData);
+      const rendererSignature = getRendererSignature(renderData);
       if (rendererSignature !== lastForegroundRendererSignature) {
         destroyForegroundPreview();
         lastForegroundRendererSignature = rendererSignature;
@@ -1873,20 +1545,15 @@ export function createCardImageController(source: CardImageControllerSource) {
 
       let cardInstance = await ensureForegroundPreviewCard(previewData);
       try {
-        cardInstance?.setData?.(previewData);
+        cardInstance?.setData?.(renderData);
       } catch {
         destroyForegroundPreview();
         lastForegroundRendererSignature = rendererSignature;
         cardInstance = await ensureForegroundPreviewCard(previewData);
-        cardInstance?.setData?.(previewData);
+        cardInstance?.setData?.(renderData);
       }
 
-      if (hasForegroundOverlay(previewData)) {
-        applyForegroundLayerOrdering(cardInstance);
-      }
-      applyForegroundOverlay(cardInstance, previewData, state.foregroundRenderableUrl);
-      applyEffectBlockOverlay(cardInstance, previewData, resourcePath);
-      applyNameLeafEnhancements(cardInstance, previewData);
+      await cardInstance?.whenReady?.();
       await tick();
       requestAnimationFrame(() => {
         measureForegroundRenderBounds();

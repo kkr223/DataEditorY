@@ -38,6 +38,40 @@ export type RuleExpressionErrorCode =
   | 'unsupported_value'
   | 'unexpected_trailing_tokens';
 
+export type RuleNumericField =
+  | 'id'
+  | 'alias'
+  | 'ot'
+  | 'atk'
+  | 'def'
+  | 'level'
+  | 'lscale'
+  | 'rscale'
+  | 'attribute'
+  | 'race'
+  | 'type'
+  | 'linkMarker';
+
+export type RuleOperand =
+  | { kind: 'field'; field: RuleNumericField }
+  | { kind: 'value'; value: number };
+
+export type RuleSearchExpression =
+  | { kind: 'and'; expressions: RuleSearchExpression[] }
+  | { kind: 'or'; expressions: RuleSearchExpression[] }
+  | { kind: 'not'; expression: RuleSearchExpression }
+  | {
+      kind: 'ruleCompare';
+      left: RuleOperand;
+      operator: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte';
+      right: RuleOperand;
+    }
+  | {
+      kind: 'ruleMaskContains';
+      field: 'attribute' | 'race' | 'type' | 'linkMarker';
+      operand: RuleOperand;
+    };
+
 interface RuleFieldDefinition {
   key: string;
   kind: RuleFieldKind;
@@ -461,4 +495,173 @@ export function parseRuleExpression(input: string, options: RuleExpressionParseO
     clause: expression,
     params,
   };
+}
+
+function toRuleField(field: RuleFieldDefinition): RuleNumericField {
+  if (field.key === 'scale') return 'lscale';
+  if (field.key === 'linkmarker') return 'linkMarker';
+  return field.key as RuleNumericField;
+}
+
+function toRuleOperator(
+  operator: string,
+): Extract<RuleSearchExpression, { kind: 'ruleCompare' }>['operator'] {
+  switch (operator) {
+    case '=': return 'eq';
+    case '!=':
+    case '<>': return 'ne';
+    case '>': return 'gt';
+    case '>=': return 'gte';
+    case '<': return 'lt';
+    case '<=': return 'lte';
+    default: throw createRuleExpressionError('expected_comparison_operator');
+  }
+}
+
+export function parseRuleExpressionAst(input: string): RuleSearchExpression | null {
+  const normalized = input.trim();
+  if (!normalized) return null;
+
+  const tokens = tokenizeRuleExpression(normalized);
+  let index = 0;
+
+  const peek = () => tokens[index];
+  const consume = () => {
+    const token = tokens[index];
+    if (!token) throw createRuleExpressionError('unexpected_end');
+    index += 1;
+    return token;
+  };
+
+  const parseLeftValue = (): RuleLeftValue => {
+    const token = consume();
+    if (token.type === 'number') {
+      return { kind: 'number', value: token.value };
+    }
+    if (token.type === 'identifier') {
+      const field = getRuleFieldMap().get(normalizeRuleKeyword(token.value));
+      if (field) return { kind: 'field', field };
+    }
+    throw createRuleExpressionError('expected_left_value');
+  };
+
+  const parseRightValue = (): RuleValue => {
+    const token = consume();
+    if (token.type === 'number') {
+      return { kind: 'number', value: token.value };
+    }
+    if (token.type === 'identifier') {
+      const field = getRuleFieldMap().get(normalizeRuleKeyword(token.value));
+      return field
+        ? { kind: 'field', field }
+        : { kind: 'keyword', value: token.value };
+    }
+    if (token.type === 'string') {
+      return { kind: 'keyword', value: token.value };
+    }
+    throw createRuleExpressionError('expected_right_value');
+  };
+
+  const resolveOperand = (
+    field: RuleFieldDefinition | null,
+    value: RuleValue,
+  ): RuleOperand => {
+    if (value.kind === 'number') {
+      return { kind: 'value', value: value.value };
+    }
+    if (value.kind === 'field') {
+      return { kind: 'field', field: toRuleField(value.field) };
+    }
+    if (!field?.values) {
+      throw createRuleExpressionError('field_rejects_keyword', {
+        field: field?.key ?? 'unknown',
+      });
+    }
+    const resolved = field.values[normalizeRuleKeyword(value.value)];
+    if (resolved === undefined) {
+      throw createRuleExpressionError('unsupported_value', {
+        field: field.key,
+        value: value.value,
+      });
+    }
+    return { kind: 'value', value: resolved };
+  };
+
+  const parseComparison = (): RuleSearchExpression => {
+    if (peek()?.type === 'paren' && peek()?.value === '(') {
+      consume();
+      const nested = parseOr();
+      const closing = consume();
+      if (closing.type !== 'paren' || closing.value !== ')') {
+        throw createRuleExpressionError('expected_closing_parenthesis');
+      }
+      return nested;
+    }
+
+    const left = parseLeftValue();
+    const operator = consume();
+    if (
+      operator.type !== 'operator'
+      || !['>', '<', '>=', '<=', '=', '!=', '<>', 'contains'].includes(operator.value)
+    ) {
+      throw createRuleExpressionError('expected_comparison_operator');
+    }
+    const right = parseRightValue();
+
+    if (operator.value === 'contains') {
+      if (left.kind !== 'field' || left.field.kind !== 'mask') {
+        throw createRuleExpressionError('contains_requires_mask');
+      }
+      return {
+        kind: 'ruleMaskContains',
+        field: toRuleField(left.field) as 'attribute' | 'race' | 'type' | 'linkMarker',
+        operand: resolveOperand(left.field, right),
+      };
+    }
+
+    return {
+      kind: 'ruleCompare',
+      left: left.kind === 'field'
+        ? { kind: 'field', field: toRuleField(left.field) }
+        : { kind: 'value', value: left.value },
+      operator: toRuleOperator(operator.value),
+      right: resolveOperand(left.kind === 'field' ? left.field : null, right),
+    };
+  };
+
+  const parseNot = (): RuleSearchExpression => {
+    if (peek()?.type === 'operator' && peek()?.value === 'not') {
+      consume();
+      return { kind: 'not', expression: parseNot() };
+    }
+    return parseComparison();
+  };
+
+  const parseAnd = (): RuleSearchExpression => {
+    const expressions = [parseNot()];
+    while (peek()?.type === 'operator' && peek()?.value === 'and') {
+      consume();
+      expressions.push(parseNot());
+    }
+    return expressions.length === 1
+      ? expressions[0]
+      : { kind: 'and', expressions };
+  };
+
+  const parseOr = (): RuleSearchExpression => {
+    const expressions = [parseAnd()];
+    while (peek()?.type === 'operator' && peek()?.value === 'or') {
+      consume();
+      expressions.push(parseAnd());
+    }
+    return expressions.length === 1
+      ? expressions[0]
+      : { kind: 'or', expressions };
+  };
+
+  const expression = parseOr();
+  if (index !== tokens.length) {
+    throw createRuleExpressionError('unexpected_trailing_tokens');
+  }
+  return expression;
 }

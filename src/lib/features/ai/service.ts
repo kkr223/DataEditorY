@@ -1,5 +1,11 @@
 import { get } from 'svelte/store';
 import type { CardDataEntry } from '$lib/types';
+import type {
+  CardCollectionCommand,
+  CardCollectionQuery,
+  CardSearchExpression,
+  CardSearchPage,
+} from '$lib/modules/card';
 import { areCardsEquivalent, cloneEditableCard, createEmptyCard } from '$lib/domain/card/draft';
 import { normalizeGeneratedScript } from '$lib/domain/script/workspace';
 import {
@@ -65,21 +71,10 @@ export type AiAppContext = {
   getAiConfig: () => Promise<AiConfig>;
   listOpenDatabases: () => OpenDbMeta[];
   getActiveDatabaseId: () => string | null;
-  getCardByIdInTab: (tabId: string, cardId: number) => Promise<CardDataEntry | undefined>;
-  getCardsByIdsInTab: (tabId: string, cardIds: number[]) => Promise<CardDataEntry[]>;
-  queryCardsRaw: (tabId: string, queryClause: string, params?: Record<string, string | number>) => Promise<CardDataEntry[]>;
+  queryCards: <T = unknown>(documentId: string, query: CardCollectionQuery) => Promise<T>;
+  executeCards: (documentId: string, command: CardCollectionCommand) => Promise<boolean>;
   getSelectedCardsInActiveTab: () => CardDataEntry[];
   getVisibleCardsInActiveTab: () => CardDataEntry[];
-  modifyCardsWithSnapshotInTab: (
-    tabId: string,
-    cards: CardDataEntry[],
-    previousCards: Array<CardDataEntry | null | undefined>,
-  ) => Promise<boolean>;
-  deleteCardsWithSnapshotInTab: (
-    tabId: string,
-    cardIds: number[],
-    deletedCards: CardDataEntry[],
-  ) => Promise<boolean>;
   readCardScript: (code: number, dbPath?: string) => Promise<{
     exists: boolean;
     path: string | null;
@@ -644,7 +639,10 @@ function getScopedTabs(context: AiAppContext, dbScope: string | undefined, dbPat
 async function pickCardFromDb(context: AiAppContext, code: number, dbPath?: string) {
   const matchedTabs = getScopedTabs(context, undefined, dbPath);
   for (const tab of matchedTabs) {
-    const card = await context.getCardByIdInTab(tab.id, code);
+    const card = await context.queryCards<CardDataEntry | null>(
+      tab.id,
+      { kind: 'getById', cardId: code },
+    );
     if (card) {
       return {
         db: { name: tab.name, path: tab.path },
@@ -656,26 +654,27 @@ async function pickCardFromDb(context: AiAppContext, code: number, dbPath?: stri
   return null;
 }
 
-function escapeLikeWildcards(value: string) {
-  return value.replace(/[%_\\]/g, '\\$&');
-}
-
 async function searchCards(context: AiAppContext, query: string, dbScope?: string, dbPath?: string, limit = 6) {
   const normalizedQuery = query.trim();
   const result = [];
   const safeLimit = Math.max(1, Math.min(12, Math.round(limit)));
 
   for (const tab of getScopedTabs(context, dbScope, dbPath)) {
-    const safeLike = normalizedQuery ? `%${escapeLikeWildcards(normalizedQuery)}%` : '';
-    const cards = await context.queryCardsRaw(
+    const expression: CardSearchExpression = normalizedQuery
+      ? {
+          kind: 'or',
+          expressions: [
+            { kind: 'textContains', field: 'name', value: normalizedQuery },
+            { kind: 'textContains', field: 'desc', value: normalizedQuery },
+          ],
+        }
+      : { kind: 'all' };
+    const response = await context.queryCards<CardSearchPage>(
       tab.id,
-      normalizedQuery
-        ? `(texts.name LIKE :name OR texts.desc LIKE :name) ORDER BY datas.id LIMIT ${safeLimit}`
-        : `1=1 ORDER BY datas.id LIMIT ${safeLimit}`,
-      normalizedQuery ? { name: safeLike } : {},
+      { kind: 'search', expression, page: 1, pageSize: safeLimit },
     );
 
-    for (const card of cards) {
+    for (const card of response.cards) {
       result.push({
         db: { name: tab.name, path: tab.path },
         card: serializeCardForAi(card),
@@ -762,7 +761,10 @@ async function queryCardsByIds(context: AiAppContext, tabId: string, cardIds: nu
     return [];
   }
 
-  return context.getCardsByIdsInTab(tabId, safeIds);
+  return context.queryCards<CardDataEntry[]>(
+    tabId,
+    { kind: 'getByIds', cardIds: safeIds },
+  );
 }
 
 async function collectBatchTargetCards(context: AiAppContext, target: BatchTarget) {
@@ -781,7 +783,7 @@ async function collectBatchTargetCards(context: AiAppContext, target: BatchTarge
       return {
         tab,
         cards: limitBatchCards(
-          await context.queryCardsRaw(tab.id, '1=1 ORDER BY datas.id'),
+          await context.queryCards<CardDataEntry[]>(tab.id, { kind: 'all' }),
           target.limit,
         ),
       };
@@ -796,21 +798,33 @@ async function collectBatchTargetCards(context: AiAppContext, target: BatchTarge
         throw new Error('At least one search field is required');
       }
 
-      const safeLike = `%${escapeLikeWildcards(query)}%`;
-      const fieldClause = queryFields
-        .map((field) => field === 'name' ? 'texts.name LIKE :query ESCAPE \'\\\'' : 'texts.desc LIKE :query ESCAPE \'\\\'')
-        .join(' OR ');
-      const limitClause = Number.isFinite(target.limit) && (target.limit ?? 0) > 0
-        ? ` LIMIT ${Math.floor(target.limit as number)}`
-        : '';
+      const expression: CardSearchExpression = queryFields.length === 1
+        ? {
+            kind: 'textContains',
+            field: queryFields[0] as 'name' | 'desc',
+            value: query,
+          }
+        : {
+            kind: 'or',
+            expressions: queryFields.map((field) => ({
+              kind: 'textContains',
+              field: field as 'name' | 'desc',
+              value: query,
+            })),
+          };
+      const pageSize = Number.isFinite(target.limit) && (target.limit ?? 0) > 0
+        ? Math.floor(target.limit as number)
+        : 200;
+      const response = await context.queryCards<CardSearchPage>(tab.id, {
+        kind: 'search',
+        expression,
+        page: 1,
+        pageSize,
+      });
 
       return {
         tab,
-        cards: await context.queryCardsRaw(
-          tab.id,
-          `(${fieldClause}) ORDER BY datas.id${limitClause}`,
-          { query: safeLike },
-        ),
+        cards: response.cards,
       };
     }
     case 'card_ids':
@@ -906,11 +920,10 @@ async function applyBatchCardEdit(context: AiAppContext, args: BatchEditArgs) {
 
   if (operation.type === 'delete_cards') {
     if (!dryRun) {
-      const ok = await context.deleteCardsWithSnapshotInTab(
-        tab.id,
-        cards.map((card) => card.code),
-        cards,
-      );
+      const ok = await context.executeCards(tab.id, {
+        kind: 'delete',
+        cardIds: cards.map((card) => card.code),
+      });
       if (!ok) {
         throw new Error('Failed to delete cards');
       }
@@ -939,11 +952,10 @@ async function applyBatchCardEdit(context: AiAppContext, args: BatchEditArgs) {
     .filter((item): item is { previous: CardDataEntry; next: CardDataEntry } => item !== null);
 
   if (!dryRun && changedPairs.length > 0) {
-    const ok = await context.modifyCardsWithSnapshotInTab(
-      tab.id,
-      changedPairs.map((item) => item.next),
-      changedPairs.map((item) => item.previous),
-    );
+    const ok = await context.executeCards(tab.id, {
+      kind: 'upsert',
+      cards: changedPairs.map((item) => item.next),
+    });
     if (!ok) {
       throw new Error('Failed to modify cards');
     }

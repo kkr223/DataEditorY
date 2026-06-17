@@ -54,7 +54,6 @@ import {
   confirmWorkspaceClose,
   hasDirtyWorkspaceDocuments,
 } from '$lib/application/workspace/lifecycle';
-import { getEnabledCapabilities } from '$lib/application/capabilities/registry';
 import { SETTINGS_WORKSPACE_ID, workspaceState } from '$lib/core/workspace/store.svelte';
 import type { CardDataEntry } from '$lib/types';
 
@@ -585,7 +584,6 @@ export function createShellLayoutController() {
   return {
     state,
     workspaceState,
-    capabilities: getEnabledCapabilities(),
     recentEntries: recentHistoryState,
     activeTabId,
     scriptTabsState,

@@ -5,10 +5,8 @@
   import {
     activeScriptTab,
   } from '$lib/stores/scriptEditor.svelte';
-  import { isCapabilityEnabled } from '$lib/application/capabilities/registry';
   import type { CardDataEntry } from '$lib/types';
   import { buildScriptFileName } from '$lib/domain/script/workspace';
-  import { getScriptGenerationStageLabel, type ScriptGenerationStage } from '$lib/services/scriptGenerationStages';
   import {
     openScriptExternallyFlow,
     reloadScriptEditorFlow,
@@ -28,8 +26,9 @@
     type ScriptEditorCoreReferenceState,
   } from '$lib/features/script-editor/components/ScriptEditorCore.svelte';
   import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded, type LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
+  import WorkbenchContributions from '$lib/platform/components/WorkbenchContributions.svelte';
+  import type { LuaWorkbenchContext } from '$lib/modules/lua/workbench/context';
 
-  type ScriptEditorExtraUseCasesModule = typeof import('$lib/features/script-editor/extraUseCases');
   type ScriptEditorCoreHandle = {
     getScriptImageSelection: () => import('$lib/features/script-editor/useCases').ScriptImageSelection | null;
     insertStringId: (index: number) => void;
@@ -40,21 +39,12 @@
     revealDiagnosticLocation: (diagnostic: Pick<LuaScriptDiagnostic, 'startLineNumber' | 'startColumn' | 'endLineNumber' | 'endColumn'>) => void;
   };
 
-  const hasAiCapability = isCapabilityEnabled('ai');
-  const loadScriptEditorExtraUseCases = __APP_FEATURES__.ai
-    ? () => import('$lib/features/script-editor/extraUseCases')
-    : null;
-
   let editorCore = $state<ScriptEditorCoreHandle | null>(null);
   let cardContext = $state<CardDataEntry | null>(null);
   let hasSelectedCode = $state(false);
   let isReloading = $state(false);
   let isSaving = $state(false);
   let isSharingImage = $state(false);
-  let isGeneratingScript = $state(false);
-  let scriptGenerationStage = $state<ScriptGenerationStage | ''>('');
-  let scriptGenerationAbortController = $state<AbortController | null>(null);
-  let scriptEditorExtraUseCasesPromise = $state<Promise<ScriptEditorExtraUseCasesModule> | null>(null);
   let diagnosticsOverlayOpen = $state(false);
   let scriptDiagnostics = $state<LuaScriptDiagnostic[]>([]);
   let hintState = $state<ScriptEditorCoreHintState>({
@@ -79,15 +69,12 @@
   const scriptStrings = $derived.by(() => Array.from({ length: 16 }, (_, index) => cardContext?.strings[index] ?? ''));
   const activeDbTab = $derived.by(() => $tabs.find((tab) => tab.id === $activeTabId) ?? null);
   const canOpenNewScriptTab = $derived(Boolean(activeDbTab && editorState.selectedId !== null));
-
-  function ensureScriptEditorExtraUseCases() {
-    if (!loadScriptEditorExtraUseCases || !hasAiCapability) {
-      return null;
-    }
-
-    scriptEditorExtraUseCasesPromise ??= loadScriptEditorExtraUseCases();
-    return scriptEditorExtraUseCasesPromise;
-  }
+  const luaWorkbenchContext = $derived.by((): LuaWorkbenchContext => ({
+    activeScript: $activeScriptTab,
+    card: cardContext,
+    databaseDocuments: $tabs.map((tab) => ({ id: tab.id, path: tab.path })),
+    t: (key, options) => $_(key, options as never),
+  }));
 
   function getScriptTabTitle() {
     const tab = $activeScriptTab;
@@ -125,32 +112,6 @@
     } finally {
       isSaving = false;
     }
-  }
-
-  async function handleGenerateScript() {
-    const extraModule = ensureScriptEditorExtraUseCases();
-    if (!extraModule) return;
-
-    await (await extraModule).generateScriptFromEditorFlow({
-      tab: $activeScriptTab,
-      isGeneratingScript,
-      cardContext,
-      dbTabs: $tabs,
-      t: (key, options) => $_(key, options as never),
-      setIsGeneratingScript: (value) => {
-        isGeneratingScript = value;
-      },
-      setScriptGenerationStage: (value) => {
-        scriptGenerationStage = value;
-      },
-      setAbortController: (value) => {
-        scriptGenerationAbortController = value;
-      },
-    });
-  }
-
-  function handleCancelGenerateScript() {
-    scriptGenerationAbortController?.abort();
   }
 
   async function handleReload() {
@@ -218,6 +179,14 @@
   }
 </script>
 
+{#snippet extensionActions()}
+  <WorkbenchContributions
+    workbenchId="lua.workbench"
+    slot="toolbar-actions"
+    context={luaWorkbenchContext}
+  />
+{/snippet}
+
 {#if $activeScriptTab}
   <section class="script-page">
     <ScriptToolbar
@@ -225,14 +194,9 @@
       cardCodeLabel={$_('editor.script_workspace_card', { values: { code: String($activeScriptTab.cardCode) } })}
       cardName={cardContext?.name || $activeScriptTab.cardName || '-'}
       cdbPath={$activeScriptTab.cdbPath}
-      hasAiCapability={hasAiCapability}
-      isGeneratingScript={isGeneratingScript}
       isReloading={isReloading}
       isSaving={isSaving}
-      stageLabel={getScriptGenerationStageLabel($_, scriptGenerationStage)}
-      generateLabel={$_('editor.script_generate_button')}
-      generatingLabel={$_('editor.script_generating')}
-      cancelLabel={$_('editor.script_cancel_button')}
+      {extensionActions}
       reloadLabel={$_('editor.script_reload')}
       reloadingLabel={$_('editor.script_reloading')}
       checkDiagnosticsLabel={$_('editor.script_check_diagnostics')}
@@ -242,8 +206,6 @@
       isSharingImage={isSharingImage}
       sharingImageLabel={$_('editor.script_exporting_image')}
       savingLabel={$_('editor.script_saving')}
-      onGenerate={handleGenerateScript}
-      onCancelGenerate={handleCancelGenerateScript}
       onReload={handleReload}
       onCheckDiagnostics={handleCheckDiagnostics}
       onOpenExternal={handleOpenExternal}

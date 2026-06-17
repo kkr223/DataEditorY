@@ -92,6 +92,19 @@ pub(crate) fn replace_session(
     Ok(sessions.insert(tab_id, session))
 }
 
+pub(crate) fn update_session_path(
+    sessions: &OpenCdbSessions,
+    tab_id: &str,
+    path: String,
+) -> Result<(), String> {
+    let mut sessions = sessions.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let session = sessions
+        .get_mut(tab_id)
+        .ok_or_else(|| format!("Unknown cdb tab: {tab_id}"))?;
+    session.path = path;
+    Ok(())
+}
+
 pub(crate) fn remove_session(
     sessions: &OpenCdbSessions,
     tab_id: &str,

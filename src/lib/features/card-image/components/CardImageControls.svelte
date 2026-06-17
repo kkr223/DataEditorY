@@ -1,6 +1,5 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { HAS_AI_FEATURE, HAS_EXTRA_BUILD } from '$lib/config/build';
 
   let {
     mode,
@@ -9,6 +8,7 @@
     isTranslating = false,
     isSavingJpg = false,
     isDownloading = false,
+    aiEnabled = false,
     fileInput = $bindable<HTMLInputElement | null>(null),
     configFileInput = $bindable<HTMLInputElement | null>(null),
     foregroundFileInput = $bindable<HTMLInputElement | null>(null),
@@ -31,6 +31,7 @@
     isTranslating?: boolean;
     isSavingJpg?: boolean;
     isDownloading?: boolean;
+    aiEnabled?: boolean;
     fileInput?: HTMLInputElement | null;
     configFileInput?: HTMLInputElement | null;
     foregroundFileInput?: HTMLInputElement | null;
@@ -53,9 +54,7 @@
   <div class="form-toolbar">
     <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" bind:this={fileInput} onchange={onImageUpload} />
     <input class="sr-only" type="file" accept="application/json,.json" bind:this={configFileInput} onchange={onConfigFileUpload} />
-    {#if HAS_EXTRA_BUILD}
-      <input class="sr-only" type="file" accept="image/png,image/webp" bind:this={foregroundFileInput} onchange={onForegroundImageUpload} />
-    {/if}
+    <input class="sr-only" type="file" accept="image/png,image/webp" bind:this={foregroundFileInput} onchange={onForegroundImageUpload} />
     <button class="btn-primary btn-sm upload-btn" type="button" onclick={onOpenFilePicker}>
       {croppedImageDataUrl ? $_('editor.card_image_recrop') : $_('editor.card_image_upload')}
     </button>
@@ -65,12 +64,10 @@
     <button class="btn-secondary btn-sm" type="button" onclick={onConfigExport}>
       {$_('editor.card_image_config_export')}
     </button>
-    {#if HAS_EXTRA_BUILD}
-      <button class="btn-secondary btn-sm" type="button" onclick={onOpenForegroundEditor}>
-        {$_('editor.card_image_foreground_button')}
-      </button>
-    {/if}
-    {#if HAS_AI_FEATURE}
+    <button class="btn-secondary btn-sm" type="button" onclick={onOpenForegroundEditor}>
+      {$_('editor.card_image_foreground_button')}
+    </button>
+    {#if aiEnabled}
       <button class="btn-secondary btn-sm" type="button" onclick={onAiTranslate} disabled={isTranslating}>
         {isTranslating ? $_('editor.ai_translating') : $_('editor.card_image_ai_translate')}
       </button>

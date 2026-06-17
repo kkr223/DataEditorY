@@ -231,9 +231,9 @@ src-tauri/          # Tauri/Rust 后端
 - Rust / SQLite
 - `rusqlite`
 - `ygopro-cdb-encode-rs`
-- `yugioh-card`
+- `yugioh-card-ts`
 
 其中：
 
 - `ygopro-cdb-encode-rs` 用于 Rust 侧的 YGOPro CDB 读写、查询与字段语义处理，是当前数据库检索与后续 Rust 化能力的基础库
-- `yugioh-card` 主要用于制卡器相关的卡图渲染
+- `yugioh-card-ts` 主要用于制卡器相关的卡图渲染

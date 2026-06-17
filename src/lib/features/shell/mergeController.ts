@@ -2,9 +2,6 @@ import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import {
-  analyzeCdbMerge,
-  collectMergeSourcesFromFolder,
-  executeCdbMerge,
   type AnalyzeCdbMergeResponse,
   type MergeSourceItem,
 } from '$lib/infrastructure/tauri/commands';
@@ -16,6 +13,12 @@ import {
   isNewOutputPath,
 } from '$lib/features/shell/dialogsHelpers';
 import { activateWorkspaceDocument } from '$lib/application/workspace/commandBus';
+import { documentRuntime } from '$lib/platform/appRuntime';
+import {
+  MERGE_ANALYZE_COMMAND_ID,
+  MERGE_COLLECT_COMMAND_ID,
+  MERGE_EXECUTE_COMMAND_ID,
+} from '$lib/modules/merge';
 
 const activeTabState = fromStore(activeTab);
 const tabsState = fromStore(tabs);
@@ -114,7 +117,10 @@ export function createMergeController(
 
     state.isCollectingMergeSources = true;
     try {
-      const collected = await collectMergeSourcesFromFolder(selected);
+      const collected = await documentRuntime.executePlatformCommand<MergeSourceItem[]>(
+        MERGE_COLLECT_COMMAND_ID,
+        { directoryPath: selected },
+      );
       if (collected.length === 0) {
         showToast(t('editor.merge_cdb_folder_empty'), 'info');
         return;
@@ -187,10 +193,13 @@ export function createMergeController(
     state.isAnalyzingMerge = true;
     try {
       const sourcePaths = state.mergeSources.map((item) => item.path);
-      const analysis = await analyzeCdbMerge(
-        sourcePaths,
-        state.mergeIncludeImages,
-        state.mergeIncludeScripts,
+      const analysis = await documentRuntime.executePlatformCommand<AnalyzeCdbMergeResponse>(
+        MERGE_ANALYZE_COMMAND_ID,
+        {
+          sourcePaths,
+          includeImages: state.mergeIncludeImages,
+          includeScripts: state.mergeIncludeScripts,
+        },
       );
       state.mergeAnalysis = analysis;
       state.mergeAnalysisKey = buildMergeAnalysisKey(
@@ -252,7 +261,9 @@ export function createMergeController(
         task: 'merge',
         run: async () => {
           try {
-            const result = await executeCdbMerge({
+            const result = await documentRuntime.executePlatformCommand<{
+              outputPath: string;
+            }>(MERGE_EXECUTE_COMMAND_ID, {
               sourcePaths,
               outputDir,
               includeImages,

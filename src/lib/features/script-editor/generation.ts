@@ -64,7 +64,7 @@ export async function generateCardScriptFile(input: {
     true,
   );
 
-  syncScriptTabFromSavedContent({
+  await syncScriptTabFromSavedContent({
     cdbPath: input.cdbPath,
     sourceTabId: input.sourceTabId,
     cardCode: Number(input.card.code),

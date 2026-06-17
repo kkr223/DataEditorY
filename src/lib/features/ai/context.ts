@@ -1,18 +1,12 @@
 import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
-import {
-  activeTab,
-  deleteCardsWithSnapshotInTab,
-  getCardByIdInTab,
-  getCardsByIdsInTab,
-  modifyCardsWithSnapshotInTab,
-  queryCardsRaw,
-  tabs,
-} from '$lib/stores/db';
 import { getAllCards, getSelectedCards } from '$lib/stores/editor.svelte';
 import type { AiAppContext } from '$lib/utils/ai';
-import { get } from 'svelte/store';
 import { invokeCommand } from '$lib/infrastructure/tauri';
 import { getCardScriptInfo } from '$lib/infrastructure/tauri/commands';
+import { documentRuntime } from '$lib/platform/appRuntime';
+import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
+import { refreshCachedSearchForTab } from '$lib/stores/search';
+import { recordUndoLabel } from '$lib/stores/tabs';
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 
@@ -28,43 +22,56 @@ export function createAiAppContext(): AiAppContext {
       return {
         apiBaseUrl: appSettingsState.values.apiBaseUrl || DEFAULT_API_BASE_URL,
         model: appSettingsState.values.model || 'gpt-4o-mini',
-        temperature: Number.isFinite(appSettingsState.values.temperature) ? appSettingsState.values.temperature : 1,
+        temperature: Number.isFinite(appSettingsState.values.temperature)
+          ? appSettingsState.values.temperature
+          : 1,
         secretKey,
       };
     },
     listOpenDatabases() {
-      const currentActiveTab = get(activeTab);
-      return get(tabs).map((tab) => ({
-        id: tab.id,
-        name: tab.name,
-        path: tab.path,
-        isActive: currentActiveTab?.id === tab.id,
-      }));
+      const snapshot = documentRuntime.snapshot;
+      return snapshot.documents
+        .filter((document) => document.typeId === CARD_COLLECTION_TYPE)
+        .map((document) => ({
+          id: document.id,
+          name: document.title,
+          path: document.source?.path ?? document.source?.uri ?? '',
+          isActive: snapshot.activeDocumentId === document.id,
+        }));
     },
     getActiveDatabaseId() {
-      return get(activeTab)?.id ?? null;
+      const active = documentRuntime.getActiveDocument();
+      return active?.typeId === CARD_COLLECTION_TYPE ? active.id : null;
     },
-    getCardByIdInTab,
-    getCardsByIdsInTab,
-    queryCardsRaw,
+    queryCards(documentId, query) {
+      return documentRuntime.query(documentId, query);
+    },
+    async executeCards(documentId, command) {
+      const result = await documentRuntime.execute(documentId, command);
+      if (result.changed) {
+        recordUndoLabel(
+          documentId,
+          command.kind === 'delete' ? 'AI delete cards' : 'AI modify cards',
+        );
+        await refreshCachedSearchForTab(documentId);
+      }
+      return result.changed;
+    },
     getSelectedCardsInActiveTab() {
       return getSelectedCards();
     },
     getVisibleCardsInActiveTab() {
       return getAllCards();
     },
-    modifyCardsWithSnapshotInTab,
-    deleteCardsWithSnapshotInTab,
     async readCardScript(code: number, dbPath?: string) {
-      const targetTab = dbPath
-        ? get(tabs).find((tab) => tab.path === dbPath)
-        : get(activeTab);
-
-      if (!targetTab) {
+      const target = this.listOpenDatabases().find((database) => (
+        dbPath ? database.path === dbPath : database.isActive
+      ));
+      if (!target) {
         return { exists: false, path: null, content: null };
       }
 
-      const info = await getCardScriptInfo(targetTab.path, code);
+      const info = await getCardScriptInfo(target.path, code);
       if (!info.exists) {
         return { exists: false, path: info.path, content: null };
       }

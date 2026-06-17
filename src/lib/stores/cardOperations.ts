@@ -1,10 +1,13 @@
 import { get } from 'svelte/store';
 import type { CardDataEntry } from '$lib/types';
-import { invokeCommand } from '$lib/infrastructure/tauri';
+import { documentRuntime } from '$lib/platform/appRuntime';
+import type {
+  CardCollectionCommand,
+  CardCollectionQuery,
+} from '$lib/modules/card';
 import { cloneCard } from './cardUtils';
 import { clearSourceFilterCacheForTab, refreshCachedSearchForTab } from './search';
-import { tabs, activeTab, markTabDirty, markActiveTabDirty } from './tabs';
-import { pushUndoOperation } from './undo';
+import { tabs, activeTab, recordUndoLabel } from './tabs';
 
 function syncCachedCardsInTab(tabId: string, cards: CardDataEntry[]) {
   if (cards.length === 0) return;
@@ -21,7 +24,6 @@ function syncCachedCardsInTab(tabId: string, cards: CardDataEntry[]) {
     )
   );
 }
-
 export async function getCardById(cardId: number): Promise<CardDataEntry | undefined> {
   const tab = get(activeTab);
   if (!tab) return undefined;
@@ -30,7 +32,10 @@ export async function getCardById(cardId: number): Promise<CardDataEntry | undef
 
 export async function getCardByIdInTab(tabId: string, cardId: number): Promise<CardDataEntry | undefined> {
   try {
-    return await invokeCommand<CardDataEntry | null>('get_card_by_id', { tabId, cardId }) ?? undefined;
+    return await documentRuntime.query<CardDataEntry | null>(
+      tabId,
+      { kind: 'getById', cardId } satisfies CardCollectionQuery,
+    ) ?? undefined;
   } catch (err) {
     console.error('Failed to fetch card by id:', err);
     return undefined;
@@ -44,12 +49,10 @@ export async function getCardsByIdsInTab(tabId: string, cardIds: number[]): Prom
   }
 
   try {
-    return await invokeCommand<CardDataEntry[]>('get_cards_by_ids', {
-      request: {
-        tabId,
-        cardIds: safeIds,
-      },
-    });
+    return await documentRuntime.query<CardDataEntry[]>(
+      tabId,
+      { kind: 'getByIds', cardIds: safeIds } satisfies CardCollectionQuery,
+    );
   } catch (err) {
     console.error('Failed to fetch cards by ids:', err);
     return [];
@@ -71,28 +74,22 @@ export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): P
   if (!tab) return false;
 
   try {
-    const previousCardsByCode = new Map(
-      (await getCardsByIdsInTab(tab.id, cards.map((card) => card.code)))
-        .map((card) => [card.code, card] as const),
-    );
-    await invokeCommand('modify_cards', {
-      request: {
-        tabId: tab.id,
+    await documentRuntime.execute(
+      tab.id,
+      {
+        kind: 'upsert',
         cards: cards.map((card) => cloneCard(card)),
-      },
-    });
-    pushUndoOperation(tab.id, {
-      kind: 'modify',
-      label: cards.length === 1 ? `Edit card ${cards[0].code}` : `Modify ${cards.length} cards`,
-      affectedIds: cards.map((card) => card.code),
-      previousCards: cards.map((card) => previousCardsByCode.get(card.code) ?? null),
-    });
+      } satisfies CardCollectionCommand,
+    );
+    recordUndoLabel(
+      tab.id,
+      cards.length === 1 ? `Edit card ${cards[0].code}` : `Modify ${cards.length} cards`,
+    );
     clearSourceFilterCacheForTab(tab.id);
     const refreshed = await refreshCachedSearchForTab(tab.id);
     if (!refreshed) {
       syncCachedCardsInTab(tab.id, cards);
     }
-    markTabDirty(tab.id, true);
     return true;
   } catch (err) {
     console.error('Failed to modify cards:', err);
@@ -109,27 +106,23 @@ export async function modifyCardsWithSnapshotInTab(
   if (!tab) return false;
 
   try {
-    await invokeCommand('modify_cards', {
-      request: {
-        tabId: tab.id,
+    await documentRuntime.execute(
+      tab.id,
+      {
+        kind: 'upsert',
         cards: cards.map((card) => cloneCard(card)),
-      },
-    });
-    pushUndoOperation(tab.id, {
-      kind: 'modify',
-      label: cards.length === 1 ? `Edit card ${cards[0].code}` : `Modify ${cards.length} cards`,
-      affectedIds: cards.map((card) => card.code),
-      previousCards: cards.map((card, index) => {
-        const previous = previousCards[index];
-        return previous && previous.code === card.code ? cloneCard(previous) : null;
-      }),
-    });
+      } satisfies CardCollectionCommand,
+    );
+    recordUndoLabel(
+      tab.id,
+      cards.length === 1 ? `Edit card ${cards[0].code}` : `Modify ${cards.length} cards`,
+    );
+    void previousCards;
     clearSourceFilterCacheForTab(tab.id);
     const refreshed = await refreshCachedSearchForTab(tab.id);
     if (!refreshed) {
       syncCachedCardsInTab(tab.id, cards);
     }
-    markTabDirty(tab.id, true);
     return true;
   } catch (err) {
     console.error('Failed to modify cards with snapshots:', err);
@@ -152,26 +145,16 @@ export async function deleteCards(cardIds: number[]): Promise<boolean> {
   if (!tab) return false;
 
   try {
-    const deletedCards = (await getCardsByIdsInTab(tab.id, cardIds)).map((card) => cloneCard(card));
-
-    await invokeCommand('delete_cards', {
-      request: {
-        tabId: tab.id,
-        cardIds,
-      },
-    });
-
-    if (deletedCards.length > 0) {
-      pushUndoOperation(tab.id, {
-        kind: 'delete',
-        label: deletedCards.length === 1 ? `Delete card ${deletedCards[0].code}` : `Delete ${deletedCards.length} cards`,
-        affectedIds: deletedCards.map((card) => card.code),
-        deletedCards,
-      });
-    }
+    await documentRuntime.execute(
+      tab.id,
+      { kind: 'delete', cardIds } satisfies CardCollectionCommand,
+    );
+    recordUndoLabel(
+      tab.id,
+      cardIds.length === 1 ? `Delete card ${cardIds[0]}` : `Delete ${cardIds.length} cards`,
+    );
     clearSourceFilterCacheForTab(tab.id);
     await refreshCachedSearchForTab(tab.id);
-    markActiveTabDirty(true);
     return true;
   } catch (err) {
     console.error('Failed to delete cards:', err);
@@ -188,42 +171,21 @@ export async function deleteCardsWithSnapshotInTab(
   if (!tab) return false;
 
   try {
-    await invokeCommand('delete_cards', {
-      request: {
-        tabId: tab.id,
-        cardIds,
-      },
-    });
-
-    if (deletedCards.length > 0) {
-      pushUndoOperation(tab.id, {
-        kind: 'delete',
-        label: deletedCards.length === 1 ? `Delete card ${deletedCards[0].code}` : `Delete ${deletedCards.length} cards`,
-        affectedIds: deletedCards.map((card) => card.code),
-        deletedCards: deletedCards.map((card) => cloneCard(card)),
-      });
-    }
+    await documentRuntime.execute(
+      tab.id,
+      { kind: 'delete', cardIds } satisfies CardCollectionCommand,
+    );
+    recordUndoLabel(
+      tab.id,
+      deletedCards.length === 1
+        ? `Delete card ${deletedCards[0].code}`
+        : `Delete ${deletedCards.length} cards`,
+    );
     clearSourceFilterCacheForTab(tab.id);
     await refreshCachedSearchForTab(tab.id);
-    markTabDirty(tab.id, true);
     return true;
   } catch (err) {
     console.error('Failed to delete cards with snapshots:', err);
     return false;
-  }
-}
-
-export async function queryCardsRaw(tabId: string, queryClause: string, params: Record<string, string | number> = {}): Promise<CardDataEntry[]> {
-  try {
-    return await invokeCommand<CardDataEntry[]>('query_cards_raw', {
-      request: {
-        tabId,
-        queryClause,
-        params,
-      },
-    });
-  } catch (err) {
-    console.error('Failed to query cards:', err);
-    return [];
   }
 }

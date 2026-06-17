@@ -1,13 +1,16 @@
 import { get } from 'svelte/store';
 import type { CardDataEntry, SearchFilters } from '$lib/types';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import { buildSearchQuery } from '$lib/domain/search/query';
 import { parseDeckTextToCardIds, splitSourceTerms } from '$lib/domain/search/sourceFilters';
 import { RuleExpressionError } from '$lib/domain/search/ruleExpression';
-import { invokeCommand } from '$lib/infrastructure/tauri';
 import { listImageFolderEntries } from '$lib/infrastructure/tauri/commands';
+import { documentRuntime } from '$lib/platform/appRuntime';
+import {
+  buildCardSearchExpression,
+  type CardCollectionQuery,
+  type CardSearchPage,
+} from '$lib/modules/card';
 import { cloneCards } from './cardUtils';
-import { queryCardsRaw } from './cardOperations';
 import { activeTab, tabs } from './tabs';
 
 export interface CachedSearchSnapshot {
@@ -113,19 +116,19 @@ async function searchCardsPageInTab(
   pageSize = SEARCH_PAGE_SIZE,
 ): Promise<{ cards: CardDataEntry[]; total: number }> {
   const resolvedSourceFilterIds = await resolveSourceFilterIds(tabId, filters);
-  const { whereClause, params } = buildSearchQuery(filters, {
-    sourceIds: resolvedSourceFilterIds.active ? resolvedSourceFilterIds.ids : undefined,
-  });
   const safePage = Math.max(1, page);
-  const response = await invokeCommand<SearchCardsPageResponse>('search_cards_page', {
-    request: {
-      tabId,
-      whereClause,
-      params,
+  const response = await documentRuntime.query<CardSearchPage>(
+    tabId,
+    {
+      kind: 'search',
+      expression: buildCardSearchExpression(
+        filters,
+        resolvedSourceFilterIds.active ? resolvedSourceFilterIds.ids : undefined,
+      ),
       page: safePage,
       pageSize,
-    },
-  });
+    } satisfies CardCollectionQuery,
+  );
 
   return {
     cards: cloneCards(response.cards),
@@ -142,16 +145,9 @@ async function resolveCardIdsByExactNames(tabId: string, names: string[]): Promi
   const ids = new Set<number>();
   for (let index = 0; index < normalizedNames.length; index += EXACT_NAME_CHUNK_SIZE) {
     const chunk = normalizedNames.slice(index, index + EXACT_NAME_CHUNK_SIZE);
-    const params: Record<string, string> = {};
-    const placeholders = chunk.map((name, chunkIndex) => {
-      const key = `name${index + chunkIndex}`;
-      params[key] = name;
-      return `:${key}`;
-    });
-    const cards = await queryCardsRaw(
+    const cards = await documentRuntime.query<CardDataEntry[]>(
       tabId,
-      `texts.name IN (${placeholders.join(', ')}) ORDER BY datas.id`,
-      params,
+      { kind: 'findByNames', names: chunk } satisfies CardCollectionQuery,
     );
     for (const card of cards) {
       ids.add(card.code);
@@ -254,10 +250,28 @@ export function onCachedSearchRefreshed(listener: (snapshot: CachedSearchSnapsho
 
 export async function queryCardsByFiltersInTab(tabId: string, filters: SearchFilters): Promise<CardDataEntry[]> {
   const resolvedSourceFilterIds = await resolveSourceFilterIds(tabId, filters);
-  const { whereClause, params } = buildSearchQuery(filters, {
-    sourceIds: resolvedSourceFilterIds.active ? resolvedSourceFilterIds.ids : undefined,
-  });
-  return queryCardsRaw(tabId, `${whereClause} ORDER BY datas.id`, params);
+  const cards: CardDataEntry[] = [];
+  const expression = buildCardSearchExpression(
+    filters,
+    resolvedSourceFilterIds.active ? resolvedSourceFilterIds.ids : undefined,
+  );
+  let page = 1;
+  while (true) {
+    const response = await documentRuntime.query<CardSearchPage>(
+      tabId,
+      {
+        kind: 'search',
+        expression,
+        page,
+        pageSize: 200,
+      } satisfies CardCollectionQuery,
+    );
+    cards.push(...response.cards);
+    if (cards.length >= response.total || response.cards.length === 0) {
+      return cloneCards(cards);
+    }
+    page += 1;
+  }
 }
 
 export async function searchCardsPage(

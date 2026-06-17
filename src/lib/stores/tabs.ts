@@ -1,11 +1,18 @@
 import { writable, get, derived } from 'svelte/store';
 import type { CardDataEntry, DbWorkspaceState, SearchFilters } from '$lib/types';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
-import { cloneCard } from './cardUtils';
+import { tauriBridge } from '$lib/infrastructure/tauri';
 import { pushRecentCdbEntry } from './recentHistory';
-import { getUndoStack, clearUndoHistory } from './undo';
 import { parseCachedFiltersJson, clearSourceFilterCacheForTab, refreshCachedSearchForTab } from './search';
+import { documentRuntime } from '$lib/platform/appRuntime';
+import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
+import { CDB_PROVIDER_ID } from '$lib/modules/cdb';
+import {
+  popUndoLabel,
+  pushUndoLabel,
+  clearUndoHistory,
+  getUndoLabels,
+} from './undo';
 
 export type CdbTab = DbWorkspaceState;
 
@@ -19,11 +26,55 @@ export const activeTab = derived(
 
 export const isDbLoaded = derived(activeTab, ($activeTab) => $activeTab !== null);
 
-interface OpenCdbTabResponse {
-  name: string;
-  cachedCards: CardDataEntry[];
-  cachedTotal: number;
-}
+let syncingRuntime = false;
+
+documentRuntime.subscribe((snapshot) => {
+  syncingRuntime = true;
+  const cdbDocuments = snapshot.documents.filter((document) => (
+    document.typeId === CARD_COLLECTION_TYPE
+    && document.providerId === CDB_PROVIDER_ID
+  ));
+  tabs.update((currentTabs) => cdbDocuments.map((document) => {
+    const current = currentTabs.find((tab) => tab.id === document.id);
+    const initialCards = Array.isArray(document.metadata.initialCards)
+      ? document.metadata.initialCards as CardDataEntry[]
+      : [];
+    const initialTotal = Number(document.metadata.total ?? initialCards.length);
+    return {
+      id: document.id,
+      path: document.source?.path ?? document.source?.uri ?? '',
+      name: document.title,
+      cachedCards: current?.cachedCards ?? initialCards,
+      cachedTotal: current?.cachedTotal ?? initialTotal,
+      cachedPage: current?.cachedPage ?? 1,
+      cachedFilters: current?.cachedFilters ?? '{}',
+      cachedSelectedIds: current?.cachedSelectedIds
+        ?? (initialCards[0] ? [initialCards[0].code] : []),
+      cachedSelectedId: current?.cachedSelectedId ?? initialCards[0]?.code ?? null,
+      cachedSelectionAnchorId: current?.cachedSelectionAnchorId ?? initialCards[0]?.code ?? null,
+      isDirty: document.dirty,
+    };
+  }));
+  const activeDocument = snapshot.documents.find((document) => (
+    document.id === snapshot.activeDocumentId
+    && document.typeId === CARD_COLLECTION_TYPE
+  ));
+  if (activeDocument) {
+    activeTabId.set(activeDocument.id);
+  } else if (cdbDocuments.length === 0) {
+    activeTabId.set(null);
+  }
+  syncingRuntime = false;
+});
+
+activeTabId.subscribe((tabId) => {
+  if (syncingRuntime || !tabId || !documentRuntime.getDocument(tabId)) {
+    return;
+  }
+  if (documentRuntime.snapshot.activeDocumentId !== tabId) {
+    documentRuntime.activate(tabId);
+  }
+});
 
 async function openCdbAtPath(selected: string): Promise<string | null> {
   const existing = get(tabs).find(t => t.path === selected);
@@ -34,26 +85,13 @@ async function openCdbAtPath(selected: string): Promise<string | null> {
   }
 
   try {
-    const id = crypto.randomUUID();
-    const response = await invokeCommand<OpenCdbTabResponse>('open_cdb_tab', { tabId: id, path: selected });
-
-    const tab: CdbTab = {
-      id,
+    const document = await documentRuntime.openSource({
+      uri: selected,
       path: selected,
-      name: response.name,
-      cachedCards: response.cachedCards,
-      cachedTotal: response.cachedTotal,
-      cachedPage: 1,
-      cachedFilters: '{}',
-      cachedSelectedIds: response.cachedCards.length > 0 ? [response.cachedCards[0].code] : [],
-      cachedSelectedId: response.cachedCards[0]?.code ?? null,
-      cachedSelectionAnchorId: response.cachedCards[0]?.code ?? null,
-      isDirty: false
-    };
-    tabs.update(t => [...t, tab]);
-    activeTabId.set(id);
-    pushRecentCdbEntry({ path: selected, name: response.name });
-    return id;
+      name: selected.split(/[\\/]/).pop() || 'unknown.cdb',
+    });
+    pushRecentCdbEntry({ path: selected, name: document.title });
+    return document.id;
   } catch (err) {
     console.error('Failed to read CDB:', err);
     return null;
@@ -96,26 +134,19 @@ export async function createCdbFile(): Promise<string | null> {
 
   if (selected && typeof selected === 'string') {
     try {
-      const id = crypto.randomUUID();
-      const response = await invokeCommand<OpenCdbTabResponse>('create_cdb_tab', { tabId: id, path: selected });
-
-      const tab: CdbTab = {
-        id,
+      const document = await documentRuntime.createDocument({
+        typeId: CARD_COLLECTION_TYPE,
+        providerId: CDB_PROVIDER_ID,
+        title: selected.split(/[\\/]/).pop() || 'Untitled.cdb',
+        initialData: [],
+      });
+      const saved = await documentRuntime.save(document.id, {
+        uri: selected,
         path: selected,
-        name: response.name,
-        cachedCards: [],
-        cachedTotal: 0,
-        cachedPage: 1,
-        cachedFilters: '{}',
-        cachedSelectedIds: [],
-        cachedSelectedId: null,
-        cachedSelectionAnchorId: null,
-        isDirty: false
-      };
-      tabs.update(t => [...t, tab]);
-      activeTabId.set(id);
-      pushRecentCdbEntry({ path: selected, name: response.name });
-      return id;
+        name: selected.split(/[\\/]/).pop() || 'Untitled.cdb',
+      });
+      pushRecentCdbEntry({ path: selected, name: saved.title });
+      return saved.id;
     } catch (err) {
       console.error('Failed to create CDB:', err);
       return null;
@@ -130,7 +161,7 @@ export async function closeTab(tabId: string) {
   if (idx === -1) return;
 
   try {
-    await invokeCommand('close_cdb_tab', { tabId });
+    await documentRuntime.close(tabId, true);
   } catch (err) {
     console.error('Failed to close CDB tab:', err);
   }
@@ -162,8 +193,7 @@ export async function saveCdbTab(tabId: string): Promise<boolean> {
   if (!tab) return false;
 
   try {
-    await invokeCommand('save_cdb_tab', { tabId: tab.id });
-    markTabDirty(tab.id, false);
+    await documentRuntime.save(tab.id);
     return true;
   } catch (err) {
     console.error('Failed to save CDB:', err);
@@ -247,52 +277,34 @@ export function markActiveTabDirty(isDirty = true) {
 export function hasUndoableAction(): boolean {
   const tabId = get(activeTabId);
   if (!tabId) return false;
-  return getUndoStack(tabId).length > 0;
+  return getUndoLabels(tabId).length > 0;
 }
 
 export function getLastUndoLabel(): string | null {
   const tabId = get(activeTabId);
   if (!tabId) return null;
-  const stack = getUndoStack(tabId);
-  return stack[stack.length - 1]?.label ?? null;
+  const stack = getUndoLabels(tabId);
+  return stack[stack.length - 1] ?? null;
 }
 
 export async function undoLastOperation(): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
 
-  const stack = getUndoStack(tab.id);
-  const operation = stack.pop();
-  if (!operation) return false;
-
   try {
-    if (operation.kind === 'modify') {
-      const cardsToRestore = operation.previousCards.filter((card): card is CardDataEntry => card !== null);
-      const deletedIds = operation.affectedIds.filter((cardId, index) => operation.previousCards[index] === null);
+    const result = await documentRuntime.undo(tab.id);
+    if (!result.changed) return false;
 
-      await invokeCommand('undo_modify_operation', {
-        request: {
-          tabId: tab.id,
-          cardsToRestore: cardsToRestore.map((card) => cloneCard(card)),
-          idsToDelete: deletedIds,
-        },
-      });
-    } else if (operation.deletedCards.length > 0) {
-      await invokeCommand('modify_cards', {
-        request: {
-          tabId: tab.id,
-          cards: operation.deletedCards.map((card) => cloneCard(card)),
-        },
-      });
-    }
-
+    popUndoLabel(tab.id);
     clearSourceFilterCacheForTab(tab.id);
     await refreshCachedSearchForTab(tab.id);
-    markActiveTabDirty(true);
     return true;
   } catch (err) {
     console.error('Failed to undo operation:', err);
-    stack.push(operation);
     return false;
   }
+}
+
+export function recordUndoLabel(tabId: string, label: string) {
+  pushUndoLabel(tabId, label);
 }

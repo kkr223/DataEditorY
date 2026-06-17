@@ -1,7 +1,6 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { packageCdbAssetsAsZip } from '$lib/infrastructure/tauri/commands';
 import { activeTab } from '$lib/stores/db';
 import { activeScriptTab } from '$lib/stores/scriptEditor.svelte';
 import { appShellState } from '$lib/stores/appShell.svelte';
@@ -9,6 +8,8 @@ import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { workspaceState } from '$lib/core/workspace/store.svelte';
 import { saveWorkspaceDocument } from '$lib/application/workspace/commandBus';
+import { documentRuntime } from '$lib/platform/appRuntime';
+import { PACKAGE_EXPORT_COMMAND_ID } from '$lib/modules/package';
 
 const activeTabState = fromStore(activeTab);
 const activeScriptTabState = fromStore(activeScriptTab);
@@ -128,7 +129,10 @@ export function createPackageController(
       format,
       run: async () => {
         try {
-          const result = await packageCdbAssetsAsZip(cdbPath, outputPath);
+          const result = await documentRuntime.executePlatformCommand<{ path: string }>(
+            PACKAGE_EXPORT_COMMAND_ID,
+            { cdbPath, outputPath, format },
+          );
           showToast(
             t(
               format === 'zip' ? 'editor.background_package_zip_completed' : 'editor.background_package_ypk_completed',

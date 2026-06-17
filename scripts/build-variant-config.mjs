@@ -18,6 +18,7 @@ const BUILD_VARIANTS = {
       cardImage: false,
       ai: false,
     },
+    modules: ['settings', 'card', 'cdb', 'lua', 'package', 'merge'],
   },
   extra: {
     key: 'extra',
@@ -29,6 +30,7 @@ const BUILD_VARIANTS = {
       cardImage: true,
       ai: true,
     },
+    modules: ['settings', 'card', 'cdb', 'lua', 'package', 'merge', 'card-image', 'ai'],
   },
 };
 

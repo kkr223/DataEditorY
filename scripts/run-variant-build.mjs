@@ -34,14 +34,38 @@ function buildVariantTauriConfig(rawVariant, baseConfigText) {
   return `${JSON.stringify(createTauriVariantConfig(baseConfig, variant.key), null, 2)}\n`;
 }
 
-async function runFrontendBuild(rawVariant) {
+async function runWithVariantModuleEntry(rawVariant, action) {
   const variant = getBuildVariantConfig(rawVariant);
-  await run('bun', ['run', 'build:web:raw'], { APP_VARIANT: variant.key });
+  const activeModulesPath = resolve(workspaceRoot, 'src', 'lib', 'modules', 'active.ts');
+  const originalText = readFileSync(activeModulesPath, 'utf8');
+  const variantEntry = variant.key === 'base' ? './base' : './extra';
+  try {
+    writeFileSync(
+      activeModulesPath,
+      `export { builtInModuleIds, builtInModules } from '${variantEntry}';\n`,
+    );
+    await action(variant);
+  } finally {
+    writeFileSync(activeModulesPath, originalText);
+  }
+}
+
+async function runFrontendBuild(rawVariant) {
+  await runWithVariantModuleEntry(rawVariant, async (variant) => {
+    await run('bun', ['run', 'build:web:raw'], { APP_VARIANT: variant.key });
+  });
 }
 
 async function runFrontendDev(rawVariant) {
-  const variant = getBuildVariantConfig(rawVariant);
-  await run('bun', ['run', 'dev:raw'], { APP_VARIANT: variant.key });
+  await runWithVariantModuleEntry(rawVariant, async (variant) => {
+    await run('bun', ['run', 'dev:raw'], { APP_VARIANT: variant.key });
+  });
+}
+
+async function runFrontendCheck(rawVariant) {
+  await runWithVariantModuleEntry(rawVariant, async (variant) => {
+    await run('bun', ['run', 'check'], { APP_VARIANT: variant.key });
+  });
 }
 
 async function runTauriCommand(command, rawVariant, passthroughArgs) {
@@ -78,6 +102,11 @@ async function main() {
 
   if (mode === 'dev-frontend') {
     await runFrontendDev(process.argv[3]);
+    return;
+  }
+
+  if (mode === 'check') {
+    await runFrontendCheck(process.argv[3]);
     return;
   }
 

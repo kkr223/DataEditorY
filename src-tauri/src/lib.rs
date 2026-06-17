@@ -2,6 +2,7 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
 mod commands;
+mod document_host;
 mod models;
 mod repository;
 mod services;
@@ -75,6 +76,7 @@ pub fn run() {
         .manage(OpenCdbSessions(
             Mutex::new(std::collections::HashMap::new()),
         ))
+        .manage(document_host::DocumentHostState::new())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
@@ -88,22 +90,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::cdb::open_cdb_tab,
-            commands::cdb::create_cdb_tab,
-            commands::cdb::close_cdb_tab,
-            commands::cdb::save_cdb_tab,
-            commands::cdb::search_cards_page,
-            commands::cdb::query_cards_raw,
-            commands::cdb::get_card_by_id,
-            commands::cdb::get_cards_by_ids,
-            commands::cdb::modify_cards,
-            commands::cdb::delete_cards,
             commands::cdb::create_cdb_from_cards,
             commands::cdb::copy_card_assets,
             commands::cdb::analyze_cdb_merge,
             commands::cdb::collect_merge_sources_from_folder,
             commands::cdb::execute_cdb_merge,
-            commands::cdb::undo_modify_operation,
             commands::media::read_cdb,
             commands::media::read_text_file,
             commands::media::write_cdb,
@@ -128,6 +119,14 @@ pub fn run() {
             commands::package::package_cdb_assets_as_zip,
             commands::app::append_error_log,
             commands::app::consume_pending_open_cdb_paths
+            ,
+            document_host::commands::provider_open,
+            document_host::commands::provider_query,
+            document_host::commands::provider_execute,
+            document_host::commands::provider_save,
+            document_host::commands::provider_undo,
+            document_host::commands::provider_close,
+            document_host::commands::codec_export
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

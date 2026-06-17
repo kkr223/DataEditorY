@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   export let isEditingExisting = false;
   export let editingHint = "";
   export let newCardHint = "";
@@ -7,26 +8,12 @@
   export let backgroundQueuedCount = 0;
   export let resetSearchLabel = "";
   export let newCardLabel = "";
-  export let aiParseLabel = "";
-  export let scriptLabel = "";
-  export let generateScriptLabel = "";
-  export let generatingScriptLabel = "";
-  export let cancelScriptLabel = "";
-  export let cardImageLabel = "";
   export let searchLabel = "";
   export let saveAsLabel = "";
   export let modifyLabel = "";
   export let deleteLabel = "";
-  export let hasAiCapability = false;
-  export let hasCardImageCapability = false;
-  export let isGeneratingScript = false;
-  export let scriptStageText = "";
+  export let extensionActions: Snippet | null = null;
   export let onNewCard: () => void = () => {};
-  export let onOpenParseModal: () => void | Promise<void> = () => {};
-  export let onOpenScript: () => void | Promise<void> = () => {};
-  export let onGenerateScript: () => void | Promise<void> = () => {};
-  export let onCancelGenerateScript: () => void = () => {};
-  export let onOpenCardImageDrawer: () => void = () => {};
   export let onResetSearch: () => void | Promise<void> = () => {};
   export let onSearch: () => void | Promise<void> = () => {};
   export let onSaveAs: () => void | Promise<void> = () => {};
@@ -58,26 +45,7 @@
 
 <div class="editor-bottom">
   <div class="editor-bottom-left">
-    {#if hasAiCapability}
-      <button class="btn-secondary btn-sm" onclick={onOpenParseModal}>{aiParseLabel}</button>
-    {/if}
-    <button class="btn-secondary btn-sm btn-secondary-script" onclick={onOpenScript}>{scriptLabel}</button>
-    {#if hasAiCapability}
-      <div class="script-generate-group">
-        <button class="btn-secondary btn-sm" onclick={onGenerateScript} disabled={isGeneratingScript}>
-          {isGeneratingScript ? generatingScriptLabel : generateScriptLabel}
-        </button>
-        {#if isGeneratingScript}
-          <button class="btn-secondary btn-sm" type="button" onclick={onCancelGenerateScript}>
-            {cancelScriptLabel}
-          </button>
-          <span class="script-stage-text">{scriptStageText}</span>
-        {/if}
-      </div>
-    {/if}
-    {#if hasCardImageCapability}
-      <button class="btn-secondary btn-sm btn-secondary-card-image" onclick={onOpenCardImageDrawer}>{cardImageLabel}</button>
-    {/if}
+    {@render extensionActions?.()}
   </div>
   <div class="btn-group">
     <button class="btn-secondary btn-sm" onclick={onResetSearch}>{resetSearchLabel}</button>
@@ -159,18 +127,6 @@
     align-items: center;
   }
 
-  .script-generate-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .script-stage-text {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
 
   .btn-group {
     display: flex;
@@ -214,23 +170,6 @@
     background: var(--bg-surface-hover);
   }
 
-  .btn-secondary-script {
-    background: var(--feature-script-bg);
-    box-shadow: inset 0 0 0 1px var(--feature-script-border);
-  }
-
-  .btn-secondary-script:hover {
-    background: var(--feature-script-bg-hover);
-  }
-
-  .btn-secondary-card-image {
-    background: var(--feature-image-bg);
-    box-shadow: inset 0 0 0 1px var(--feature-image-border);
-  }
-
-  .btn-secondary-card-image:hover {
-    background: var(--feature-image-bg-hover);
-  }
 
   .btn-save-as {
     background: var(--accent-secondary);

@@ -2,7 +2,6 @@
   import { _ } from 'svelte-i18n';
   import { disableAutofill } from '$lib/actions/disableAutofill';
   import type { CardDataEntry } from '$lib/types';
-  import { HAS_EXTRA_BUILD } from '$lib/config/build';
   import {
     createCardImageController,
     NAME_COLOR_PRESETS,
@@ -15,12 +14,14 @@
     open = false,
     card,
     cdbPath = '',
+    aiEnabled = false,
     onSavedJpg = async () => {},
     onClose = () => {},
   }: {
     open?: boolean;
     card: CardDataEntry;
     cdbPath?: string;
+    aiEnabled?: boolean;
     onSavedJpg?: () => void | Promise<void>;
     onClose?: () => void;
   } = $props();
@@ -29,6 +30,7 @@
     open: () => open,
     card: () => card,
     cdbPath: () => cdbPath,
+    aiEnabled: () => aiEnabled,
     onSavedJpg: () => onSavedJpg(),
     onClose: () => onClose(),
   });
@@ -56,6 +58,7 @@
             bind:foregroundFileInput={controller.state.foregroundFileInput}
             croppedImageDataUrl={controller.state.croppedImageDataUrl}
             isTranslating={controller.state.isTranslating}
+            {aiEnabled}
             onImageUpload={controller.handleImageUpload}
             onConfigFileUpload={controller.handleConfigFileUpload}
             onForegroundImageUpload={controller.handleForegroundImageUpload}
@@ -116,7 +119,7 @@
   </div>
 {/if}
 
-{#if HAS_EXTRA_BUILD && controller.state.foregroundEditorOpen}
+{#if controller.state.foregroundEditorOpen}
   <div class="foreground-backdrop" role="presentation" onclick={controller.handleForegroundBackdropClick}>
     <div class="foreground-dialog" role="dialog" aria-modal="true" aria-label={$_('editor.card_image_foreground_title')}>
       <div class="foreground-header">

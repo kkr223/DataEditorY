@@ -6,6 +6,7 @@
   export let open = false;
   export let card: CardDataEntry;
   export let cdbPath = "";
+  export let aiEnabled = false;
   export let onSavedJpg: () => void | Promise<void> = () => {};
   export let onClose: () => void = () => {};
 
@@ -22,6 +23,7 @@
       {open}
       {card}
       {cdbPath}
+      {aiEnabled}
       {onSavedJpg}
       {onClose}
     />

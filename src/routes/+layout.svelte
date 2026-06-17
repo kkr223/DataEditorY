@@ -4,7 +4,6 @@
   import { setupI18n } from '$lib/i18n';
   import { _, isLoading } from 'svelte-i18n';
   import { activeTab } from '$lib/stores/db';
-  import { openSettingsView } from '$lib/stores/appShell.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import AppTopBar from '$lib/features/shell/components/AppTopBar.svelte';
   import AppTabBar from '$lib/features/shell/components/AppTabBar.svelte';
@@ -14,6 +13,8 @@
   import { createShellLayoutController } from '$lib/features/shell/layoutController.svelte';
   import { createShellDialogsController } from '$lib/features/shell/dialogsController.svelte';
   import { workspaceState } from '$lib/core/workspace/store.svelte';
+  import { openSettingsWorkspace } from '$lib/application/workspace/commandBus';
+  import { startDocumentStateSync } from '$lib/platform/store.svelte';
 
   setupI18n();
 
@@ -40,6 +41,7 @@
   }
 
   onMount(() => {
+    const stopDocumentSync = startDocumentStateSync();
     const cleanupShell = shellController.setup();
     const cleanupDialogs = dialogsController.setup();
     syncUiScale();
@@ -48,6 +50,7 @@
     return () => {
       cleanupShell?.();
       cleanupDialogs?.();
+      stopDocumentSync();
       window.removeEventListener('resize', syncUiScale);
       document.documentElement.style.removeProperty('--ui-scale');
     };
@@ -74,7 +77,7 @@
       onCreate={shellController.handleCreate}
       onCreateFilteredCdb={dialogsController.openCreateFilteredCdbDialog}
       onMergeCdb={dialogsController.openMergeCdbDialog}
-      onOpenSettings={openSettingsView}
+      onOpenSettings={openSettingsWorkspace}
       onPackageZip={dialogsController.handlePackageZip}
       onPackageYpk={dialogsController.handlePackageYpk}
       onShowPackageMenu={dialogsController.showPackageMenu}
