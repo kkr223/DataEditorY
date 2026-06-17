@@ -2,6 +2,7 @@
   import { _ } from 'svelte-i18n';
   import { disableAutofill } from '$lib/actions/disableAutofill';
   import type { CardDataEntry } from '$lib/types';
+  import type { CardImageConfigDocument } from '$lib/features/card-image/layout';
   import {
     createCardImageController,
     NAME_COLOR_PRESETS,
@@ -12,16 +13,24 @@
 
   let {
     open = false,
+    mode = 'drawer',
     card,
     cdbPath = '',
     aiEnabled = false,
+    documentKey = '',
+    initialDocument = null,
+    onDocumentChange = undefined,
     onSavedJpg = async () => {},
     onClose = () => {},
   }: {
     open?: boolean;
+    mode?: 'drawer' | 'workbench';
     card: CardDataEntry;
     cdbPath?: string;
     aiEnabled?: boolean;
+    documentKey?: string;
+    initialDocument?: CardImageConfigDocument | null;
+    onDocumentChange?: (document: CardImageConfigDocument) => void | Promise<void>;
     onSavedJpg?: () => void | Promise<void>;
     onClose?: () => void;
   } = $props();
@@ -31,6 +40,9 @@
     card: () => card,
     cdbPath: () => cdbPath,
     aiEnabled: () => aiEnabled,
+    documentKey: () => documentKey,
+    initialDocument: () => initialDocument,
+    onDocumentChange: (document) => onDocumentChange?.(document),
     onSavedJpg: () => onSavedJpg(),
     onClose: () => onClose(),
   });
@@ -39,14 +51,28 @@
 <svelte:window onresize={controller.handleCropViewportResize} />
 
 {#if open}
-  <div class="drawer-backdrop" role="presentation" onclick={controller.handleBackdropClick}>
-    <div class="drawer-panel" use:disableAutofill role="dialog" aria-modal="true" aria-label={$_('editor.card_image_title')}>
+  <div
+    class:drawer-backdrop={mode === 'drawer'}
+    class:workbench-root={mode === 'workbench'}
+    role="presentation"
+    onclick={mode === 'drawer' ? controller.handleBackdropClick : undefined}
+  >
+    <div
+      class:drawer-panel={mode === 'drawer'}
+      class:workbench-panel={mode === 'workbench'}
+      use:disableAutofill
+      role={mode === 'drawer' ? 'dialog' : 'region'}
+      aria-modal={mode === 'drawer' ? 'true' : undefined}
+      aria-label={$_('editor.card_image_title')}
+    >
       <div class="drawer-header">
         <div>
           <h3>{$_('editor.card_image_title')}</h3>
           <p>{$_('editor.card_image_description')}</p>
         </div>
-        <button class="close-btn" type="button" onclick={controller.closeDrawer}>×</button>
+        {#if mode === 'drawer'}
+          <button class="close-btn" type="button" onclick={controller.closeDrawer}>×</button>
+        {/if}
       </div>
 
       <div class="drawer-body">
@@ -111,10 +137,12 @@
         </div>
       </div>
 
-      <div class="drawer-footer">
-        <span class="field-hint">{$_('editor.card_image_live_preview')}</span>
-        <button class="btn-primary btn-sm" type="button" onclick={controller.closeDrawer}>{$_('editor.card_image_done')}</button>
-      </div>
+      {#if mode === 'drawer'}
+        <div class="drawer-footer">
+          <span class="field-hint">{$_('editor.card_image_live_preview')}</span>
+          <button class="btn-primary btn-sm" type="button" onclick={controller.closeDrawer}>{$_('editor.card_image_done')}</button>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -212,6 +240,8 @@
   .btn-secondary { background: rgba(148, 163, 184, 0.14); color: var(--text-primary); border: 1px solid rgba(148, 163, 184, 0.22); }
   .drawer-backdrop { position: fixed; inset: 0; z-index: 1200; display: flex; justify-content: flex-end; background: rgba(9, 15, 24, 0.45); backdrop-filter: blur(2px); }
   .drawer-panel { width: min(1320px, 90vw); height: 100vh; background: var(--bg-surface); border-left: 1px solid var(--border-color); box-shadow: -20px 0 40px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; }
+  .workbench-root { height: 100%; min-height: 0; display: flex; background: var(--bg-base); }
+  .workbench-panel { width: 100%; height: 100%; min-height: 0; background: var(--bg-surface); display: flex; flex-direction: column; }
   .drawer-header, .drawer-footer { padding: 14px 18px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .drawer-footer { border-bottom: none; border-top: 1px solid var(--border-color); }
   .drawer-header h3, .section-title, .crop-header h4 { font-size: 1rem; font-weight: 700; color: var(--text-primary); }

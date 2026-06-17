@@ -1,6 +1,9 @@
 import type { CdbTab } from '$lib/stores/db';
+import type { DocumentRecord } from '$lib/platform';
 import type { ScriptWorkspaceState } from '$lib/types';
+import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
 import type {
+  CardImageWorkspaceDocument,
   DbWorkspaceDocument,
   ScriptWorkspaceDocument,
   SettingsWorkspaceDocument,
@@ -76,9 +79,36 @@ export function createSettingsWorkspaceDocument(): SettingsWorkspaceDocument {
   };
 }
 
+export function toCardImageWorkspaceDocument(document: DocumentRecord): CardImageWorkspaceDocument {
+  const cardCode = Number(document.metadata.cardCode ?? 0);
+  const subtitle = document.source?.path
+    ?? document.source?.uri
+    ?? (cardCode > 0 ? `Card ${cardCode}` : 'Card image configuration');
+
+  return {
+    id: document.id,
+    kind: 'card-image',
+    title: document.title,
+    subtitle,
+    dirty: document.dirty,
+    status: 'ready',
+    savePolicy: 'manual',
+    closeGuard: 'confirm-dirty',
+    source: {
+      path: document.source?.path ?? document.source?.uri ?? null,
+      tabId: document.id,
+    },
+    viewState: {
+      typeId: document.typeId,
+      cardCode: cardCode > 0 ? cardCode : null,
+    },
+  };
+}
+
 export function buildWorkspaceDocuments(input: {
   dbTabs: CdbTab[];
   scriptTabs: ScriptWorkspaceState[];
+  cardImageDocuments?: DocumentRecord[];
   settingsOpen: boolean;
   getScriptTitle: (tab: ScriptWorkspaceState) => string;
 }): WorkspaceDocument[] {
@@ -92,6 +122,11 @@ export function buildWorkspaceDocuments(input: {
   documents.push(
     ...input.scriptTabs.map((tab) => toScriptWorkspaceDocument(tab, input.getScriptTitle(tab))),
   );
+  documents.push(
+    ...(input.cardImageDocuments ?? [])
+      .filter((document) => document.typeId === CARD_IMAGE_CONFIG_TYPE)
+      .map(toCardImageWorkspaceDocument),
+  );
 
   return documents;
 }
@@ -101,6 +136,8 @@ export function resolveActiveWorkspaceId(input: {
   settingsOpen: boolean;
   activeDbTabId: string | null;
   activeScriptTabId: string | null;
+  activeDocumentId?: string | null;
+  cardImageDocuments?: DocumentRecord[];
 }) {
   if (input.mainView === 'settings' && input.settingsOpen) {
     return SETTINGS_WORKSPACE_ID;
@@ -108,6 +145,13 @@ export function resolveActiveWorkspaceId(input: {
 
   if (input.mainView === 'script') {
     return input.activeScriptTabId;
+  }
+
+  if (
+    input.activeDocumentId
+    && (input.cardImageDocuments ?? []).some((document) => document.id === input.activeDocumentId)
+  ) {
+    return input.activeDocumentId;
   }
 
   return input.activeDbTabId;

@@ -3,9 +3,15 @@ import {
   normalizeCardImageFormData,
   type CardImageConfigDocument,
 } from '$lib/features/card-image/layout';
+import {
+  CARD_IMAGE_CONFIG_TYPE,
+  CARD_IMAGE_PROVIDER_ID,
+} from './constants';
 
-export const CARD_IMAGE_CONFIG_TYPE = 'ygo.card-image-config';
-export const CARD_IMAGE_PROVIDER_ID = 'card-image.memory-provider';
+export {
+  CARD_IMAGE_CONFIG_TYPE,
+  CARD_IMAGE_PROVIDER_ID,
+} from './constants';
 
 const validateConfig = (value: unknown): CardImageConfigDocument => {
   if (!value || typeof value !== 'object') {

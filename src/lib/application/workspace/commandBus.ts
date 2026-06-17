@@ -19,6 +19,7 @@ import {
   scriptTabs,
   activeScriptTabId,
 } from '$lib/stores/scriptEditor.svelte';
+import { tauriBridge } from '$lib/infrastructure/tauri';
 import {
   SETTINGS_WORKSPACE_ID,
   getActiveWorkspaceDocument,
@@ -30,6 +31,7 @@ import {
   SETTINGS_PROVIDER_ID,
   SETTINGS_TYPE,
 } from '$lib/modules/settings';
+import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
 
 function isScriptWorkspace(id: string) {
   return get(scriptTabs).some((tab) => tab.id === id);
@@ -38,6 +40,40 @@ function isScriptWorkspace(id: string) {
 function getSettingsDocumentId() {
   return documentRuntime.snapshot.documents
     .find((document) => document.typeId === SETTINGS_TYPE)?.id ?? null;
+}
+
+function isCardImageWorkspace(id: string) {
+  return documentRuntime.getDocument(id)?.typeId === CARD_IMAGE_CONFIG_TYPE;
+}
+
+async function saveCardImageWorkspace(id: string) {
+  const document = documentRuntime.getDocument(id);
+  if (!document || document.typeId !== CARD_IMAGE_CONFIG_TYPE) {
+    return false;
+  }
+
+  try {
+    if (document.source) {
+      await documentRuntime.save(id);
+      return true;
+    }
+
+    const targetPath = await tauriBridge.save({
+      defaultPath: document.title.endsWith('.json') ? document.title : `${document.title}.json`,
+      filters: [{ name: 'Card image config', extensions: ['json'] }],
+    });
+    if (!targetPath) return false;
+
+    await documentRuntime.save(id, {
+      uri: targetPath,
+      path: targetPath,
+      name: targetPath.split(/[\\/]/).pop() || document.title,
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to save card image workspace:', error);
+    return false;
+  }
 }
 
 export async function openSettingsWorkspace() {
@@ -82,6 +118,12 @@ export function activateWorkspaceDocument(id: string) {
     return;
   }
 
+  if (isCardImageWorkspace(id)) {
+    documentRuntime.activate(id);
+    activateEditorView();
+    return;
+  }
+
   activeTabId.set(id);
   activateEditorView();
 }
@@ -112,6 +154,11 @@ export async function closeWorkspaceDocument(id: string) {
     return;
   }
 
+  if (isCardImageWorkspace(id)) {
+    await documentRuntime.close(id, true);
+    return;
+  }
+
   await closeTab(id);
 }
 
@@ -127,6 +174,10 @@ export async function saveWorkspaceDocument(id: string) {
 
   if (isScriptWorkspace(id)) {
     return saveScriptTab(id);
+  }
+
+  if (isCardImageWorkspace(id)) {
+    return saveCardImageWorkspace(id);
   }
 
   return saveCdbTab(id);

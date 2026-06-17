@@ -15,6 +15,7 @@ import {
   normalizeCardImageFormData,
   parseCardImageConfigDocument,
   serializeCardImageConfigDocument,
+  type CardImageConfigDocument,
   type CardImageFormData,
   type CardImageLanguage,
 } from '$lib/utils/cardImage';
@@ -88,6 +89,9 @@ type CardImageControllerSource = {
   card: () => CardDataEntry;
   cdbPath: () => string;
   aiEnabled: () => boolean;
+  documentKey?: () => string;
+  initialDocument?: () => CardImageConfigDocument | null;
+  onDocumentChange?: (document: CardImageConfigDocument) => void | Promise<void>;
   onSavedJpg: () => void | Promise<void>;
   onClose: () => void;
 };
@@ -172,6 +176,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   let yugiohCardConstructorPromise: Promise<YugiohCardConstructor> | null = null;
   let resourcePathPromise: Promise<string> | null = null;
   let previewResizeObserver: ResizeObserver | null = null;
+  let lastDocumentSignature = '';
 
   function getCard() {
     return source.card();
@@ -284,6 +289,58 @@ export function createCardImageController(source: CardImageControllerSource) {
 
   function closeDrawer() {
     source.onClose();
+  }
+
+  function createConfigDocument(): CardImageConfigDocument {
+    const card = getCard();
+    return {
+      kind: 'dataeditory-card-image-config',
+      version: 1,
+      form: normalizeCardImageFormData(state.form),
+      exportScalePercent: state.exportScalePercent,
+      meta: {
+        cardCode: Number.isFinite(Number(card.code)) ? Number(card.code) : undefined,
+        cardName: String(card.name ?? '').trim() || undefined,
+      },
+    };
+  }
+
+  function getDocumentSignature(document: CardImageConfigDocument) {
+    return JSON.stringify({
+      form: normalizeCardImageFormData(document.form ?? {}),
+      exportScalePercent: Number.isFinite(Number(document.exportScalePercent))
+        ? Number(document.exportScalePercent)
+        : null,
+      meta: document.meta ?? null,
+    });
+  }
+
+  async function hydrateFromConfigDocument(document: CardImageConfigDocument) {
+    const form = normalizeCardImageFormData(document.form ?? {});
+    revokeSourceImageUrl();
+    state.sourceImageWidth = 0;
+    state.sourceImageHeight = 0;
+    state.cropModalOpen = false;
+    state.cropRotation = 0;
+    state.cropBox = { x: 0, y: 0, size: 0 };
+    state.dragMode = null;
+    state.dragPointerId = null;
+    state.croppedImageDataUrl = form.image || '';
+    state.hasManualPreviewZoom = false;
+    state.previewZoomPercent = DEFAULT_PREVIEW_ZOOM_PERCENT;
+    state.exportScalePercent = Number.isFinite(Number(document.exportScalePercent))
+      ? clampExportScalePercent(Number(document.exportScalePercent))
+      : DEFAULT_EXPORT_SCALE_PERCENT;
+    state.form = form;
+    state.lastFormLanguage = form.language as CardImageLanguage;
+    state.initialForegroundState = createForegroundInitialStateFromForm(form);
+    state.shouldRunInitialPostRenderRefresh = false;
+    hasRunInitialPostRenderRefresh = false;
+    await syncForegroundRenderableUrl(form.foregroundImage || '');
+    destroyPreview();
+    destroyForegroundPreview();
+    lastDocumentSignature = getDocumentSignature(createConfigDocument());
+    await warmupPreviewAfterFontsReady();
   }
 
   function isPositiveCardCode(value: unknown) {
@@ -518,6 +575,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       state.lastFormLanguage = importedForm.language as CardImageLanguage;
       state.initialForegroundState = createForegroundInitialStateFromForm(importedForm);
       await syncForegroundRenderableUrl(importedForm.foregroundImage || '');
+      lastDocumentSignature = '';
       destroyPreview();
       destroyForegroundPreview();
       await warmupPreviewAfterFontsReady();
@@ -1797,6 +1855,21 @@ export function createCardImageController(source: CardImageControllerSource) {
 
   $effect(() => {
     const open = source.open();
+    const initialDocument = source.initialDocument?.() ?? null;
+    const documentKey = source.documentKey?.() ?? '';
+    if (initialDocument) {
+      const hydrationKey = open ? documentKey : '';
+      if (!open) {
+        lastHydrationKey = '';
+        return;
+      }
+      if (hydrationKey && hydrationKey !== lastHydrationKey) {
+        lastHydrationKey = hydrationKey;
+        void hydrateFromConfigDocument(initialDocument);
+      }
+      return;
+    }
+
     const card = source.card();
     const hydrationKey = open
       ? [
@@ -1865,6 +1938,18 @@ export function createCardImageController(source: CardImageControllerSource) {
       copyright: state.form.copyright === previousDefaults.copyright ? nextDefaults.copyright : state.form.copyright,
     });
     state.lastFormLanguage = currentLanguage;
+  });
+
+  $effect(() => {
+    if (!source.open() || !source.onDocumentChange) return;
+
+    state.form;
+    state.exportScalePercent;
+    const document = createConfigDocument();
+    const signature = getDocumentSignature(document);
+    if (signature === lastDocumentSignature) return;
+    lastDocumentSignature = signature;
+    void source.onDocumentChange(document);
   });
 
   $effect(() => {
