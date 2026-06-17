@@ -41,7 +41,7 @@
     "luaparse": "^0.3.1",
     "monaco-editor": "^0.55.1",
     "svelte-i18n": "^4.0.1",
-    "yugioh-card-ts": "link:../yugioh-card-ts/dist"
+    "yugioh-card-ts": "github:kkr223/yugioh-card-ts#package/v2.0.0"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",

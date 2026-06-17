@@ -15,7 +15,7 @@
         "luaparse": "^0.3.1",
         "monaco-editor": "^0.55.1",
         "svelte-i18n": "^4.0.1",
-        "yugioh-card-ts": "link:../yugioh-card-ts/dist",
+        "yugioh-card-ts": "github:kkr223/yugioh-card-ts#package/v2.0.0",
       },
       "devDependencies": {
         "@sveltejs/adapter-static": "^3.0.6",
@@ -505,7 +505,7 @@
 
     "vitefu": ["vitefu@1.1.2", "https://registry.npmmirror.com/vitefu/-/vitefu-1.1.2.tgz", { "peerDependencies": { "vite": "^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-beta.0" }, "optionalPeers": ["vite"] }, "sha512-zpKATdUbzbsycPFBN71nS2uzBUQiVnFoOrr2rvqv34S1lcAgMKKkjWleLGeiJlZ8lwCXvtWaRn7R3ZC16SYRuw=="],
 
-    "yugioh-card-ts": ["yugioh-card-ts@link:../yugioh-card-ts/dist", {}],
+    "yugioh-card-ts": ["yugioh-card-ts@github:kkr223/yugioh-card-ts#3228866", { "dependencies": { "css-line-break": "^2.1.0" }, "peerDependencies": { "@leafer/node": "^2.0.4", "leafer": "^2.0.4", "leafer-unified": "^1.0.3", "skia-canvas": "^2.0.2" }, "optionalPeers": ["@leafer/node", "skia-canvas"] }, "kkr223-yugioh-card-ts-3228866"],
 
     "zimmerframe": ["zimmerframe@1.1.4", "https://registry.npmmirror.com/zimmerframe/-/zimmerframe-1.1.4.tgz", {}, "sha512-B58NGBEoc8Y9MWWCQGl/gq9xBCe4IiKM0a2x7GZdQKOW5Exr8S1W24J6OgM1njK8xCRGvAJIL/MxXHf6SkmQKQ=="],
 
