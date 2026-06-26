@@ -17,7 +17,7 @@ import {
 } from '$lib/features/card-editor/controller';
 import { createCardSnapshot } from '$lib/domain/card/draft';
 import { LINK_MARKER_NAME_TO_BIT, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
-import { setPackedLevel } from '$lib/utils/card';
+import { setPackedLevel } from '$lib/domain/card/draft';
 
 function createCard(overrides: Partial<CardDataEntry> = {}): CardDataEntry {
   return {

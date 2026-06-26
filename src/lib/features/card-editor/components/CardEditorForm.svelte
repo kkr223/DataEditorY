@@ -5,17 +5,13 @@
   import CardCategoryPopover from "$lib/features/card-editor/components/CardCategoryPopover.svelte";
   import type { CardDataEntry } from "$lib/types";
   import {
-    ATTRIBUTE_OPTIONS,
     formatEditableScaleValue,
     formatEditableStatValue,
     getPackedLevel,
-    LINK_MARKERS,
     parseEditableScaleInput,
     parseEditableStatInput,
-    PERMISSION_OPTIONS,
-    RACE_OPTIONS,
-  } from "$lib/utils/card";
-  import { SUBTYPE_MAP, TYPE_MAP } from "$lib/domain/card/taxonomy";
+  } from "$lib/domain/card/draft";
+  import { ATTRIBUTE_OPTIONS, LINK_MARKERS, PERMISSION_OPTIONS, RACE_OPTIONS, SUBTYPE_MAP, TYPE_MAP } from "$lib/domain/card/taxonomy";
 
   export let draftCard: CardDataEntry;
   export let imageSrc = "";

@@ -4,11 +4,12 @@ import type {
   CommandDescriptor,
   DataTypeDefinition,
   ExtensionModule,
+  GlobalToolDescriptor,
   ProviderDescriptor,
-  ServiceDescriptor,
   SettingsSectionDescriptor,
   WorkbenchDescriptor,
   WorkbenchContributionDescriptor,
+  TaskRunnerDescriptor,
 } from './types';
 
 const addUnique = <T>(
@@ -30,9 +31,10 @@ export class ExtensionRegistry {
   readonly codecs = new Map<string, CodecDescriptor>();
   readonly workbenches = new Map<string, WorkbenchDescriptor>();
   readonly commands = new Map<string, CommandDescriptor>();
-  readonly services = new Map<string, ServiceDescriptor>();
   readonly settingsSections = new Map<string, SettingsSectionDescriptor>();
   readonly workbenchContributions = new Map<string, WorkbenchContributionDescriptor>();
+  readonly globalTools = new Map<string, GlobalToolDescriptor>();
+  readonly taskRunners = new Map<string, TaskRunnerDescriptor>();
 
   private readonly codecsByPattern = new Map<string, CodecDescriptor>();
 
@@ -73,6 +75,11 @@ export class ExtensionRegistry {
       .sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
   }
 
+  findGlobalTools() {
+    return [...this.globalTools.values()]
+      .sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
+  }
+
   private validateModuleDependencies() {
     for (const module of this.modules.values()) {
       for (const dependency of module.dependencies ?? []) {
@@ -107,9 +114,6 @@ export class ExtensionRegistry {
     for (const command of module.commands ?? []) {
       addUnique(this.commands, command.id, command, 'command');
     }
-    for (const service of module.services ?? []) {
-      addUnique(this.services, service.id, service, 'service');
-    }
     for (const section of module.settingsSections ?? []) {
       addUnique(this.settingsSections, section.id, section, 'settings section');
     }
@@ -120,6 +124,12 @@ export class ExtensionRegistry {
         contribution,
         'workbench contribution',
       );
+    }
+    for (const tool of module.globalTools ?? []) {
+      addUnique(this.globalTools, tool.id, tool, 'global tool');
+    }
+    for (const runner of module.taskRunners ?? []) {
+      addUnique(this.taskRunners, runner.kind, runner, 'task runner');
     }
   }
 

@@ -56,6 +56,7 @@ import {
 } from '$lib/application/workspace/lifecycle';
 import { SETTINGS_WORKSPACE_ID, workspaceState } from '$lib/core/workspace/store.svelte';
 import type { CardDataEntry } from '$lib/types';
+import { hasWorkspaceCardDraftUndo } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
 
 const PRELOAD_RETRY_KEY = 'dataeditory:preload-retry';
 const OPEN_HISTORY_HIDE_DELAY_MS = 180;
@@ -292,7 +293,15 @@ export function createShellLayoutController() {
   }
 
   async function handleUndoLastOperation() {
-    if (!isDbLoadedState.current || !hasUndoableAction()) return;
+    if (!isDbLoadedState.current) return;
+
+    const tabId = get(activeTabId);
+    if (hasWorkspaceCardDraftUndo(tabId)) {
+      dispatchAppShortcut('undo-draft');
+      return;
+    }
+
+    if (!hasUndoableAction()) return;
 
     const lastUndoLabel = getLastUndoLabel();
     const detail = lastUndoLabel

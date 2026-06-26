@@ -10,6 +10,11 @@ import {
   buildScriptFileName,
   normalizeScriptContent,
 } from '$lib/domain/script/workspace';
+import {
+  getScriptTabKey,
+  isSameCdbPath,
+  isScriptTabOwnedByCdb,
+} from '$lib/domain/script/tabIdentity';
 import { documentRuntime } from '$lib/platform/appRuntime';
 import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
 import {
@@ -60,12 +65,10 @@ documentRuntime.subscribe((snapshot) => {
   }));
 });
 
-const getScriptKey = (cdbPath: string, cardCode: number) => `${cdbPath}::${cardCode}`;
-
 const getScriptTabByKey = (cdbPath: string, cardCode: number) => {
-  const key = getScriptKey(cdbPath, cardCode);
+  const key = getScriptTabKey(cdbPath, cardCode);
   return get(scriptTabs)
-    .find((tab) => getScriptKey(tab.cdbPath, tab.cardCode) === key) ?? null;
+    .find((tab) => getScriptTabKey(tab.cdbPath, tab.cardCode) === key) ?? null;
 };
 
 const buildReferences = (input: {
@@ -121,7 +124,7 @@ export const activateScriptTab = (tabId: string) => {
   if (tab.sourceTabId) {
     activeTabId.set(tab.sourceTabId);
   } else {
-    const matchedDbTab = get(tabs).find((item) => item.path === tab.cdbPath);
+    const matchedDbTab = get(tabs).find((item) => isSameCdbPath(item.path, tab.cdbPath));
     if (matchedDbTab) activeTabId.set(matchedDbTab.id);
   }
   activateScriptView();
@@ -194,7 +197,7 @@ export const openOrCreateScriptTab = async (input: {
   cardName: string;
   templateContent: string;
 }): Promise<OpenScriptTabResult> => {
-  const key = getScriptKey(input.cdbPath, input.cardCode);
+  const key = getScriptTabKey(input.cdbPath, input.cardCode);
   const inflight = inflightOpenRequests.get(key);
   if (inflight) return inflight;
 
@@ -268,6 +271,50 @@ export const openOrCreateScriptTab = async (input: {
 
   inflightOpenRequests.set(key, promise);
   return promise;
+};
+
+export const openExistingScriptTab = async (input: {
+  cdbPath: string;
+  sourceTabId: string | null;
+  cardCode: number;
+  cardName: string;
+  activate?: boolean;
+}): Promise<string | null> => {
+  const existing = getScriptTabByKey(input.cdbPath, input.cardCode);
+  if (existing) {
+    if (input.activate) activateScriptTab(existing.id);
+    return existing.id;
+  }
+
+  const info = await getCardScriptInfo(input.cdbPath, input.cardCode);
+  if (!info.exists) return null;
+
+  const document = await documentRuntime.openSource({
+    uri: info.path,
+    path: info.path,
+    name: buildScriptFileName(input.cardCode),
+  });
+  attachScriptMetadata(document.id, {
+    ...input,
+    createdFromTemplate: false,
+  });
+  const snapshot = await documentRuntime.query<LuaScriptDocument>(document.id, {});
+  const content = normalizeScriptContent(snapshot.content);
+  addOrUpdateScriptTab({
+    id: document.id,
+    cdbPath: input.cdbPath,
+    sourceTabId: input.sourceTabId,
+    cardCode: input.cardCode,
+    cardName: input.cardName,
+    scriptPath: info.path,
+    content,
+    savedContent: content,
+    isDirty: false,
+    viewState: null,
+    createdFromTemplate: false,
+  });
+  if (input.activate) activateScriptTab(document.id);
+  return document.id;
 };
 
 export const updateScriptTabContent = (tabId: string, content: string) => {
@@ -351,6 +398,17 @@ export const closeScriptTab = async (tabId: string) => {
   }
   activeScriptTabId.set(null);
   activateEditorView();
+};
+
+export const getScriptTabsForCdb = (cdb: { tabId: string; path: string }) => (
+  get(scriptTabs).filter((tab) => isScriptTabOwnedByCdb(tab, cdb))
+);
+
+export const closeScriptTabsForCdb = async (cdb: { tabId: string; path: string }) => {
+  const ownedTabs = getScriptTabsForCdb(cdb);
+  for (const tab of ownedTabs) {
+    await closeScriptTab(tab.id);
+  }
 };
 
 export const getScriptTabDisplayName = (tab: ScriptWorkspaceState) => (

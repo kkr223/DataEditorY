@@ -2,13 +2,12 @@ use tauri::{AppHandle, Emitter};
 
 use crate::{
     models::cdb::{
-        AnalyzeCdbMergeRequest, AnalyzeCdbMergeResponse,
-        CollectMergeSourcesFromFolderRequest, CopyCardAssetsRequest, CreateCdbFromCardsRequest,
-        ExecuteCdbMergeRequest, ExecuteCdbMergeResponse, MergeSourceItemDto,
+        AnalyzeCdbMergeRequest, AnalyzeCdbMergeResponse, CollectMergeSourcesFromFolderRequest,
+        CopyCardAssetsRequest, CreateCdbFromCardsRequest, ExecuteCdbMergeRequest,
+        ExecuteCdbMergeResponse, MergeSourceItemDto,
     },
     services::{
-        assets as cdb_assets_service, cdb_cards as cdb_cards_service,
-        merge as cdb_merge_service,
+        assets as cdb_assets_service, cdb_cards as cdb_cards_service, merge as cdb_merge_service,
     },
     BACKGROUND_TASK_PROGRESS_EVENT,
 };

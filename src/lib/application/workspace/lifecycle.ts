@@ -15,7 +15,7 @@ type WorkspaceLifecycleMetadata = {
   closeGuard?: WorkspaceCloseGuard;
 };
 
-type WorkspaceSaveHandler = () => boolean | Promise<boolean>;
+type WorkspaceSaveHandler = (destinationPath?: string) => boolean | Promise<boolean>;
 
 const workspaceLifecycleVersion = writable(0);
 const workspaceLifecycleMetadata = new Map<string, WorkspaceLifecycleMetadata>();
@@ -65,13 +65,13 @@ export function clearWorkspaceSaveHandler(id: string) {
   workspaceSaveHandlers.delete(id);
 }
 
-export function tryRunWorkspaceSaveHandler(id: string) {
+export function tryRunWorkspaceSaveHandler(id: string, destinationPath?: string) {
   const handler = workspaceSaveHandlers.get(id);
   if (!handler) {
     return null;
   }
 
-  return handler();
+  return handler(destinationPath);
 }
 
 export function resolveWorkspaceLifecycleDocument<TDocument extends WorkspaceDocument>(

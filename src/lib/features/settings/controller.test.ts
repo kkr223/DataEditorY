@@ -16,6 +16,7 @@ describe('settings controller helpers', () => {
     expect(state.apiBaseUrl).toBe('');
     expect(state.model).toBe('gpt-4o-mini');
     expect(state.temperature).toBe(1);
+    expect(state.scriptDirectory).toBe('');
     expect(state.scriptTemplate).toBe('');
     expect(state.useExternalScriptEditor).toBe(false);
     expect(state.saveScriptImageToLocal).toBe(false);
@@ -41,6 +42,7 @@ describe('settings controller helpers', () => {
         apiBaseUrl: 'https://api.openai.com/v1',
         model: 'gpt-4.1-mini',
         temperature: 1.4,
+        scriptDirectory: 'D:/YGO/script',
         scriptTemplate: '-- template',
         useExternalScriptEditor: true,
         saveScriptImageToLocal: true,
@@ -56,6 +58,7 @@ describe('settings controller helpers', () => {
     expect(form.apiBaseUrl).toBe('https://api.openai.com/v1');
     expect(form.model).toBe('gpt-4.1-mini');
     expect(form.temperature).toBe(1.4);
+    expect(form.scriptDirectory).toBe('D:/YGO/script');
     expect(form.scriptTemplate).toBe('-- template');
     expect(form.useExternalScriptEditor).toBe(true);
     expect(form.saveScriptImageToLocal).toBe(true);
@@ -74,6 +77,7 @@ describe('settings controller helpers', () => {
         apiBaseUrl: 'https://api.example.com/v1',
         model: 'custom-model',
         temperature: 0.5,
+        scriptDirectory: '',
         scriptTemplate: '-- updated',
         useExternalScriptEditor: false,
         saveScriptImageToLocal: false,
@@ -94,6 +98,7 @@ describe('settings controller helpers', () => {
     form.apiBaseUrl = 'https://api.openai.com/v1';
     form.model = 'gpt-4o-mini';
     form.temperature = 1;
+    form.scriptDirectory = '';
     form.scriptTemplate = '-- template';
     form.packageIncludePatternsText = 'pics/{code}.jpg';
 
@@ -101,6 +106,7 @@ describe('settings controller helpers', () => {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      scriptDirectory: '',
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
@@ -116,6 +122,7 @@ describe('settings controller helpers', () => {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      scriptDirectory: '',
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
@@ -127,11 +134,29 @@ describe('settings controller helpers', () => {
     })).toBe(true);
 
     form.packageIncludePatternsText = 'pics/{code}.jpg';
+    form.scriptDirectory = 'D:/YGO/script';
+    expect(isSettingsFormDirty(form, {
+      apiBaseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
+      temperature: 1,
+      scriptDirectory: '',
+      scriptTemplate: '-- template',
+      useExternalScriptEditor: false,
+      saveScriptImageToLocal: false,
+      packageIncludePatterns: ['pics/{code}.jpg'],
+      shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
+      hasSecretKey: false,
+      coverImagePath: null,
+      errorLogPath: '',
+    })).toBe(true);
+
+    form.scriptDirectory = '';
     form.secretKey = 'unsaved-secret';
     expect(isSettingsFormDirty(form, {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      scriptDirectory: '',
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,

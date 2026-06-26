@@ -5,7 +5,6 @@ import type { CardDataEntry } from '$lib/types';
 import { showToast } from '$lib/stores/toast.svelte';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from '$lib/infrastructure/tauri/commands';
-import { createAiAppContext } from '$lib/services/aiAppContext';
 import { getPicsDir } from '$lib/services/cardImageService';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 import {
@@ -18,7 +17,7 @@ import {
   type CardImageConfigDocument,
   type CardImageFormData,
   type CardImageLanguage,
-} from '$lib/utils/cardImage';
+} from '$lib/features/card-image/layout';
 import { writeErrorLog } from '$lib/utils/errorLog';
 
 type CardImageRenderData = CardImageFormData & {
@@ -677,72 +676,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     }
   }
 
-  async function ensureAiReady() {
-    if (!source.aiEnabled()) {
-      return false;
-    }
-
-    try {
-      await createAiAppContext().getAiConfig();
-      return true;
-    } catch {
-      await tauriBridge.message(t('editor.ai_requires_secret_key'), {
-        title: t('editor.ai_requires_secret_key_title'),
-        kind: 'warning',
-      });
-      return false;
-    }
-  }
-
   async function handleAiTranslate() {
-    const card = getCard();
-    if (!(await ensureAiReady())) return;
-
-    if (!state.form.name.trim() && !state.form.monsterType.trim() && !state.form.description.trim() && !state.form.pendulumDescription.trim()) {
-      showToast(t('editor.card_image_ai_translate_empty'), 'info');
-      return;
-    }
-
-    try {
-      state.isTranslating = true;
-      const { translateCardImageFields } = await import('$lib/utils/ai');
-      const targetLanguageLabel = getOptionLabel(
-        CARD_IMAGE_LANGUAGE_OPTIONS.find((option) => option.value === state.form.language) ?? {
-          value: state.form.language,
-          label: state.form.language,
-        },
-      );
-      const translated = await translateCardImageFields({
-        context: createAiAppContext(),
-        currentCard: card,
-        targetLanguage: targetLanguageLabel,
-        name: state.form.name,
-        monsterType: state.form.monsterType,
-        description: state.form.description,
-        pendulumDescription: state.form.pendulumDescription,
-      });
-
-      updateForm({
-        name: translated.name ?? state.form.name,
-        monsterType: translated.monsterType ?? state.form.monsterType,
-        description: translated.description ?? state.form.description,
-        pendulumDescription: translated.pendulumDescription ?? state.form.pendulumDescription,
-      });
-      showToast(t('editor.card_image_ai_translate_success'), 'success');
-    } catch (error) {
-      console.error('Failed to translate card image fields', error);
-      void writeErrorLog({
-        source: 'card-image.ai.translate',
-        error,
-        extra: {
-          cardCode: card.code ?? 0,
-          targetLanguage: state.form.language,
-        },
-      });
-      showToast(t('editor.card_image_ai_translate_failed'), 'error');
-    } finally {
-      state.isTranslating = false;
-    }
+    showToast(t('surface.ai_hint'), 'info');
   }
 
   function getCropRotationRadians() {

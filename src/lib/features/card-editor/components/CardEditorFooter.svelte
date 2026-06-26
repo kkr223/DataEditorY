@@ -17,7 +17,7 @@
   export let onResetSearch: () => void | Promise<void> = () => {};
   export let onSearch: () => void | Promise<void> = () => {};
   export let onSaveAs: () => void | Promise<void> = () => {};
-  export let onModify: () => void | Promise<void> = () => {};
+  export let onModify: () => void | Promise<unknown> = () => {};
   export let onDelete: () => void | Promise<void> = () => {};
 </script>
 
@@ -48,9 +48,9 @@
     {@render extensionActions?.()}
   </div>
   <div class="btn-group">
+    <button class="btn-secondary btn-sm" onclick={onSearch}>{searchLabel}</button>
     <button class="btn-secondary btn-sm" onclick={onResetSearch}>{resetSearchLabel}</button>
     <button class="btn-secondary btn-sm" onclick={onNewCard}>{newCardLabel}</button>
-    <button class="btn-secondary btn-sm" onclick={onSearch}>{searchLabel}</button>
     <button class="btn-save-as btn-sm" onclick={onSaveAs}>{saveAsLabel}</button>
     <button class="btn-primary btn-sm" onclick={onModify}>{modifyLabel}</button>
     <button class="btn-danger btn-sm" onclick={onDelete} disabled={!isEditingExisting}>{deleteLabel}</button>

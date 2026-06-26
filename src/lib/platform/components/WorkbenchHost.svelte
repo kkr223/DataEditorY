@@ -2,6 +2,11 @@
   import type { Component } from 'svelte';
   import { documentRuntime } from '$lib/platform/appRuntime';
   import { documentState, getActiveDataDocument } from '$lib/platform/store.svelte';
+  import { activeTabId } from '$lib/stores/db';
+  import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
+  import { LUA_SCRIPT_TYPE } from '$lib/modules/lua';
+  import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
+  import { AI_SESSION_TYPE } from '$lib/modules/ai/types';
 
   let loadedWorkbench = $state<{
     id: string;
@@ -9,7 +14,22 @@
   } | null>(null);
   let loadError = $state('');
 
-  const activeDocument = $derived(getActiveDataDocument());
+  const TOOL_DOCUMENT_TYPES = new Set([
+    LUA_SCRIPT_TYPE,
+    CARD_IMAGE_CONFIG_TYPE,
+    AI_SESSION_TYPE,
+  ]);
+
+  const activeDocument = $derived.by(() => {
+    const document = getActiveDataDocument();
+    if (!document || !TOOL_DOCUMENT_TYPES.has(document.typeId)) {
+      return document;
+    }
+
+    return documentState.documents.find((item) => (
+      item.id === $activeTabId && item.typeId === CARD_COLLECTION_TYPE
+    )) ?? document;
+  });
   const workbench = $derived(
     activeDocument
       ? documentRuntime.registry.findWorkbench(activeDocument.typeId)

@@ -6,7 +6,6 @@
     autoConnectSettingsFlow,
     clearSecretKeyFlow,
     connectSettingsAiFlow,
-    saveSelectedModelFlow,
   } from '$lib/features/settings/extraUseCases';
   import SettingsAiCard from '$lib/features/settings/components/SettingsAiCard.svelte';
 
@@ -38,14 +37,6 @@
 
   const connect = async () => {
     await connectSettingsAiFlow({
-      form: context.form,
-      hasAiCapability: true,
-      t: context.t,
-    });
-  };
-
-  const saveModel = async () => {
-    await saveSelectedModelFlow({
       form: context.form,
       hasAiCapability: true,
       t: context.t,
@@ -88,7 +79,6 @@
   hasSecretKey={appSettingsState.values.hasSecretKey}
   baseUrlLabel={context.t('settings.base_url')}
   secretKeyLabel={context.t('settings.secret_key')}
-  modelLabel={context.t('settings.model')}
   temperatureLabel={context.t('settings.temperature')}
   temperatureHint={context.t('settings.temperature_hint')}
   connectHint={connectionHint}
@@ -96,18 +86,13 @@
   connectLabel={context.t('settings.connect')}
   connectingLabel={context.t('settings.connecting')}
   secretClearLabel={context.t('settings.secret_clear')}
-  modelPlaceholder={context.t('settings.model_placeholder')}
   apiBaseUrl={context.form.apiBaseUrl}
   secretKey={context.form.secretKey}
-  model={context.form.model}
   temperature={context.form.temperature}
-  modelOptions={appSettingsState.modelOptions}
   connecting={appSettingsState.connecting}
   {secretPlaceholder}
   onApiBaseUrlInput={(value) => { context.form.apiBaseUrl = value; }}
   onSecretKeyInput={(value) => { context.form.secretKey = value; }}
-  onModelInput={(value) => { context.form.model = value; }}
-  onModelChange={saveModel}
   onTemperatureInput={(value) => { context.form.temperature = value; }}
   onConnect={connect}
   onClearSecretKey={clearSecret}

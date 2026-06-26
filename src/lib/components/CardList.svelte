@@ -15,7 +15,7 @@
     setSingleSelectedCard,
     toggleCardSelection
   } from '$lib/stores/editor.svelte';
-  import { getCardTypeKey, RACE_OPTIONS } from '$lib/utils/card';
+  import { getCardTypeKey, RACE_OPTIONS } from '$lib/domain/card/taxonomy';
   import { SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
   import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from '$lib/utils/shortcuts';
   import { disableAutofill } from '$lib/actions/disableAutofill';
@@ -23,6 +23,8 @@
   import { isShortcutEvent } from '$lib/features/shortcuts/registry';
 
   const PAGE_SIZE = 50;
+  const VIRTUAL_ROW_HEIGHT = 30;
+  const VIRTUAL_BUFFER_ROWS = 8;
   const RACE_FILTER_OPTIONS = RACE_OPTIONS
     .filter((option) => option.value !== 0 && option.key)
     .map((option) => ({
@@ -33,6 +35,18 @@
   let pageCards = $derived(getAllCards());
   let totalCards = $derived(getTotalCards());
   let totalPages = $derived(Math.max(1, Math.ceil(totalCards / PAGE_SIZE)));
+  let tableContainer = $state<HTMLDivElement | null>(null);
+  let tableScrollTop = $state(0);
+  let tableViewportHeight = $state(0);
+  let lastVirtualResetKey = '';
+  let virtualStartIndex = $derived(Math.max(0, Math.floor(tableScrollTop / VIRTUAL_ROW_HEIGHT) - VIRTUAL_BUFFER_ROWS));
+  let virtualEndIndex = $derived(Math.min(
+    pageCards.length,
+    Math.ceil((tableScrollTop + tableViewportHeight) / VIRTUAL_ROW_HEIGHT) + VIRTUAL_BUFFER_ROWS,
+  ));
+  let virtualCards = $derived(pageCards.slice(virtualStartIndex, virtualEndIndex));
+  let virtualTopSpacerHeight = $derived(virtualStartIndex * VIRTUAL_ROW_HEIGHT);
+  let virtualBottomSpacerHeight = $derived(Math.max(0, (pageCards.length - virtualEndIndex) * VIRTUAL_ROW_HEIGHT));
 
   let hasActiveFilters = $derived(
     editorState.searchFilters.id !== '' ||
@@ -56,6 +70,34 @@
   );
 
   let selectedIdsSet = $derived(new Set(editorState.selectedIds));
+  let activeFilterChips = $derived.by(() => {
+    const filters = editorState.searchFilters;
+    const chips: Array<{ key: keyof typeof filters; label: string; value: string }> = [];
+    const add = (key: keyof typeof filters, label: string, value: string) => {
+      if (value.trim()) chips.push({ key, label, value: value.trim() });
+    };
+
+    add('nameOrDesc', $_('search.quick_search'), filters.nameOrDesc);
+    add('id', $_('search.id_alias'), filters.id);
+    add('name', $_('search.name'), filters.name);
+    add('desc', $_('search.desc'), filters.desc);
+    add('rule', $_('search.rule'), filters.rule);
+    add('atkMin', `${$_('search.atk')} ≥`, filters.atkMin);
+    add('atkMax', `${$_('search.atk')} ≤`, filters.atkMax);
+    add('defMin', `${$_('search.def')} ≥`, filters.defMin);
+    add('defMax', `${$_('search.def')} ≤`, filters.defMax);
+    add('type', $_('search.type'), filters.type ? $_(`search.types.${filters.type}`) : '');
+    add('subtype', $_('search.subtype'), filters.subtype);
+    add('attribute', $_('search.attribute'), filters.attribute ? $_(`search.attributes.${filters.attribute}`) : '');
+    add('race', $_('search.race'), filters.race ? $_(`search.races.${filters.race}`) : '');
+    add('setcode1', `${$_('search.setcodes')} 1`, filters.setcode1);
+    add('setcode2', `${$_('search.setcodes')} 2`, filters.setcode2);
+    add('setcode3', `${$_('search.setcodes')} 3`, filters.setcode3);
+    add('setcode4', `${$_('search.setcodes')} 4`, filters.setcode4);
+    add('imageFolderPath', $_('search.image_folder'), filters.imageFolderPath);
+    add('deckText', $_('search.deck_text'), filters.deckText ? $_('search.deck_text') : '');
+    return chips;
+  });
 
   function toggleFilter() {
     editorState.isFilterOpen = !editorState.isFilterOpen;
@@ -89,6 +131,15 @@
   async function handleResetAll() {
     await handleReset();
     dispatchAppShortcut('new-card');
+  }
+
+  async function clearFilterChip(key: keyof typeof editorState.searchFilters) {
+    editorState.searchFilters = {
+      ...editorState.searchFilters,
+      [key]: '',
+      ...(key === 'type' ? { subtype: '' } : {}),
+    };
+    await runSearch();
   }
 
   function handleSearchKeydown(event: KeyboardEvent) {
@@ -147,6 +198,11 @@
     setSingleSelectedCard(code);
   }
 
+  function updateVirtualViewport() {
+    tableScrollTop = tableContainer?.scrollTop ?? 0;
+    tableViewportHeight = tableContainer?.clientHeight ?? 0;
+  }
+
   function getCardTypeTone(type: number) {
     if (type & TYPE_MAP.monster) {
       if (type & SUBTYPE_MAP.link) return 'type-link';
@@ -177,11 +233,24 @@
     };
 
     window.addEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
+    updateVirtualViewport();
+    const resizeObserver = new ResizeObserver(updateVirtualViewport);
+    if (tableContainer) resizeObserver.observe(tableContainer);
+
     return () => {
       window.removeEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
+      resizeObserver.disconnect();
     };
   });
 
+  $effect(() => {
+    const nextKey = `${editorState.currentPage}:${pageCards.length}:${pageCards[0]?.code ?? ''}:${pageCards[pageCards.length - 1]?.code ?? ''}`;
+    if (nextKey === lastVirtualResetKey) return;
+    lastVirtualResetKey = nextKey;
+    if (tableContainer) tableContainer.scrollTop = 0;
+    tableScrollTop = 0;
+    updateVirtualViewport();
+  });
 </script>
 
 <section class="pane list-pane" use:disableAutofill>
@@ -204,6 +273,23 @@
         {/if}
       </button>
     </div>
+
+    {#if activeFilterChips.length > 0}
+      <div class="active-filter-chips" aria-label={$_('search.active_filters')}>
+        {#each activeFilterChips as chip}
+          <button
+            type="button"
+            class="filter-chip"
+            title={`${chip.label}: ${chip.value}`}
+            onclick={() => void clearFilterChip(chip.key)}
+          >
+            <span class="filter-chip-label">{chip.label}</span>
+            <strong>{chip.value}</strong>
+            <span class="filter-chip-close" aria-hidden="true">×</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
 
     {#if editorState.isFilterOpen}
     <div class="advanced-filters">
@@ -401,7 +487,7 @@
     </div>
   </div>
 
-  <div class="table-container">
+  <div class="table-container" bind:this={tableContainer} onscroll={updateVirtualViewport}>
     <table class="data-table">
       <thead>
         <tr>
@@ -411,7 +497,12 @@
         </tr>
       </thead>
       <tbody>
-        {#each pageCards as card (card.code)}
+        {#if virtualTopSpacerHeight > 0}
+          <tr class="virtual-spacer" aria-hidden="true">
+            <td colspan="3" style={`height: ${virtualTopSpacerHeight}px;`}></td>
+          </tr>
+        {/if}
+        {#each virtualCards as card (card.code)}
           <tr
             class:selected={selectedIdsSet.has(card.code)}
             class:primary-selected={editorState.selectedId === card.code}
@@ -422,6 +513,11 @@
             <td class={`type-col ${getCardTypeTone(card.type)}`}>{$_(getCardTypeKey(card.type))}</td>
           </tr>
         {/each}
+        {#if virtualBottomSpacerHeight > 0}
+          <tr class="virtual-spacer" aria-hidden="true">
+            <td colspan="3" style={`height: ${virtualBottomSpacerHeight}px;`}></td>
+          </tr>
+        {/if}
         {#if totalCards === 0}
           <tr>
             <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 2rem;">
@@ -464,6 +560,46 @@
   .search-input-wrapper { flex: 1; }
   .search-input-wrapper input { width: 100%; margin: 0; padding: 4px 8px; border: 1px solid var(--border-color); border-radius: var(--control-radius); background: var(--bg-base); color: var(--text-primary); }
   .search-input-wrapper input:focus { border-color: var(--accent-primary); outline: none; }
+  .active-filter-chips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 0 var(--spacing-md) var(--spacing-xs);
+    scrollbar-width: thin;
+  }
+  .filter-chip {
+    max-width: 18rem;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.22rem 0.36rem 0.22rem 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, var(--border-color));
+    border-radius: var(--control-radius-pill);
+    background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface-active));
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    line-height: 1;
+  }
+  .filter-chip-label {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .filter-chip-label::after {
+    content: ':';
+    opacity: 0.7;
+  }
+  .filter-chip strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+  }
+  .filter-chip-close {
+    flex: 0 0 auto;
+    opacity: 0.75;
+  }
   
   .advanced-filters {
     position: absolute;
@@ -543,6 +679,8 @@
   .data-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
   .data-table th { position: sticky; top: 0; background-color: var(--bg-surface); color: var(--text-secondary); font-weight: 500; text-align: left; padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--border-color); z-index: 10; }
   .data-table td { padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--border-color); }
+  .data-table tbody tr:not(.virtual-spacer) { height: 30px; }
+  .data-table tbody tr.virtual-spacer td { padding: 0; border-bottom: none; }
   .data-table tbody tr { cursor: pointer; transition: background-color 0.1s; }
   .data-table tbody tr:hover { background-color: var(--bg-surface-hover); }
   .data-table tbody tr.selected { background-color: rgba(59, 130, 246, 0.15); border-left: 2px solid var(--accent-primary); }

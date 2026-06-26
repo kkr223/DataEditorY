@@ -77,4 +77,31 @@ describe('extension registry', () => {
       providers: [{ ...provider, typeIds: ['unknown'] }],
     })])).toThrow('references unknown data type');
   });
+
+  test('registers extension tools and task runners without allowing duplicate ids', () => {
+    const first = module({
+      globalTools: [{
+        id: 'test.tool',
+        labelKey: 'test.tool',
+        component: async () => ({}),
+      }],
+      taskRunners: [{
+        kind: 'test.task',
+        run: async () => 'done',
+      }],
+    });
+    const registry = new ExtensionRegistry([first]);
+
+    expect(registry.findGlobalTools().map((tool) => tool.id)).toEqual(['test.tool']);
+    expect(registry.taskRunners.has('test.task')).toBe(true);
+
+    expect(() => new ExtensionRegistry([
+      first,
+      { id: 'other', globalTools: first.globalTools },
+    ])).toThrow('Duplicate global tool id');
+    expect(() => new ExtensionRegistry([
+      first,
+      { id: 'other', taskRunners: first.taskRunners },
+    ])).toThrow('Duplicate task runner id');
+  });
 });

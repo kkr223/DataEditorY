@@ -78,7 +78,11 @@ pub struct CodecExportRequest {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum CardCollectionQuery {
     Search {
         expression: CardSearchExpression,
@@ -105,7 +109,11 @@ pub struct CardSearchPage {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum CardCollectionCommand {
     Upsert { cards: Vec<CardDto> },
     Delete { card_ids: Vec<u32> },
@@ -115,24 +123,45 @@ pub enum CardCollectionCommand {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum CardSearchExpression {
     All,
-    And { expressions: Vec<CardSearchExpression> },
-    Or { expressions: Vec<CardSearchExpression> },
-    Not { expression: Box<CardSearchExpression> },
-    TextContains { field: TextField, value: String },
+    And {
+        expressions: Vec<CardSearchExpression>,
+    },
+    Or {
+        expressions: Vec<CardSearchExpression>,
+    },
+    Not {
+        expression: Box<CardSearchExpression>,
+    },
+    TextContains {
+        field: TextField,
+        value: String,
+    },
     OrderedTextContains {
         field: TextField,
         values: Vec<String>,
     },
-    IdPrefix { value: String },
+    IdPrefix {
+        value: String,
+    },
     Compare {
         field: NumericField,
         operator: CompareOperator,
         value: i64,
     },
-    MaskContains { field: MaskField, value: i64 },
-    MaskExcludes { field: MaskField, value: i64 },
-    SetcodeContains { value: i64 },
-    InIds { values: Vec<u32> },
+    MaskContains {
+        field: MaskField,
+        value: i64,
+    },
+    MaskExcludes {
+        field: MaskField,
+        value: i64,
+    },
+    SetcodeContains {
+        value: i64,
+    },
+    InIds {
+        values: Vec<u32>,
+    },
     RuleCompare {
         left: CardRuleOperand,
         operator: CompareOperator,
@@ -193,4 +222,56 @@ pub enum CompareOperator {
     Gte,
     Lt,
     Lte,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CardCollectionCommand, CardCollectionQuery};
+    use serde_json::json;
+
+    #[test]
+    fn card_collection_query_accepts_frontend_camel_case_fields() {
+        let search: CardCollectionQuery = serde_json::from_value(json!({
+            "kind": "search",
+            "expression": { "kind": "all" },
+            "page": 1,
+            "pageSize": 50
+        }))
+        .expect("search query should deserialize");
+        assert!(matches!(
+            search,
+            CardCollectionQuery::Search { page_size: 50, .. }
+        ));
+
+        let get_by_id: CardCollectionQuery = serde_json::from_value(json!({
+            "kind": "getById",
+            "cardId": 483
+        }))
+        .expect("getById query should deserialize");
+        assert!(matches!(
+            get_by_id,
+            CardCollectionQuery::GetById { card_id: 483 }
+        ));
+
+        let get_by_ids: CardCollectionQuery = serde_json::from_value(json!({
+            "kind": "getByIds",
+            "cardIds": [483, 2511]
+        }))
+        .expect("getByIds query should deserialize");
+        assert!(
+            matches!(get_by_ids, CardCollectionQuery::GetByIds { card_ids } if card_ids.len() == 2)
+        );
+    }
+
+    #[test]
+    fn card_collection_command_accepts_frontend_camel_case_fields() {
+        let delete: CardCollectionCommand = serde_json::from_value(json!({
+            "kind": "delete",
+            "cardIds": [483]
+        }))
+        .expect("delete command should deserialize");
+        assert!(
+            matches!(delete, CardCollectionCommand::Delete { card_ids } if card_ids == vec![483])
+        );
+    }
 }

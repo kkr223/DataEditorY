@@ -7,8 +7,12 @@
   export let externalEditorHint = '';
   export let saveScriptImageToLocalLabel = '';
   export let saveScriptImageToLocalHint = '';
+  export let scriptDirectoryLabel = '';
+  export let scriptDirectoryHint = '';
   export let scriptTemplate = '';
+  export let scriptDirectory = '';
   export let onScriptTemplateInput: (value: string) => void = () => {};
+  export let onScriptDirectoryInput: (value: string) => void = () => {};
   export let useExternalScriptEditor = false;
   export let saveScriptImageToLocal = false;
   export let onExternalEditorChange: (value: boolean) => void = () => {};
@@ -40,6 +44,16 @@
     <span>{saveScriptImageToLocalLabel}</span>
   </label>
   <small class="sp-hint">{saveScriptImageToLocalHint}</small>
+  <label class="sp-field">
+    <span>{scriptDirectoryLabel}</span>
+    <input
+      type="text"
+      value={scriptDirectory}
+      placeholder="(CDB)/script"
+      oninput={(event) => onScriptDirectoryInput((event.currentTarget as HTMLInputElement).value)}
+    />
+  </label>
+  <small class="sp-hint">{scriptDirectoryHint}</small>
   <textarea
     class="sp-textarea"
     rows="5"
@@ -108,6 +122,32 @@
   .sp-check input { width: auto; accent-color: var(--accent-primary); }
   .sp-check span { font-size: 0.8rem; font-weight: 500; color: var(--text-primary); }
   .sp-check-secondary { margin-top: 2px; }
+  .sp-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .sp-field > span {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  input {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    padding: 6px 9px;
+    font-size: 0.84rem;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 16%, transparent);
+  }
   .sp-hint {
     font-size: 0.72rem;
     color: var(--text-disabled);

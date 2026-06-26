@@ -11,9 +11,9 @@ use crate::{
 use super::{
     cdb::{self, DocumentHostState},
     models::{
-        CodecExportRequest, ProviderCommandResult, ProviderDocumentRequest,
-        ProviderExecuteRequest, ProviderOpenRequest, ProviderOpenResponse, ProviderQueryRequest,
-        ProviderSaveRequest, ProviderSaveResponse,
+        CodecExportRequest, ProviderCommandResult, ProviderDocumentRequest, ProviderExecuteRequest,
+        ProviderOpenRequest, ProviderOpenResponse, ProviderQueryRequest, ProviderSaveRequest,
+        ProviderSaveResponse,
     },
 };
 
@@ -45,12 +45,7 @@ pub fn provider_open(
         let source = request
             .source_uri
             .ok_or_else(|| "CDB provider requires a source path".to_string())?;
-        cdb_session::open_cdb_tab(
-            &app,
-            sessions.inner(),
-            request.document_id,
-            source,
-        )?
+        cdb_session::open_cdb_tab(&app, sessions.inner(), request.document_id, source)?
     };
     Ok(ProviderOpenResponse {
         title: response.name,

@@ -65,6 +65,7 @@ pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSet
         settings.model = DEFAULT_AI_MODEL.to_string();
     }
     settings.script_template = normalize_script_template(settings.script_template);
+    settings.script_directory = normalize_script_directory(settings.script_directory);
     settings.package_include_patterns =
         normalize_package_include_patterns(Some(settings.package_include_patterns));
     settings.shortcut_bindings = normalize_shortcut_bindings(Some(settings.shortcut_bindings));
@@ -100,6 +101,10 @@ pub(crate) fn normalize_script_template(value: String) -> String {
     } else {
         value.replace("\r\n", "\n")
     }
+}
+
+pub(crate) fn normalize_script_directory(value: String) -> String {
+    value.trim().trim_end_matches(['/', '\\']).to_string()
 }
 
 pub(crate) fn normalize_script_content(value: String) -> String {
@@ -162,6 +167,7 @@ pub(crate) fn to_settings_payload(
             settings.model
         },
         temperature: normalize_temperature(Some(settings.temperature)),
+        script_directory: normalize_script_directory(settings.script_directory),
         script_template: normalize_script_template(settings.script_template),
         use_external_script_editor: settings.use_external_script_editor,
         save_script_image_to_local: settings.save_script_image_to_local,
@@ -214,6 +220,10 @@ mod tests {
         assert_eq!(
             normalize_script_template("line1\r\nline2".to_string()),
             "line1\nline2"
+        );
+        assert_eq!(
+            normalize_script_directory(" C:\\Project\\script\\ ".to_string()),
+            "C:\\Project\\script"
         );
         assert_eq!(
             normalize_script_template("   ".to_string()),

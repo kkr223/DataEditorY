@@ -7,6 +7,7 @@ import { parseCachedFiltersJson, clearSourceFilterCacheForTab, refreshCachedSear
 import { documentRuntime } from '$lib/platform/appRuntime';
 import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
 import { CDB_PROVIDER_ID } from '$lib/modules/cdb';
+import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 import {
   popUndoLabel,
   pushUndoLabel,
@@ -77,7 +78,8 @@ activeTabId.subscribe((tabId) => {
 });
 
 async function openCdbAtPath(selected: string): Promise<string | null> {
-  const existing = get(tabs).find(t => t.path === selected);
+  const selectedIdentity = getCdbPathIdentity(selected);
+  const existing = get(tabs).find((tab) => getCdbPathIdentity(tab.path) === selectedIdentity);
   if (existing) {
     activeTabId.set(existing.id);
     pushRecentCdbEntry({ path: existing.path, name: existing.name });
@@ -123,8 +125,8 @@ export async function openCdbHistoryEntry(path: string): Promise<string | null> 
   return openCdbPath(path);
 }
 
-export async function createCdbFile(): Promise<string | null> {
-  const selected = await tauriBridge.save({
+export async function createCdbFile(path?: string): Promise<string | null> {
+  const selected = path?.trim() || await tauriBridge.save({
     title: 'Create New CDB',
     filters: [{
       name: 'YGOPro CDB Database',
@@ -291,6 +293,13 @@ export async function undoLastOperation(): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
 
+  return undoLastOperationInTab(tab.id);
+}
+
+export async function undoLastOperationInTab(tabId: string): Promise<boolean> {
+  const tab = get(tabs).find((item) => item.id === tabId);
+  if (!tab) return false;
+
   try {
     const result = await documentRuntime.undo(tab.id);
     if (!result.changed) return false;
@@ -301,6 +310,36 @@ export async function undoLastOperation(): Promise<boolean> {
     return true;
   } catch (err) {
     console.error('Failed to undo operation:', err);
+    return false;
+  }
+}
+
+export async function saveCdbTabAs(tabId: string, path: string): Promise<boolean> {
+  const tab = get(tabs).find((item) => item.id === tabId);
+  const targetPath = path.trim();
+  if (!tab || !targetPath) return false;
+
+  const comparableTarget = getCdbPathIdentity(targetPath);
+  const conflict = get(tabs).find((item) => (
+    item.id !== tabId
+    && getCdbPathIdentity(item.path) === comparableTarget
+  ));
+  if (conflict) {
+    console.error(`Cannot save CDB as an already open path: ${targetPath}`);
+    return false;
+  }
+
+  try {
+    const name = targetPath.split(/[\\/]/).pop() || tab.name;
+    const saved = await documentRuntime.save(tab.id, {
+      uri: targetPath,
+      path: targetPath,
+      name,
+    });
+    pushRecentCdbEntry({ path: targetPath, name: saved.title });
+    return true;
+  } catch (err) {
+    console.error('Failed to save CDB as:', err);
     return false;
   }
 }

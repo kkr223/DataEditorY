@@ -9,7 +9,6 @@
         "@tauri-apps/plugin-dialog": "~2",
         "@tauri-apps/plugin-fs": "~2",
         "@tauri-apps/plugin-opener": "^2",
-        "css-line-break": "^2.1.0",
         "leafer": "^2.0.4",
         "leafer-unified": "^1.0.3",
         "luaparse": "^0.3.1",

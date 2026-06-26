@@ -7,7 +7,6 @@
   export let hasSecretKey = false;
   export let baseUrlLabel = '';
   export let secretKeyLabel = '';
-  export let modelLabel = '';
   export let temperatureLabel = '';
   export let temperatureHint = '';
   export let connectHint = '';
@@ -15,18 +14,13 @@
   export let connectLabel = '';
   export let connectingLabel = '';
   export let secretClearLabel = '';
-  export let modelPlaceholder = '';
   export let apiBaseUrl = '';
   export let secretKey = '';
-  export let model = '';
   export let temperature: number | string = 1;
-  export let modelOptions: string[] = [];
   export let connecting = false;
   export let secretPlaceholder = '';
   export let onApiBaseUrlInput: (value: string) => void = () => {};
   export let onSecretKeyInput: (value: string) => void = () => {};
-  export let onModelInput: (value: string) => void = () => {};
-  export let onModelChange: () => void | Promise<void> = () => {};
   export let onTemperatureInput: (value: number) => void = () => {};
   export let onConnect: () => void | Promise<void> = () => {};
   export let onClearSecretKey: () => void | Promise<void> = () => {};
@@ -60,25 +54,6 @@
         placeholder={secretPlaceholder}
         oninput={(event) => onSecretKeyInput((event.currentTarget as HTMLInputElement).value)}
       />
-    </label>
-
-    <label class="sp-field">
-      <span>{modelLabel}</span>
-      <select
-        value={model}
-        onchange={(event) => {
-          onModelInput((event.currentTarget as HTMLSelectElement).value);
-          void onModelChange();
-        }}
-        disabled={connecting || modelOptions.length === 0}
-      >
-        {#if modelOptions.length === 0}
-          <option value="">{modelPlaceholder}</option>
-        {/if}
-        {#each modelOptions as item}
-          <option value={item}>{item}</option>
-        {/each}
-      </select>
     </label>
 
     <label class="sp-field">
@@ -182,7 +157,7 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
-  input, select {
+  input {
     width: 100%;
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -192,7 +167,7 @@
     font-size: 0.84rem;
     transition: border-color 0.15s;
   }
-  input:focus, select:focus {
+  input:focus {
     outline: none;
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 16%, transparent);

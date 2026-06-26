@@ -35,7 +35,7 @@
     updateStringInput: (index: number, value: string) => void;
     persistString: (index: number) => Promise<void>;
     closeReferenceOverlay: () => void;
-    insertReferenceItem: (item: import('$lib/utils/luaReferenceManual').LuaReferenceManualItem) => void;
+    insertReferenceItem: (item: import('$lib/features/script-editor/lua/reference').LuaReferenceManualItem) => void;
     revealDiagnosticLocation: (diagnostic: Pick<LuaScriptDiagnostic, 'startLineNumber' | 'startColumn' | 'endLineNumber' | 'endColumn'>) => void;
   };
 

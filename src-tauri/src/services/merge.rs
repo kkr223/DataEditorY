@@ -406,7 +406,10 @@ pub fn execute_cdb_merge_with_progress(
         .filter_map(|summary| {
             let winner_index = plan.winning_card_source_by_code.get(&summary.0)?;
             let source_path = plan.sources[*winner_index].path.as_str();
-            source_cards_by_path.get(source_path)?.get(&summary.0).cloned()
+            source_cards_by_path
+                .get(source_path)?
+                .get(&summary.0)
+                .cloned()
         })
         .collect();
 
@@ -471,8 +474,7 @@ pub fn execute_cdb_merge_with_progress(
             }
 
             if summary_has_field_subtype(card) {
-                if let Some(&winner_index) = plan.winning_field_image_source_by_code.get(&code)
-                {
+                if let Some(&winner_index) = plan.winning_field_image_source_by_code.get(&code) {
                     let winner_dir = &plan.sources[winner_index].dir;
                     let _ = copy_if_exists(
                         &field_image_path(winner_dir, code),

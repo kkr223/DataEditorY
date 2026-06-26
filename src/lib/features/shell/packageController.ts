@@ -8,8 +8,8 @@ import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { workspaceState } from '$lib/core/workspace/store.svelte';
 import { saveWorkspaceDocument } from '$lib/application/workspace/commandBus';
-import { documentRuntime } from '$lib/platform/appRuntime';
-import { PACKAGE_EXPORT_COMMAND_ID } from '$lib/modules/package';
+import { startTask } from '$lib/native/taskApi';
+import { appendWorkspaceTaskHistoryForPath } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
 
 const activeTabState = fromStore(activeTab);
 const activeScriptTabState = fromStore(activeScriptTab);
@@ -129,10 +129,16 @@ export function createPackageController(
       format,
       run: async () => {
         try {
-          const result = await documentRuntime.executePlatformCommand<{ path: string }>(
-            PACKAGE_EXPORT_COMMAND_ID,
-            { cdbPath, outputPath, format },
-          );
+          const result = await startTask({
+            kind: 'package.zip',
+            cdbPath,
+            outputPath,
+          }) as { path: string };
+          await appendWorkspaceTaskHistoryForPath(cdbPath, {
+            kind: `package.${format}`,
+            label: format.toUpperCase(),
+            summary: { outputPath: result.path },
+          });
           showToast(
             t(
               format === 'zip' ? 'editor.background_package_zip_completed' : 'editor.background_package_ypk_completed',

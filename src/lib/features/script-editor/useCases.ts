@@ -11,6 +11,7 @@ import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import { openScriptExternally } from '$lib/services/cardScriptService';
 import { writeBinaryFile } from '$lib/infrastructure/tauri/commands';
 import { normalizeScriptCardContext } from '$lib/features/script-editor/controller';
+import { isSameCdbPath } from '$lib/domain/script/tabIdentity';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -27,7 +28,9 @@ export async function loadScriptCardContextFlow(input: {
     };
   }
 
-  const sourceTabId = input.tab.sourceTabId || input.dbTabs.find((item) => item.path === input.tab?.cdbPath)?.id || null;
+  const sourceTabId = input.tab.sourceTabId
+    || input.dbTabs.find((item) => isSameCdbPath(item.path, input.tab?.cdbPath ?? ''))?.id
+    || null;
   if (!sourceTabId) {
     return {
       loadToken: input.loadToken,
@@ -73,7 +76,9 @@ export async function saveScriptStringFlow(input: {
     };
   }
 
-  const sourceTabId = input.tab.sourceTabId || input.dbTabs.find((item) => item.path === input.tab?.cdbPath)?.id || null;
+  const sourceTabId = input.tab.sourceTabId
+    || input.dbTabs.find((item) => isSameCdbPath(item.path, input.tab?.cdbPath ?? ''))?.id
+    || null;
   if (!sourceTabId) {
     showToast(input.t('editor.save_failed'), 'error');
     return null;
@@ -230,7 +235,7 @@ async function buildScriptImageBlob(input: {
   lineNumberStart?: number;
   renderInfo: ScriptImageRenderInfo;
 }) {
-  const imageRenderer = await import('$lib/utils/luaScriptImageRenderer');
+  const imageRenderer = await import('$lib/features/card-image/scriptRenderer');
   return imageRenderer.renderLuaCodeImageBlob(input.content, {
     title: input.renderInfo.title,
     metaLines: input.renderInfo.metaLines,

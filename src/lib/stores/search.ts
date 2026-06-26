@@ -109,7 +109,7 @@ function updateCachedSearchSnapshot(snapshot: CachedSearchSnapshot) {
   }
 }
 
-async function searchCardsPageInTab(
+export async function searchCardsPageInTab(
   tabId: string,
   filters: SearchFilters,
   page = 1,

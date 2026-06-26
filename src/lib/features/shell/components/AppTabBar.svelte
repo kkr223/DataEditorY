@@ -7,6 +7,8 @@
     activeWorkspaceId = null,
     activeTabId = null,
     onActivateWorkspace = (_tabId: string) => {},
+    onSaveWorkspace = async (_tabId: string) => {},
+    onSaveWorkspaceAs = async (_tabId: string) => {},
     onCloseWorkspace = async (_tabId: string) => {},
     onOpenAnother = async () => {},
   }: {
@@ -14,9 +16,17 @@
     activeWorkspaceId?: string | null;
     activeTabId?: string | null;
     onActivateWorkspace?: (tabId: string) => void;
+    onSaveWorkspace?: (tabId: string) => unknown | Promise<unknown>;
+    onSaveWorkspaceAs?: (tabId: string) => unknown | Promise<unknown>;
     onCloseWorkspace?: (tabId: string) => void | Promise<void>;
     onOpenAnother?: () => void | Promise<void>;
   } = $props();
+
+  let contextMenu = $state<{
+    workspaceId: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   function getWorkspaceIcon(workspace: WorkspaceDocument) {
     if (workspace.kind === 'settings') {
@@ -33,7 +43,32 @@
 
     return 'db';
   }
+
+  function openContextMenu(event: MouseEvent, workspace: WorkspaceDocument) {
+    event.preventDefault();
+    contextMenu = {
+      workspaceId: workspace.id,
+      x: event.clientX,
+      y: event.clientY,
+    };
+  }
+
+  function closeContextMenu() {
+    contextMenu = null;
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') closeContextMenu();
+  }
+
+  const contextWorkspace = $derived(
+    contextMenu
+      ? workspaces.find((workspace) => workspace.id === contextMenu?.workspaceId) ?? null
+      : null,
+  );
 </script>
+
+<svelte:window onclick={closeContextMenu} onkeydown={handleWindowKeydown} />
 
 {#if workspaces.length > 0}
   <div class="tab-bar">
@@ -43,6 +78,7 @@
         class:active={activeWorkspaceId === workspace.id}
         class:script-tab={workspace.kind === 'script'}
         onclick={() => onActivateWorkspace(workspace.id)}
+        oncontextmenu={(event) => openContextMenu(event, workspace)}
         title={workspace.subtitle}
       >
         {#if getWorkspaceIcon(workspace) === 'settings'}
@@ -70,6 +106,39 @@
     <button class="tab-add" onclick={onOpenAnother} title="Open another CDB">
       +
     </button>
+
+    {#if contextMenu && contextWorkspace}
+      <div
+        class="tab-context-menu"
+        style={`left: ${contextMenu.x}px; top: ${contextMenu.y}px;`}
+        role="menu"
+        tabindex="0"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          disabled={contextWorkspace.kind === 'settings'}
+          onclick={() => { void onSaveWorkspace(contextWorkspace.id); closeContextMenu(); }}
+        >
+          {$_('nav.save')}
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={contextWorkspace.kind !== 'db'}
+          onclick={() => { void onSaveWorkspaceAs(contextWorkspace.id); closeContextMenu(); }}
+        >
+          {$_('nav.save_as')}
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          onclick={() => { void onCloseWorkspace(contextWorkspace.id); closeContextMenu(); }}
+        >
+          {$_('nav.close')}
+        </button>
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -253,5 +322,43 @@
   .tab-add:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring-strong);
+  }
+
+  .tab-context-menu {
+    position: fixed;
+    min-width: 8.5rem;
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0.35rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--control-radius-soft);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-popover);
+  }
+
+  .tab-context-menu button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0.48rem 0.62rem;
+    border: none;
+    border-radius: var(--control-radius);
+    background: transparent;
+    color: var(--text-secondary);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .tab-context-menu button:hover:not(:disabled) {
+    background: var(--bg-surface-hover);
+    color: var(--text-primary);
+  }
+
+  .tab-context-menu button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 </style>

@@ -97,5 +97,8 @@ describe('document runtime', () => {
       name: 'saved.note.json',
     });
     expect(files.get('D:/saved.note.json')).toBe('{"value":3}');
+    expect(runtime.getDocument(created.id)?.title).toBe('saved.note.json');
+    expect(runtime.getDocument(created.id)?.source?.path).toBe('D:/saved.note.json');
+    expect(runtime.getDocument(created.id)?.dirty).toBe(false);
   });
 });

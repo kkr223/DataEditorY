@@ -233,6 +233,9 @@ export class DocumentRuntime {
 
     await codec.encode(this.createAccess(document), target, this.codecContext);
     document.source = target;
+    if (destination) {
+      document.title = target.name;
+    }
     document.codecId = codec.id;
     document.savedRevision = document.revision;
     document.dirty = false;

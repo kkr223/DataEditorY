@@ -13,8 +13,8 @@ use crate::{
     repository::cdb as cdb_repository,
     session::cdb::{
         app_temp_dir, basename, build_temp_path_in_dir, canonicalize_path, cleanup_temp_path,
-        ensure_parent_dir, remove_session, replace_session, with_session_meta, CdbSessionMeta,
-        update_session_path, OpenCdbSessions,
+        ensure_parent_dir, remove_session, replace_session, update_session_path, with_session_meta,
+        CdbSessionMeta, OpenCdbSessions,
     },
 };
 
@@ -28,16 +28,6 @@ pub fn open_cdb_tab(
     open_cdb_tab_in_dir(sessions, &session_dir, tab_id, path)
 }
 
-pub fn create_cdb_tab(
-    app: &AppHandle,
-    sessions: &OpenCdbSessions,
-    tab_id: String,
-    path: String,
-) -> Result<OpenCdbTabResponse, String> {
-    let session_dir = app_temp_dir(app)?;
-    create_cdb_tab_in_dir(sessions, &session_dir, tab_id, path)
-}
-
 pub fn close_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), String> {
     if let Some(session) = remove_session(sessions, &tab_id)? {
         // Drop the CDB instance before deleting the file — on Windows the
@@ -48,19 +38,15 @@ pub fn close_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), S
     Ok(())
 }
 
-pub fn save_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), String> {
-    save_cdb_tab_to(sessions, tab_id, None).map(|_| ())
-}
-
 pub fn save_cdb_tab_to(
     sessions: &OpenCdbSessions,
     tab_id: String,
     destination: Option<String>,
 ) -> Result<String, String> {
-    let target = destination.or_else(|| {
-        with_session_meta(sessions, &tab_id, |session| Ok(session.path.clone())).ok()
-    }).filter(|path| !path.trim().is_empty())
-      .ok_or_else(|| "A destination path is required for this document".to_string())?;
+    let target = destination
+        .or_else(|| with_session_meta(sessions, &tab_id, |session| Ok(session.path.clone())).ok())
+        .filter(|path| !path.trim().is_empty())
+        .ok_or_else(|| "A destination path is required for this document".to_string())?;
 
     with_session_meta(sessions, &tab_id, |session| {
         let target_path = Path::new(&target);
@@ -134,6 +120,7 @@ pub(crate) fn open_cdb_tab_in_dir(
     Ok(response)
 }
 
+#[allow(dead_code)]
 pub(crate) fn create_cdb_tab_in_dir(
     sessions: &OpenCdbSessions,
     session_dir: &Path,
@@ -333,11 +320,94 @@ mod tests {
         })
         .unwrap();
 
-        save_cdb_tab(&sessions, "tab-save".to_string()).unwrap();
+        save_cdb_tab_to(&sessions, "tab-save".to_string(), None).unwrap();
 
         let cards = cdb_repository::load_all_cards_from_path(&source_path).unwrap();
         assert_eq!(cards.len(), 2);
         assert!(cards.iter().any(|card| card.code == 200));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn opens_a_new_card_with_zero_type_into_the_initial_search_page() {
+        let root = make_temp_dir("open-zero-type");
+        let session_dir = root.join("sessions");
+        let source_path = root.join("cards.cdb");
+        let card = CardDto {
+            type_: 0,
+            ..sample_card(1001, "Draft card")
+        };
+        cdb_repository::recreate_cdb_with_cards(&source_path, &[card]).unwrap();
+        let sessions = make_sessions();
+
+        let response = open_cdb_tab_in_dir(
+            &sessions,
+            &session_dir,
+            "tab-open-zero-type".to_string(),
+            source_path.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(response.cached_total, 1);
+        assert_eq!(response.cached_cards.len(), 1);
+        assert_eq!(response.cached_cards[0].code, 1001);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn save_as_updates_session_path_without_overwriting_original() {
+        let root = make_temp_dir("save-as");
+        let session_dir = root.join("sessions");
+        let source_path = root.join("cards.cdb");
+        let destination_path = root.join("cards-copy.cdb");
+        cdb_repository::recreate_cdb_with_cards(&source_path, &[sample_card(100, "Alpha")])
+            .unwrap();
+        let sessions = make_sessions();
+
+        open_cdb_tab_in_dir(
+            &sessions,
+            &session_dir,
+            "tab-save-as".to_string(),
+            source_path.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        with_session_meta(&sessions, "tab-save-as", |session| {
+            let mut cdb = session
+                .cdb
+                .lock()
+                .map_err(|_| "Failed to acquire CDB lock".to_string())?;
+            cdb.add_cards(&[sample_card(200, "Beta")])
+                .map_err(|err| err.to_string())?;
+            Ok(())
+        })
+        .unwrap();
+
+        let saved_path = save_cdb_tab_to(
+            &sessions,
+            "tab-save-as".to_string(),
+            Some(destination_path.to_string_lossy().to_string()),
+        )
+        .unwrap();
+
+        assert_eq!(
+            canonicalize_path(&saved_path),
+            canonicalize_path(&destination_path.to_string_lossy())
+        );
+        let original_cards = cdb_repository::load_all_cards_from_path(&source_path).unwrap();
+        let copied_cards = cdb_repository::load_all_cards_from_path(&destination_path).unwrap();
+        assert_eq!(original_cards.len(), 1);
+        assert_eq!(copied_cards.len(), 2);
+        with_session_meta(&sessions, "tab-save-as", |session| {
+            assert_eq!(
+                session.path,
+                canonicalize_path(&destination_path.to_string_lossy())
+            );
+            Ok(())
+        })
+        .unwrap();
 
         let _ = fs::remove_dir_all(&root);
     }

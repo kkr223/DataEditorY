@@ -110,6 +110,10 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   mark25th: false,
 };
 
+export const CARD_IMAGE_FORM_KEYS = Object.freeze(
+  Object.keys(DEFAULT_CARD_IMAGE_FORM_DATA) as Array<keyof CardImageFormData>,
+);
+
 export const CARD_IMAGE_LANGUAGE_OPTIONS: StringOption[] = [
   { value: "sc", labelKey: "editor.card_image_option.language.sc" },
   { value: "tc", labelKey: "editor.card_image_option.language.tc" },

@@ -1,11 +1,14 @@
 pub mod app_config;
 pub mod assets;
+pub mod assets_check;
 pub mod cdb_cards;
 pub mod cdb_session;
 pub mod crypto;
 pub mod logging;
+pub mod lua_replace;
 pub mod media;
 pub mod merge;
+pub mod metadata;
 pub mod package;
 pub mod scripts;
 pub mod settings;

@@ -1,6 +1,9 @@
 pub mod app;
+pub mod assets_check;
 pub mod cdb;
+pub mod lua_replace;
 pub mod media;
+pub mod metadata;
 pub mod package;
 pub mod scripts;
 pub mod settings;

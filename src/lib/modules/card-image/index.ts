@@ -74,5 +74,30 @@ export const cardImageModule: ExtensionModule = {
     slot: 'footer-actions',
     order: 30,
     component: () => import('./workbench/CardImageContribution.svelte'),
+  }, {
+    id: 'card-image.card-surface',
+    workbenchId: 'card.workbench',
+    slot: 'surface',
+    order: 30,
+    metadata: {
+      surfaceId: 'image',
+      labelKey: 'surface.image',
+      icon: '▧',
+    },
+    component: () => import('../card/workbench/ImageSurface.svelte'),
+  }],
+  globalTools: [{
+    id: 'card-image.batch-export',
+    labelKey: 'nav.tools_batch_image_export',
+    order: 30,
+    requiresActiveCdb: true,
+    component: () => import('$lib/features/shell/components/dialogs/BatchImageExportDialog.svelte'),
+  }],
+  taskRunners: [{
+    kind: 'batch.image.export-card',
+    async run(input) {
+      const { exportBatchCardImage } = await import('$lib/features/card-image/exporter');
+      return exportBatchCardImage(input as Parameters<typeof exportBatchCardImage>[0]);
+    },
   }],
 };

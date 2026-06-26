@@ -13,6 +13,7 @@ export {
   type CachedSearchSnapshot,
   onCachedSearchRefreshed,
   queryCardsByFiltersInTab,
+  searchCardsPageInTab,
   searchCardsPage,
   clearSourceFilterCacheForTab,
   clearAllSourceFilterCaches,
@@ -31,6 +32,7 @@ export {
   closeTab,
   saveCdbFile,
   saveCdbTab,
+  saveCdbTabAs,
   getCachedCards,
   getCachedTotal,
   getCachedPage,
@@ -44,6 +46,7 @@ export {
   hasUndoableAction,
   getLastUndoLabel,
   undoLastOperation,
+  undoLastOperationInTab,
 } from './tabs';
 
 export {

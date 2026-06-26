@@ -1,12 +1,11 @@
 import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
-import { getAllCards, getSelectedCards } from '$lib/stores/editor.svelte';
-import type { AiAppContext } from '$lib/utils/ai';
-import { invokeCommand } from '$lib/infrastructure/tauri';
+import { getSelectedCards } from '$lib/stores/editor.svelte';
+import type { AiAppContext } from '$lib/features/ai/service';
+import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
 import { getCardScriptInfo } from '$lib/infrastructure/tauri/commands';
 import { documentRuntime } from '$lib/platform/appRuntime';
 import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
-import { refreshCachedSearchForTab } from '$lib/stores/search';
-import { recordUndoLabel } from '$lib/stores/tabs';
+import { getCardImageDocument } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 
@@ -46,22 +45,8 @@ export function createAiAppContext(): AiAppContext {
     queryCards(documentId, query) {
       return documentRuntime.query(documentId, query);
     },
-    async executeCards(documentId, command) {
-      const result = await documentRuntime.execute(documentId, command);
-      if (result.changed) {
-        recordUndoLabel(
-          documentId,
-          command.kind === 'delete' ? 'AI delete cards' : 'AI modify cards',
-        );
-        await refreshCachedSearchForTab(documentId);
-      }
-      return result.changed;
-    },
     getSelectedCardsInActiveTab() {
       return getSelectedCards();
-    },
-    getVisibleCardsInActiveTab() {
-      return getAllCards();
     },
     async readCardScript(code: number, dbPath?: string) {
       const target = this.listOpenDatabases().find((database) => (
@@ -78,6 +63,18 @@ export function createAiAppContext(): AiAppContext {
 
       const content = await invokeCommand<string>('read_text_file', { path: info.path });
       return { exists: true, path: info.path, content };
+    },
+    readImageConfig(code: number) {
+      return getCardImageDocument(code);
+    },
+    async resolveScriptPath(dbPath: string, fileName: string) {
+      await loadAppSettings();
+      if (appSettingsState.values.scriptDirectory.trim()) {
+        return tauriBridge.join(appSettingsState.values.scriptDirectory.trim(), fileName);
+      }
+      const cdbDir = await tauriBridge.dirname(dbPath);
+      const scriptDir = await tauriBridge.join(cdbDir, 'script');
+      return tauriBridge.join(scriptDir, fileName);
     },
   };
 }

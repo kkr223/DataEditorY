@@ -372,7 +372,7 @@ fn read_strings_directory(dir: &Path) -> Result<Vec<String>, String> {
             .and_then(|value| value.to_str())
             .unwrap_or_default()
             .cmp(
-                &b.file_name()
+                b.file_name()
                     .and_then(|value| value.to_str())
                     .unwrap_or_default(),
             )
@@ -513,7 +513,7 @@ pub fn open_in_default_app(path: String) -> Result<(), String> {
             .arg(Path::new(&path).as_os_str())
             .spawn()
             .map_err(|err| err.to_string())?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]

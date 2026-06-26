@@ -12,7 +12,7 @@ export type CardWorkbenchContext = {
   syncSetcodesFromCard(card: CardDataEntry): void;
   refreshDraftImage(code: number, bustCache?: boolean): Promise<void>;
   handleSearch(preserveSelection?: boolean): Promise<boolean>;
-  handleModify(): Promise<void>;
+  handleModify(): Promise<boolean>;
   handleNewCard(): void;
   loadCardIntoDraft(card: CardDataEntry): void;
 };

@@ -51,7 +51,10 @@ fn queue_open_cdb_paths(app: &AppHandle, paths: Vec<String>) {
     }
 
     let pending_state = app.state::<PendingOpenCdbPaths>();
-    let mut pending = pending_state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut pending = pending_state
+        .0
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     for path in &paths {
         if !pending.contains(path) {
             pending.push(path.clone());
@@ -86,7 +89,7 @@ pub fn run() {
         }))
         .setup(|app| {
             let paths = collect_cdb_paths_from_args(std::env::args_os().skip(1));
-            queue_open_cdb_paths(&app.handle(), paths);
+            queue_open_cdb_paths(app.handle(), paths);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -95,6 +98,9 @@ pub fn run() {
             commands::cdb::analyze_cdb_merge,
             commands::cdb::collect_merge_sources_from_folder,
             commands::cdb::execute_cdb_merge,
+            commands::assets_check::check_assets,
+            commands::lua_replace::preview_lua_replace,
+            commands::lua_replace::apply_lua_replace,
             commands::media::read_cdb,
             commands::media::read_text_file,
             commands::media::write_cdb,
@@ -107,6 +113,9 @@ pub fn run() {
             commands::media::load_strings_conf,
             commands::media::open_in_system_editor,
             commands::media::open_in_default_app,
+            commands::metadata::load_workspace_metadata,
+            commands::metadata::save_workspace_metadata,
+            commands::metadata::backup_workspace_metadata,
             commands::settings::load_app_settings,
             commands::settings::save_app_settings,
             commands::settings::load_secret_key,
@@ -118,8 +127,7 @@ pub fn run() {
             commands::scripts::save_card_script,
             commands::package::package_cdb_assets_as_zip,
             commands::app::append_error_log,
-            commands::app::consume_pending_open_cdb_paths
-            ,
+            commands::app::consume_pending_open_cdb_paths,
             document_host::commands::provider_open,
             document_host::commands::provider_query,
             document_host::commands::provider_execute,

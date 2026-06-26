@@ -1,11 +1,10 @@
 import { showToast } from '$lib/stores/toast.svelte';
-import { loadPopularSetcodes, getSetcode } from '$lib/utils/setcode';
-import { cloneEditableCard, cloneLoadedCardForEditing } from '$lib/utils/card';
-import { createCardSnapshot } from '$lib/domain/card/draft';
+import { loadPopularSetcodes } from '$lib/services/setcodeCatalog';
+import { getSetcode } from '$lib/domain/card/setcode';
+import { cloneEditableCard, cloneLoadedCardForEditing, createCardSnapshot } from '$lib/domain/card/draft';
 import { APP_SHORTCUT_EVENT } from '$lib/utils/shortcuts';
 import { resolveCardImageSrc } from '$lib/services/cardImageService';
 import {
-  clearWorkspaceLifecycleMetadata,
   clearWorkspaceSaveHandler,
   confirmDirtyPrompt,
   setWorkspaceLifecycleMetadata,
@@ -44,7 +43,7 @@ type CardEditorLifecycleControllerInput = {
   setImageSrc: (src: string) => void;
   getActiveCdbPath: () => string | null | undefined;
   isDbLoaded: () => boolean;
-  saveCdbFile: () => Promise<boolean>;
+  saveCdbFile: (destinationPath?: string) => Promise<boolean>;
   t: Translate;
 };
 
@@ -54,6 +53,7 @@ type CardEditorMountInput = {
   isDbLoaded: () => boolean;
   handleNewCard: () => void;
   handleSearchFromDraft: () => Promise<void>;
+  handleUndoDraft: () => boolean;
   handleEditorKeydown: (event: KeyboardEvent) => void | Promise<void>;
   cancelScriptGeneration: () => void;
   disposeImageInteraction: () => void;
@@ -149,23 +149,24 @@ export function createCardEditorLifecycleController(input: CardEditorLifecycleCo
     });
   }
 
-  async function handleSaveWorkspace(onDirtyDraft: () => Promise<void>) {
+  async function handleSaveWorkspace(
+    onDirtyDraft: () => Promise<unknown>,
+    destinationPath?: string,
+  ) {
     if (!input.isDbLoaded()) return false;
 
     if (isDraftDirty()) {
       await onDirtyDraft();
       if (isDraftDirty()) {
         // Draft could not be committed (validation failure or user cancelled).
-        // Still attempt to flush the file so any earlier DB mutations are persisted.
-        return input.saveCdbFile();
+        // Severe draft errors block saving so the user does not accidentally
+        // persist an older working copy while the visible card has newer edits.
+        return false;
       }
-      // onDirtyDraft already saved the file internally via persistActiveCdbAfterMutation.
-      // Calling saveCdbFile() a second time here is redundant and occasionally fails
-      // due to file-system contention, producing a spurious "Save failed" toast.
-      return true;
+      return input.saveCdbFile(destinationPath);
     }
 
-    return input.saveCdbFile();
+    return input.saveCdbFile(destinationPath);
   }
 
   return {
@@ -205,6 +206,11 @@ export function setupCardEditorOnMount(input: CardEditorMountInput) {
 
     if (customEvent.detail === 'search-from-draft') {
       void input.handleSearchFromDraft();
+      return;
+    }
+
+    if (customEvent.detail === 'undo-draft') {
+      input.handleUndoDraft();
     }
   };
 
@@ -315,7 +321,7 @@ export function ensureCapabilityModuleEffect(input: {
 export function syncWorkspaceLifecycleEffect(input: {
   workspaceId: string | null | undefined;
   workspaceDirty: boolean;
-  handleSaveWorkspace: () => boolean | Promise<boolean>;
+  handleSaveWorkspace: (destinationPath?: string) => boolean | Promise<boolean>;
 }) {
   if (input.workspaceId) {
     setWorkspaceLifecycleMetadata(input.workspaceId, {
@@ -327,7 +333,6 @@ export function syncWorkspaceLifecycleEffect(input: {
 
   return () => {
     if (input.workspaceId) {
-      clearWorkspaceLifecycleMetadata(input.workspaceId);
       clearWorkspaceSaveHandler(input.workspaceId);
     }
   };

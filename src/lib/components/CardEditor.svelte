@@ -1,15 +1,14 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from "svelte";
   import { _ } from "svelte-i18n";
-  import { activeTab, activeTabId, isDbLoaded, saveCdbFile } from "$lib/stores/db";
+  import { activeTab, activeTabId, isDbLoaded, saveCdbFile, saveCdbTabAs } from "$lib/stores/db";
   import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleReset, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
   import type { CardDataEntry } from "$lib/types";
-  import { normalizeSetcodeHex, updateSetcode } from "$lib/utils/setcode";
-  import { cloneEditableCard, createEmptyCard, getPackedLevel, normalizeEditableScaleValue, setPackedLevel } from "$lib/utils/card";
-  import { createCardSnapshot } from "$lib/domain/card/draft";
+  import { normalizeSetcodeHex, updateSetcode } from "$lib/domain/card/setcode";
+  import { cloneEditableCard, createCardSnapshot, createEmptyCard, getPackedLevel, normalizeEditableScaleValue, setPackedLevel } from "$lib/domain/card/draft";
   import { dispatchAppShortcut } from "$lib/utils/shortcuts";
-  import { isEditableTarget } from "$lib/features/shell/controller";
+  import { isEditableTarget, isNativeTextUndoTarget } from "$lib/features/shell/controller";
   import { shellBackgroundTaskState } from "$lib/features/shell/dialogsController.svelte";
   import { appSettingsState } from "$lib/stores/appSettings.svelte";
   import { isShortcutEvent } from "$lib/features/shortcuts/registry";
@@ -31,7 +30,15 @@
   import CardImagePreview from "$lib/features/card-editor/components/CardImagePreview.svelte";
   import WorkbenchContributions from "$lib/platform/components/WorkbenchContributions.svelte";
   import { dispatchWorkbenchAction } from "$lib/platform";
+  import { documentRuntime } from "$lib/platform/appRuntime";
   import type { CardWorkbenchContext } from "$lib/modules/card/workbench/context";
+  import { aiProposalApplicationState, consumeAiCardDraftPatch } from "$lib/modules/card/workbench/aiProposalApplication.svelte";
+  import { copyWorkspaceMetadataForSaveAs } from "$lib/modules/card/workbench/workspaceMetadataState.svelte";
+  import {
+    getWorkspaceCardDraft,
+    setWorkspaceCardDraft,
+  } from "$lib/modules/card/workbench/cardDraftWorkspaceState.svelte";
+  import { setWorkspaceLifecycleMetadata } from "$lib/application/workspace/lifecycle";
 
   const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
   const initialDraftCard = createEmptyCard();
@@ -52,6 +59,8 @@
   let draftUndoHistory = $state.raw<DraftUndoEntry[]>(createDraftUndoHistory(initialDraftCard));
   let trackedDraftSnapshot = $state(createCardSnapshot(initialDraftCard));
   let suspendDraftUndoTracking = 0;
+  let autoCommitSelectionTargetId = $state<number | null>(null);
+  let boundWorkspaceId: string | null = null;
 
   const lifecycleController = createCardEditorLifecycleController({
     getCoverImageSrc: () => appSettingsState.coverImageSrc,
@@ -96,7 +105,13 @@
     },
     getActiveCdbPath: () => $activeTab?.path,
     isDbLoaded: () => $isDbLoaded,
-    saveCdbFile,
+    saveCdbFile: async (destinationPath) => {
+      if (!destinationPath || !$activeTabId || !$activeTab?.path) {
+        return saveCdbFile();
+      }
+      await copyWorkspaceMetadataForSaveAs($activeTab.path, destinationPath);
+      return saveCdbTabAs($activeTabId, destinationPath);
+    },
     t: (key, options) => $_(key, options as never),
   });
 
@@ -138,18 +153,6 @@
     if (target instanceof HTMLElement) return target;
     if (target instanceof Node) return target.parentElement;
     return null;
-  }
-
-  function isNativeTextUndoTarget(target: EventTarget | null) {
-    const candidate = toShortcutElement(target) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    if (!candidate) return false;
-    if (candidate.closest(".monaco-editor, .monaco-diff-editor")) return true;
-    if (candidate instanceof HTMLTextAreaElement || candidate.isContentEditable) return true;
-    if (candidate instanceof HTMLInputElement) {
-      const type = candidate.type.toLowerCase();
-      return !["button", "checkbox", "color", "file", "image", "radio", "range", "reset", "submit"].includes(type);
-    }
-    return Boolean(candidate.closest('[contenteditable="true"]'));
   }
 
   function isCardEditorShortcutTarget(target: EventTarget | null) {
@@ -208,13 +211,60 @@
     return lifecycleController.isDraftDirty();
   }
 
-  async function confirmDiscardDraftForKeyboardNavigation() {
-    return lifecycleController.confirmDiscardDraftForKeyboardNavigation();
+  function persistBoundWorkspaceDraft() {
+    if (!boundWorkspaceId) return;
+    const dirty = isDraftDirty();
+    const workspaceDirty = Boolean(documentRuntime.getDocument(boundWorkspaceId)?.dirty) || dirty;
+    setWorkspaceCardDraft(boundWorkspaceId, {
+      draftCard,
+      originalCardCode,
+      imageSrc,
+      setcodeHexes,
+      lastSyncedSelectedId,
+      lastLoadedCardSnapshot,
+      lastDefaultCoverSrc,
+      draftUndoHistory,
+      trackedDraftSnapshot,
+      dirty,
+    });
+    setWorkspaceLifecycleMetadata(boundWorkspaceId, {
+      dirty: workspaceDirty,
+      closeGuard: workspaceDirty ? 'confirm-dirty' : 'none',
+    });
   }
 
-  async function handleSaveWorkspace() {
+  function restoreWorkspaceDraft(workspaceId: string | null) {
+    const restored = getWorkspaceCardDraft(workspaceId);
+    autoCommitSelectionTargetId = null;
+    if (!restored) {
+      lifecycleController.resetDraftCard();
+      return;
+    }
+
+    suspendDraftUndoTracking += 1;
+    draftCard = cloneEditableCard(restored.draftCard);
+    originalCardCode = restored.originalCardCode;
+    imageSrc = restored.imageSrc;
+    setcodeHexes = [...restored.setcodeHexes];
+    lastSyncedSelectedId = restored.lastSyncedSelectedId;
+    lastLoadedCardSnapshot = restored.lastLoadedCardSnapshot;
+    lastDefaultCoverSrc = restored.lastDefaultCoverSrc;
+    draftUndoHistory = restored.draftUndoHistory.map((entry) => ({
+      snapshot: entry.snapshot,
+      card: cloneEditableCard(entry.card),
+    }));
+    trackedDraftSnapshot = restored.trackedDraftSnapshot;
+    suspendDraftUndoTracking -= 1;
+  }
+
+  async function confirmDiscardDraftForKeyboardNavigation() {
+    if (!isDraftDirty()) return true;
+    return Boolean(await handleModify());
+  }
+
+  async function handleSaveWorkspace(destinationPath?: string) {
     if (!$activeTabId) return false;
-    return lifecycleController.handleSaveWorkspace(handleModify);
+    return lifecycleController.handleSaveWorkspace(handleModify, destinationPath);
   }
 
   async function handleEditorKeydown(event: KeyboardEvent) {
@@ -274,8 +324,8 @@
   }
 
   async function handleModify() {
-    if (!$isDbLoaded) return;
-    await modifyDraftCardFlow({ draftCard, originalCardCode, isEditingExisting, t: (key, options) => $_(key, options as never), saveDraftCard });
+    if (!$isDbLoaded) return false;
+    return modifyDraftCardFlow({ draftCard, originalCardCode, isEditingExisting, t: (key, options) => $_(key, options as never), saveDraftCard });
   }
 
   async function handleSaveAs() {
@@ -316,6 +366,7 @@
     isDbLoaded: () => $isDbLoaded,
     handleNewCard,
     handleSearchFromDraft: runSearchFromDraft,
+    handleUndoDraft: handleDraftUndo,
     handleEditorKeydown,
     cancelScriptGeneration: () => {
       // Optional modules own their own cancellable work.
@@ -326,6 +377,7 @@
   }));
 
   onDestroy(() => {
+    persistBoundWorkspaceDraft();
     teardownCardEditorOnDestroy({ handleEditorKeydown });
   });
 
@@ -351,9 +403,31 @@
   }
 
   async function handleSave() {
-    const ok = await saveCdbFile();
+    const ok = await handleSaveWorkspace();
     showToast($_(ok ? "editor.save_success" : "editor.save_failed"), ok ? "success" : "error");
   }
+
+  $effect.pre(() => {
+    const nextWorkspaceId = $activeTabId;
+    if (nextWorkspaceId === boundWorkspaceId) return;
+
+    persistBoundWorkspaceDraft();
+    restoreWorkspaceDraft(nextWorkspaceId);
+    boundWorkspaceId = nextWorkspaceId;
+  });
+
+  $effect(() => {
+    draftCard;
+    originalCardCode;
+    imageSrc;
+    setcodeHexes;
+    lastSyncedSelectedId;
+    lastLoadedCardSnapshot;
+    lastDefaultCoverSrc;
+    draftUndoHistory;
+    trackedDraftSnapshot;
+    persistBoundWorkspaceDraft();
+  });
 
   $effect(() => {
     trackDraftUndoEffect({
@@ -371,10 +445,40 @@
   });
 
   $effect(() => {
+    const selectedCard = getAllCardsMap().get(editorState.selectedId ?? -1) ?? null;
+    if (
+      $isDbLoaded
+      && selectedCard
+      && lastSyncedSelectedId !== null
+      && selectedCard.code !== lastSyncedSelectedId
+      && isDraftDirty()
+    ) {
+      const targetId = selectedCard.code;
+      const restoreId = lastSyncedSelectedId;
+      if (autoCommitSelectionTargetId !== targetId) {
+        autoCommitSelectionTargetId = targetId;
+        void (async () => {
+          const ok = await handleModify();
+          autoCommitSelectionTargetId = null;
+          if (ok) {
+            if (editorState.selectedId !== targetId) {
+              setSingleSelectedCard(targetId);
+            }
+            return;
+          }
+
+          if (editorState.selectedId === targetId) {
+            setSingleSelectedCard(restoreId);
+          }
+        })();
+      }
+      return;
+    }
+
     syncLoadedDraftEffect({
       isDbLoaded: $isDbLoaded,
       selectedId: editorState.selectedId,
-      selectedCard: getAllCardsMap().get(editorState.selectedId ?? -1) ?? null,
+      selectedCard,
       lastSyncedSelectedId,
       lastLoadedCardSnapshot,
       originalCardCode,
@@ -404,6 +508,29 @@
         imageSrc = src;
       },
     });
+  });
+
+  $effect(() => {
+    const pending = aiProposalApplicationState.pendingCardDraftPatch;
+    if (!pending) return;
+
+    const consumed = consumeAiCardDraftPatch(pending.id);
+    if (!consumed) return;
+
+    const nextCard = cloneEditableCard({
+      ...draftCard,
+      ...consumed.patch,
+      setcode: Array.isArray(consumed.patch.setcode)
+        ? [...consumed.patch.setcode]
+        : [...draftCard.setcode],
+      strings: Array.isArray(consumed.patch.strings)
+        ? [...consumed.patch.strings]
+        : [...draftCard.strings],
+    });
+    draftCard = nextCard;
+    lifecycleController.syncSetcodesFromCard(nextCard);
+    void lifecycleController.refreshDraftImage(Number(nextCard.code ?? 0));
+    showToast($_("surface.ai_card_patch_applied"), "success");
   });
 
   $effect(() => {
@@ -495,6 +622,8 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    min-height: 0;
     background: var(--bg-surface);
     min-width: 0;
     overflow: hidden;

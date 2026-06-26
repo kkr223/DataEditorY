@@ -38,7 +38,6 @@
 
   const activeDocument = $derived(getActiveDataDocument());
   const activeDocumentKey = $derived(activeDocument?.id ?? '');
-  const aiEnabled = $derived(documentRuntime.registry.modules.has('ai'));
 
   const cdbPath = $derived.by(() => {
     const ref = activeDocument?.references.find((item) => item.relation === 'derived-from-card');
@@ -140,7 +139,7 @@
     mode="workbench"
     {card}
     {cdbPath}
-    {aiEnabled}
+    aiEnabled={false}
     documentKey={activeDocumentKey}
     initialDocument={documentData}
     onDocumentChange={persistDocument}

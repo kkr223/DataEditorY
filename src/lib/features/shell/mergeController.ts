@@ -13,12 +13,8 @@ import {
   isNewOutputPath,
 } from '$lib/features/shell/dialogsHelpers';
 import { activateWorkspaceDocument } from '$lib/application/workspace/commandBus';
-import { documentRuntime } from '$lib/platform/appRuntime';
-import {
-  MERGE_ANALYZE_COMMAND_ID,
-  MERGE_COLLECT_COMMAND_ID,
-  MERGE_EXECUTE_COMMAND_ID,
-} from '$lib/modules/merge';
+import { startTask } from '$lib/native/taskApi';
+import { appendWorkspaceTaskHistoryForPath } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
 
 const activeTabState = fromStore(activeTab);
 const tabsState = fromStore(tabs);
@@ -117,10 +113,10 @@ export function createMergeController(
 
     state.isCollectingMergeSources = true;
     try {
-      const collected = await documentRuntime.executePlatformCommand<MergeSourceItem[]>(
-        MERGE_COLLECT_COMMAND_ID,
-        { directoryPath: selected },
-      );
+      const collected = await startTask({
+        kind: 'merge.collect-sources',
+        directoryPath: selected,
+      }) as MergeSourceItem[];
       if (collected.length === 0) {
         showToast(t('editor.merge_cdb_folder_empty'), 'info');
         return;
@@ -193,14 +189,12 @@ export function createMergeController(
     state.isAnalyzingMerge = true;
     try {
       const sourcePaths = state.mergeSources.map((item) => item.path);
-      const analysis = await documentRuntime.executePlatformCommand<AnalyzeCdbMergeResponse>(
-        MERGE_ANALYZE_COMMAND_ID,
-        {
-          sourcePaths,
-          includeImages: state.mergeIncludeImages,
-          includeScripts: state.mergeIncludeScripts,
-        },
-      );
+      const analysis = await startTask({
+        kind: 'merge.analyze',
+        sourcePaths,
+        includeImages: state.mergeIncludeImages,
+        includeScripts: state.mergeIncludeScripts,
+      }) as AnalyzeCdbMergeResponse;
       state.mergeAnalysis = analysis;
       state.mergeAnalysisKey = buildMergeAnalysisKey(
         sourcePaths,
@@ -261,13 +255,21 @@ export function createMergeController(
         task: 'merge',
         run: async () => {
           try {
-            const result = await documentRuntime.executePlatformCommand<{
-              outputPath: string;
-            }>(MERGE_EXECUTE_COMMAND_ID, {
+            const result = await startTask({
+              kind: 'merge.execute',
               sourcePaths,
               outputDir,
               includeImages,
               includeScripts,
+            }) as { outputPath: string };
+            await appendWorkspaceTaskHistoryForPath(result.outputPath, {
+              kind: 'merge.execute',
+              label: 'CDB merge',
+              summary: {
+                sourcePaths,
+                includeImages,
+                includeScripts,
+              },
             });
             if (!isNewOutputPath(result.outputPath, tabsState.current.map((tab) => tab.path))) {
               showToast(t('editor.background_merge_completed'), 'success', 4200);

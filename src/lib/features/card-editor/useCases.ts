@@ -1,12 +1,13 @@
 import type { CardDataEntry } from '$lib/types';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { deleteCard, getCardById, modifyCard, saveCdbFile } from '$lib/stores/db';
+import { deleteCard, getCardById, modifyCard } from '$lib/stores/db';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import { setSingleSelectedCard, updateVisibleCards } from '$lib/stores/editor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
-import { cloneEditableCard } from '$lib/utils/card';
+import { cloneEditableCard } from '$lib/domain/card/draft';
 import { createCardSnapshot, toPersistableDraftCard } from '$lib/domain/card/draft';
+import { validateCardDraft } from '$lib/domain/card/validation';
 import {
   ensureCardScriptFile,
   getExistingCardScriptInfo,
@@ -16,20 +17,12 @@ import {
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-async function persistActiveCdbAfterMutation(t: Translate) {
-  const saved = await saveCdbFile();
-  if (!saved) {
-    showToast(t('editor.save_failed'), 'error');
-  }
-  return saved;
-}
-
 export function getValidatedCardCode(
   draftCard: CardDataEntry,
   t: Translate,
 ) {
   const code = Number(draftCard.code ?? 0);
-  if (!Number.isInteger(code) || code <= 0) {
+  if (validateCardDraft(draftCard).some((issue) => issue.code === 'invalid-code')) {
     showToast(t('editor.code_required'), 'error');
     return null;
   }
@@ -49,6 +42,15 @@ export async function saveDraftCardFlow(input: {
   handleSearch: (preserveSelection?: boolean) => Promise<boolean>;
   refreshDraftImage: (code: number, bustCache?: boolean) => Promise<void>;
 }) {
+  const validationIssues = validateCardDraft(input.draftCard);
+  if (validationIssues.some((issue) => issue.severity === 'error')) {
+    showToast(input.t('editor.code_required'), 'error');
+    return false;
+  }
+  for (const warning of validationIssues.filter((issue) => issue.severity === 'warning')) {
+    showToast(input.t(`editor.card_warning_${warning.code.replaceAll('-', '_')}`), 'info');
+  }
+
   const targetCode = Number(input.draftCard.code ?? 0);
   const nextCard = cloneEditableCard(input.draftCard);
   nextCard.code = targetCode;
@@ -76,7 +78,6 @@ export async function saveDraftCardFlow(input: {
   setSingleSelectedCard(targetCode);
   await input.handleSearch(true);
   await input.refreshDraftImage(targetCode, true);
-  await persistActiveCdbAfterMutation(input.t);
   showToast(
     input.t('editor.card_modified', { values: { code: String(targetCode) } }),
     'success',
@@ -92,12 +93,11 @@ export async function modifyDraftCardFlow(input: {
   saveDraftCard: (targetCode: number, removeOriginal?: boolean) => Promise<boolean>;
 }) {
   const targetCode = getValidatedCardCode(input.draftCard, input.t);
-  if (!targetCode) return;
+  if (!targetCode) return false;
 
   const existing = await getCardById(targetCode);
   if (input.isEditingExisting && input.originalCardCode === targetCode) {
-    await input.saveDraftCard(targetCode);
-    return;
+    return input.saveDraftCard(targetCode);
   }
 
   if (input.isEditingExisting && input.originalCardCode !== targetCode) {
@@ -124,11 +124,10 @@ export async function modifyDraftCardFlow(input: {
           kind: 'warning',
         },
       );
-      if (!overwriteExisting) return;
+      if (!overwriteExisting) return false;
     }
 
-    await input.saveDraftCard(targetCode, !!removeOriginal);
-    return;
+    return input.saveDraftCard(targetCode, !!removeOriginal);
   }
 
   if (existing) {
@@ -141,10 +140,10 @@ export async function modifyDraftCardFlow(input: {
         kind: 'warning',
       },
     );
-    if (!overwriteExisting) return;
+    if (!overwriteExisting) return false;
   }
 
-  await input.saveDraftCard(targetCode);
+  return input.saveDraftCard(targetCode);
 }
 
 export async function saveAsDraftCardFlow(input: {
@@ -194,7 +193,6 @@ export async function deleteDraftCardFlow(input: {
   if (!confirmed) return;
 
   if (await deleteCard(input.originalCardCode)) {
-    await persistActiveCdbAfterMutation(input.t);
     showToast(
       input.t('editor.card_deleted', {
         values: { code: String(input.originalCardCode) },

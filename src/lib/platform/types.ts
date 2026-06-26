@@ -126,11 +126,6 @@ export type CommandDescriptor = {
   execute(context: PlatformCommandContext, input: unknown): Promise<unknown>;
 };
 
-export type ServiceDescriptor = {
-  id: string;
-  create(): unknown;
-};
-
 export type SettingsSectionDescriptor = {
   id: string;
   order?: number;
@@ -142,7 +137,22 @@ export type WorkbenchContributionDescriptor = {
   workbenchId: WorkbenchId;
   slot: string;
   order?: number;
+  metadata?: Record<string, unknown>;
   component: () => Promise<unknown>;
+};
+
+export type GlobalToolDescriptor = {
+  id: string;
+  labelKey: string;
+  order?: number;
+  requiresActiveCdb?: boolean;
+  component: () => Promise<unknown>;
+};
+
+export type TaskRunnerDescriptor = {
+  kind: string;
+  run(input: unknown, context?: { taskId: string }): Promise<unknown>;
+  cancel?(taskId: string): boolean | Promise<boolean>;
 };
 
 export type ExtensionModule = {
@@ -153,9 +163,10 @@ export type ExtensionModule = {
   codecs?: CodecDescriptor[];
   workbenches?: WorkbenchDescriptor[];
   commands?: CommandDescriptor[];
-  services?: ServiceDescriptor[];
   settingsSections?: SettingsSectionDescriptor[];
   workbenchContributions?: WorkbenchContributionDescriptor[];
+  globalTools?: GlobalToolDescriptor[];
+  taskRunners?: TaskRunnerDescriptor[];
 };
 
 export type DocumentRuntimeSnapshot = {

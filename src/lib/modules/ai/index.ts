@@ -43,17 +43,16 @@ export const aiModule: ExtensionModule = {
     component: () => import('./workbench/AiSettingsSection.svelte'),
   }],
   workbenchContributions: [{
-    id: 'ai.card-actions',
+    id: 'ai.card-surface',
     workbenchId: 'card.workbench',
-    slot: 'footer-actions',
-    order: 20,
-    component: () => import('./workbench/CardAiContribution.svelte'),
-  }, {
-    id: 'ai.lua-actions',
-    workbenchId: 'lua.workbench',
-    slot: 'toolbar-actions',
-    order: 10,
-    component: () => import('./workbench/LuaAiContribution.svelte'),
+    slot: 'surface',
+    order: 40,
+    metadata: {
+      surfaceId: 'ai',
+      labelKey: 'surface.ai',
+      icon: 'AI',
+    },
+    component: () => import('../card/workbench/AiSurface.svelte'),
   }],
 };
 

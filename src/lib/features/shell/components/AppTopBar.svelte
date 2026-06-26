@@ -15,6 +15,11 @@
     onCreate = async () => {},
     onCreateFilteredCdb = async () => {},
     onMergeCdb = async () => {},
+    onBatchCdbEdit = () => {},
+    onLuaReplace = () => {},
+    extensionTools = [],
+    onOpenExtensionTool = (_id: string) => {},
+    onAssetCheck = () => {},
     onOpenSettings = () => {},
     onPackageZip = async () => {},
     onPackageYpk = async () => {},
@@ -40,6 +45,11 @@
     onCreate?: () => void | Promise<void>;
     onCreateFilteredCdb?: () => void | Promise<void>;
     onMergeCdb?: () => void | Promise<void>;
+    onBatchCdbEdit?: () => void;
+    onLuaReplace?: () => void;
+    extensionTools?: Array<{ id: string; label: string; disabled?: boolean }>;
+    onOpenExtensionTool?: (id: string) => void;
+    onAssetCheck?: () => void;
     onOpenSettings?: () => void;
     onPackageZip?: () => void | Promise<void>;
     onPackageYpk?: () => void | Promise<void>;
@@ -87,43 +97,56 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         {$_('nav.create')}
       </button>
-      <button class="nav-item" onclick={onCreateFilteredCdb} disabled={!hasActiveCdb}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M7 12h10"></path><path d="M10 18h4"></path></svg>
-        {$_('nav.create_filtered_cdb')}
-      </button>
-      <button class="nav-item" onclick={onMergeCdb}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 4-4 4"></path><path d="m16 21-4-4 4-4"></path><path d="M12 7v10"></path></svg>
-        {$_('nav.merge_cdb')}
-      </button>
-      <button class="nav-item" onclick={onOpenSettings}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a2 2 0 0 1 2 2v.35a1 1 0 0 0 .57.9l.31.15a1 1 0 0 0 1.04-.1l.25-.18a2 2 0 0 1 2.8.24l.99 1.15a2 2 0 0 1-.15 2.82l-.26.22a1 1 0 0 0-.3.98l.1.35a1 1 0 0 0 .77.7l.32.07a2 2 0 0 1 1.56 1.95v1.5a2 2 0 0 1-1.56 1.95l-.32.07a1 1 0 0 0-.77.7l-.1.35a1 1 0 0 0 .3.98l.26.22a2 2 0 0 1 .15 2.82l-.99 1.15a2 2 0 0 1-2.8.24l-.25-.18a1 1 0 0 0-1.04-.1l-.31.15a1 1 0 0 0-.57.9V19a2 2 0 0 1-2 2h-1.5a2 2 0 0 1-2-2v-.35a1 1 0 0 0-.57-.9l-.31-.15a1 1 0 0 0-1.04.1l-.25.18a2 2 0 0 1-2.8-.24l-.99-1.15a2 2 0 0 1 .15-2.82l.26-.22a1 1 0 0 0 .3-.98l-.1-.35a1 1 0 0 0-.77-.7l-.32-.07A2 2 0 0 1 2 15.75v-1.5A2 2 0 0 1 3.56 12.3l.32-.07a1 1 0 0 0 .77-.7l.1-.35a1 1 0 0 0-.3-.98l-.26-.22a2 2 0 0 1-.15-2.82l.99-1.15a2 2 0 0 1 2.8-.24l.25.18a1 1 0 0 0 1.04.1l.31-.15a1 1 0 0 0 .57-.9V5a2 2 0 0 1 2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-        {$_('nav.settings')}
-      </button>
       <div
         class="nav-item-group package-nav-group"
         role="group"
-        aria-label={$_('nav.package')}
+        aria-label={$_('nav.tools')}
         onmouseenter={onShowPackageMenu}
         onmouseleave={onHidePackageMenu}
         onfocusin={onShowPackageMenu}
         onfocusout={onHidePackageMenu}
       >
-        <button class="nav-item" disabled={!hasPackageTarget} aria-haspopup="menu" aria-expanded={isPackageMenuVisible}>
+        <button class="nav-item" aria-haspopup="menu" aria-expanded={isPackageMenuVisible}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"></path><path d="M1 3h22v5H1z"></path><path d="M10 12h4"></path><path d="M12 3v18"></path></svg>
-          {$_('nav.package')}
+          {$_('nav.tools')}
           <svg xmlns="http://www.w3.org/2000/svg" class="nav-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
         </button>
-        {#if hasPackageTarget && isPackageMenuVisible}
-          <div class="package-popover" role="menu" aria-label={$_('nav.package')}>
-            <button class="package-item" role="menuitem" onclick={onPackageZip}>
+        {#if isPackageMenuVisible}
+          <div class="package-popover" role="menu" aria-label={$_('nav.tools')}>
+            <button class="package-item" role="menuitem" onclick={onCreateFilteredCdb} disabled={!hasActiveCdb}>
+              {$_('nav.create_filtered_cdb')}
+            </button>
+            <button class="package-item" role="menuitem" onclick={onMergeCdb} disabled={isMergeBusy}>
+              {isMergeBusy ? '...' : $_('nav.merge_cdb')}
+            </button>
+            <div class="package-separator"></div>
+            <button class="package-item" role="menuitem" onclick={onPackageZip} disabled={!hasPackageTarget || isPackageBusy}>
               {$_('nav.package_zip')}
             </button>
-            <button class="package-item" role="menuitem" onclick={onPackageYpk}>
+            <button class="package-item" role="menuitem" onclick={onPackageYpk} disabled={!hasPackageTarget || isPackageBusy}>
               {$_('nav.package_ypk')}
             </button>
+            <div class="package-separator"></div>
+            <button class="package-item" role="menuitem" onclick={onBatchCdbEdit} disabled={!hasActiveCdb}>{$_('nav.tools_batch_cdb')}</button>
+            <button class="package-item" role="menuitem" onclick={onLuaReplace} disabled={!hasActiveCdb}>{$_('nav.tools_lua_replace')}</button>
+            {#each extensionTools as tool}
+              <button
+                class="package-item"
+                role="menuitem"
+                onclick={() => onOpenExtensionTool(tool.id)}
+                disabled={tool.disabled}
+              >
+                {tool.label}
+              </button>
+            {/each}
+            <button class="package-item" role="menuitem" onclick={onAssetCheck} disabled={!hasActiveCdb}>{$_('nav.tools_asset_check')}</button>
           </div>
         {/if}
       </div>
+      <button class="nav-item" onclick={onOpenSettings}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a2 2 0 0 1 2 2v.35a1 1 0 0 0 .57.9l.31.15a1 1 0 0 0 1.04-.1l.25-.18a2 2 0 0 1 2.8.24l.99 1.15a2 2 0 0 1-.15 2.82l-.26.22a1 1 0 0 0-.3.98l.1.35a1 1 0 0 0 .77.7l.32.07a2 2 0 0 1 1.56 1.95v1.5a2 2 0 0 1-1.56 1.95l-.32.07a1 1 0 0 0-.77.7l-.1.35a1 1 0 0 0 .3.98l.26.22a2 2 0 0 1 .15 2.82l-.99 1.15a2 2 0 0 1-2.8.24l-.25-.18a1 1 0 0 0-1.04-.1l-.31.15a1 1 0 0 0-.57.9V19a2 2 0 0 1-2 2h-1.5a2 2 0 0 1-2-2v-.35a1 1 0 0 0-.57-.9l-.31-.15a1 1 0 0 0-1.04.1l-.25.18a2 2 0 0 1-2.8-.24l-.99-1.15a2 2 0 0 1 .15-2.82l.26-.22a1 1 0 0 0 .3-.98l-.1-.35a1 1 0 0 0-.77-.7l-.32-.07A2 2 0 0 1 2 15.75v-1.5A2 2 0 0 1 3.56 12.3l.32-.07a1 1 0 0 0 .77-.7l.1-.35a1 1 0 0 0-.3-.98l-.26-.22a2 2 0 0 1-.15-2.82l.99-1.15a2 2 0 0 1 2.8-.24l.25.18a1 1 0 0 0 1.04.1l.31-.15a1 1 0 0 0 .57-.9V5a2 2 0 0 1 2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        {$_('nav.settings')}
+      </button>
     </nav>
   </div>
   <div class="topbar-right">
@@ -254,7 +277,7 @@
     position: absolute;
     top: calc(100% - 2px);
     left: 0;
-    min-width: 9rem;
+    min-width: 12rem;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -278,6 +301,12 @@
     text-align: left;
     font: inherit;
     cursor: pointer;
+  }
+
+  .package-separator {
+    height: 1px;
+    margin: 0.2rem 0;
+    background: var(--border-color);
   }
 
   .package-item:hover {

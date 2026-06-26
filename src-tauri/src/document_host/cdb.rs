@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::Mutex,
-};
+use std::{collections::HashMap, sync::Mutex};
 
 use serde_json::{json, to_value, Value};
 
@@ -12,9 +9,7 @@ use crate::{
 };
 
 use super::{
-    models::{
-        CardCollectionCommand, CardCollectionQuery, CardSearchPage, ProviderCommandResult,
-    },
+    models::{CardCollectionCommand, CardCollectionQuery, CardSearchPage, ProviderCommandResult},
     search::compile_search,
 };
 
@@ -40,7 +35,10 @@ impl DocumentHostState {
     }
 
     pub fn clear(&self, document_id: &str) {
-        let mut undo = self.undo.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut undo = self
+            .undo
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         undo.remove(document_id);
     }
 }
@@ -77,16 +75,14 @@ pub fn query(
             to_value(cdb_cards::get_card_by_id(sessions, document_id, card_id)?)
                 .map_err(|err| err.to_string())
         }
-        CardCollectionQuery::GetByIds { card_ids } => {
-            to_value(cdb_cards::get_cards_by_ids(
-                sessions,
-                crate::models::cdb::GetCardsByIdsRequest {
-                    tab_id: document_id,
-                    card_ids,
-                },
-            )?)
-            .map_err(|err| err.to_string())
-        }
+        CardCollectionQuery::GetByIds { card_ids } => to_value(cdb_cards::get_cards_by_ids(
+            sessions,
+            crate::models::cdb::GetCardsByIdsRequest {
+                tab_id: document_id,
+                card_ids,
+            },
+        )?)
+        .map_err(|err| err.to_string()),
         CardCollectionQuery::FindByNames { names } => {
             if names.is_empty() {
                 return Ok(json!([]));
@@ -114,17 +110,15 @@ pub fn query(
             )?)
             .map_err(|err| err.to_string())
         }
-        CardCollectionQuery::All => {
-            to_value(cdb_cards::query_cards_raw(
-                sessions,
-                crate::models::cdb::QueryCardsRequest {
-                    tab_id: document_id,
-                    query_clause: "1=1 ORDER BY datas.id".to_string(),
-                    params: HashMap::new(),
-                },
-            )?)
-            .map_err(|err| err.to_string())
-        }
+        CardCollectionQuery::All => to_value(cdb_cards::query_cards_raw(
+            sessions,
+            crate::models::cdb::QueryCardsRequest {
+                tab_id: document_id,
+                query_clause: "1=1 ORDER BY datas.id".to_string(),
+                params: HashMap::new(),
+            },
+        )?)
+        .map_err(|err| err.to_string()),
     }
 }
 
@@ -187,7 +181,10 @@ pub fn undo(
     document_id: String,
 ) -> Result<ProviderCommandResult, String> {
     let entry = {
-        let mut undo = state.undo.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut undo = state
+            .undo
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         undo.get_mut(&document_id).and_then(Vec::pop)
     };
     let Some(entry) = entry else {
@@ -202,11 +199,7 @@ pub fn undo(
             affected_ids,
             previous_cards,
         } => {
-            let cards_to_restore = previous_cards
-                .iter()
-                .flatten()
-                .cloned()
-                .collect::<Vec<_>>();
+            let cards_to_restore = previous_cards.iter().flatten().cloned().collect::<Vec<_>>();
             let ids_to_delete = affected_ids
                 .into_iter()
                 .zip(previous_cards)
@@ -246,7 +239,10 @@ pub fn save(
 }
 
 fn push_undo(state: &DocumentHostState, document_id: String, entry: UndoEntry) {
-    let mut undo = state.undo.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut undo = state
+        .undo
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let stack = undo.entry(document_id).or_default();
     stack.push(entry);
     if stack.len() > 100 {

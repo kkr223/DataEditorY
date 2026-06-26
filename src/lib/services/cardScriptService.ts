@@ -7,7 +7,7 @@ import {
   saveCardScriptDocument,
 } from '$lib/infrastructure/tauri/commands';
 import { openOrCreateScriptTab } from '$lib/stores/scriptEditor.svelte';
-import { buildTemplateContent } from '$lib/services/scriptTemplate';
+import { buildTemplateContent } from '$lib/features/script-editor/template';
 
 export async function getExistingCardScriptInfo(cdbPath: string, cardCode: number) {
   return getCardScriptInfo(cdbPath, cardCode);

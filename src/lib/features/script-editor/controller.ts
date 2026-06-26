@@ -1,5 +1,5 @@
 import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
-import type { LuaInlineHighlight } from '$lib/utils/luaScriptCalls';
+import type { LuaInlineHighlight } from '$lib/features/script-editor/lua/calls';
 import type { LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
 import { toPersistableCard } from '$lib/domain/card/draft';
 import { isShortcutEvent } from '$lib/features/shortcuts/registry';

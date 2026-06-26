@@ -1,4 +1,5 @@
 import type { ExtensionModule } from '$lib/platform';
+import { aiModule } from './ai';
 import { cardModule } from './card';
 import { cdbModule } from './cdb';
 import { luaModule } from './lua';
@@ -13,6 +14,7 @@ export const builtInModules: ExtensionModule[] = [
   luaModule,
   packageModule,
   mergeModule,
+  aiModule,
 ];
 
 export const builtInModuleIds = builtInModules.map((module) => module.id);

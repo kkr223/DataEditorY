@@ -1,5 +1,4 @@
 use regex::Regex;
-use rusqlite::Connection;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fs,
@@ -8,7 +7,10 @@ use std::{
 };
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
-use crate::{TaskProgressPayload, ThrottledProgressEmitter, ZipPackageInfo};
+use crate::{
+    repository::cdb as cdb_repository, TaskProgressPayload, ThrottledProgressEmitter,
+    ZipPackageInfo,
+};
 
 #[derive(Debug, Clone, Default)]
 struct CardPackageManifest {
@@ -21,29 +23,18 @@ struct CardPackageEntry {
 }
 
 fn collect_card_package_manifest_from_cdb(cdb_path: &Path) -> Result<CardPackageManifest, String> {
-    let conn = Connection::open(cdb_path).map_err(|err| err.to_string())?;
-    let mut stmt = conn
-        .prepare(
-            "SELECT datas.id, COALESCE(texts.name, '') \
-             FROM datas LEFT JOIN texts ON texts.id = datas.id WHERE datas.id > 0 ORDER BY datas.id",
-        )
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([], |row| {
-            let card_id = row.get::<_, u32>(0)?;
-            let mut fields = HashMap::new();
-            fields.insert("code".to_string(), card_id.to_string());
-            fields.insert("name".to_string(), row.get::<_, String>(1)?);
-            Ok(CardPackageEntry { fields })
-        })
-        .map_err(|err| err.to_string())?;
-
-    let mut manifest = CardPackageManifest::default();
-    for row in rows {
-        manifest.cards.push(row.map_err(|err| err.to_string())?);
-    }
-
-    Ok(manifest)
+    let cards = cdb_repository::load_all_cards_from_path(cdb_path)?;
+    Ok(CardPackageManifest {
+        cards: cards
+            .into_iter()
+            .map(|card| {
+                let mut fields = HashMap::new();
+                fields.insert("code".to_string(), card.code.to_string());
+                fields.insert("name".to_string(), card.name);
+                CardPackageEntry { fields }
+            })
+            .collect(),
+    })
 }
 
 pub(crate) fn resolve_script_dependency_path(

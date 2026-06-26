@@ -114,10 +114,7 @@ impl SearchCompiler {
             } => {
                 let left = self.compile_operand(left);
                 let right = self.compile_operand(right);
-                Ok(format!(
-                    "({left} {} {right})",
-                    compare_operator(operator)
-                ))
+                Ok(format!("({left} {} {right})", compare_operator(operator)))
             }
             CardSearchExpression::RuleMaskContains { field, operand } => {
                 let column = mask_column(field);

@@ -6,6 +6,7 @@ export interface AppSettingsPayload {
   apiBaseUrl: string;
   model: string;
   temperature: number;
+  scriptDirectory: string;
   scriptTemplate: string;
   useExternalScriptEditor: boolean;
   saveScriptImageToLocal: boolean;
@@ -20,6 +21,7 @@ const DEFAULT_COVER_SRC = '/resources/cover.jpg';
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_SCRIPT_TEMPLATE = '-- {name}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n';
 const LEGACY_DEFAULT_SCRIPT_TEMPLATE = '-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n';
+const MODEL_CACHE_KEY = 'dataeditory:ai-model-cache:v1';
 export const DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
   'pics/{code}.jpg',
   'pics/field/{code}.jpg',
@@ -35,6 +37,15 @@ const LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
   'lflist.conf',
 ];
 
+type CachedModelList = {
+  models: string[];
+  contextLimits: Record<string, number>;
+  outputLimits: Record<string, number>;
+  cachedAt: number;
+};
+
+type ModelCacheMap = Record<string, CachedModelList>;
+
 function isSamePatternList(left: string[], right: string[]) {
   return left.length === right.length && left.every((item, index) => item === right[index]);
 }
@@ -44,6 +55,7 @@ function createDefaultSettings(): AppSettingsPayload {
     apiBaseUrl: '',
     model: 'gpt-4o-mini',
     temperature: 1,
+    scriptDirectory: '',
     scriptTemplate: DEFAULT_SCRIPT_TEMPLATE,
     useExternalScriptEditor: false,
     saveScriptImageToLocal: false,
@@ -98,16 +110,57 @@ export const appSettingsState = $state({
   coverRevision: 0,
   coverImageSrc: DEFAULT_COVER_SRC,
   modelOptions: [] as string[],
+  modelContextLimits: {} as Record<string, number>,
+  modelOutputLimits: {} as Record<string, number>,
   modelsLoaded: false,
   connectionError: '',
   values: createDefaultSettings(),
 });
+
+function getModelCacheKey(apiBaseUrl: string) {
+  return (apiBaseUrl.trim().replace(/\/+$/, '') || DEFAULT_API_BASE_URL).toLowerCase();
+}
+
+function readModelCacheMap(): ModelCacheMap {
+  try {
+    const raw = globalThis.localStorage?.getItem(MODEL_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed as ModelCacheMap : {};
+  } catch {
+    return {};
+  }
+}
+
+function readCachedModelList(apiBaseUrl: string) {
+  const cached = readModelCacheMap()[getModelCacheKey(apiBaseUrl)];
+  if (!cached || !Array.isArray(cached.models) || cached.models.length === 0) return null;
+  return {
+    models: cached.models.filter((model) => typeof model === 'string' && model.trim().length > 0),
+    contextLimits: cached.contextLimits && typeof cached.contextLimits === 'object' ? cached.contextLimits : {},
+    outputLimits: cached.outputLimits && typeof cached.outputLimits === 'object' ? cached.outputLimits : {},
+  };
+}
+
+function writeCachedModelList(apiBaseUrl: string, cached: Omit<CachedModelList, 'cachedAt'>) {
+  try {
+    const cache = readModelCacheMap();
+    cache[getModelCacheKey(apiBaseUrl)] = {
+      ...cached,
+      cachedAt: Date.now(),
+    };
+    globalThis.localStorage?.setItem(MODEL_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Cache failures should not block settings or model loading.
+  }
+}
 
 function applySettings(payload: AppSettingsPayload) {
   appSettingsState.values = {
     apiBaseUrl: payload.apiBaseUrl ?? '',
     model: payload.model?.trim() || 'gpt-4o-mini',
     temperature: normalizeTemperature(payload.temperature),
+    scriptDirectory: payload.scriptDirectory?.trim() ?? '',
     scriptTemplate: normalizeScriptTemplate(payload.scriptTemplate),
     useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
     saveScriptImageToLocal: Boolean(payload.saveScriptImageToLocal),
@@ -118,6 +171,18 @@ function applySettings(payload: AppSettingsPayload) {
     errorLogPath: payload.errorLogPath ?? '',
   };
   if (appSettingsState.values.model) {
+    const cached = readCachedModelList(appSettingsState.values.apiBaseUrl);
+    if (cached) {
+      appSettingsState.modelOptions = Array.from(new Set([
+        ...cached.models,
+        appSettingsState.values.model,
+      ]));
+      appSettingsState.modelContextLimits = cached.contextLimits;
+      appSettingsState.modelOutputLimits = cached.outputLimits;
+      appSettingsState.modelsLoaded = appSettingsState.modelOptions.length > 0;
+    }
+  }
+  if (appSettingsState.values.model && appSettingsState.modelOptions.length === 0) {
     appSettingsState.modelOptions = Array.from(new Set([
       ...appSettingsState.modelOptions,
       appSettingsState.values.model,
@@ -135,6 +200,33 @@ function getModelsEndpoint(apiBaseUrl: string) {
     return normalized;
   }
   return `${normalized}/models`;
+}
+
+function readModelContextLimit(item: unknown) {
+  if (!item || typeof item !== 'object') return null;
+  const record = item as Record<string, unknown>;
+  const topProvider = record.top_provider && typeof record.top_provider === 'object'
+    ? record.top_provider as Record<string, unknown>
+    : {};
+  const raw = record.context_length ?? record.contextLength ?? topProvider.context_length;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : null;
+}
+
+function readModelOutputLimit(item: unknown) {
+  if (!item || typeof item !== 'object') return null;
+  const record = item as Record<string, unknown>;
+  const topProvider = record.top_provider && typeof record.top_provider === 'object'
+    ? record.top_provider as Record<string, unknown>
+    : {};
+  const raw = record.max_completion_tokens
+    ?? record.maxCompletionTokens
+    ?? record.max_output_tokens
+    ?? record.maxOutputTokens
+    ?? topProvider.max_completion_tokens
+    ?? topProvider.maxCompletionTokens;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : null;
 }
 
 async function resolveSecretKey(providedSecretKey?: string) {
@@ -165,6 +257,7 @@ export async function saveAppSettings(input: {
   apiBaseUrl: string;
   model?: string;
   temperature?: number;
+  scriptDirectory?: string;
   scriptTemplate: string;
   useExternalScriptEditor?: boolean;
   saveScriptImageToLocal?: boolean;
@@ -180,6 +273,7 @@ export async function saveAppSettings(input: {
         apiBaseUrl: input.apiBaseUrl,
         model: input.model,
         temperature: normalizeTemperature(input.temperature ?? appSettingsState.values.temperature),
+        scriptDirectory: input.scriptDirectory ?? appSettingsState.values.scriptDirectory,
         scriptTemplate: input.scriptTemplate,
         useExternalScriptEditor: input.useExternalScriptEditor,
         saveScriptImageToLocal: input.saveScriptImageToLocal,
@@ -254,9 +348,18 @@ export async function connectAiProvider(input: {
       throw new Error(payload?.error?.message || payload?.message || `Failed to load models (${response.status})`);
     }
 
+    const modelContextLimits: Record<string, number> = {};
+    const modelOutputLimits: Record<string, number> = {};
     const models = Array.isArray(payload?.data)
       ? payload.data
-          .map((item: unknown) => (item && typeof item === 'object' && 'id' in item ? String(item.id ?? '').trim() : ''))
+          .map((item: unknown) => {
+            const id = item && typeof item === 'object' && 'id' in item ? String(item.id ?? '').trim() : '';
+            const limit = readModelContextLimit(item);
+            const outputLimit = readModelOutputLimit(item);
+            if (id && limit) modelContextLimits[id] = limit;
+            if (id && outputLimit) modelOutputLimits[id] = outputLimit;
+            return id;
+          })
           .filter((item: string) => item.length > 0)
       : [];
 
@@ -269,7 +372,14 @@ export async function connectAiProvider(input: {
       : models[0];
 
     appSettingsState.modelOptions = models;
+    appSettingsState.modelContextLimits = modelContextLimits;
+    appSettingsState.modelOutputLimits = modelOutputLimits;
     appSettingsState.modelsLoaded = true;
+    writeCachedModelList(apiBaseUrl, {
+      models,
+      contextLimits: modelContextLimits,
+      outputLimits: modelOutputLimits,
+    });
 
     if (input.persist === false) {
       appSettingsState.values = {
@@ -289,6 +399,8 @@ export async function connectAiProvider(input: {
       secretKey: input.secretKey,
     });
     appSettingsState.modelOptions = models;
+    appSettingsState.modelContextLimits = modelContextLimits;
+    appSettingsState.modelOutputLimits = modelOutputLimits;
     appSettingsState.modelsLoaded = true;
     return { models, selectedModel };
   } catch (error) {
