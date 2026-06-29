@@ -11,6 +11,11 @@ declare module 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetContr
   }
 }
 
+declare module '*.wasm?url' {
+  const url: string;
+  export default url;
+}
+
 declare const __APP_BUILD_VARIANT__: "base" | "extra";
 declare const __APP_BUILD_LABEL__: string;
 declare const __APP_MODULE_IDS__: readonly string[];

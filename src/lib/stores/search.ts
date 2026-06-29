@@ -130,8 +130,13 @@ export async function searchCardsPageInTab(
     } satisfies CardCollectionQuery,
   );
 
+  // The IPC response is already a freshly deserialized array; cloning it
+  // here would be redundant — `updateCachedSearchSnapshot` clones once for
+  // the tab cache before any listener sees the cards, and callers that need
+  // an isolated copy take their own. Returning the original avoids a second
+  // full-page deep clone on every search.
   return {
-    cards: cloneCards(response.cards),
+    cards: response.cards,
     total: response.total,
   };
 }

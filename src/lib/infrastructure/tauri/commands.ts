@@ -94,6 +94,10 @@ export async function writeBinaryFile(path: string, data: number[]) {
   return invokeCommand('write_file', { path, data });
 }
 
+export async function readCdbFile(path: string) {
+  return invokeCommand<number[]>('read_cdb', { path });
+}
+
 export async function writeTextFile(path: string, content: string) {
   const encoder = new TextEncoder();
   return invokeCommand('write_file', { path, data: Array.from(encoder.encode(content)) });

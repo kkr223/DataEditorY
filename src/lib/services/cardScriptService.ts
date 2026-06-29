@@ -57,12 +57,4 @@ export async function openScriptWithDefaultApp(path: string) {
   return openInDefaultApp(path);
 }
 
-export async function readCardScript(cdbPath: string, cardCode: number) {
-  return readCardScriptDocument(cdbPath, cardCode);
-}
-
-export async function saveCardScript(cdbPath: string, cardCode: number, content: string) {
-  return saveCardScriptDocument(cdbPath, cardCode, normalizeScriptContent(content));
-}
-
 export { buildScriptFileName, normalizeScriptContent };

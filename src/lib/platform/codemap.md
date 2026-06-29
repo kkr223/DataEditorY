@@ -13,10 +13,10 @@ Each feature registers as an `ExtensionModule` (`types.ts:148`) containing:
 - **Providers** — data access implementations (Tauri IPC or in-memory)
 - **Codecs** — file format encode/decode (`.cdb`, `.lua`, `.json`)
 - **Workbenches** — Svelte UI components for each document type
-- **Commands** — named operations (merge, package export)
-- **Services** — singleton service instances
 - **SettingsSections** — pluggable settings UI panels
 - **WorkbenchContributions** — injected UI contributions into other workbenches (e.g., AI buttons in card editor)
+- **GlobalTools** — top-level tool dialogs (e.g., batch image export)
+- **TaskRunners** — long-running background tasks routed through `native/taskApi`
 
 ### Key Classes
 
@@ -49,7 +49,6 @@ Each feature registers as an `ExtensionModule` (`types.ts:148`) containing:
 | `memoryProvider.ts` | In-memory `DataProvider` implementation |
 | `persistentMemoryProvider.ts` | localStorage-backed `DataProvider` for compatibility/persistent in-memory documents |
 | `filePatterns.ts` | File pattern matching utilities for codec resolution |
-| `workbenchActions.ts` | Workbench-level action helpers |
 | `appRuntime.ts` | Singleton `DocumentRuntime` instance with Tauri-backed `CodecContext` |
 | `store.svelte.ts` | Svelte reactive store bridging workspace state |
 | `index.ts` | Barrel re-export |

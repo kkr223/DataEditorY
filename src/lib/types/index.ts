@@ -20,11 +20,6 @@ nameOrDesc: string;
   setcode4: string;
 }
 
-export interface CardSearchQuery {
-  whereClause: string;
-  params: Record<string, string | number>;
-}
-
 export interface CardDataEntry {
   code: number;
   alias: number;

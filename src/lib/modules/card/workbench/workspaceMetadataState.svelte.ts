@@ -72,6 +72,15 @@ export type WorkspaceAiPatch =
     }
   | {
       id: string;
+      kind: 'script-test-plan';
+      documentId: string;
+      cdbPath: string;
+      cardCode: number;
+      path: string;
+      plan: unknown;
+    }
+  | {
+      id: string;
       kind: 'image';
       documentId: string;
       cdbPath: string;

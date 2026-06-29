@@ -9,7 +9,7 @@ Feature Controllers Layer — implements presentation logic for the shell, card 
 Features follow a consistent pattern:
 - `controller.ts` — main orchestration logic
 - `useCases.ts` — individual use case functions
-- `extraUseCases.ts` — use cases only available in `extra` variant
+- `extraUseCases.ts` — use cases only available in `extra` variant (optional; present in `card-editor`, `settings`)
 - `lifecycle.ts` — initialization and cleanup hooks
 - `components/` — feature-specific Svelte components
 

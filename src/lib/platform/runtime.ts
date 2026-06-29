@@ -9,7 +9,6 @@ import type {
   DocumentRuntimeSnapshot,
   DocumentSource,
   ExtensionModule,
-  PlatformCommandContext,
 } from './types';
 
 type RuntimeListener = (snapshot: DocumentRuntimeSnapshot) => void;
@@ -39,8 +38,16 @@ export class DocumentRuntime {
   }
 
   get snapshot(): DocumentRuntimeSnapshot {
+    // Shallow-copy each record: top-level fields (dirty, revision, title,
+    // source, ...) are captured point-in-time, while nested metadata /
+    // references are shared references. This is safe because runtime always
+    // *replaces* nested fields (never mutates them in place) and listeners
+    // only read the snapshot. structuredClone on every emit was the dominant
+    // cost when many CDBs are open (deep-cloned every document on each
+    // activate/execute/undo/save). Callers that need an isolated copy use
+    // getDocument()/getActiveDocument(), which still deep-clone.
     return {
-      documents: [...this.documents.values()].map((document) => this.cloneRecord(document)),
+      documents: [...this.documents.values()].map((document) => ({ ...document })),
       activeDocumentId: this.activeDocumentId,
     };
   }
@@ -178,19 +185,6 @@ export class DocumentRuntime {
       this.emit();
     }
     return result;
-  }
-
-  async executePlatformCommand<T = unknown>(commandId: string, input: unknown): Promise<T> {
-    const command = this.registry.commands.get(commandId);
-    if (!command) {
-      throw new Error(`Unknown platform command: ${commandId}`);
-    }
-    const context: PlatformCommandContext = {
-      getDocument: (id) => this.getDocument(id),
-      query: (id, query) => this.query(id, query),
-      execute: (id, value) => this.execute(id, value),
-    };
-    return command.execute(context, input) as Promise<T>;
   }
 
   async undo(documentId: string) {

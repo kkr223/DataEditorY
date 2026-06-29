@@ -35,27 +35,45 @@ documentRuntime.subscribe((snapshot) => {
     document.typeId === CARD_COLLECTION_TYPE
     && document.providerId === CDB_PROVIDER_ID
   ));
-  tabs.update((currentTabs) => cdbDocuments.map((document) => {
-    const current = currentTabs.find((tab) => tab.id === document.id);
-    const initialCards = Array.isArray(document.metadata.initialCards)
-      ? document.metadata.initialCards as CardDataEntry[]
-      : [];
-    const initialTotal = Number(document.metadata.total ?? initialCards.length);
-    return {
-      id: document.id,
-      path: document.source?.path ?? document.source?.uri ?? '',
-      name: document.title,
-      cachedCards: current?.cachedCards ?? initialCards,
-      cachedTotal: current?.cachedTotal ?? initialTotal,
-      cachedPage: current?.cachedPage ?? 1,
-      cachedFilters: current?.cachedFilters ?? '{}',
-      cachedSelectedIds: current?.cachedSelectedIds
-        ?? (initialCards[0] ? [initialCards[0].code] : []),
-      cachedSelectedId: current?.cachedSelectedId ?? initialCards[0]?.code ?? null,
-      cachedSelectionAnchorId: current?.cachedSelectionAnchorId ?? initialCards[0]?.code ?? null,
-      isDirty: document.dirty,
-    };
-  }));
+  tabs.update((currentTabs) => {
+    // Build a by-id index once so per-document lookup is O(1) (was O(n) via
+    // find() inside map(), making the whole rebuild O(n²)).
+    const currentById = new Map(currentTabs.map((tab) => [tab.id, tab]));
+    return cdbDocuments.map((document) => {
+      const current = currentById.get(document.id);
+      const path = document.source?.path ?? document.source?.uri ?? '';
+      const name = document.title;
+      // Reuse the existing tab object reference when the document-derived
+      // fields are unchanged. This prevents downstream stores ($activeTab,
+      // isDbLoaded) and every $effect that depends on $activeTab/$activeTabId
+      // from re-running on unrelated runtime emits (e.g. editing a card in
+      // tab A no longer rebuilds tab B's object).
+      if (current
+        && current.path === path
+        && current.name === name
+        && current.isDirty === document.dirty) {
+        return current;
+      }
+      const initialCards = Array.isArray(document.metadata.initialCards)
+        ? document.metadata.initialCards as CardDataEntry[]
+        : [];
+      const initialTotal = Number(document.metadata.total ?? initialCards.length);
+      return {
+        id: document.id,
+        path,
+        name,
+        cachedCards: current?.cachedCards ?? initialCards,
+        cachedTotal: current?.cachedTotal ?? initialTotal,
+        cachedPage: current?.cachedPage ?? 1,
+        cachedFilters: current?.cachedFilters ?? '{}',
+        cachedSelectedIds: current?.cachedSelectedIds
+          ?? (initialCards[0] ? [initialCards[0].code] : []),
+        cachedSelectedId: current?.cachedSelectedId ?? initialCards[0]?.code ?? null,
+        cachedSelectionAnchorId: current?.cachedSelectionAnchorId ?? initialCards[0]?.code ?? null,
+        isDirty: document.dirty,
+      };
+    });
+  });
   const activeDocument = snapshot.documents.find((document) => (
     document.id === snapshot.activeDocumentId
     && document.typeId === CARD_COLLECTION_TYPE

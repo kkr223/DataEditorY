@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::{HashMap, VecDeque}, sync::Mutex};
 
 use serde_json::{json, to_value, Value};
 
@@ -24,7 +24,7 @@ enum UndoEntry {
 }
 
 pub struct DocumentHostState {
-    undo: Mutex<HashMap<String, Vec<UndoEntry>>>,
+    undo: Mutex<HashMap<String, VecDeque<UndoEntry>>>,
 }
 
 impl DocumentHostState {
@@ -131,10 +131,23 @@ pub fn execute(
     match command {
         CardCollectionCommand::Upsert { cards } => {
             let affected_ids = cards.iter().map(|card| card.code).collect::<Vec<_>>();
+            // Single bulk query for previous state instead of one round-trip
+            // per affected id (was N session locks + N SQL queries).
+            let found_previous = cdb_cards::get_cards_by_ids(
+                sessions,
+                crate::models::cdb::GetCardsByIdsRequest {
+                    tab_id: document_id.clone(),
+                    card_ids: affected_ids.clone(),
+                },
+            )?;
+            let previous_by_id: HashMap<u32, CardDto> = found_previous
+                .into_iter()
+                .map(|card| (card.code, card))
+                .collect();
             let previous_cards = affected_ids
                 .iter()
-                .map(|card_id| cdb_cards::get_card_by_id(sessions, document_id.clone(), *card_id))
-                .collect::<Result<Vec<_>, _>>()?;
+                .map(|card_id| previous_by_id.get(card_id).cloned())
+                .collect::<Vec<_>>();
             cdb_cards::modify_cards(
                 sessions,
                 crate::models::cdb::ModifyCardsRequest {
@@ -185,7 +198,7 @@ pub fn undo(
             .undo
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        undo.get_mut(&document_id).and_then(Vec::pop)
+        undo.get_mut(&document_id).and_then(VecDeque::pop_back)
     };
     let Some(entry) = entry else {
         return Ok(ProviderCommandResult {
@@ -244,8 +257,8 @@ fn push_undo(state: &DocumentHostState, document_id: String, entry: UndoEntry) {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let stack = undo.entry(document_id).or_default();
-    stack.push(entry);
+    stack.push_back(entry);
     if stack.len() > 100 {
-        stack.remove(0);
+        stack.pop_front();
     }
 }

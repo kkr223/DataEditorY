@@ -115,17 +115,6 @@ export type WorkbenchDescriptor = {
   component: () => Promise<unknown>;
 };
 
-export type PlatformCommandContext = {
-  getDocument(id: DocumentId): DocumentRecord | null;
-  query<T = unknown>(id: DocumentId, query: unknown): Promise<T>;
-  execute<T = unknown>(id: DocumentId, command: unknown): Promise<CommandResult<T>>;
-};
-
-export type CommandDescriptor = {
-  id: string;
-  execute(context: PlatformCommandContext, input: unknown): Promise<unknown>;
-};
-
 export type SettingsSectionDescriptor = {
   id: string;
   order?: number;
@@ -162,7 +151,6 @@ export type ExtensionModule = {
   providers?: ProviderDescriptor[];
   codecs?: CodecDescriptor[];
   workbenches?: WorkbenchDescriptor[];
-  commands?: CommandDescriptor[];
   settingsSections?: SettingsSectionDescriptor[];
   workbenchContributions?: WorkbenchContributionDescriptor[];
   globalTools?: GlobalToolDescriptor[];

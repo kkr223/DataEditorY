@@ -5,6 +5,7 @@ export type SettingsFormState = {
   apiBaseUrl: string;
   model: string;
   temperature: number;
+  ygoproPath: string;
   scriptDirectory: string;
   scriptTemplate: string;
   useExternalScriptEditor: boolean;
@@ -19,6 +20,7 @@ export function createSettingsFormState(): SettingsFormState {
     apiBaseUrl: '',
     model: 'gpt-4o-mini',
     temperature: 1,
+    ygoproPath: '',
     scriptDirectory: '',
     scriptTemplate: '',
     useExternalScriptEditor: false,
@@ -65,6 +67,7 @@ export function hydrateSettingsForm(
   form.apiBaseUrl = values.apiBaseUrl;
   form.model = values.model;
   form.temperature = values.temperature;
+  form.ygoproPath = values.ygoproPath;
   form.scriptDirectory = values.scriptDirectory;
   form.scriptTemplate = values.scriptTemplate;
   form.useExternalScriptEditor = values.useExternalScriptEditor;
@@ -88,6 +91,7 @@ export function isSettingsFormDirty(
   return form.apiBaseUrl !== values.apiBaseUrl
     || form.model !== values.model
     || getNormalizedSettingsTemperature(form.temperature) !== getNormalizedSettingsTemperature(values.temperature)
+    || form.ygoproPath.trim() !== values.ygoproPath.trim()
     || form.scriptDirectory.trim() !== values.scriptDirectory.trim()
     || form.scriptTemplate !== values.scriptTemplate
     || form.useExternalScriptEditor !== values.useExternalScriptEditor

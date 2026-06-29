@@ -29,7 +29,6 @@
   import CardEditorHeader from "$lib/features/card-editor/components/CardEditorHeader.svelte";
   import CardImagePreview from "$lib/features/card-editor/components/CardImagePreview.svelte";
   import WorkbenchContributions from "$lib/platform/components/WorkbenchContributions.svelte";
-  import { dispatchWorkbenchAction } from "$lib/platform";
   import { documentRuntime } from "$lib/platform/appRuntime";
   import type { CardWorkbenchContext } from "$lib/modules/card/workbench/context";
   import { aiProposalApplicationState, consumeAiCardDraftPatch } from "$lib/modules/card/workbench/aiProposalApplication.svelte";
@@ -51,7 +50,6 @@
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
   let imageRequestToken = 0;
   let isImagePreviewOpen = $state(false);
-  let imageClickTimer: ReturnType<typeof setTimeout> | null = null;
   let lastSyncedSelectedId: number | null = null;
   let lastLoadedCardSnapshot = $state("");
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
@@ -93,12 +91,6 @@
     },
     nextImageRequestToken: () => ++imageRequestToken,
     isLatestImageRequestToken: (token) => token === imageRequestToken,
-    clearPendingImageClick: () => {
-      if (imageClickTimer) {
-        clearTimeout(imageClickTimer);
-        imageClickTimer = null;
-      }
-    },
     getImageSrc: () => imageSrc,
     setImageSrc: (src) => {
       imageSrc = src;
@@ -231,6 +223,30 @@
       dirty: workspaceDirty,
       closeGuard: workspaceDirty ? 'confirm-dirty' : 'none',
     });
+  }
+
+  // Coalesce rapid draft mutations (every keystroke edits draftCard) into a
+  // single periodic persist. Without this, each keystroke built a snapshot
+  // and wrote two reactive stores, cascading reactivity through the
+  // workspace lifecycle layer. The debounce is flushed synchronously before
+  // a workspace switch and on teardown so no draft is lost.
+  const PERSIST_DRAFT_DEBOUNCE_MS = 250;
+  let persistDraftTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function schedulePersistBoundWorkspaceDraft() {
+    if (persistDraftTimer) clearTimeout(persistDraftTimer);
+    persistDraftTimer = setTimeout(() => {
+      persistDraftTimer = null;
+      persistBoundWorkspaceDraft();
+    }, PERSIST_DRAFT_DEBOUNCE_MS);
+  }
+
+  function flushPersistBoundWorkspaceDraft() {
+    if (persistDraftTimer) {
+      clearTimeout(persistDraftTimer);
+      persistDraftTimer = null;
+    }
+    persistBoundWorkspaceDraft();
   }
 
   function restoreWorkspaceDraft(workspaceId: string | null) {
@@ -371,30 +387,16 @@
     cancelScriptGeneration: () => {
       // Optional modules own their own cancellable work.
     },
-    disposeImageInteraction: () => {
-      if (imageClickTimer) clearTimeout(imageClickTimer);
-    },
+    disposeImageInteraction: () => {},
   }));
 
   onDestroy(() => {
-    persistBoundWorkspaceDraft();
+    flushPersistBoundWorkspaceDraft();
     teardownCardEditorOnDestroy({ handleEditorKeydown });
   });
 
-  function handleImageClick() {
-    if (imageClickTimer) clearTimeout(imageClickTimer);
-    imageClickTimer = setTimeout(() => {
-      imageClickTimer = null;
-      dispatchWorkbenchAction('card-image.pick');
-    }, 220);
-  }
-
   function handleImageDoubleClick(event: MouseEvent) {
     event.preventDefault();
-    if (imageClickTimer) {
-      clearTimeout(imageClickTimer);
-      imageClickTimer = null;
-    }
     if (imageSrc) isImagePreviewOpen = true;
   }
 
@@ -411,7 +413,7 @@
     const nextWorkspaceId = $activeTabId;
     if (nextWorkspaceId === boundWorkspaceId) return;
 
-    persistBoundWorkspaceDraft();
+    flushPersistBoundWorkspaceDraft();
     restoreWorkspaceDraft(nextWorkspaceId);
     boundWorkspaceId = nextWorkspaceId;
   });
@@ -426,7 +428,7 @@
     lastDefaultCoverSrc;
     draftUndoHistory;
     trackedDraftSnapshot;
-    persistBoundWorkspaceDraft();
+    schedulePersistBoundWorkspaceDraft();
   });
 
   $effect(() => {
@@ -582,7 +584,6 @@
       scaleLeftLabel={$_("editor.scale_left")}
       scaleRightLabel={$_("editor.scale_right")}
       hintsLabel={$_("editor.hints")}
-      onImageClick={handleImageClick}
       onImageDoubleClick={handleImageDoubleClick}
       onImageError={lifecycleController.handleImageError}
       onSetcodeSelectChange={handleSetcodeSelectChange}

@@ -3,6 +3,7 @@
   import { activeTab } from '$lib/stores/db';
   import { showToast } from '$lib/stores/toast.svelte';
   import { createAiAppContext } from '$lib/features/ai/context';
+  import { runScriptTestPlan } from '$lib/features/ai/scriptTestRunner';
   import { runWorkspaceAgent, type AgentStage } from '$lib/native/aiApi';
   import { appSettingsState, connectAiProvider, loadAppSettings, saveAppSettings } from '$lib/stores/appSettings.svelte';
   import { documentRuntime } from '$lib/platform/appRuntime';
@@ -59,6 +60,8 @@
   let modelMenuOpen = $state(false);
   let modelFilterActive = $state(false);
   let lastCompactionKey = $state('');
+  let runningTestPatchId = $state('');
+  let scriptTestResults = $state<Record<string, { ok: boolean; message: string }>>({});
   const stageLabel = $derived(stage ? $_(`surface.ai_stage_${stage}`) : '');
   const accessModeLabel = $derived(fullAccess ? $_('surface.ai_full_access') : $_('surface.ai_review_access'));
 
@@ -379,6 +382,57 @@
     await writeTextFile(patch.path, patch.content);
   }
 
+  async function applyScriptTestPlanPatch(patch: Extract<WorkspaceAiPatch, { kind: 'script-test-plan' }>) {
+    await writeTextFile(patch.path, `${JSON.stringify(patch.plan, null, 2)}\n`);
+  }
+
+  function patchFileName(path: string) {
+    return path.replace(/\\/g, '/').split('/').pop() ?? path;
+  }
+
+  function scriptOverridesForProposal(proposal: WorkspaceAiProposal) {
+    const overrides: Record<string, string> = {};
+    for (const patch of proposal.patches) {
+      if (patch.kind === 'script') {
+        overrides[patchFileName(patch.path)] = patch.content;
+      }
+    }
+    return overrides;
+  }
+
+  async function runTestPlanPatch(
+    proposal: WorkspaceAiProposal,
+    patch: Extract<WorkspaceAiPatch, { kind: 'script-test-plan' }>,
+  ) {
+    if (runningTestPatchId) return;
+    runningTestPatchId = patch.id;
+    try {
+      await loadAppSettings();
+      const result = await runScriptTestPlan({
+        plan: patch.plan,
+        cdbPath: patch.cdbPath,
+        cardCode: patch.cardCode,
+        ygoproPath: appSettingsState.values.ygoproPath,
+        scriptDirectory: appSettingsState.values.scriptDirectory,
+        scriptOverrides: scriptOverridesForProposal(proposal),
+      });
+      scriptTestResults = {
+        ...scriptTestResults,
+        [patch.id]: { ok: true, message: result.summary },
+      };
+      showToast($_('surface.ai_test_passed', { values: { summary: result.summary } }), 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      scriptTestResults = {
+        ...scriptTestResults,
+        [patch.id]: { ok: false, message },
+      };
+      showToast($_('surface.ai_test_failed', { values: { message } }), 'error');
+    } finally {
+      runningTestPatchId = '';
+    }
+  }
+
   function applyImagePatch(patch: Extract<WorkspaceAiPatch, { kind: 'image' }>) {
     const current = getCardImageDocument(patch.cardCode);
     const card = (patch.patch && typeof patch.patch === 'object' && 'card' in patch.patch)
@@ -410,6 +464,7 @@
     if (patch.kind === 'card') return applyCardPatch(patch);
     if (patch.kind === 'batch-card') return applyBatchCardPatch(patch);
     if (patch.kind === 'script') return applyScriptPatch(patch);
+    if (patch.kind === 'script-test-plan') return applyScriptTestPlanPatch(patch);
     return applyImagePatch(patch);
   }
 
@@ -461,6 +516,7 @@
     if (patch.kind === 'card') return `card ${patch.cardCode}`;
     if (patch.kind === 'batch-card') return `batch ${patch.cards.length}`;
     if (patch.kind === 'script') return patch.path;
+    if (patch.kind === 'script-test-plan') return patch.path;
     return `image ${patch.cardCode}`;
   }
 
@@ -479,6 +535,9 @@
     }
     if (patch.kind === 'script') {
       return [{ field: 'content', before: '(file)', after: patch.content }];
+    }
+    if (patch.kind === 'script-test-plan') {
+      return [{ field: 'testPlan', before: '(.dey temporary file)', after: patch.plan }];
     }
     return Object.entries(patch.patch as Record<string, unknown>).map(([field, value]) => ({
       field,
@@ -696,9 +755,26 @@
             {#each proposal.patches as patch}
               <details class="patch-card" open>
                 <summary>{patch.kind}: {patchTitle(patch)}</summary>
-                <button class="ghost-button patch-apply" type="button" onclick={() => void applyProposal(proposal, patch)}>
-                  {$_('surface.ai_apply_patch')}
-                </button>
+                <div class="patch-actions">
+                  <button class="ghost-button" type="button" onclick={() => void applyProposal(proposal, patch)}>
+                    {$_('surface.ai_apply_patch')}
+                  </button>
+                  {#if patch.kind === 'script-test-plan'}
+                    <button
+                      class="ghost-button"
+                      type="button"
+                      disabled={Boolean(runningTestPatchId)}
+                      onclick={() => void runTestPlanPatch(proposal, patch)}
+                    >
+                      {runningTestPatchId === patch.id ? $_('surface.ai_test_running') : $_('surface.ai_run_test_plan')}
+                    </button>
+                  {/if}
+                </div>
+                {#if scriptTestResults[patch.id]}
+                  <p class="test-result" class:failed={!scriptTestResults[patch.id].ok}>
+                    {scriptTestResults[patch.id].message}
+                  </p>
+                {/if}
                 <div class="proposal-diff">
                   {#each patchRows(patch) as row}
                     <div class="diff-row">
@@ -1360,8 +1436,23 @@
     font-weight: 760;
   }
 
-  .patch-apply {
+  .patch-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-top: 8px;
+  }
+
+  .test-result {
+    margin-top: 8px;
+    color: #2f9b73;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    word-break: break-word;
+  }
+
+  .test-result.failed {
+    color: #cc5964;
   }
 
   .proposal-diff {

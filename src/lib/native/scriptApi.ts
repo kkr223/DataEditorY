@@ -9,8 +9,6 @@ export {
 
 export {
   openCardScriptWorkspace,
-  readCardScript,
-  saveCardScript,
 } from '$lib/services/cardScriptService';
 
 import { invokeCommand } from '$lib/infrastructure/tauri';

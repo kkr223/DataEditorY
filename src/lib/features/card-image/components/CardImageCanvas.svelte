@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { FOREGROUND_EDITOR_CARD_HEIGHT, FOREGROUND_EDITOR_CARD_WIDTH, type CropBox } from '$lib/features/card-image/controller';
+  import { FOREGROUND_EDITOR_CARD_HEIGHT, FOREGROUND_EDITOR_CARD_WIDTH, type CropBox } from '$lib/features/card-image/controller.svelte';
 
   type CropStageMetrics = {
     stageWidth: number;

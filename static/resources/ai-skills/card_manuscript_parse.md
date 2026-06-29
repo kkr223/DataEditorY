@@ -24,7 +24,7 @@ Map manuscript content to CDB fields as follows:
 | Manuscript element | CDB field | Notes |
 |---|---|---|
 | Card name | `name` | Preserve exactly as written. |
-| ATK / DEF | `atk` / `def` | Parse integers. Use -2 for `?`. |
+| ATK / DEF | `attack` / `defense` | Parse integers. Use -2 for `?`. |
 | Level / Rank / Link | `level` | Level/Rank = star count (1-12); Link = link arrows count (1-8). |
 | Type line (e.g. "Effect Monster / Dragon") | `type`, `race` | Compute bitmask from type keywords. |
 | Attribute (FIRE, WATER…) | `attribute` | Compute bitmask. |

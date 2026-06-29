@@ -1,7 +1,6 @@
 import { normalizeFilePattern, matchesFilePattern } from './filePatterns';
 import type {
   CodecDescriptor,
-  CommandDescriptor,
   DataTypeDefinition,
   ExtensionModule,
   GlobalToolDescriptor,
@@ -30,7 +29,6 @@ export class ExtensionRegistry {
   readonly providers = new Map<string, ProviderDescriptor>();
   readonly codecs = new Map<string, CodecDescriptor>();
   readonly workbenches = new Map<string, WorkbenchDescriptor>();
-  readonly commands = new Map<string, CommandDescriptor>();
   readonly settingsSections = new Map<string, SettingsSectionDescriptor>();
   readonly workbenchContributions = new Map<string, WorkbenchContributionDescriptor>();
   readonly globalTools = new Map<string, GlobalToolDescriptor>();
@@ -110,9 +108,6 @@ export class ExtensionRegistry {
     }
     for (const workbench of module.workbenches ?? []) {
       addUnique(this.workbenches, workbench.id, workbench, 'workbench');
-    }
-    for (const command of module.commands ?? []) {
-      addUnique(this.commands, command.id, command, 'command');
     }
     for (const section of module.settingsSections ?? []) {
       addUnique(this.settingsSections, section.id, section, 'settings section');

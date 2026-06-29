@@ -1171,27 +1171,27 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function buildPreviewData(): CardImageFormData {
-    return applyAutoRarityStyle(normalizeModuleData(normalizeCardImageFormData({
+    return applyAutoRarityStyle(normalizeCardImageFormData({
       ...state.form,
       image: state.croppedImageDataUrl,
       scale: Math.max(getPreviewScale(), 0.1),
-    })));
+    }));
   }
 
   function buildJpgData(): CardImageFormData {
-    return applyAutoRarityStyle(normalizeModuleData(normalizeCardImageFormData({
+    return applyAutoRarityStyle(normalizeCardImageFormData({
       ...state.form,
       image: state.croppedImageDataUrl,
       scale: state.exportScalePercent / 100,
-    })));
+    }));
   }
 
   function buildPngData(): CardImageFormData {
-    return applyAutoRarityStyle(normalizeModuleData(normalizeCardImageFormData({
+    return applyAutoRarityStyle(normalizeCardImageFormData({
       ...state.form,
       image: state.croppedImageDataUrl,
       scale: 1,
-    })));
+    }));
   }
 
   function buildForegroundPreviewData(): CardImageFormData {
@@ -1258,10 +1258,6 @@ export function createCardImageController(source: CardImageControllerSource) {
       radius: data.radius,
       scale: data.scale,
     });
-  }
-
-  function normalizeModuleData(data: CardImageFormData): CardImageFormData {
-    return data;
   }
 
   async function renderSquareJpgBlob(dataUrl: string, size: number, quality = 0.92) {

@@ -66,6 +66,7 @@ pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSet
     }
     settings.script_template = normalize_script_template(settings.script_template);
     settings.script_directory = normalize_script_directory(settings.script_directory);
+    settings.ygopro_path = normalize_ygopro_path(settings.ygopro_path);
     settings.package_include_patterns =
         normalize_package_include_patterns(Some(settings.package_include_patterns));
     settings.shortcut_bindings = normalize_shortcut_bindings(Some(settings.shortcut_bindings));
@@ -104,6 +105,10 @@ pub(crate) fn normalize_script_template(value: String) -> String {
 }
 
 pub(crate) fn normalize_script_directory(value: String) -> String {
+    value.trim().trim_end_matches(['/', '\\']).to_string()
+}
+
+pub(crate) fn normalize_ygopro_path(value: String) -> String {
     value.trim().trim_end_matches(['/', '\\']).to_string()
 }
 
@@ -167,6 +172,7 @@ pub(crate) fn to_settings_payload(
             settings.model
         },
         temperature: normalize_temperature(Some(settings.temperature)),
+        ygopro_path: normalize_ygopro_path(settings.ygopro_path),
         script_directory: normalize_script_directory(settings.script_directory),
         script_template: normalize_script_template(settings.script_template),
         use_external_script_editor: settings.use_external_script_editor,
@@ -224,6 +230,10 @@ mod tests {
         assert_eq!(
             normalize_script_directory(" C:\\Project\\script\\ ".to_string()),
             "C:\\Project\\script"
+        );
+        assert_eq!(
+            normalize_ygopro_path(" D:\\ygopro\\ ".to_string()),
+            "D:\\ygopro"
         );
         assert_eq!(
             normalize_script_template("   ".to_string()),

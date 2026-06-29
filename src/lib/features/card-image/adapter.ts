@@ -298,21 +298,18 @@ type LocaleConfig = {
   stripTrailingPendulumRule?: RegExp;
 };
 
+const SC_LOCALE_CONFIG: LocaleConfig = {
+  strings: SC_STRINGS,
+  monsterTypeSeparator: "/",
+  monsterEffectPattern: /【怪兽效果】|【怪兽描述】/,
+  pendulumHeaderPattern: /^←\d+\s*【灵摆】\s*\d+→\n?/,
+  useFullWidthNumbers: true,
+};
+
 const LOCALE_CONFIGS: Record<CardImageLanguage, LocaleConfig> = {
-  sc: {
-    strings: SC_STRINGS,
-    monsterTypeSeparator: "/",
-    monsterEffectPattern: /【怪兽效果】|【怪兽描述】/,
-    pendulumHeaderPattern: /^←\d+\s*【灵摆】\s*\d+→\n?/,
-    useFullWidthNumbers: true,
-  },
-  astral: {
-    strings: SC_STRINGS,
-    monsterTypeSeparator: "/",
-    monsterEffectPattern: /【怪兽效果】|【怪兽描述】/,
-    pendulumHeaderPattern: /^←\d+\s*【灵摆】\s*\d+→\n?/,
-    useFullWidthNumbers: true,
-  },
+  sc: SC_LOCALE_CONFIG,
+  // ponytail: astral is a display alias for sc; share the simplified-Chinese locale config.
+  astral: SC_LOCALE_CONFIG,
   tc: {
     strings: TC_STRINGS,
     monsterTypeSeparator: "／",

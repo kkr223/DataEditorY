@@ -342,22 +342,6 @@ fn add_path_to_zip<W: Write + Seek>(
         .map_err(|err| err.to_string())
 }
 
-#[allow(dead_code)]
-pub fn package_cdb_assets_as_zip(
-    cdb_path: String,
-    output_path: String,
-) -> Result<ZipPackageInfo, String> {
-    package_cdb_assets_as_zip_with_progress(
-        cdb_path,
-        output_path,
-        crate::DEFAULT_PACKAGE_INCLUDE_PATTERNS
-            .iter()
-            .map(|item| item.to_string())
-            .collect(),
-        &mut |_| {},
-    )
-}
-
 pub fn package_cdb_assets_as_zip_with_progress(
     cdb_path: String,
     output_path: String,
@@ -428,6 +412,21 @@ mod tests {
     use crate::test_helpers::{create_test_cdb, make_temp_dir};
     use std::path::Path;
     use zip::ZipArchive;
+
+    fn package_with_default_patterns(
+        cdb_path: String,
+        output_path: String,
+    ) -> Result<ZipPackageInfo, String> {
+        package_cdb_assets_as_zip_with_progress(
+            cdb_path,
+            output_path,
+            crate::DEFAULT_PACKAGE_INCLUDE_PATTERNS
+                .iter()
+                .map(|item| item.to_string())
+                .collect(),
+            &mut |_| {},
+        )
+    }
 
     #[test]
     fn builds_zip_entries_with_forward_slashes() {
@@ -509,7 +508,7 @@ mod tests {
         fs::write(root.join("custom.CONF"), "# custom").unwrap();
         fs::write(root.join("notes.txt"), "ignore").unwrap();
 
-        package_cdb_assets_as_zip(
+        package_with_default_patterns(
             cdb_path.to_string_lossy().to_string(),
             output_zip_path.to_string_lossy().to_string(),
         )
@@ -556,7 +555,7 @@ mod tests {
         fs::write(pics_dir.join("111.jpg"), [1u8, 2u8, 3u8]).unwrap();
         fs::write(script_dir.join("c111.lua"), "print('hello')").unwrap();
 
-        package_cdb_assets_as_zip(
+        package_with_default_patterns(
             cdb_path.to_string_lossy().to_string(),
             output_zip_path.to_string_lossy().to_string(),
         )
@@ -584,7 +583,7 @@ mod tests {
         create_test_cdb(&cdb_path, &[(111, 0x1)]);
         fs::write(pics_dir.join("111.jpg"), [9u8, 8u8, 7u8]).unwrap();
 
-        let err = package_cdb_assets_as_zip(
+        let err = package_with_default_patterns(
             cdb_path.to_string_lossy().to_string(),
             pics_dir.join("111.jpg").to_string_lossy().to_string(),
         )

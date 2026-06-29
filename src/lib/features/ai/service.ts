@@ -68,6 +68,8 @@ export type AiAppContext = {
   }>;
   readImageConfig: (code: number, dbPath?: string) => unknown;
   resolveScriptPath: (dbPath: string, fileName: string) => Promise<string>;
+  resolveScriptTestPath: (dbPath: string, code: number) => Promise<string>;
+  getYgoproPath: () => Promise<string>;
 };
 
 export type AgentToolCallEvent = {
@@ -110,11 +112,13 @@ export type AiToolName =
   | 'get_card'
   | 'get_selected_cards'
   | 'read_card_script'
+  | 'get_script_test_context'
   | 'readimg'
   | 'read_image_config'
   | 'propose_card_patch'
   | 'propose_batch_card_patch'
   | 'propose_script_write'
+  | 'propose_script_test_plan'
   | 'propose_image_config_patch';
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
@@ -129,11 +133,13 @@ export const AI_TOOL_NAMES: AiToolName[] = [
   'get_card',
   'get_selected_cards',
   'read_card_script',
+  'get_script_test_context',
   'readimg',
   'read_image_config',
   'propose_card_patch',
   'propose_batch_card_patch',
   'propose_script_write',
+  'propose_script_test_plan',
   'propose_image_config_patch',
 ];
 
@@ -144,6 +150,7 @@ export const READONLY_PROPOSAL_TOOL_NAMES: AiToolName[] = [
   'get_card',
   'get_selected_cards',
   'read_card_script',
+  'get_script_test_context',
   'readimg',
   'read_image_config',
 ];
@@ -176,7 +183,7 @@ const TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'search_cards',
-      description: 'Search cards in opened CDB databases by name or description text. Use an empty string query with page/limit to enumerate all cards in chunks (default limit=10, max=50). Returns card code, name, type, atk, def, level, and a truncated desc.',
+      description: 'Search cards in opened CDB databases by name or description text. Use an empty string query with page/limit to enumerate all cards in chunks (default limit=10, max=50). Returns card code, name, type, attack, defense, level, and a truncated desc.',
       parameters: {
         type: 'object',
         properties: {
@@ -194,7 +201,7 @@ const TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'get_card',
-      description: 'Read the full data of one card by its numeric code (card ID) from an opened database. Returns all fields: code, name, type, atk, def, level, race, attribute, desc, setcode, strings.',
+      description: 'Read the full data of one card by its numeric code (card ID) from an opened database. Returns all fields: code, name, type, attack, defense, level, race, attribute, desc, setcode, strings.',
       parameters: {
         type: 'object',
         properties: {
@@ -229,6 +236,22 @@ const TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
         type: 'object',
         properties: {
           code: { type: 'number', description: 'Card code (positive integer). The file name will be c{code}.lua.' },
+          dbPath: { type: 'string', description: 'File path of the target CDB. Omit to use the active database.' },
+        },
+        required: ['code'],
+        additionalProperties: false,
+      },
+    },
+  },
+  get_script_test_context: {
+    type: 'function',
+    function: {
+      name: 'get_script_test_context',
+      description: 'Return paths needed for an in-app temporary script test plan: target CDB path, script directory, .dey test plan path, and the configured YGOPro root path.',
+      parameters: {
+        type: 'object',
+        properties: {
+          code: { type: 'number', description: 'Card code (positive integer).' },
           dbPath: { type: 'string', description: 'File path of the target CDB. Omit to use the active database.' },
         },
         required: ['code'],
@@ -307,7 +330,7 @@ const TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
               additionalProperties: false,
             },
           },
-          summary: { type: 'object', description: 'A brief summary of what this batch changes (e.g. {"field": "atk", "change": "set all to 1500"}).' },
+          summary: { type: 'object', description: 'A brief summary of what this batch changes (e.g. {"field": "attack", "change": "set all to 1500"}).' },
         },
         required: ['cards'],
         additionalProperties: false,
@@ -327,6 +350,26 @@ const TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
           content: { type: 'string', description: 'Complete Lua script content to write.' },
         },
         required: ['fileName', 'content'],
+        additionalProperties: false,
+      },
+    },
+  },
+  propose_script_test_plan: {
+    type: 'function',
+    function: {
+      name: 'propose_script_test_plan',
+      description: 'Queue a temporary in-app script test plan for one card script. The JSON plan is written under workspace .dey/ai-tests only after user confirmation. It must describe setup/assertions, not TypeScript code.',
+      parameters: {
+        type: 'object',
+        properties: {
+          dbPath: { type: 'string', description: 'File path of the target CDB. Omit to use the active database.' },
+          code: { type: 'number', description: 'Card code (positive integer).' },
+          plan: {
+            type: 'object',
+            description: 'JSON test plan for the built-in runner, e.g. {"version":1,"cardCode":123,"checks":[{"kind":"load-script"}]}.',
+          },
+        },
+        required: ['code', 'plan'],
         additionalProperties: false,
       },
     },
@@ -510,6 +553,71 @@ function applyCardPatch(card: CardDataEntry, patch: Record<string, unknown>) {
   } as CardDataEntry;
 }
 
+const CARD_PATCH_ALIASES: Record<string, keyof CardDataEntry> = {
+  atk: 'attack',
+  def: 'defense',
+};
+
+const STRING_CARD_PATCH_FIELDS = new Set<keyof CardDataEntry>(['name', 'desc']);
+const NUMBER_ARRAY_CARD_PATCH_FIELDS = new Set<keyof CardDataEntry>(['setcode']);
+const STRING_ARRAY_CARD_PATCH_FIELDS = new Set<keyof CardDataEntry>(['strings']);
+const NUMERIC_CARD_PATCH_FIELDS = new Set<keyof CardDataEntry>([
+  'alias',
+  'type',
+  'attack',
+  'defense',
+  'level',
+  'race',
+  'attribute',
+  'category',
+  'ot',
+  'lscale',
+  'rscale',
+  'linkMarker',
+  'ruleCode',
+]);
+
+function normalizeFiniteNumber(value: unknown) {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function normalizeAiNumericCardField(key: keyof CardDataEntry, value: unknown) {
+  if ((key === 'attack' || key === 'defense') && (value === '?' || value === '？')) {
+    return -2;
+  }
+  return normalizeFiniteNumber(value);
+}
+
+export function normalizeAiCardPatch(value: unknown): Record<string, unknown> | null {
+  if (!isRecord(value)) return null;
+
+  const patch: Record<string, unknown> = {};
+  for (const [rawKey, rawValue] of Object.entries(value)) {
+    const key = (CARD_PATCH_ALIASES[rawKey] ?? rawKey) as keyof CardDataEntry;
+    if (STRING_CARD_PATCH_FIELDS.has(key)) {
+      patch[key] = String(rawValue ?? '');
+      continue;
+    }
+    if (NUMBER_ARRAY_CARD_PATCH_FIELDS.has(key) && Array.isArray(rawValue)) {
+      patch[key] = rawValue
+        .map(normalizeFiniteNumber)
+        .filter((item): item is number => item !== null);
+      continue;
+    }
+    if (STRING_ARRAY_CARD_PATCH_FIELDS.has(key) && Array.isArray(rawValue)) {
+      patch[key] = rawValue.map((item) => String(item ?? '')).slice(0, 16);
+      continue;
+    }
+    if (NUMERIC_CARD_PATCH_FIELDS.has(key)) {
+      const numeric = normalizeAiNumericCardField(key, rawValue);
+      if (numeric !== null) patch[key] = numeric;
+    }
+  }
+
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+
 async function runTool(input: {
   name: AiToolName;
   args: Record<string, unknown>;
@@ -579,6 +687,22 @@ async function runTool(input: {
     return context.readCardScript(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
   }
 
+  if (name === 'get_script_test_context') {
+    const code = Number(args.code ?? 0);
+    if (!Number.isInteger(code) || code <= 0) throw new Error('code must be a positive integer');
+    const tab = getActiveDb(context, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    if (!tab) throw new Error('opened database is required');
+    const script = await context.readCardScript(code, tab.path);
+    return {
+      code,
+      cdbPath: tab.path,
+      scriptPath: script.path,
+      scriptDir: script.path ? script.path.replace(/[\\/][^\\/]+$/, '') : null,
+      testPlanPath: await context.resolveScriptTestPath(tab.path, code),
+      ygoproPath: await context.getYgoproPath(),
+    };
+  }
+
   if (name === 'read_image_config' || name === 'readimg') {
     const code = Number(args.code ?? 0);
     if (!Number.isInteger(code) || code <= 0) throw new Error('code must be a positive integer');
@@ -587,7 +711,8 @@ async function runTool(input: {
 
   if (name === 'propose_card_patch') {
     const code = Number(args.code ?? 0);
-    if (!Number.isInteger(code) || code <= 0 || !isRecord(args.patch)) throw new Error('code and patch are required');
+    const normalizedPatch = normalizeAiCardPatch(args.patch);
+    if (!Number.isInteger(code) || code <= 0 || !normalizedPatch) throw new Error('code and patch are required');
     const result = await getCard(context, code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
     if (!result) throw new Error('target card was not found in an opened database');
     const patch: WorkspaceAiPatch = {
@@ -597,8 +722,8 @@ async function runTool(input: {
       cdbPath: result.tab.path,
       cardCode: code,
       before: result.card,
-      patch: args.patch,
-      after: applyCardPatch(result.card, args.patch),
+      patch: normalizedPatch,
+      after: applyCardPatch(result.card, normalizedPatch),
     };
     patches.push(patch);
     return { patchId: patch.id, kind: patch.kind, cardCode: code, queuedPatches: patches.length, continueIfMoreWorkRemains: true };
@@ -609,7 +734,9 @@ async function runTool(input: {
     if (!tab || !Array.isArray(args.cards)) throw new Error('opened database and cards are required');
     const cards = [];
     for (const item of args.cards) {
-      if (!isRecord(item) || !isRecord(item.patch)) continue;
+      if (!isRecord(item)) continue;
+      const normalizedPatch = normalizeAiCardPatch(item.patch);
+      if (!normalizedPatch) continue;
       const code = Number(item.code ?? 0);
       if (!Number.isInteger(code) || code <= 0) continue;
       const current = await context.queryCards<CardDataEntry | null>(tab.id, { kind: 'getById', cardId: code });
@@ -617,8 +744,8 @@ async function runTool(input: {
       cards.push({
         cardCode: code,
         before: current,
-        patch: item.patch,
-        after: applyCardPatch(current, item.patch),
+        patch: normalizedPatch,
+        after: applyCardPatch(current, normalizedPatch),
       });
     }
     const patch: WorkspaceAiPatch = {
@@ -650,6 +777,23 @@ async function runTool(input: {
     return { patchId: patch.id, kind: patch.kind, path: patch.path, queuedPatches: patches.length, continueIfMoreWorkRemains: true };
   }
 
+  if (name === 'propose_script_test_plan') {
+    const tab = getActiveDb(context, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    const code = Number(args.code ?? 0);
+    if (!tab || !Number.isInteger(code) || code <= 0 || !isRecord(args.plan)) throw new Error('opened database, code, and plan are required');
+    const patch: WorkspaceAiPatch = {
+      id: createId('ai-patch'),
+      kind: 'script-test-plan',
+      documentId: tab.id,
+      cdbPath: tab.path,
+      cardCode: code,
+      path: await context.resolveScriptTestPath(tab.path, code),
+      plan: args.plan,
+    };
+    patches.push(patch);
+    return { patchId: patch.id, kind: patch.kind, path: patch.path, queuedPatches: patches.length, continueIfMoreWorkRemains: true };
+  }
+
   if (name === 'propose_image_config_patch') {
     const code = Number(args.code ?? 0);
     const tab = getActiveDb(context, typeof args.dbPath === 'string' ? args.dbPath : undefined);
@@ -671,7 +815,7 @@ async function runTool(input: {
 
 function buildSystemPrompt(skills: AiSkill[]) {
   return [
-    '你是 DataEditorY 的数据库级 AI agent，专门处理 YGOPro/EDOPro 自定义卡片数据库（.cdb）的读取与编辑任务。',
+    '你是 DataEditorY 的数据库级 AI agent，专门处理官方 YGOPro 自定义卡片数据库（.cdb）的读取与编辑任务。',
     '',
     '## 工作模式',
     '- 你可以读取当前已打开的 CDB、卡片数据、Lua 脚本、卡图配置，并通过 sandbox proposal 工具将修改写入可审查的提案（存储于 .dey）。',
@@ -686,8 +830,8 @@ function buildSystemPrompt(skills: AiSkill[]) {
     '- code: 卡片唯一 ID（正整数），不可修改。',
     '- name: 卡片名称字符串。',
     '- type: 卡片类型位掩码（多个类型用位 OR 组合，如 Monster=1, Spell=2, Trap=4, Effect=32 等）。',
-    '- atk: 攻击力（整数，?/-2 用 -2 表示）。',
-    '- def: 守备力（整数，?/-2，Link 怪兽无守备则为 0）。',
+    '- attack: 攻击力（整数，?/-2 用 -2 表示；兼容输入 atk，但提案中优先使用 attack）。',
+    '- defense: 守备力（整数，?/-2，Link 怪兽无守备则为 0；兼容输入 def，但提案中优先使用 defense）。',
     '- level: 星级/阶级（1-12；Link 怪兽此字段存 Link 数 1-8）。',
     '- race: 种族位掩码（如 Warrior=1, Spellcaster=2, Dragon=4 等）。',
     '- attribute: 属性位掩码（EARTH=1, WATER=2, FIRE=4, WIND=8, LIGHT=16, DARK=32, DIVINE=64）。',
@@ -696,11 +840,12 @@ function buildSystemPrompt(skills: AiSkill[]) {
     '- strings: 卡片计数器/标记名称数组（字符串，最多 16 个）。',
     '',
     '## 行为规则',
-    '1. 读取数据后，把关键字段（name、type、atk/def/level、desc 前 120 字符）呈现给用户，让用户确认理解一致后再提案。',
+    '1. 读取数据后，把关键字段（name、type、attack/defense/level、desc 前 120 字符）呈现给用户，让用户确认理解一致后再提案。',
     '2. 批量修改前先 search_cards 确认目标范围，避免无关卡片被误改。',
     '3. propose_card_patch 和 propose_batch_card_patch 的 patch 对象只包含需要变更的字段，其余字段不要出现在 patch 中。',
     '4. 生成 Lua 脚本时：必须先用 read_card_script 读取现有脚本（如果存在），参考相似卡片的脚本结构；脚本必须以 -- 注释说明卡片代码和名称。',
-    '5. 对不确定的字段值（setcode、type 掩码计算等），在消息中说明不确定性，让用户确认后再写入 patch。',
+    '5. 生成脚本时也应生成最小脚本测试计划提案；测试计划是 JSON，放在 .dey/ai-tests，由应用内 runner 执行，不生成 TypeScript 测试文件。',
+    '6. 对不确定的字段值（setcode、type 掩码计算等），在消息中说明不确定性，让用户确认后再写入 patch。',
     '',
     '可用 skills:',
     skills.length

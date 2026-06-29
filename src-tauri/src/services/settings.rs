@@ -5,8 +5,8 @@ use crate::{
     custom_cover_path, decrypt_secret_key, encrypt_secret_key, load_persisted_settings,
     normalize_base_url, normalize_model, normalize_package_include_patterns,
     normalize_script_directory, normalize_script_template, normalize_shortcut_bindings,
-    normalize_temperature, save_persisted_settings, to_settings_payload, AppSettingsPayload,
-    SaveAppSettingsRequest,
+    normalize_temperature, normalize_ygopro_path, save_persisted_settings, to_settings_payload,
+    AppSettingsPayload, SaveAppSettingsRequest,
 };
 
 pub fn load_app_settings(app: &AppHandle) -> Result<AppSettingsPayload, String> {
@@ -23,6 +23,7 @@ pub fn save_app_settings(
     settings.model = normalize_model(request.model);
     settings.temperature =
         normalize_temperature(request.temperature.or(Some(settings.temperature)));
+    settings.ygopro_path = normalize_ygopro_path(request.ygopro_path.unwrap_or(settings.ygopro_path));
     settings.script_directory = normalize_script_directory(
         request
             .script_directory

@@ -16,6 +16,7 @@ describe('settings controller helpers', () => {
     expect(state.apiBaseUrl).toBe('');
     expect(state.model).toBe('gpt-4o-mini');
     expect(state.temperature).toBe(1);
+    expect(state.ygoproPath).toBe('');
     expect(state.scriptDirectory).toBe('');
     expect(state.scriptTemplate).toBe('');
     expect(state.useExternalScriptEditor).toBe(false);
@@ -42,6 +43,7 @@ describe('settings controller helpers', () => {
         apiBaseUrl: 'https://api.openai.com/v1',
         model: 'gpt-4.1-mini',
         temperature: 1.4,
+        ygoproPath: 'D:/ygopro',
         scriptDirectory: 'D:/YGO/script',
         scriptTemplate: '-- template',
         useExternalScriptEditor: true,
@@ -58,6 +60,7 @@ describe('settings controller helpers', () => {
     expect(form.apiBaseUrl).toBe('https://api.openai.com/v1');
     expect(form.model).toBe('gpt-4.1-mini');
     expect(form.temperature).toBe(1.4);
+    expect(form.ygoproPath).toBe('D:/ygopro');
     expect(form.scriptDirectory).toBe('D:/YGO/script');
     expect(form.scriptTemplate).toBe('-- template');
     expect(form.useExternalScriptEditor).toBe(true);
@@ -77,6 +80,7 @@ describe('settings controller helpers', () => {
         apiBaseUrl: 'https://api.example.com/v1',
         model: 'custom-model',
         temperature: 0.5,
+        ygoproPath: '',
         scriptDirectory: '',
         scriptTemplate: '-- updated',
         useExternalScriptEditor: false,
@@ -106,6 +110,7 @@ describe('settings controller helpers', () => {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      ygoproPath: '',
       scriptDirectory: '',
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
@@ -122,6 +127,7 @@ describe('settings controller helpers', () => {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      ygoproPath: '',
       scriptDirectory: '',
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
@@ -139,6 +145,7 @@ describe('settings controller helpers', () => {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      ygoproPath: '',
       scriptDirectory: '',
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
@@ -156,6 +163,7 @@ describe('settings controller helpers', () => {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      ygoproPath: '',
       scriptDirectory: '',
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,

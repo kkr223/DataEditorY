@@ -34,8 +34,8 @@ settings ←── card ←── cdb
 | Card | `card` | `card/` | `ygo.card-collection` data type, CDB workspace workbench, Card Explorer, Card/Script/Image/AI surface host |
 | CDB | `cdb` | `cdb/` | `.cdb` file codec, `TauriDocumentProvider` for Rust-backed CDB operations |
 | Lua | `lua` | `lua/` | `.lua` file codec, in-memory script provider, Lua workbench, card-script contribution used by Script surface |
-| Package | `package` | `package/` | `package.export` command — ZIP/YPK packaging via Rust |
-| Merge | `merge` | `merge/` | `merge.collect-sources`, `merge.analyze`, `merge.execute` commands via Rust |
+| Package | `package` | `package/` | Dependency-only module; ZIP/YPK packaging is routed through `native/taskApi` (`package.zip` kind) |
+| Merge | `merge` | `merge/` | Dependency-only module; merge operations are routed through `native/taskApi` (`merge.collect-sources`, `merge.analyze`, `merge.execute` kinds) |
 | Card Image | `card-image` | `card-image/` | Card image config type, JSON codec, image services/contributions used by Image surface (extra only) |
 | AI | `ai` | `ai/` | AI session type, provider, AI service/contribution used by workspace AI surface |
 

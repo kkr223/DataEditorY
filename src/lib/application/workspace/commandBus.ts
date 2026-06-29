@@ -252,11 +252,3 @@ export async function saveActiveWorkspaceDocument() {
   if (!activeWorkspace) return false;
   return saveWorkspaceDocument(activeWorkspace.id);
 }
-
-export function getWorkspaceDocumentOrThrow(id: string) {
-  const workspace = getWorkspaceDocument(id);
-  if (!workspace) {
-    throw new Error(`Unknown workspace: ${id}`);
-  }
-  return workspace;
-}

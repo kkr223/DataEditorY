@@ -6,6 +6,7 @@ export interface AppSettingsPayload {
   apiBaseUrl: string;
   model: string;
   temperature: number;
+  ygoproPath: string;
   scriptDirectory: string;
   scriptTemplate: string;
   useExternalScriptEditor: boolean;
@@ -55,6 +56,7 @@ function createDefaultSettings(): AppSettingsPayload {
     apiBaseUrl: '',
     model: 'gpt-4o-mini',
     temperature: 1,
+    ygoproPath: '',
     scriptDirectory: '',
     scriptTemplate: DEFAULT_SCRIPT_TEMPLATE,
     useExternalScriptEditor: false,
@@ -160,6 +162,7 @@ function applySettings(payload: AppSettingsPayload) {
     apiBaseUrl: payload.apiBaseUrl ?? '',
     model: payload.model?.trim() || 'gpt-4o-mini',
     temperature: normalizeTemperature(payload.temperature),
+    ygoproPath: payload.ygoproPath?.trim() ?? '',
     scriptDirectory: payload.scriptDirectory?.trim() ?? '',
     scriptTemplate: normalizeScriptTemplate(payload.scriptTemplate),
     useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
@@ -257,6 +260,7 @@ export async function saveAppSettings(input: {
   apiBaseUrl: string;
   model?: string;
   temperature?: number;
+  ygoproPath?: string;
   scriptDirectory?: string;
   scriptTemplate: string;
   useExternalScriptEditor?: boolean;
@@ -273,6 +277,7 @@ export async function saveAppSettings(input: {
         apiBaseUrl: input.apiBaseUrl,
         model: input.model,
         temperature: normalizeTemperature(input.temperature ?? appSettingsState.values.temperature),
+        ygoproPath: input.ygoproPath ?? appSettingsState.values.ygoproPath,
         scriptDirectory: input.scriptDirectory ?? appSettingsState.values.scriptDirectory,
         scriptTemplate: input.scriptTemplate,
         useExternalScriptEditor: input.useExternalScriptEditor,

@@ -64,10 +64,6 @@ export function parseStringsCatalogWithDiagnostics(content: string): SetcodeCata
   };
 }
 
-export function parseStringsCatalog(content: string): SetcodeOption[] {
-  return parseStringsCatalogWithDiagnostics(content).options;
-}
-
 let popularSetcodesPromise: Promise<SetcodeCatalogLoadResult> | null = null;
 
 async function resolveBundledStringsFiles() {

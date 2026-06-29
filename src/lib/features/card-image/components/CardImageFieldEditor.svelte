@@ -15,13 +15,13 @@
     normalizeCardImageFormData,
     type CardImageFormData,
   } from '$lib/features/card-image/layout';
-  import type { ColorPreset } from '$lib/features/card-image/controller';
+  import type { ColorPreset } from '$lib/features/card-image/controller.svelte';
   import {
     MAX_EXPORT_SCALE_PERCENT,
     MAX_FOREGROUND_SCALE,
     MIN_EXPORT_SCALE_PERCENT,
     MIN_FOREGROUND_SCALE,
-  } from '$lib/features/card-image/controller';
+  } from '$lib/features/card-image/controller.svelte';
 
   let {
     variant,

@@ -65,6 +65,7 @@ export async function saveSettingsFlow(input: {
       apiBaseUrl: input.form.apiBaseUrl,
       model: input.form.model,
       temperature: getNormalizedSettingsTemperature(input.form.temperature),
+      ygoproPath: input.form.ygoproPath,
       scriptDirectory: input.form.scriptDirectory,
       scriptTemplate: input.form.scriptTemplate,
       useExternalScriptEditor: input.form.useExternalScriptEditor,

@@ -35,10 +35,12 @@
     "@tauri-apps/plugin-dialog": "~2",
     "@tauri-apps/plugin-fs": "~2",
     "@tauri-apps/plugin-opener": "^2",
+    "koishipro-core.js": "^1.5.1",
     "leafer": "^2.0.4",
     "leafer-unified": "^1.0.3",
     "luaparse": "^0.3.1",
     "monaco-editor": "^0.55.1",
+    "sql.js": "^1.14.1",
     "svelte-i18n": "^4.0.1",
     "yugioh-card-ts": "github:kkr223/yugioh-card-ts#package/v2.0.0"
   },

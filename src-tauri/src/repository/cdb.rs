@@ -6,6 +6,7 @@
 //! migration diff small. New code should prefer calling `YgoProCdb`
 //! methods directly.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use ygopro_cdb_encode_rs::YgoProCdb;
@@ -23,6 +24,17 @@ pub(crate) fn create_cdb(path: &Path) -> Result<YgoProCdb, String> {
 pub(crate) fn load_all_cards_from_path(path: &Path) -> Result<Vec<CardDto>, String> {
     let cdb = YgoProCdb::from_path(path).map_err(|err| err.to_string())?;
     cdb.find_all().map_err(|err| err.to_string())
+}
+
+/// Returns the total card count without materializing every card row.
+/// Uses `query_raw_page` with page_size 1 so only a single card is decoded
+/// while the engine still reports the full match count.
+pub(crate) fn count_cards_from_path(path: &Path) -> Result<u32, String> {
+    let cdb = open_cdb(path)?;
+    let (_first_card, total) = cdb
+        .query_raw_page("1=1", &HashMap::new(), 1, 1)
+        .map_err(|err| err.to_string())?;
+    Ok(total)
 }
 
 pub(crate) fn load_card_summaries_from_path(path: &Path) -> Result<Vec<(u32, u32)>, String> {

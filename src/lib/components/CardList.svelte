@@ -203,6 +203,18 @@
     tableViewportHeight = tableContainer?.clientHeight ?? 0;
   }
 
+  // Scroll events fire many times per second; coalesce them to one
+  // update per animation frame so the 6 virtualization $derived values and
+  // the row DOM only recompute once per frame instead of per scroll tick.
+  let scrollRafId: number | null = null;
+  function scheduleVirtualViewportUpdate() {
+    if (scrollRafId !== null) return;
+    scrollRafId = requestAnimationFrame(() => {
+      scrollRafId = null;
+      updateVirtualViewport();
+    });
+  }
+
   function getCardTypeTone(type: number) {
     if (type & TYPE_MAP.monster) {
       if (type & SUBTYPE_MAP.link) return 'type-link';
@@ -240,6 +252,7 @@
     return () => {
       window.removeEventListener(APP_SHORTCUT_EVENT, handleShortcut as EventListener);
       resizeObserver.disconnect();
+      if (scrollRafId !== null) cancelAnimationFrame(scrollRafId);
     };
   });
 
@@ -487,7 +500,7 @@
     </div>
   </div>
 
-  <div class="table-container" bind:this={tableContainer} onscroll={updateVirtualViewport}>
+  <div class="table-container" bind:this={tableContainer} onscroll={scheduleVirtualViewportUpdate}>
     <table class="data-table">
       <thead>
         <tr>

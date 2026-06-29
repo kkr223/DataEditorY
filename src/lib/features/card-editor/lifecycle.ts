@@ -38,7 +38,6 @@ type CardEditorLifecycleControllerInput = {
   mutateSuspendDraftUndoTracking: (delta: number) => void;
   nextImageRequestToken: () => number;
   isLatestImageRequestToken: (token: number) => boolean;
-  clearPendingImageClick: () => void;
   getImageSrc: () => string;
   setImageSrc: (src: string) => void;
   getActiveCdbPath: () => string | null | undefined;
@@ -93,7 +92,6 @@ export function createCardEditorLifecycleController(input: CardEditorLifecycleCo
     replaceDraftCardWithoutUndo(nextState.draftCard);
     resetDraftUndoBaseline(nextState.draftCard);
     input.nextImageRequestToken();
-    input.clearPendingImageClick();
     input.setImageSrc(nextState.imageSrc);
   }
 
@@ -115,7 +113,6 @@ export function createCardEditorLifecycleController(input: CardEditorLifecycleCo
   async function refreshDraftImage(code: number, bustCache = false) {
     if (!input.getActiveCdbPath() || code <= 0) {
       input.nextImageRequestToken();
-      input.clearPendingImageClick();
       input.setImageSrc(getDefaultCoverSrc());
       return;
     }

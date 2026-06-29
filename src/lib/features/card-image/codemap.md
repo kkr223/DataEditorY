@@ -8,8 +8,7 @@ Card Image Maker Feature (extra only) — maps current card/draft data to `yugio
 
 ### Controllers
 
-- **`controller.ts`** — card image workflow: normalize config, sync card/draft data, trigger renders
-- **`controller.svelte.ts`** — reactive state management for canvas and export settings
+- **`controller.svelte.ts`** — card image workflow: reactive state for canvas/export settings, normalize config, sync card/draft data, trigger renders
 - **`layout.ts`** — card image layout calculations: field positioning, text sizing, `CardImageConfigDocument` type and normalization
 - **`adapter.ts`** — adapts card data from the editor into the `yugioh-card-ts` renderer format
 - **`exporter.ts`** — export helpers for single-card and batch image output

@@ -1,1 +1,1 @@
-export { builtInModuleIds, builtInModules } from './extra';
+export { builtInModuleIds, builtInModules } from './base';

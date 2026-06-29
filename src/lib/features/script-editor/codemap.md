@@ -9,7 +9,7 @@ Lua Script Editor Feature — Monaco-based Lua IDE used by the current-card Scri
 ### Architecture
 
 The script editor is structured in three layers:
-1. **Controller layer** — `controller.ts`, `useCases.ts`, `extraUseCases.ts` manage script buffers, internal script tabs, focus-aware save, and surface lifecycle
+1. **Controller layer** — `controller.ts`, `useCases.ts` manage script buffers, internal script tabs, focus-aware save, and surface lifecycle
 2. **Lua analysis layer** (`lua/`) — pure Lua analysis functions, no Monaco dependency
 3. **Monaco integration** (`monaco/`) — bridges Lua analysis into Monaco editor providers
 
@@ -17,9 +17,7 @@ The script editor is structured in three layers:
 
 - **`catalog.ts`** — loads and indexes the Lua intellisense catalog (functions, constants, snippets) from generated data
 - **`calls.ts`** — extracts function call sites from Lua AST (via `luaparse`)
-- **`scope.ts`** — Lua scope analysis: variable resolution, function parameter tracking
-- **`symbols.ts`** — symbol extraction: function definitions, variable assignments
-- **`semantic.ts`** — semantic token classification for syntax highlighting
+- **`semantic.ts`** — semantic analysis: scope chain, symbol extraction, call/hover resolution, token classification
 - **`diagnostics.ts`** — basic Lua diagnostics: undefined variables, unused locals, type mismatches
 - **`reference.ts`** — reference manual lookup: function signatures, parameter docs, hover info
 

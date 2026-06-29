@@ -219,60 +219,66 @@ fn build_merge_plan(
 }
 
 fn build_analysis_response(plan: &MergePlan) -> AnalyzeCdbMergeResponse {
-    let mut source_plans = Vec::with_capacity(plan.sources.len());
+    let source_count = plan.sources.len();
+    // Single-pass per-source counts. Previously this was O(S*M): for each
+    // source we iterated the entire merged-cards list and each winning map's
+    // values. Now each winning map is walked once, and field-image winners
+    // (which require the field-spell subtype check) are counted in a single
+    // pass over merged_cards.
+    let mut winning_card_count_by_source = vec![0_u32; source_count];
+    let mut winning_main_image_count_by_source = vec![0_u32; source_count];
+    let mut winning_field_image_count_by_source = vec![0_u32; source_count];
+    let mut winning_script_count_by_source = vec![0_u32; source_count];
 
-    for (source_index, source) in plan.sources.iter().enumerate() {
-        let mut winning_field_image_count = 0_u32;
-        for card in &plan.merged_cards {
-            if summary_has_field_subtype(card)
-                && plan
-                    .winning_field_image_source_by_code
-                    .get(&card.0)
-                    .copied()
-                    == Some(source_index)
-            {
-                winning_field_image_count += 1;
-            }
+    for winner_index in plan.winning_card_source_by_code.values() {
+        if let Some(slot) = winning_card_count_by_source.get_mut(*winner_index) {
+            *slot += 1;
         }
+    }
+    for winner_index in plan.winning_main_image_source_by_code.values() {
+        if let Some(slot) = winning_main_image_count_by_source.get_mut(*winner_index) {
+            *slot += 1;
+        }
+    }
+    let mut field_image_total = 0_u32;
+    for card in &plan.merged_cards {
+        if !summary_has_field_subtype(card) {
+            continue;
+        }
+        if let Some(winner_index) = plan.winning_field_image_source_by_code.get(&card.0) {
+            if let Some(slot) = winning_field_image_count_by_source.get_mut(*winner_index) {
+                *slot += 1;
+            }
+            field_image_total += 1;
+        }
+    }
+    for winner_index in plan.winning_script_source_by_code.values() {
+        if let Some(slot) = winning_script_count_by_source.get_mut(*winner_index) {
+            *slot += 1;
+        }
+    }
 
-        source_plans.push(MergeSourcePlanDto {
+    let source_plans = plan
+        .sources
+        .iter()
+        .enumerate()
+        .map(|(source_index, source)| MergeSourcePlanDto {
             path: source.path.clone(),
             name: source.name.clone(),
             card_total: source.cards.len() as u32,
-            winning_card_count: plan
-                .winning_card_source_by_code
-                .values()
-                .filter(|&&winner_index| winner_index == source_index)
-                .count() as u32,
-            winning_main_image_count: plan
-                .winning_main_image_source_by_code
-                .values()
-                .filter(|&&winner_index| winner_index == source_index)
-                .count() as u32,
-            winning_field_image_count,
-            winning_script_count: plan
-                .winning_script_source_by_code
-                .values()
-                .filter(|&&winner_index| winner_index == source_index)
-                .count() as u32,
-        });
-    }
+            winning_card_count: winning_card_count_by_source[source_index],
+            winning_main_image_count: winning_main_image_count_by_source[source_index],
+            winning_field_image_count: winning_field_image_count_by_source[source_index],
+            winning_script_count: winning_script_count_by_source[source_index],
+        })
+        .collect();
 
     AnalyzeCdbMergeResponse {
-        source_count: plan.sources.len() as u32,
+        source_count: source_count as u32,
         merged_total: plan.merged_cards.len() as u32,
         duplicate_card_total: plan.duplicate_card_total,
         main_image_total: plan.winning_main_image_source_by_code.len() as u32,
-        field_image_total: plan
-            .merged_cards
-            .iter()
-            .filter(|card| {
-                summary_has_field_subtype(card)
-                    && plan
-                        .winning_field_image_source_by_code
-                        .contains_key(&card.0)
-            })
-            .count() as u32,
+        field_image_total,
         script_total: plan.winning_script_source_by_code.len() as u32,
         sources: source_plans,
     }
@@ -340,7 +346,7 @@ pub fn collect_merge_sources_from_folder(
                 continue;
             }
 
-            let cards = cdb_repository::load_all_cards_from_path(&cdb_path)?;
+            let card_total = cdb_repository::count_cards_from_path(&cdb_path)?;
             sources.push(MergeSourceItemDto {
                 path: cdb_path.to_string_lossy().to_string(),
                 name: cdb_path
@@ -349,7 +355,7 @@ pub fn collect_merge_sources_from_folder(
                     .map(ToOwned::to_owned)
                     .unwrap_or_else(|| "unknown.cdb".to_string()),
                 project_dir: project_path.to_string_lossy().to_string(),
-                card_total: cards.len() as u32,
+                card_total,
             });
         }
     }

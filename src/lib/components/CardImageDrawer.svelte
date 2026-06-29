@@ -6,7 +6,7 @@
   import {
     createCardImageController,
     NAME_COLOR_PRESETS,
-  } from '$lib/features/card-image/controller';
+  } from '$lib/features/card-image/controller.svelte';
   import CardImageCanvas from '$lib/features/card-image/components/CardImageCanvas.svelte';
   import CardImageControls from '$lib/features/card-image/components/CardImageControls.svelte';
   import CardImageFieldEditor from '$lib/features/card-image/components/CardImageFieldEditor.svelte';

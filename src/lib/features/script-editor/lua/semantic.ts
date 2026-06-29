@@ -937,35 +937,6 @@ export function getFunctionSymbols(document: LuaSemanticDocument) {
   return document.functionSymbols.slice();
 }
 
-export function getCurrentFunctionAt(
-  document: LuaSemanticDocument,
-  position: LuaSemanticPosition,
-  options: LuaQueryOptions = {},
-): LuaScriptFunctionSymbol | null {
-  const analysis = analysisFor(document, position, options);
-  if (!analysis) return null;
-
-  let current: LuaScriptFunctionSymbol | null = null;
-
-  const visit = (scope: LuaSemanticScopeNode) => {
-    const range = scope.range;
-    const inside = comparePositions(position, { lineNumber: range.startLineNumber, column: range.startColumn }) >= 0
-      && comparePositions(position, { lineNumber: range.endLineNumber, column: range.endColumn }) <= 0;
-    if (!inside) return;
-
-    if (scope.ownerFunction) {
-      current = scope.ownerFunction;
-    }
-
-    for (const child of scope.children) {
-      visit(child);
-    }
-  };
-
-  visit(analysis.globalScope);
-  return current;
-}
-
 export function getCallInfoAt(document: LuaSemanticDocument, position: LuaSemanticPosition, options: LuaQueryOptions = {}): LuaSemanticCallInfo | null {
   const analysis = analysisFor(document, position, options);
   if (!analysis) return null;

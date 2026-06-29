@@ -12,8 +12,8 @@ Application Shell — manages the app frame, CDB-only top-level tabs, global/CDB
 - **`layoutController.svelte.ts`** — app layout state, including workspace/sidebar sizing
 - **`dialogsController.svelte.ts`** — dialog visibility state and helpers for CDB-level tool dialogs
 - **`dialogsHelpers.ts`** — utility functions for dialog data preparation
-- **`mergeController.ts`** — merge workflow: add sources, reorder, analyze, execute merge via platform commands
-- **`packageController.ts`** — package workflow: ZIP/YPK export via platform commands
+- **`mergeController.ts`** — merge workflow: add sources, reorder, analyze, execute merge via `native/taskApi`
+- **`packageController.ts`** — package workflow: ZIP/YPK export via `native/taskApi`
 - **`filterCdbController.ts`** — create filtered CDB from current search results
 
 ### Components

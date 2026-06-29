@@ -26,7 +26,7 @@ For each reviewed card, check:
 
 1. **Card data completeness**
    - `name` is not empty.
-   - `atk`/`def` are set for monsters (not -2 unless intentional for `?`).
+   - `attack`/`defense` are set for monsters (not -2 unless intentional for `?`).
    - `level` is within valid range (1–12 for monsters, 1–8 for Links).
    - `type` bitmask is consistent with card category (e.g. Effect monster should include type bit 32).
    - `desc` is not empty and does not contain placeholder text like "TODO" or "（效果）".
