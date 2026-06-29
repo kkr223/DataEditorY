@@ -51,6 +51,12 @@ export type BackgroundTaskProgressEvent = {
   total: number;
 };
 
+export type LuaHelperScript = {
+  name: string;
+  path: string;
+  content: string;
+};
+
 export async function getCardScriptInfo(cdbPath: string, cardId: number) {
   return invokeCommand<CardScriptInfo>('get_card_script_info', { cdbPath, cardId });
 }
@@ -113,6 +119,14 @@ export async function pathExists(path: string) {
 
 export async function listImageFolderEntries(path: string) {
   return invokeCommand<string[]>('list_image_folder_entries', { path });
+}
+
+export async function readLuaHelperScripts(path: string) {
+  return invokeCommand<LuaHelperScript[]>('read_lua_helper_scripts', { path });
+}
+
+export async function readBuiltinLuaHelperScripts() {
+  return invokeCommand<LuaHelperScript[]>('read_builtin_lua_helper_scripts');
 }
 
 export async function packageCdbAssetsAsZip(cdbPath: string, outputPath: string) {

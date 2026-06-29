@@ -23,7 +23,8 @@ pub fn save_app_settings(
     settings.model = normalize_model(request.model);
     settings.temperature =
         normalize_temperature(request.temperature.or(Some(settings.temperature)));
-    settings.ygopro_path = normalize_ygopro_path(request.ygopro_path.unwrap_or(settings.ygopro_path));
+    settings.ygopro_path =
+        normalize_ygopro_path(request.ygopro_path.unwrap_or(settings.ygopro_path));
     settings.script_directory = normalize_script_directory(
         request
             .script_directory

@@ -129,16 +129,10 @@
       externalEditorHint={$_('settings.use_external_script_editor_hint')}
       saveScriptImageToLocalLabel={$_('settings.save_script_image_to_local')}
       saveScriptImageToLocalHint={$_('settings.save_script_image_to_local_hint')}
-      ygoproPathLabel={$_('settings.ygopro_path')}
-      ygoproPathHint={$_('settings.ygopro_path_hint')}
       scriptDirectoryLabel={$_('settings.script_directory')}
       scriptDirectoryHint={$_('settings.script_directory_hint')}
-      ygoproPath={form.ygoproPath}
       scriptDirectory={form.scriptDirectory}
       scriptTemplate={form.scriptTemplate}
-      onYgoproPathInput={(value) => {
-        form.ygoproPath = value;
-      }}
       onScriptDirectoryInput={(value) => {
         form.scriptDirectory = value;
       }}

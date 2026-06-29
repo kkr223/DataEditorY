@@ -1,4 +1,7 @@
-use std::{collections::{HashMap, VecDeque}, sync::Mutex};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Mutex,
+};
 
 use serde_json::{json, to_value, Value};
 

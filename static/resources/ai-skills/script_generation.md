@@ -54,7 +54,7 @@ Supported locations: `deck`, `hand`, `mzone`, `szone`, `grave`, `removed`, `bani
 - If text says "as target" / "为对象", use target flags and `Duel.SelectTarget`; if text only says "choose/select" during resolution, choose in `operation` with `Duel.SelectMatchingCard` and `Duel.HintSelection`.
 - Keep `cost`, `target`, and `operation` separate. `chk==0` branches only check whether the action is possible; do not mutate game state there.
 - Use `Duel.SetOperationInfo` for search, send-to-GY, add-to-hand, special summon, destroy, banish, draw, damage, recover, and similar chain-relevant actions.
-- Generate a small JSON test plan for the built-in runner. It should load the current CDB, current script directory, and configured YGOPro `cards.cdb`/`script` directory. Cover at least script loading plus one pure condition/target-check assertion when practical.
+- Generate a small JSON test plan for the built-in runner. The runner uses the current CDB, preloads built-in `constant.lua`, `utility.lua`, and `procedure.lua`, and also loads non-card helper scripts from the configured script directory when present. Put any other card scripts needed by the setup into `setup` or `includeScripts`. Cover at least script loading plus one pure condition/target-check assertion when practical.
 - Do not invent effect logic not present in `desc`. If the available tools cannot verify an API or official reference, say what is uncertain and produce the smallest safe draft.
 
 ## Constraints

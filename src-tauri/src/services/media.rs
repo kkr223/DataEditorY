@@ -1,6 +1,7 @@
 use image::{codecs::jpeg::JpegEncoder, GenericImageView};
 use mime_guess::from_path;
 use percent_encoding::percent_decode_str;
+use serde::Serialize;
 use std::{
     collections::HashSet,
     fs,
@@ -18,6 +19,30 @@ const MEDIA_PROTOCOL_NAME: &str = "app-media";
 const STRINGS_DIR_NAME: &str = "strings";
 const LEGACY_STRINGS_FILE_NAME: &str = "strings.conf";
 const MAX_STRINGS_TEXT_FILE_BYTES: u64 = 512 * 1024;
+const MAX_LUA_HELPER_SCRIPT_BYTES: u64 = 512 * 1024;
+const MAX_LUA_HELPER_SCRIPT_FILES: usize = 512;
+const BUILTIN_LUA_HELPER_SCRIPTS: &[(&str, &str)] = &[
+    (
+        "constant.lua",
+        include_str!("../../../static/resources/constant.lua"),
+    ),
+    (
+        "utility.lua",
+        include_str!("../../../static/resources/utility.lua"),
+    ),
+    (
+        "procedure.lua",
+        include_str!("../../../static/resources/procedure.lua"),
+    ),
+];
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LuaHelperScript {
+    pub(crate) name: String,
+    pub(crate) path: String,
+    pub(crate) content: String,
+}
 
 fn media_protocol_error(status: StatusCode, message: &str) -> Response<Vec<u8>> {
     Response::builder()
@@ -194,6 +219,92 @@ pub fn list_image_folder_entries(path: String) -> Result<Vec<String>, String> {
     entries.sort_unstable();
     entries.dedup();
     Ok(entries)
+}
+
+fn read_lua_helper_file(path: &Path) -> Result<String, String> {
+    let metadata = fs::metadata(path).map_err(|err| err.to_string())?;
+    if !metadata.is_file() {
+        return Err("Path is not a regular file".to_string());
+    }
+    if metadata.len() > MAX_LUA_HELPER_SCRIPT_BYTES {
+        return Err(format!(
+            "File exceeds the {} byte safety limit",
+            MAX_LUA_HELPER_SCRIPT_BYTES
+        ));
+    }
+    Ok(
+        String::from_utf8_lossy(&fs::read(path).map_err(|err| err.to_string())?)
+            .replace("\r\n", "\n"),
+    )
+}
+
+fn is_lua_helper_script(path: &Path) -> bool {
+    let Some(ext) = path.extension().and_then(|ext| ext.to_str()) else {
+        return false;
+    };
+    if !ext.eq_ignore_ascii_case("lua") {
+        return false;
+    }
+
+    let stem = path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    !(stem.len() > 1
+        && stem.starts_with('c')
+        && stem[1..].chars().all(|item| item.is_ascii_digit()))
+}
+
+pub fn read_lua_helper_scripts(path: String) -> Result<Vec<LuaHelperScript>, String> {
+    let root = fs::canonicalize(Path::new(&path)).map_err(|err| err.to_string())?;
+    if !root.is_dir() {
+        return Err("Path is not a folder".to_string());
+    }
+
+    let mut scripts = Vec::new();
+    let mut pending = vec![root.clone()];
+    while let Some(dir) = pending.pop() {
+        for entry in fs::read_dir(&dir).map_err(|err| err.to_string())? {
+            let path = entry.map_err(|err| err.to_string())?.path();
+            if path.is_dir() {
+                pending.push(path);
+                continue;
+            }
+            if scripts.len() >= MAX_LUA_HELPER_SCRIPT_FILES || !is_lua_helper_script(&path) {
+                continue;
+            }
+            let metadata = fs::metadata(&path).map_err(|err| err.to_string())?;
+            if !metadata.is_file() || metadata.len() > MAX_LUA_HELPER_SCRIPT_BYTES {
+                continue;
+            }
+            let relative = path
+                .strip_prefix(&root)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+            let content = read_lua_helper_file(&path)?;
+            scripts.push(LuaHelperScript {
+                name: relative,
+                path: path.to_string_lossy().to_string(),
+                content,
+            });
+        }
+    }
+
+    scripts.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(scripts)
+}
+
+pub fn read_builtin_lua_helper_scripts() -> Vec<LuaHelperScript> {
+    BUILTIN_LUA_HELPER_SCRIPTS
+        .iter()
+        .map(|(name, content)| LuaHelperScript {
+            name: (*name).to_string(),
+            path: format!("builtin:{name}"),
+            content: content.replace("\r\n", "\n"),
+        })
+        .collect()
 }
 
 pub fn copy_image(src: String, dest: String) -> Result<(), String> {
@@ -611,6 +722,50 @@ mod tests {
 
         assert!(result.is_err());
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn reads_lua_helper_scripts_without_card_scripts() {
+        let root = make_temp_dir("lua-helpers");
+        fs::write(root.join("utility.lua"), "aux = aux or {}\r\n").unwrap();
+        fs::write(
+            root.join("proc_synchro.lua"),
+            "function Auxiliary.AddSynchroProcedure() end",
+        )
+        .unwrap();
+        fs::write(root.join("c12345678.lua"), "-- card script").unwrap();
+        fs::create_dir_all(root.join("nested")).unwrap();
+        fs::write(root.join("nested").join("lib.lua"), "function test() end").unwrap();
+
+        let scripts = read_lua_helper_scripts(root.to_string_lossy().to_string()).unwrap();
+        let names = scripts
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(names.contains(&"utility.lua"));
+        assert!(names.contains(&"proc_synchro.lua"));
+        assert!(names.contains(&"nested/lib.lua"));
+        assert!(!names.contains(&"c12345678.lua"));
+        assert!(scripts
+            .iter()
+            .any(|item| item.content.contains("aux = aux or {}")));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn reads_builtin_lua_helper_scripts() {
+        let scripts = read_builtin_lua_helper_scripts();
+        let names = scripts
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(names, vec!["constant.lua", "utility.lua", "procedure.lua"]);
+        assert!(scripts
+            .iter()
+            .any(|item| item.content.contains("aux=Auxiliary")));
     }
 
     #[test]

@@ -9,14 +9,10 @@
   export let saveScriptImageToLocalHint = '';
   export let scriptDirectoryLabel = '';
   export let scriptDirectoryHint = '';
-  export let ygoproPathLabel = '';
-  export let ygoproPathHint = '';
   export let scriptTemplate = '';
   export let scriptDirectory = '';
-  export let ygoproPath = '';
   export let onScriptTemplateInput: (value: string) => void = () => {};
   export let onScriptDirectoryInput: (value: string) => void = () => {};
-  export let onYgoproPathInput: (value: string) => void = () => {};
   export let useExternalScriptEditor = false;
   export let saveScriptImageToLocal = false;
   export let onExternalEditorChange: (value: boolean) => void = () => {};
@@ -48,16 +44,6 @@
     <span>{saveScriptImageToLocalLabel}</span>
   </label>
   <small class="sp-hint">{saveScriptImageToLocalHint}</small>
-  <label class="sp-field">
-    <span>{ygoproPathLabel}</span>
-    <input
-      type="text"
-      value={ygoproPath}
-      placeholder="D:/ygopro"
-      oninput={(event) => onYgoproPathInput((event.currentTarget as HTMLInputElement).value)}
-    />
-  </label>
-  <small class="sp-hint">{ygoproPathHint}</small>
   <label class="sp-field">
     <span>{scriptDirectoryLabel}</span>
     <input

@@ -80,9 +80,5 @@ export function createAiAppContext(): AiAppContext {
       const cdbDir = await tauriBridge.dirname(dbPath);
       return tauriBridge.join(cdbDir, '.dey', 'ai-tests', `c${code}.test-plan.json`);
     },
-    async getYgoproPath() {
-      await loadAppSettings();
-      return appSettingsState.values.ygoproPath.trim();
-    },
   };
 }

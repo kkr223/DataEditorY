@@ -35,6 +35,18 @@ pub(crate) fn list_image_folder_entries(path: String) -> Result<Vec<String>, Str
 }
 
 #[tauri::command]
+pub(crate) fn read_lua_helper_scripts(
+    path: String,
+) -> Result<Vec<services::media::LuaHelperScript>, String> {
+    services::media::read_lua_helper_scripts(path)
+}
+
+#[tauri::command]
+pub(crate) fn read_builtin_lua_helper_scripts() -> Vec<services::media::LuaHelperScript> {
+    services::media::read_builtin_lua_helper_scripts()
+}
+
+#[tauri::command]
 pub(crate) fn copy_image(src: String, dest: String) -> Result<(), String> {
     services::media::copy_image(src, dest)
 }

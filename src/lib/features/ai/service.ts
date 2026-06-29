@@ -69,7 +69,6 @@ export type AiAppContext = {
   readImageConfig: (code: number, dbPath?: string) => unknown;
   resolveScriptPath: (dbPath: string, fileName: string) => Promise<string>;
   resolveScriptTestPath: (dbPath: string, code: number) => Promise<string>;
-  getYgoproPath: () => Promise<string>;
 };
 
 export type AgentToolCallEvent = {
@@ -247,7 +246,7 @@ const TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'get_script_test_context',
-      description: 'Return paths needed for an in-app temporary script test plan: target CDB path, script directory, .dey test plan path, and the configured YGOPro root path.',
+      description: 'Return paths needed for an in-app temporary script test plan: target CDB path, script directory, .dey test plan path, and built-in helper script names.',
       parameters: {
         type: 'object',
         properties: {
@@ -699,7 +698,7 @@ async function runTool(input: {
       scriptPath: script.path,
       scriptDir: script.path ? script.path.replace(/[\\/][^\\/]+$/, '') : null,
       testPlanPath: await context.resolveScriptTestPath(tab.path, code),
-      ygoproPath: await context.getYgoproPath(),
+      builtinHelpers: ['constant.lua', 'utility.lua', 'procedure.lua'],
     };
   }
 

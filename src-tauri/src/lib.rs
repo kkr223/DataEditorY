@@ -107,6 +107,8 @@ pub fn run() {
             commands::media::write_file,
             commands::media::path_exists,
             commands::media::list_image_folder_entries,
+            commands::media::read_lua_helper_scripts,
+            commands::media::read_builtin_lua_helper_scripts,
             commands::media::copy_image,
             commands::media::read_image,
             commands::media::import_card_image,

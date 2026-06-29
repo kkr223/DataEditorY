@@ -1,5 +1,12 @@
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { pathExists, readCdbFile, readTextFile } from '$lib/infrastructure/tauri/commands';
+import {
+  pathExists,
+  readCdbFile,
+  readBuiltinLuaHelperScripts,
+  readLuaHelperScripts,
+  readTextFile,
+  type LuaHelperScript,
+} from '$lib/infrastructure/tauri/commands';
 import {
   normalizeScriptTestPlan,
   type ScriptTestCheck,
@@ -14,7 +21,6 @@ export type ScriptTestRunInput = {
   plan: unknown;
   cdbPath: string;
   cardCode: number;
-  ygoproPath?: string;
   scriptDirectory?: string;
   scriptOverrides?: ScriptOverrides;
 };
@@ -26,15 +32,6 @@ export type ScriptTestRunResult = {
   logs: string[];
   steps: number;
 };
-
-const COMMON_SCRIPT_NAMES = [
-  'constant.lua',
-  'utility.lua',
-  'procedure.lua',
-  'archetype_setcode_constants.lua',
-  'special.lua',
-  'init.lua',
-];
 
 const LOCATIONS: Record<ScriptTestLocation, number> = {
   deck: 0x01,
@@ -62,6 +59,14 @@ function normalizeMapName(name: string) {
   return fileName(name).trim();
 }
 
+function setScriptMapEntry(map: Map<string, string>, name: string, content: string) {
+  const normalized = name.trim().replace(/\\/g, '/').replace(/^\.\/(?:script\/)?/, '');
+  const basename = fileName(normalized);
+  for (const key of [normalized, normalized.toLowerCase(), basename, basename.toLowerCase()]) {
+    if (key) map.set(key, content);
+  }
+}
+
 function resolveLocation(value: ScriptTestLocation | number) {
   if (typeof value === 'number') return value;
   return LOCATIONS[value] ?? LOCATIONS.hand;
@@ -80,36 +85,36 @@ async function safeExists(path: string) {
   }
 }
 
-async function readCdbs(cdbPath: string, ygoproPath: string | undefined) {
-  const paths = [cdbPath];
-  if (ygoproPath?.trim()) {
-    const cardsCdb = await tauriBridge.join(ygoproPath.trim(), 'cards.cdb');
-    if (await safeExists(cardsCdb)) paths.push(cardsCdb);
-  }
-
-  const cdbs: Uint8Array[] = [];
-  for (const path of [...new Set(paths)]) {
-    cdbs.push(new Uint8Array(await readCdbFile(path)));
-  }
-  return cdbs;
+async function readCdbs(cdbPath: string) {
+  return [new Uint8Array(await readCdbFile(cdbPath))];
 }
 
 async function scriptDirs(input: ScriptTestRunInput) {
   const dirs: string[] = [];
-  if (input.ygoproPath?.trim()) {
-    dirs.push(await tauriBridge.join(input.ygoproPath.trim(), 'script'));
-  }
   dirs.push(await tauriBridge.join(await tauriBridge.dirname(input.cdbPath), 'script'));
   if (input.scriptDirectory?.trim()) dirs.push(input.scriptDirectory.trim());
   return [...new Set(dirs.map((item) => item.replace(/[\\/]+$/, '')))];
 }
 
 function scriptNamesForPlan(plan: ScriptTestPlan) {
-  return [...new Set([...COMMON_SCRIPT_NAMES, ...plan.includeScripts])];
+  return [...new Set(plan.includeScripts)];
+}
+
+async function preloadHelperScripts(input: ScriptTestRunInput, map: Map<string, string>) {
+  for (const helper of await readBuiltinLuaHelperScripts()) {
+    setScriptMapEntry(map, helper.name, helper.content);
+  }
+
+  if (!input.scriptDirectory?.trim()) return;
+  const helpers = await readLuaHelperScripts(input.scriptDirectory.trim()).catch((): LuaHelperScript[] => []);
+  for (const helper of helpers) {
+    setScriptMapEntry(map, helper.name, helper.content);
+  }
 }
 
 async function readScriptMap(input: ScriptTestRunInput, plan: ScriptTestPlan) {
   const map = new Map<string, string>();
+  await preloadHelperScripts(input, map);
   const dirs = await scriptDirs(input);
   for (const name of scriptNamesForPlan(plan)) {
     const normalized = normalizeMapName(name);
@@ -117,8 +122,7 @@ async function readScriptMap(input: ScriptTestRunInput, plan: ScriptTestPlan) {
     for (const dir of dirs) {
       const path = await tauriBridge.join(dir, normalized);
       if (await safeExists(path)) {
-        map.set(normalized, await readTextFile(path));
-        map.set(normalized.toLowerCase(), map.get(normalized) ?? '');
+        setScriptMapEntry(map, normalized, await readTextFile(path));
       }
     }
   }
@@ -126,8 +130,7 @@ async function readScriptMap(input: ScriptTestRunInput, plan: ScriptTestPlan) {
   for (const [name, content] of Object.entries(input.scriptOverrides ?? {})) {
     const normalized = normalizeMapName(name);
     if (!normalized || !content.trim()) continue;
-    map.set(normalized, content);
-    map.set(normalized.toLowerCase(), content);
+    setScriptMapEntry(map, normalized, content);
   }
   return map;
 }
@@ -139,7 +142,7 @@ function assertNoErrors(errors: string[]) {
 function assertScriptLoaded(scriptMap: Map<string, string>, code: number) {
   const name = `c${code}.lua`;
   if (!scriptMap.has(name) && !scriptMap.has(name.toLowerCase())) {
-    throw new Error(`Script ${name} was not found in the project or configured YGOPro script directories`);
+    throw new Error(`Script ${name} was not found in the project or configured script directory`);
   }
 }
 
@@ -157,17 +160,20 @@ function assertFieldCount(actual: number, check: Extract<ScriptTestCheck, { kind
 
 export async function runScriptTestPlan(input: ScriptTestRunInput): Promise<ScriptTestRunResult> {
   const plan = normalizeScriptTestPlan(input.plan, input.cardCode);
-  const [{ default: initSqlJs }, { default: sqlWasmUrl }, coreModule] = await Promise.all([
+  const [{ default: initSqlJs }, { default: sqlWasmUrl }, { default: ocgcoreWasmUrl }, coreModule] = await Promise.all([
     import('sql.js'),
     import('sql.js/dist/sql-wasm.wasm?url'),
+    import('../../../../node_modules/koishipro-core.js/dist/vendor/wasm_esm/libocgcore.wasm?url'),
     import('koishipro-core.js'),
   ]);
 
   const SQL = await initSqlJs({ locateFile: () => sqlWasmUrl });
-  const cdbs = await readCdbs(input.cdbPath, input.ygoproPath);
+  const cdbs = await readCdbs(input.cdbPath);
   const scriptMap = await readScriptMap(input, plan);
   const cardReader = coreModule.SqljsCardReader(SQL, ...cdbs);
-  const core = await coreModule.createOcgcoreWrapper();
+  const core = await coreModule.createOcgcoreWrapper({
+    locateFile: (path: string) => path.endsWith('.wasm') ? ocgcoreWasmUrl : path,
+  });
   const errors: string[] = [];
   const logs: string[] = [];
   let steps = 0;

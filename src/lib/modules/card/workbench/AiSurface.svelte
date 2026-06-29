@@ -412,7 +412,6 @@
         plan: patch.plan,
         cdbPath: patch.cdbPath,
         cardCode: patch.cardCode,
-        ygoproPath: appSettingsState.values.ygoproPath,
         scriptDirectory: appSettingsState.values.scriptDirectory,
         scriptOverrides: scriptOverridesForProposal(proposal),
       });
