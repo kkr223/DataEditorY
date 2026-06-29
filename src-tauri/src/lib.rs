@@ -106,6 +106,7 @@ pub fn run() {
             commands::media::write_cdb,
             commands::media::write_file,
             commands::media::path_exists,
+            commands::media::resolve_resource_file,
             commands::media::list_image_folder_entries,
             commands::media::read_lua_helper_scripts,
             commands::media::read_builtin_lua_helper_scripts,

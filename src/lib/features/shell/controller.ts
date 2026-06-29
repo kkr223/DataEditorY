@@ -28,6 +28,16 @@ export function normalizeExternalOpenPaths(paths: string[] = []) {
   );
 }
 
+export function normalizeExternalTextPaths(paths: string[] = []) {
+  return Array.from(
+    new Set(
+      paths
+        .map((item) => item.trim())
+        .filter((item) => item && !isCdbFilePath(item))
+    )
+  );
+}
+
 function toElement(target: EventTarget | null): HTMLElement | null {
   if (target instanceof HTMLElement) return target;
   if (target instanceof Node) {

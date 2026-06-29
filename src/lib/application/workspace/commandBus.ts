@@ -43,6 +43,13 @@ import {
 import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
 import { copyWorkspaceMetadataForSaveAs } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
 import { clearWorkspaceCardDraft } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
+import {
+  activateTextTab,
+  closeTextTab,
+  isTextWorkspace,
+  saveTextTab,
+  saveTextTabAs,
+} from '$lib/stores/textEditor.svelte';
 
 function isScriptWorkspace(id: string) {
   return get(scriptTabs).some((tab) => tab.id === id);
@@ -131,6 +138,11 @@ export function activateWorkspaceDocument(id: string) {
     return;
   }
 
+  if (isTextWorkspace(id)) {
+    activateTextTab(id);
+    return;
+  }
+
   if (isScriptWorkspace(id)) {
     activateScriptTab(id);
     return;
@@ -173,6 +185,12 @@ export async function closeWorkspaceDocument(id: string) {
     return true;
   }
 
+  if (isTextWorkspace(id)) {
+    await closeTextTab(id);
+    clearWorkspaceLifecycleMetadata(id);
+    return true;
+  }
+
   if (isCardImageWorkspace(id)) {
     await documentRuntime.close(id, true);
     return true;
@@ -207,6 +225,12 @@ export async function saveWorkspaceDocument(id: string) {
     return saveScriptTab(id);
   }
 
+  if (isTextWorkspace(id)) {
+    const customSaveResult = await tryRunWorkspaceSaveHandler(id);
+    if (customSaveResult !== null) return customSaveResult;
+    return saveTextTab(id);
+  }
+
   if (isCardImageWorkspace(id)) {
     const customSaveResult = await tryRunWorkspaceSaveHandler(id);
     if (customSaveResult !== null) return customSaveResult;
@@ -220,6 +244,10 @@ export async function saveWorkspaceDocument(id: string) {
 }
 
 export async function saveWorkspaceDocumentAs(id: string) {
+  if (isTextWorkspace(id)) {
+    return saveTextTabAs(id);
+  }
+
   const tab = get(tabs).find((item) => item.id === id);
   if (!tab) return false;
 

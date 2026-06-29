@@ -31,6 +31,7 @@
 
   const form = $state(createSettingsFormState());
   let isHydrated = $state(false);
+  let activeTab = $state<'general' | 'shortcuts' | 'ai'>('general');
   const hasContributedSettings = documentRuntime.registry.findSettingsSections().length > 0;
   let settingsDescription = $derived($_(hasContributedSettings
     ? 'settings.description_extra'
@@ -106,76 +107,99 @@
     onSave={handleSaveSettings}
   />
 
+  <div class="sp-tabs">
+    <button
+      type="button"
+      class="sp-tab"
+      class:active={activeTab === 'general'}
+      onclick={() => { activeTab = 'general'; }}
+    >{$_('settings.tab_general')}</button>
+    <button
+      type="button"
+      class="sp-tab"
+      class:active={activeTab === 'shortcuts'}
+      onclick={() => { activeTab = 'shortcuts'; }}
+    >{$_('settings.tab_shortcuts')}</button>
+    <button
+      type="button"
+      class="sp-tab"
+      class:active={activeTab === 'ai'}
+      onclick={() => { activeTab = 'ai'; }}
+    >{$_('settings.tab_ai')}</button>
+  </div>
+
   <div class="sp-body">
-    <SettingsCoverAndLog
-      coverImageSrc={appSettingsState.coverImageSrc}
-      coverTitle={$_('settings.cover_title')}
-      coverDescription={$_('settings.cover_description')}
-      coverPickLabel={$_('settings.cover_pick')}
-      coverResetLabel={$_('settings.cover_reset')}
-      errorLogTitle={$_('settings.error_log_title')}
-      errorLogDescription={$_('settings.error_log_description')}
-      errorLogPath={appSettingsState.values.errorLogPath}
-      errorLogOpenLabel={$_('settings.error_log_open')}
-      onPickCover={handlePickCover}
-      onClearCover={handleClearCover}
-      onOpenErrorLog={handleOpenErrorLog}
-    />
+    {#if activeTab === 'general'}
+      <SettingsCoverAndLog
+        coverImageSrc={appSettingsState.coverImageSrc}
+        coverTitle={$_('settings.cover_title')}
+        coverDescription={$_('settings.cover_description')}
+        coverPickLabel={$_('settings.cover_pick')}
+        coverResetLabel={$_('settings.cover_reset')}
+        errorLogTitle={$_('settings.error_log_title')}
+        errorLogDescription={$_('settings.error_log_description')}
+        errorLogPath={appSettingsState.values.errorLogPath}
+        errorLogOpenLabel={$_('settings.error_log_open')}
+        onPickCover={handlePickCover}
+        onClearCover={handleClearCover}
+        onOpenErrorLog={handleOpenErrorLog}
+      />
 
-    <SettingsTemplateCard
-      title={$_('settings.script_template_title')}
-      description={$_('settings.script_template_description')}
-      externalEditorLabel={$_('settings.use_external_script_editor')}
-      externalEditorHint={$_('settings.use_external_script_editor_hint')}
-      saveScriptImageToLocalLabel={$_('settings.save_script_image_to_local')}
-      saveScriptImageToLocalHint={$_('settings.save_script_image_to_local_hint')}
-      scriptDirectoryLabel={$_('settings.script_directory')}
-      scriptDirectoryHint={$_('settings.script_directory_hint')}
-      scriptDirectory={form.scriptDirectory}
-      scriptTemplate={form.scriptTemplate}
-      onScriptDirectoryInput={(value) => {
-        form.scriptDirectory = value;
-      }}
-      onScriptTemplateInput={(value) => {
-        form.scriptTemplate = value;
-      }}
-      useExternalScriptEditor={form.useExternalScriptEditor}
-      onExternalEditorChange={(value) => {
-        form.useExternalScriptEditor = value;
-      }}
-      saveScriptImageToLocal={form.saveScriptImageToLocal}
-      onSaveScriptImageToLocalChange={(value) => {
-        form.saveScriptImageToLocal = value;
-      }}
-    />
+      <SettingsTemplateCard
+        title={$_('settings.script_template_title')}
+        description={$_('settings.script_template_description')}
+        externalEditorLabel={$_('settings.use_external_script_editor')}
+        externalEditorHint={$_('settings.use_external_script_editor_hint')}
+        saveScriptImageToLocalLabel={$_('settings.save_script_image_to_local')}
+        saveScriptImageToLocalHint={$_('settings.save_script_image_to_local_hint')}
+        scriptDirectoryLabel={$_('settings.script_directory')}
+        scriptDirectoryHint={$_('settings.script_directory_hint')}
+        scriptDirectory={form.scriptDirectory}
+        scriptTemplate={form.scriptTemplate}
+        onScriptDirectoryInput={(value) => {
+          form.scriptDirectory = value;
+        }}
+        onScriptTemplateInput={(value) => {
+          form.scriptTemplate = value;
+        }}
+        useExternalScriptEditor={form.useExternalScriptEditor}
+        onExternalEditorChange={(value) => {
+          form.useExternalScriptEditor = value;
+        }}
+        saveScriptImageToLocal={form.saveScriptImageToLocal}
+        onSaveScriptImageToLocalChange={(value) => {
+          form.saveScriptImageToLocal = value;
+        }}
+      />
 
-    <SettingsPackageCard
-      title={$_('settings.package_include_title')}
-      description={$_('settings.package_include_description')}
-      hint={$_('settings.package_include_hint')}
-      patternsText={form.packageIncludePatternsText}
-      onPatternsInput={(value) => {
-        form.packageIncludePatternsText = value;
-      }}
-    />
-
-    <SettingsShortcutsCard
-      title={$_('settings.shortcuts_title')}
-      description={$_('settings.shortcuts_description')}
-      recordLabel={$_('settings.shortcuts_record')}
-      recordingLabel={$_('settings.shortcuts_recording')}
-      resetLabel={$_('settings.shortcuts_reset')}
-      resetAllLabel={$_('settings.shortcuts_reset_all')}
-      defaultLabel={$_('settings.shortcuts_default')}
-      conflictLabel={$_('settings.shortcuts_conflict')}
-      pressHint={$_('settings.shortcuts_hint')}
-      shortcutBindings={form.shortcutBindings}
-      onShortcutBindingsChange={(bindings) => {
-        form.shortcutBindings = bindings;
-      }}
-    />
-
-    <SettingsSections context={settingsWorkbenchContext} />
+      <SettingsPackageCard
+        title={$_('settings.package_include_title')}
+        description={$_('settings.package_include_description')}
+        hint={$_('settings.package_include_hint')}
+        patternsText={form.packageIncludePatternsText}
+        onPatternsInput={(value) => {
+          form.packageIncludePatternsText = value;
+        }}
+      />
+    {:else if activeTab === 'shortcuts'}
+      <SettingsShortcutsCard
+        title={$_('settings.shortcuts_title')}
+        description={$_('settings.shortcuts_description')}
+        recordLabel={$_('settings.shortcuts_record')}
+        recordingLabel={$_('settings.shortcuts_recording')}
+        resetLabel={$_('settings.shortcuts_reset')}
+        resetAllLabel={$_('settings.shortcuts_reset_all')}
+        defaultLabel={$_('settings.shortcuts_default')}
+        conflictLabel={$_('settings.shortcuts_conflict')}
+        pressHint={$_('settings.shortcuts_hint')}
+        shortcutBindings={form.shortcutBindings}
+        onShortcutBindingsChange={(bindings) => {
+          form.shortcutBindings = bindings;
+        }}
+      />
+    {:else if activeTab === 'ai'}
+      <SettingsSections context={settingsWorkbenchContext} />
+    {/if}
   </div>
 </section>
 
@@ -199,5 +223,37 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+  }
+
+  .sp-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 0 10px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+  }
+
+  .sp-tab {
+    padding: 6px 16px;
+    border: 1px solid transparent;
+    border-radius: var(--control-radius, 6px) var(--control-radius, 6px) 0 0;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font: inherit;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .sp-tab:hover {
+    background: var(--bg-surface-hover);
+    color: var(--text-primary);
+  }
+
+  .sp-tab.active {
+    color: var(--text-primary);
+    background: var(--bg-surface);
+    border-color: var(--border-color);
+    border-bottom-color: var(--bg-base);
+    margin-bottom: -1px;
   }
 </style>

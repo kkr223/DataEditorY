@@ -179,6 +179,53 @@ pub fn path_exists(path: String) -> Result<bool, String> {
     Ok(Path::new(&path).exists())
 }
 
+pub fn resolve_resource_file(app: &AppHandle, relative_path: String) -> Result<String, String> {
+    let relative = relative_path.trim().replace('\\', "/");
+    if relative.is_empty() {
+        return Err("resource path cannot be empty".to_string());
+    }
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join("resources").join(&relative));
+        candidates.push(resource_dir.join(&relative));
+    }
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        candidates.push(current_dir.join("static").join("resources").join(&relative));
+        candidates.push(current_dir.join("resources").join(&relative));
+    }
+
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(exe_dir) = current_exe.parent() {
+            candidates.push(exe_dir.join("resources").join(&relative));
+            // Walk up to 4 parent levels to find the project root in dev builds
+            // exe is at <root>/src-tauri/target/debug/dataeditory.exe
+            let mut ancestor = exe_dir;
+            for _ in 0..4 {
+                if let Some(parent) = ancestor.parent() {
+                    candidates.push(parent.join("static").join("resources").join(&relative));
+                    candidates.push(parent.join("resources").join(&relative));
+                    ancestor = parent;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    for candidate in dedupe_candidate_paths(candidates) {
+        if candidate.is_file() {
+            return candidate.to_str().map(|s| s.to_string()).ok_or_else(|| {
+                format!("Failed to convert path to string: {:?}", candidate)
+            });
+        }
+    }
+
+    Err(format!("Resource file not found: {}", relative))
+}
+
 pub fn list_image_folder_entries(path: String) -> Result<Vec<String>, String> {
     let dir = Path::new(&path);
     if !dir.exists() {

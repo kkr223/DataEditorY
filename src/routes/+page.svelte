@@ -11,7 +11,9 @@
   } from '$lib/stores/db';
   import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
   import { clearSearchError, clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSelectedCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
+  import { appShellState } from '$lib/stores/appShell.svelte';
   import WorkbenchHost from '$lib/platform/components/WorkbenchHost.svelte';
+  import TextEditorWorkbench from '$lib/components/TextEditorWorkbench.svelte';
 
   function restoreSearchFilters() {
     const cached = getCachedFilters();
@@ -71,4 +73,8 @@
   });
 </script>
 
-<WorkbenchHost />
+{#if appShellState.mainView === 'text'}
+  <TextEditorWorkbench />
+{:else}
+  <WorkbenchHost />
+{/if}

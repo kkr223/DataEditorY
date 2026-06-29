@@ -11,6 +11,47 @@ export type ScriptMonacoRuntime = {
   dispose: () => void;
 };
 
+const FONT_ZOOM_STEP = 1;
+const FONT_ZOOM_MIN = 8;
+const FONT_ZOOM_MAX = 32;
+
+export function attachFontZoomActions(editor: MonacoEditor.IStandaloneCodeEditor, monaco: ScriptMonacoApi) {
+  const { KeyMod, KeyCode } = monaco;
+  const baseFontSize = editor.getOption(monaco.editor.EditorOption.fontSize) as number;
+
+  function setFontZoom(delta: number) {
+    const current = editor.getOption(monaco.editor.EditorOption.fontSize) as number;
+    const next = Math.min(FONT_ZOOM_MAX, Math.max(FONT_ZOOM_MIN, current + delta));
+    editor.updateOptions({ fontSize: next });
+  }
+
+  const actions: MonacoEditor.IActionDescriptor[] = [
+    {
+      id: 'dataeditory.fontZoomIn',
+      label: 'Increase Font Size',
+      keybindings: [KeyMod.CtrlCmd | KeyCode.Equal],
+      run: () => setFontZoom(FONT_ZOOM_STEP),
+    },
+    {
+      id: 'dataeditory.fontZoomOut',
+      label: 'Decrease Font Size',
+      keybindings: [KeyMod.CtrlCmd | KeyCode.Minus],
+      run: () => setFontZoom(-FONT_ZOOM_STEP),
+    },
+    {
+      id: 'dataeditory.fontZoomReset',
+      label: 'Reset Font Size',
+      keybindings: [KeyMod.CtrlCmd | KeyCode.Numpad0, KeyMod.CtrlCmd | KeyCode.Digit0],
+      run: () => editor.updateOptions({ fontSize: baseFontSize }),
+    },
+  ];
+
+  const disposables = actions.map((action) => editor.addAction(action));
+  return () => {
+    for (const d of disposables) d.dispose();
+  };
+}
+
 export function buildScriptEditorMonacoOptions() {
   return {
     automaticLayout: true,
@@ -26,6 +67,11 @@ export function buildScriptEditorMonacoOptions() {
     language: 'lua',
     renderWhitespace: 'selection' as const,
     smoothScrolling: true,
+    unicodeHighlight: {
+      nonBasicASCII: false,
+      invisibleCharacters: false,
+      ambiguousCharacters: false,
+    },
     suggest: {
       showInlineDetails: true,
       snippetsPreventQuickSuggestions: false,
@@ -58,6 +104,7 @@ export async function createScriptMonacoRuntime(input: {
 
   const editor = loadedMonaco.editor.create(input.host, buildScriptEditorMonacoOptions());
   const callHighlightDecorations = editor.createDecorationsCollection();
+  const disposeFontZoom = attachFontZoomActions(editor, loadedMonaco);
   const disposables = [
     editor.onDidChangeModelContent(input.onDidChangeModelContent),
     editor.onDidChangeCursorPosition(input.onDidChangeCursorPosition),
@@ -91,6 +138,7 @@ export async function createScriptMonacoRuntime(input: {
       for (const disposable of disposables) {
         disposable.dispose();
       }
+      disposeFontZoom();
       themeObserver.disconnect();
       window.removeEventListener('keydown', input.onWindowKeydown);
       window.removeEventListener('keyup', input.onWindowKeyup);

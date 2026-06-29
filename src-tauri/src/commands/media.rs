@@ -30,6 +30,14 @@ pub(crate) fn path_exists(path: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+pub(crate) fn resolve_resource_file(
+    app: AppHandle,
+    relative_path: String,
+) -> Result<String, String> {
+    services::media::resolve_resource_file(&app, relative_path)
+}
+
+#[tauri::command]
 pub(crate) fn list_image_folder_entries(path: String) -> Result<Vec<String>, String> {
     services::media::list_image_folder_entries(path)
 }

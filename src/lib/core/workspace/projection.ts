@@ -1,12 +1,14 @@
 import type { CdbTab } from '$lib/stores/db';
 import type { DocumentRecord } from '$lib/platform';
 import type { ScriptWorkspaceState } from '$lib/types';
+import type { TextTab } from '$lib/stores/textEditor.svelte';
 import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
 import type {
   CardImageWorkspaceDocument,
   DbWorkspaceDocument,
   ScriptWorkspaceDocument,
   SettingsWorkspaceDocument,
+  TextWorkspaceDocument,
   WorkspaceDocument,
 } from '$lib/core/workspace/types';
 
@@ -105,10 +107,29 @@ export function toCardImageWorkspaceDocument(document: DocumentRecord): CardImag
   };
 }
 
+export function toTextWorkspaceDocument(tab: TextTab): TextWorkspaceDocument {
+  return {
+    id: tab.id,
+    kind: 'text',
+    title: tab.name,
+    subtitle: tab.path,
+    dirty: tab.isDirty,
+    status: 'ready',
+    savePolicy: 'manual',
+    closeGuard: 'confirm-dirty',
+    source: {
+      path: tab.path,
+      tabId: tab.id,
+    },
+    viewState: null,
+  };
+}
+
 export function buildWorkspaceDocuments(input: {
   dbTabs: CdbTab[];
   scriptTabs: ScriptWorkspaceState[];
   cardImageDocuments?: DocumentRecord[];
+  textTabs?: TextTab[];
   settingsOpen: boolean;
   getScriptTitle: (tab: ScriptWorkspaceState) => string;
 }): WorkspaceDocument[] {
@@ -127,15 +148,17 @@ export function buildWorkspaceDocuments(input: {
       .filter((document) => document.typeId === CARD_IMAGE_CONFIG_TYPE)
       .map(toCardImageWorkspaceDocument),
   );
+  documents.push(...(input.textTabs ?? []).map(toTextWorkspaceDocument));
 
   return documents;
 }
 
 export function resolveActiveWorkspaceId(input: {
-  mainView: 'editor' | 'settings' | 'script';
+  mainView: 'editor' | 'settings' | 'script' | 'text';
   settingsOpen: boolean;
   activeDbTabId: string | null;
   activeScriptTabId: string | null;
+  activeTextTabId?: string | null;
   activeDocumentId?: string | null;
   cardImageDocuments?: DocumentRecord[];
 }) {
@@ -145,6 +168,10 @@ export function resolveActiveWorkspaceId(input: {
 
   if (input.mainView === 'script') {
     return input.activeScriptTabId;
+  }
+
+  if (input.mainView === 'text') {
+    return input.activeTextTabId ?? null;
   }
 
   if (

@@ -79,7 +79,7 @@
   }
 
   const topLevelWorkspaces = $derived(
-    workspaceState.documents.filter((workspace) => workspace.kind === 'db' || workspace.kind === 'settings'),
+    workspaceState.documents.filter((workspace) => workspace.kind === 'db' || workspace.kind === 'settings' || workspace.kind === 'text'),
   );
 
   const topLevelActiveWorkspaceId = $derived(

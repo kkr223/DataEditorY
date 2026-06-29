@@ -6,6 +6,10 @@ import {
   getScriptTabDisplayName,
   scriptTabs,
 } from '$lib/stores/scriptEditor.svelte';
+import {
+  activeTextTabId,
+  textTabs,
+} from '$lib/stores/textEditor.svelte';
 import { documentState } from '$lib/platform/store.svelte';
 import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
 import type {
@@ -26,6 +30,8 @@ const tabsState = fromStore(tabs);
 const activeTabIdState = fromStore(activeTabId);
 const scriptTabsState = fromStore(scriptTabs);
 const activeScriptTabIdState = fromStore(activeScriptTabId);
+const textTabsState = fromStore(textTabs);
+const activeTextTabIdState = fromStore(activeTextTabId);
 const workspaceLifecycleVersionState = fromStore(getWorkspaceLifecycleVersionStore());
 
 function resolveWorkspaceDocuments() {
@@ -38,6 +44,7 @@ function resolveWorkspaceDocuments() {
     dbTabs: tabsState.current,
     scriptTabs: scriptTabsState.current,
     cardImageDocuments,
+    textTabs: textTabsState.current,
     settingsOpen: appShellState.settingsOpen,
     getScriptTitle: getScriptTabDisplayName,
   }));
@@ -53,6 +60,7 @@ function resolveActiveWorkspace() {
     settingsOpen: appShellState.settingsOpen,
     activeDbTabId: activeTabIdState.current,
     activeScriptTabId: activeScriptTabIdState.current,
+    activeTextTabId: activeTextTabIdState.current,
     activeDocumentId: documentState.activeDocumentId,
     cardImageDocuments,
   });

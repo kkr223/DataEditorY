@@ -42,6 +42,7 @@ import {
   isEditableTarget,
   isNativeTextUndoTarget,
   normalizeExternalOpenPaths,
+  normalizeExternalTextPaths,
 } from '$lib/features/shell/controller';
 import {
   activateWorkspaceDocument,
@@ -163,16 +164,24 @@ export function createShellLayoutController() {
   }
 
   async function handleExternalOpenPaths(paths: string[]) {
-    const filteredPaths = normalizeExternalOpenPaths(paths);
-    if (filteredPaths.length === 0) {
-      return;
-    }
+    const cdbPaths = normalizeExternalOpenPaths(paths);
+    const textPaths = normalizeExternalTextPaths(paths);
 
     let firstOpenedId: string | null = null;
-    for (const path of filteredPaths) {
+    for (const path of cdbPaths) {
       const openedId = await openCdbPath(path);
       if (openedId && !firstOpenedId) {
         firstOpenedId = openedId;
+      }
+    }
+
+    if (textPaths.length > 0) {
+      const { openTextFile } = await import('$lib/stores/textEditor.svelte');
+      for (const path of textPaths) {
+        const openedId = await openTextFile(path);
+        if (openedId && !firstOpenedId) {
+          firstOpenedId = openedId;
+        }
       }
     }
 
@@ -183,8 +192,13 @@ export function createShellLayoutController() {
 
   function updateFileDragState(paths: string[] = []) {
     const hasCdb = paths.some((path) => isCdbFilePath(path));
-    state.isFileDragActive = hasCdb;
-    state.dragOverlayMessage = hasCdb ? 'Drop .cdb to open' : 'Unsupported file';
+    const hasOther = paths.some((path) => !isCdbFilePath(path));
+    state.isFileDragActive = hasCdb || hasOther;
+    state.dragOverlayMessage = hasCdb
+      ? 'Drop .cdb to open'
+      : hasOther
+        ? 'Drop to open as text'
+        : 'Unsupported file';
   }
 
   function clearFileDragState() {
