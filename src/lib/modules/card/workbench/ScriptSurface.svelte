@@ -185,7 +185,11 @@
   {#if currentCdbScriptTabs.length}
     <nav class="script-tab-strip" aria-label={$_('surface.script')}>
       {#each currentCdbScriptTabs as tab}
-        <div class:active={$activeScriptTab?.id === tab.id} class="script-tab">
+        <div
+          class:active={$activeScriptTab?.id === tab.id}
+          class="script-tab"
+          onauxclick={(event) => { if (event.button === 1) { event.preventDefault(); void closeSurfaceScriptTab(tab.id); } }}
+        >
           <button type="button" class="script-tab-main" onclick={() => activateScriptTab(tab.id)}>
             c{tab.cardCode}.lua{tab.isDirty ? ' *' : ''}
           </button>
