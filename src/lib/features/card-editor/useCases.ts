@@ -14,6 +14,7 @@ import {
   openCardScriptWorkspace,
   openScriptWithDefaultApp,
 } from '$lib/services/cardScriptService';
+import { activateCardSurface } from '$lib/modules/card/workbench/surfaceState.svelte';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -256,6 +257,8 @@ export async function openCardScriptFlow(input: {
       cardCode: code,
       cardName: input.draftCard.name ?? '',
     });
+
+    activateCardSurface('script');
 
     if (opened.createdFromTemplate) {
       showToast(

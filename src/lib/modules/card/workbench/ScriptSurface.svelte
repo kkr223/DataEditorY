@@ -103,7 +103,11 @@
           }
         }
 
-        if (activeCode) {
+        const currentActive = $activeScriptTab;
+        const alreadyActive = currentActive
+          && isSameCdbPath(currentActive.cdbPath, path)
+          && currentCdbScriptTabs.some((tab) => tab.id === currentActive.id);
+        if (!alreadyActive && activeCode) {
           const active = $scriptTabs.find((tab) => isSameCdbPath(tab.cdbPath, path) && tab.cardCode === activeCode);
           if (active) activateScriptTab(active.id);
         }
