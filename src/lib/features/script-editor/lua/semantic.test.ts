@@ -104,5 +104,36 @@ describe('lua semantic document', () => {
     expect(hoverInfo?.kind).toBe('catalog-function');
     expect(hoverInfo?.kind === 'catalog-function' ? hoverInfo.item.name : '').toBe('Card.IsLocation');
   });
+
+  test('resolves hover on intermediate member of a chained call', () => {
+    const source = [
+      'function s.operation(e,tp,eg,ep,ev,re,r,rp)',
+      '  local g=Duel.GetReleaseGroup(tp)',
+      '  local tc=g:GetFirst()',
+      'end',
+      '',
+    ].join('\n');
+
+    const document = getLuaSemanticDocument(createModel(source, 6), luaCatalog);
+    const hoverInfo = getHoverInfoAt(document, { lineNumber: 3, column: 14 });
+
+    expect(hoverInfo?.kind).toBe('catalog-function');
+    expect(hoverInfo?.kind === 'catalog-function' ? hoverInfo.item.name : '').toBe('Group.GetFirst');
+  });
+
+  test('resolves hover on first half of a chained call on the same line', () => {
+    const source = [
+      'function s.operation(e,tp,eg,ep,ev,re,r,rp)',
+      '  local tc=Duel.GetReleaseGroup(tp):GetFirst()',
+      'end',
+      '',
+    ].join('\n');
+
+    const document = getLuaSemanticDocument(createModel(source, 7), luaCatalog);
+    const hoverInfo = getHoverInfoAt(document, { lineNumber: 2, column: 22 });
+
+    expect(hoverInfo?.kind).toBe('catalog-function');
+    expect(hoverInfo?.kind === 'catalog-function' ? hoverInfo.item.name : '').toBe('Duel.GetReleaseGroup');
+  });
 });
 

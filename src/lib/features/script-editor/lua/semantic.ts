@@ -685,14 +685,16 @@ function inferExpressionTypeFromText(
   return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
 }
 
-function resolveCatalogCallFromNode(node: LuaNode, scopes: LuaRuntimeScope[], analysis: LuaSemanticAnalysis) {
-  if (node.type !== 'CallExpression') return null;
-  const base = node.base as LuaNode | undefined;
-  if (!base || base.type !== 'MemberExpression') return null;
-  const member = base.identifier as LuaNode | undefined;
+function resolveMemberExpression(
+  node: LuaNode,
+  scopes: LuaRuntimeScope[],
+  analysis: LuaSemanticAnalysis,
+): { namespace: string; memberName: string; indexer: string; memberNode: LuaNode | undefined; item: LuaFunctionItem | null } | null {
+  if (node.type !== 'MemberExpression') return null;
+  const member = node.identifier as LuaNode | undefined;
   const memberName = typeof member?.name === 'string' ? member.name : '';
   if (!memberName) return null;
-  const receiver = base.base as LuaNode | undefined;
+  const receiver = node.base as LuaNode | undefined;
   let namespace = inferExpressionType(receiver, scopes, analysis);
   if (!namespace && receiver?.type === 'Identifier' && GLOBAL_NAMESPACES.has(String(receiver.name ?? ''))) {
     namespace = String(receiver.name);
@@ -701,9 +703,24 @@ function resolveCatalogCallFromNode(node: LuaNode, scopes: LuaRuntimeScope[], an
   return {
     namespace,
     memberName,
-    indexer: base.indexer === ':' ? ':' : '.',
+    indexer: node.indexer === ':' ? ':' : '.',
     memberNode: member,
     item: getFunctionFromNamespace(analysis.catalogIndexes, namespace, memberName),
+  };
+}
+
+function resolveCatalogCallFromNode(node: LuaNode, scopes: LuaRuntimeScope[], analysis: LuaSemanticAnalysis) {
+  if (node.type !== 'CallExpression') return null;
+  const base = node.base as LuaNode | undefined;
+  if (!base || base.type !== 'MemberExpression') return null;
+  const resolved = resolveMemberExpression(base, scopes, analysis);
+  if (!resolved) return null;
+  return {
+    namespace: resolved.namespace,
+    memberName: resolved.memberName,
+    indexer: resolved.indexer as ':' | '.',
+    memberNode: resolved.memberNode,
+    item: resolved.item,
   };
 }
 
@@ -1009,24 +1026,72 @@ export function getCallInfoAt(document: LuaSemanticDocument, position: LuaSemant
   };
 }
 
+function findHoverTargetFromAst(
+  node: LuaNode,
+  position: LuaSemanticPosition,
+  scopes: LuaRuntimeScope[],
+  analysis: LuaSemanticAnalysis,
+): LuaSemanticHoverInfo | null {
+  if (node.type === 'MemberExpression') {
+    const member = node.identifier as LuaNode | undefined;
+    if (member?.loc?.start && member.loc.end) {
+      const memberStart = nodeStart(member);
+      const memberEnd = nodeEnd(member);
+      if (comparePositions(position, memberStart) >= 0 && comparePositions(position, memberEnd) <= 0) {
+        const resolved = resolveMemberExpression(node, scopes, analysis);
+        if (resolved?.item) {
+          return {
+            kind: 'catalog-function',
+            item: resolved.item,
+            range: rangeOf(member, analysis.sourceLines),
+          };
+        }
+      }
+    }
+  }
+
+  for (const key of Object.keys(node)) {
+    if (key === 'type' || key === 'loc' || key === 'range' || key === 'isLocal' || key === 'indexer' || key === 'name') continue;
+    const child = (node as Record<string, unknown>)[key];
+    if (Array.isArray(child)) {
+      for (const item of child) {
+        if (item && typeof item === 'object' && 'type' in item) {
+          const found = findHoverTargetFromAst(item as LuaNode, position, scopes, analysis);
+          if (found) return found;
+        }
+      }
+    } else if (child && typeof child === 'object' && 'type' in child) {
+      const found = findHoverTargetFromAst(child as LuaNode, position, scopes, analysis);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export function getHoverInfoAt(document: LuaSemanticDocument, position: LuaSemanticPosition, options: LuaQueryOptions = {}): LuaSemanticHoverInfo | null {
   const analysis = analysisFor(document, position, options);
   if (!analysis) return null;
 
-  const line = document.sourceLines[position.lineNumber - 1] ?? '';
   const scopes = collectScopesAt(analysis, position);
+  const astResult = findHoverTargetFromAst(analysis.ast, position, scopes, analysis);
+  if (astResult) return astResult;
+
+  // ponytail: regex fallback for incomplete code where tolerant parsing masks the
+  // current line, preventing the AST from seeing member expressions on it.
+  const line = document.sourceLines[position.lineNumber - 1] ?? '';
   for (const match of line.matchAll(/([A-Za-z_][\w]*(?:\s*\([^()]*\))?(?:\s*[:.]\s*[A-Za-z_]\w*(?:\s*\([^()]*\))?)*)\s*([:.])\s*([A-Za-z_]\w*)/g)) {
     const start = (match.index ?? 0) + 1;
     const end = start + match[0].length;
     if (position.column < start || position.column > end) continue;
     const receiverName = (match[1] ?? '').trim();
     const memberName = match[3] ?? '';
+    const memberStart = start + match[0].lastIndexOf(memberName);
+    if (position.column < memberStart || position.column > memberStart + memberName.length - 1) continue;
     const namespace = match[2] === ':'
       ? inferExpressionTypeFromText(receiverName, scopes, analysis)
       : inferExpressionTypeFromText(receiverName, scopes, analysis) || receiverName;
     const item = namespace ? getFunctionFromNamespace(analysis.catalogIndexes, namespace, memberName) : null;
     if (item) {
-      const memberStart = start + match[0].lastIndexOf(memberName);
       return {
         kind: 'catalog-function',
         item,
