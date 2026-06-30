@@ -16,7 +16,7 @@ Main area: Card / Script / Image / AI surface
 
 Top-level app tabs represent CDB workspaces only. Lua scripts, card images, and AI are surfaces under the active CDB and active card context.
 
-**Version**: 2.5.0
+**Version**: 3.1.0
 **Author**: kkr223
 **License**: MIT
 **Variants**: `base` (CDB editing + AI) | `extra` (+ card image maker)
