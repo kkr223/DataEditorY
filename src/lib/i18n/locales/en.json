@@ -91,7 +91,7 @@
     "ai_access_mode": "Access mode",
     "ai_review_access": "Review before apply",
     "ai_full_access": "Full Access",
-    "ai_full_access_hint": "Danger: applying proposals will skip overwrite and changed-target confirmations.",
+    "ai_full_access_hint": "Danger: AI proposals will be applied automatically and skip changed-target confirmations.",
     "ai_context_usage": "Context {usage}",
     "ai_context_usage_hint": "Model context usage.",
     "ai_context_compacted": "Automatically compacted {count} earlier messages.",

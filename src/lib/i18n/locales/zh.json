@@ -91,7 +91,7 @@
     "ai_access_mode": "访问权限",
     "ai_review_access": "确认后应用",
     "ai_full_access": "完全访问权限",
-    "ai_full_access_hint": "危险：开启后应用提案会跳过覆盖和目标已变化确认。",
+    "ai_full_access_hint": "危险：开启后 AI 提案会自动应用，并跳过目标已变化确认。",
     "ai_context_usage": "上下文 {usage}",
     "ai_context_usage_hint": "模型上下文用量。",
     "ai_context_compacted": "已自动压缩 {count} 条较早消息。",

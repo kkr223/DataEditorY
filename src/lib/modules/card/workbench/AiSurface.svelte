@@ -10,7 +10,19 @@
   import { writeTextFile } from '$lib/infrastructure/tauri/commands';
   import { cloneEditableCard } from '$lib/domain/card/draft';
   import type { CardDataEntry } from '$lib/types';
-  import type { CardCollectionCommand } from '$lib/modules/card';
+  import type { CardCollectionCommand, CardSearchExpression, CardSearchPage } from '$lib/modules/card';
+  import { mergeWorkspaceAiContextRefs } from './aiContextRefs';
+  import {
+    buildMentionContextPrompt,
+    cardMentionLabel,
+    createCardMentionContextRef,
+    filterCardMentionContextRefsForText,
+    findCardMentionDeleteRange,
+    findCardMentionToken,
+    removeCardMentionRange,
+    replaceCardMention,
+    type CardMentionToken,
+  } from './aiMentions';
   import {
     accumulateAiThreadTokenUsage,
     addAiProposal,
@@ -62,6 +74,12 @@
   let lastCompactionKey = $state('');
   let runningTestPatchId = $state('');
   let scriptTestResults = $state<Record<string, { ok: boolean; message: string }>>({});
+  let composerInput = $state<HTMLTextAreaElement | null>(null);
+  let mentionToken = $state<CardMentionToken | null>(null);
+  let mentionCandidates = $state<CardDataEntry[]>([]);
+  let mentionOpen = $state(false);
+  let mentionLoading = $state(false);
+  let mentionRequestId = 0;
   const stageLabel = $derived(stage ? $_(`surface.ai_stage_${stage}`) : '');
   const accessModeLabel = $derived(fullAccess ? $_('surface.ai_full_access') : $_('surface.ai_review_access'));
 
@@ -92,6 +110,9 @@
     if (!query) return appSettingsState.modelOptions;
     return appSettingsState.modelOptions.filter((model) => model.toLowerCase().includes(query));
   });
+  const cardContextRefs = $derived.by(() => (
+    (activeThread?.contextRefs ?? []).filter((ref) => ref.type === 'card')
+  ));
 
   function createThread() {
     return upsertAiThread({
@@ -126,6 +147,148 @@
     fullAccess = value;
     accessMenuOpen = false;
     globalThis.localStorage?.setItem(FULL_ACCESS_KEY, String(value));
+  }
+
+  function mentionSearchExpression(query: string): CardSearchExpression {
+    const value = query.trim();
+    if (!value) return { kind: 'all' };
+    const expressions: CardSearchExpression[] = [
+      { kind: 'textContains', field: 'name', value },
+      { kind: 'textContains', field: 'desc', value },
+    ];
+    if (/^\d+$/.test(value)) {
+      expressions.unshift({ kind: 'idPrefix', value });
+    }
+    return expressions.length === 1 ? expressions[0] : { kind: 'or', expressions };
+  }
+
+  async function refreshMentionCandidates(query: string) {
+    const requestId = ++mentionRequestId;
+    const tab = $activeTab;
+    if (!tab) {
+      mentionCandidates = [];
+      mentionOpen = false;
+      return;
+    }
+
+    mentionLoading = true;
+    try {
+      const page = await documentRuntime.query<CardSearchPage>(tab.id, {
+        kind: 'search',
+        expression: mentionSearchExpression(query),
+        page: 1,
+        pageSize: 8,
+      });
+      if (requestId !== mentionRequestId) return;
+      mentionCandidates = page.cards;
+      mentionOpen = Boolean(mentionToken);
+    } catch {
+      if (requestId !== mentionRequestId) return;
+      mentionCandidates = [];
+      mentionOpen = false;
+    } finally {
+      if (requestId === mentionRequestId) mentionLoading = false;
+    }
+  }
+
+  function syncComposerCardContextRefs(value: string) {
+    const thread = activeThread;
+    if (!thread) return;
+    const cardRefs = thread.contextRefs.filter((ref) => ref.type === 'card');
+    if (!cardRefs.length) return;
+
+    const keptCardRefs = filterCardMentionContextRefsForText(value, cardRefs);
+    if (keptCardRefs.length === cardRefs.length) return;
+    upsertAiThread({
+      ...thread,
+      contextRefs: [
+        ...thread.contextRefs.filter((ref) => ref.type !== 'card'),
+        ...keptCardRefs,
+      ],
+    });
+  }
+
+  function updateMentionMenu(value?: string) {
+    const input = composerInput;
+    value = typeof value === 'string' ? value : input?.value ?? composer;
+    composer = value;
+    const token = findCardMentionToken(value, input?.selectionStart ?? value.length);
+    mentionToken = token;
+    mentionOpen = Boolean(token);
+    if (token) {
+      void refreshMentionCandidates(token.query);
+    } else {
+      mentionCandidates = [];
+    }
+  }
+
+  function handleComposerInput() {
+    const value = composerInput?.value ?? composer;
+    syncComposerCardContextRefs(value);
+    updateMentionMenu(value);
+  }
+
+  function addCardContext(card: CardDataEntry) {
+    const thread = ensureThread();
+    upsertAiThread({
+      ...thread,
+      contextRefs: mergeWorkspaceAiContextRefs(thread.contextRefs, [
+        createCardMentionContextRef(card, {
+          documentId: $activeTab?.id,
+          cdbPath: $activeTab?.path,
+        }),
+      ]),
+    });
+  }
+
+  function selectMentionCard(card: CardDataEntry) {
+    const token = mentionToken;
+    if (!token) return;
+    const next = replaceCardMention(composer, token, cardMentionLabel(card));
+    composer = next.text;
+    addCardContext(card);
+    mentionOpen = false;
+    mentionToken = null;
+    mentionCandidates = [];
+    setTimeout(() => {
+      composerInput?.focus();
+      composerInput?.setSelectionRange(next.cursor, next.cursor);
+    });
+  }
+
+  function handleComposerKeydown(event: KeyboardEvent) {
+    if ((event.key === 'Backspace' || event.key === 'Delete') && composerInput) {
+      const range = findCardMentionDeleteRange(
+        composer,
+        composerInput.selectionStart,
+        composerInput.selectionEnd,
+        cardContextRefs,
+        event.key,
+      );
+      if (range) {
+        event.preventDefault();
+        const next = removeCardMentionRange(composer, range);
+        composer = next.text;
+        syncComposerCardContextRefs(next.text);
+        mentionOpen = false;
+        mentionToken = null;
+        mentionCandidates = [];
+        setTimeout(() => {
+          composerInput?.focus();
+          composerInput?.setSelectionRange(next.cursor, next.cursor);
+        });
+        return;
+      }
+    }
+
+    if (mentionOpen && event.key === 'Escape') {
+      mentionOpen = false;
+      return;
+    }
+    if (mentionOpen && mentionCandidates.length && (event.key === 'Enter' || event.key === 'Tab')) {
+      event.preventDefault();
+      selectMentionCard(mentionCandidates[0]);
+    }
   }
 
   /**
@@ -225,6 +388,7 @@
 
     const thread = ensureThread();
     appendAiMessage({ threadId: thread.id, role: 'user', content });
+    const mentionContextPrompt = buildMentionContextPrompt(thread.contextRefs);
     composer = '';
     isRunning = true;
     stage = 'requesting_model';
@@ -239,7 +403,7 @@
     try {
       const result = await runWorkspaceAgent({
         threadId: thread.id,
-        instruction: content,
+        instruction: mentionContextPrompt ? `${mentionContextPrompt}\n\n用户指令：\n${content}` : content,
         history: thread.messages,
         context: createAiAppContext(),
         signal: controller.signal,
@@ -290,6 +454,9 @@
       });
       if (result.proposal) {
         addAiProposal(result.proposal);
+        if (fullAccess) {
+          await applyProposal(result.proposal);
+        }
       }
       accumulateAiThreadTokenUsage({
         threadId: thread.id,
@@ -658,11 +825,39 @@
 
     <footer class="ai-compose">
       <div class="composer-shell">
+        {#if cardContextRefs.length}
+          <div class="context-chips">
+            {#each cardContextRefs as ref}
+              <span>{ref.label}</span>
+            {/each}
+          </div>
+        {/if}
+        <div class="composer-input-wrap">
         <textarea
+          bind:this={composerInput}
           class="composer-input"
           bind:value={composer}
           placeholder={$_('surface.ai_composer_placeholder')}
+          oninput={handleComposerInput}
+          onmouseup={() => updateMentionMenu()}
+          onkeydown={handleComposerKeydown}
+          onblur={() => { setTimeout(() => { mentionOpen = false; }, 120); }}
         ></textarea>
+          {#if mentionOpen}
+            <div class="mention-menu">
+              {#if mentionCandidates.length}
+                {#each mentionCandidates as card}
+                  <button type="button" onmousedown={(event) => { event.preventDefault(); selectMentionCard(card); }}>
+                    <strong>{card.name || card.code}</strong>
+                    <small>{card.code}</small>
+                  </button>
+                {/each}
+              {:else}
+                <span>{mentionLoading ? '...' : '-'}</span>
+              {/if}
+            </div>
+          {/if}
+        </div>
         <div class="compose-actions">
           <div
             class="access-menu"
@@ -1184,7 +1379,31 @@
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
   }
 
+  .context-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .context-chips span {
+    max-width: 15rem;
+    overflow: hidden;
+    padding: 0.22rem 0.48rem;
+    border: 1px solid var(--ai-line);
+    border-radius: 999px;
+    color: var(--ai-muted);
+    font-size: 0.76rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .composer-input-wrap {
+    position: relative;
+    min-width: 0;
+  }
+
   .composer-input {
+    width: 100%;
     min-height: 56px;
     max-height: 160px;
     resize: vertical;
@@ -1194,6 +1413,49 @@
     color: var(--ai-ink);
     padding: 2px 4px;
     line-height: 1.45;
+  }
+
+  .mention-menu {
+    position: absolute;
+    z-index: 8;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 8px);
+    max-height: 240px;
+    overflow: auto;
+    padding: 4px;
+    border: 1px solid var(--ai-line);
+    border-radius: 8px;
+    background: var(--bg-surface);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+  }
+
+  .mention-menu button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0.46rem 0.52rem;
+    text-align: left;
+    background: transparent;
+  }
+
+  .mention-menu button:hover {
+    background: var(--bg-surface-hover);
+  }
+
+  .mention-menu strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mention-menu small,
+  .mention-menu span {
+    color: var(--ai-muted);
+    font-size: 0.76rem;
   }
 
   .composer-input:focus,
