@@ -13,7 +13,7 @@ pnpm-debug.log*
 .svelte-kit/
 build/
 dist/
-package/
+/package/
 .vite/
 .vscode/
 .codex/
