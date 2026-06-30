@@ -90,9 +90,10 @@ Edit image config
 
 Use AI
   AI surface runs a workspace-level agent over opened CDB context
+  -> Composer can add card context via `@card` mentions stored with the AI thread
   -> Agent can read CDB/card/script/image context and create sandbox proposals in .dey
   -> AI surface shows tool calls, skill usage, proposal patches, and apply status
-  -> user confirmation applies proposal patches to the CDB working copy, scripts, or image metadata
+  -> review mode applies after user confirmation; full access can auto-apply while keeping logs
 ```
 
 ## Key Architectural Patterns
@@ -113,7 +114,7 @@ Use AI
 
 8. **Library-first rendering and CDB encoding** — Card image rendering uses `yugioh-card-ts`. CDB read/write uses `ygopro-cdb-encode-rs` / `cdb-encoder-rs`; app code does not implement the CDB file format.
 
-9. **Auditable AI proposals** — AI is workspace-level. It can inspect context and generate proposals, but direct writes require user confirmation.
+9. **Auditable AI proposals** — AI is workspace-level. Agent tools generate proposals instead of writing state directly. Review mode requires user confirmation; full access can auto-apply proposals through the same apply pipeline and logs.
 
 10. **Variant composition** — `scripts/run-variant-build.mjs` rewrites `src/lib/modules/active.ts` during builds. Do not manually edit `active.ts`.
 
@@ -128,7 +129,7 @@ Use AI
 | `src/lib/modules/card/workbench/CardSurfaceRail.svelte` | Current-card surface switcher |
 | `src/lib/modules/card/workbench/ScriptSurface.svelte` | Script surface and internal script tabs |
 | `src/lib/modules/card/workbench/ImageSurface.svelte` | Card image model surface |
-| `src/lib/modules/card/workbench/AiSurface.svelte` | Workspace AI surface and proposal review |
+| `src/lib/modules/card/workbench/AiSurface.svelte` | Workspace AI surface, `@card` context, proposal review/apply |
 | `src/lib/native/` | Typed frontend API boundary |
 | `src-tauri/src/main.rs` | Rust binary entry |
 | `src-tauri/src/lib.rs` | Tauri app setup, plugins, command handlers |
@@ -184,6 +185,7 @@ Use AI
 - **Selection and groups**: selection is separate from active card and filtered results; card groups are metadata-backed task inputs.
 - **Batch tools**: CDB field batch edit, Lua search/replace with diff preview, asset check, merge, package.
 - **Script surface**: active card opens `c{id}.lua`; internal script tabs stay inside the CDB workspace.
+- **AI surface**: workspace agent with visible tool calls, `@card` context mentions, auditable proposals, and optional full-access auto-apply.
 - **Metadata**: `.dey/{cdb-stem}.workspace.json` persists editor-only state without polluting `.cdb`.
 - **Internationalization**: Chinese and English UI.
 

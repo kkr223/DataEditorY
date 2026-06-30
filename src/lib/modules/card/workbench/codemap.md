@@ -10,7 +10,7 @@ Card Collection Workbench — the CDB workspace UI. It composes Card Explorer, t
 - `CardSurfaceRail.svelte` — vertical current-card surface tabs.
 - `ScriptSurface.svelte` — current-card Lua editor surface with internal script tabs.
 - `ImageSurface.svelte` — current-card image preview/config/export surface backed by `yugioh-card-ts`.
-- `AiSurface.svelte` — workspace AI surface showing context, tool calls, results, proposals, and diffs.
+- `AiSurface.svelte` — workspace AI surface showing `@card` context, tool calls, results, proposals, and diffs.
 - `context.ts` — workbench context provider for active CDB/card state.
 
 ## State Helpers
@@ -18,4 +18,5 @@ Card Collection Workbench — the CDB workspace UI. It composes Card Explorer, t
 - `surfaceState.svelte.ts` — active surface and layout state, persisted through metadata.
 - `cardDraftWorkspaceState.svelte.ts` — per-workspace card draft state.
 - `workspaceMetadataState.svelte.ts` — `.dey` metadata load/save bridge.
+- `aiMentions.ts` — pure text helpers for AI composer `@card` detection, replacement, deletion, and prompt context.
 - `aiContextRefs.ts`, `aiProposalPayload.ts`, `aiProposalDiff.ts`, `aiProposalApplication.svelte.ts` — AI proposal context, parsing, diff, and explicit apply boundaries.
