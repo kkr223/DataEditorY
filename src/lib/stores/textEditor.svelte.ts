@@ -1,7 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import { readTextFile, writeTextFile } from '$lib/infrastructure/tauri/commands';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { activateTextView } from '$lib/stores/appShell.svelte';
+import { activateTextView, activateEditorView } from '$lib/stores/appShell.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 
 export type TextTab = {
@@ -210,7 +210,12 @@ export async function closeTextTab(tabId: string): Promise<boolean> {
   const currentActive = get(activeTextTabId);
   if (currentActive === tabId) {
     const remaining = get(textTabs);
-    activeTextTabId.set(remaining[Math.min(index, remaining.length - 1)]?.id ?? null);
+    if (remaining.length > 0) {
+      activeTextTabId.set(remaining[Math.min(index, remaining.length - 1)]?.id ?? null);
+    } else {
+      activeTextTabId.set(null);
+      activateEditorView();
+    }
   }
   return true;
 }

@@ -419,12 +419,61 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #121714;
+  }
+
+  .text-editor :global(.monaco-editor),
+  .text-editor :global(.monaco-editor-background),
+  .text-editor :global(.monaco-editor .margin),
+  .text-editor :global(.monaco-editor .monaco-editor-background) {
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0) 0,
+        rgba(0, 0, 0, 0) 21px,
+        rgba(186, 227, 198, 0.08) 21px,
+        rgba(186, 227, 198, 0.08) 22px
+      ),
+      #121714 !important;
   }
 
   .text-editor :global(.monaco-editor) {
     --vscode-editor-selectionBackground: rgba(87, 166, 121, 0.28) !important;
     --vscode-editor-inactiveSelectionBackground: rgba(87, 166, 121, 0.18) !important;
     --vscode-editor-lineHighlightBackground: rgba(118, 184, 151, 0.12) !important;
+    --vscode-editorError-background: rgba(196, 122, 112, 0.12) !important;
+    --vscode-editorError-border: rgba(196, 122, 112, 0.28) !important;
+    --vscode-editorWarning-background: rgba(196, 168, 102, 0.1) !important;
+    --vscode-editorWarning-border: rgba(196, 168, 102, 0.22) !important;
+    --vscode-editorInfo-background: rgba(113, 162, 181, 0.08) !important;
+    --vscode-editorInfo-border: rgba(113, 162, 181, 0.2) !important;
+  }
+
+  .text-editor :global(.monaco-editor .focused .selected-text),
+  .text-editor :global(.monaco-editor .selected-text) {
+    background-color: rgba(87, 166, 121, 0.28) !important;
+  }
+
+  .text-editor :global(.monaco-editor .view-line .lua-call-highlight) {
+    color: #8ec5ff !important;
+    font-weight: 600;
+  }
+
+  .text-editor :global(.monaco-editor .view-line .lua-call-arg-highlight) {
+    color: #c792ff !important;
+    font-weight: 600;
+  }
+
+  .text-editor :global(.monaco-editor .view-line .lua-parameter-highlight) {
+    color: #d8b4fe !important;
+    font-weight: 600;
+  }
+
+  .text-editor :global(.monaco-editor .view-line .lua-constant-highlight) {
+    color: #5eead4 !important;
+    font-weight: 600;
   }
 
   .text-editor :global(.monaco-editor .view-overlays .current-line),
@@ -433,15 +482,113 @@
     border: none !important;
   }
 
+  .text-editor :global(.monaco-editor .squiggly-error:before) {
+    background: rgba(196, 122, 112, 0.12) !important;
+  }
+
+  .text-editor :global(.monaco-editor .squiggly-warning:before) {
+    background: rgba(196, 168, 102, 0.1) !important;
+  }
+
+  .text-editor :global(.monaco-editor .squiggly-info:before) {
+    background: rgba(113, 162, 181, 0.08) !important;
+  }
+
+  .text-editor :global(.monaco-editor .squiggly-error) {
+    border-bottom: 2px solid rgba(196, 122, 112, 0.34) !important;
+  }
+
+  .text-editor :global(.monaco-editor .squiggly-warning) {
+    border-bottom: 2px solid rgba(196, 168, 102, 0.28) !important;
+  }
+
+  .text-editor :global(.monaco-editor .squiggly-info) {
+    border-bottom: 2px solid rgba(113, 162, 181, 0.24) !important;
+  }
+
+  .text-editor :global(.suggest-widget .monaco-list-row.focused) {
+    background: #50675b !important;
+    color: #f2fbf5 !important;
+  }
+
+  .text-editor :global(.suggest-widget .monaco-list-row.focused .label-name),
+  .text-editor :global(.suggest-widget .monaco-list-row.focused .details-label),
+  .text-editor :global(.suggest-widget .monaco-list-row.focused .monaco-icon-label),
+  .text-editor :global(.suggest-widget .monaco-list-row.focused .suggest-icon) {
+    color: inherit !important;
+  }
+
+  .text-editor :global(.suggest-widget .monaco-list-row:hover) {
+    background: rgba(80, 103, 91, 0.24) !important;
+    color: #eef7f1 !important;
+  }
+
+  .text-editor :global(.suggest-widget .monaco-list-row:hover .label-name),
+  .text-editor :global(.suggest-widget .monaco-list-row:hover .details-label),
+  .text-editor :global(.suggest-widget .monaco-list-row:hover .monaco-icon-label),
+  .text-editor :global(.suggest-widget .monaco-list-row:hover .suggest-icon) {
+    color: inherit !important;
+  }
+
+  :global([data-theme='light']) .text-editor {
+    background: #f1f5ec;
+  }
+
+  :global([data-theme='light']) .text-editor :global(.monaco-editor),
+  :global([data-theme='light']) .text-editor :global(.monaco-editor-background),
+  :global([data-theme='light']) .text-editor :global(.monaco-editor .margin),
+  :global([data-theme='light']) .text-editor :global(.monaco-editor .monaco-editor-background) {
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0) 0,
+        rgba(0, 0, 0, 0) 21px,
+        rgba(104, 145, 112, 0.1) 21px,
+        rgba(104, 145, 112, 0.1) 22px
+      ),
+      #f1f5ec !important;
+  }
+
   :global([data-theme='light']) .text-editor :global(.monaco-editor) {
     --vscode-editor-selectionBackground: rgba(97, 141, 106, 0.22) !important;
     --vscode-editor-inactiveSelectionBackground: rgba(97, 141, 106, 0.14) !important;
     --vscode-editor-lineHighlightBackground: rgba(74, 133, 91, 0.1) !important;
+    --vscode-editorError-background: rgba(198, 128, 117, 0.08) !important;
+    --vscode-editorError-border: rgba(198, 128, 117, 0.2) !important;
+    --vscode-editorWarning-background: rgba(189, 155, 86, 0.08) !important;
+    --vscode-editorWarning-border: rgba(189, 155, 86, 0.2) !important;
+    --vscode-editorInfo-background: rgba(94, 144, 166, 0.06) !important;
+    --vscode-editorInfo-border: rgba(94, 144, 166, 0.16) !important;
   }
 
-  :global([data-theme='light']) .text-editor :global(.monaco-editor .view-overlays .current-line),
-  :global([data-theme='light']) .text-editor :global(.monaco-editor .margin-view-overlays .current-line) {
-    background-color: rgba(74, 133, 91, 0.1) !important;
+  :global([data-theme='light']) .text-editor :global(.monaco-editor .view-line .lua-call-highlight) {
+    color: #1d5fd1 !important;
+    font-weight: 600;
+  }
+
+  :global([data-theme='light']) .text-editor :global(.monaco-editor .view-line .lua-call-arg-highlight) {
+    color: #7c3aed !important;
+    font-weight: 600;
+  }
+
+  :global([data-theme='light']) .text-editor :global(.monaco-editor .view-line .lua-parameter-highlight) {
+    color: #8b5cf6 !important;
+    font-weight: 600;
+  }
+
+  :global([data-theme='light']) .text-editor :global(.monaco-editor .view-line .lua-constant-highlight) {
+    color: #0f766e !important;
+    font-weight: 600;
+  }
+
+  :global([data-theme='light']) .text-editor :global(.suggest-widget .monaco-list-row.focused) {
+    background: #dbe8dc !important;
+    color: #16311e !important;
+  }
+
+  :global([data-theme='light']) .text-editor :global(.suggest-widget .monaco-list-row:hover) {
+    background: rgba(219, 232, 220, 0.42) !important;
+    color: #16311e !important;
   }
 
   .text-empty {
