@@ -71,6 +71,10 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
+  }
+  .sp-card-head {
+    min-width: 0;
   }
   .sp-card-head h3 {
     margin: 0;
@@ -88,6 +92,7 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 12px;
   }
   .sp-textarea {
@@ -116,8 +121,7 @@
     gap: 6px;
     cursor: pointer;
     user-select: none;
-    white-space: nowrap;
-    flex-shrink: 0;
+    min-width: 0;
   }
   .sp-check input { width: auto; accent-color: var(--accent-primary); }
   .sp-check span { font-size: 0.8rem; font-weight: 500; color: var(--text-primary); }
@@ -126,6 +130,7 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
+    min-width: 0;
   }
   .sp-field > span {
     font-size: 0.74rem;

@@ -64,6 +64,11 @@
     onOpenRecent?: (path: string) => void | Promise<void>;
     onRemoveRecent?: (path: string) => void;
   } = $props();
+
+  function runToolAction(action: () => void | Promise<void>) {
+    onHidePackageMenu();
+    void action();
+  }
 </script>
 
 <header class="topbar">
@@ -113,33 +118,33 @@
         </button>
         {#if isPackageMenuVisible}
           <div class="package-popover" role="menu" aria-label={$_('nav.tools')}>
-            <button class="package-item" role="menuitem" onclick={onCreateFilteredCdb} disabled={!hasActiveCdb}>
+            <button class="package-item" role="menuitem" onclick={() => runToolAction(onCreateFilteredCdb)} disabled={!hasActiveCdb}>
               {$_('nav.create_filtered_cdb')}
             </button>
-            <button class="package-item" role="menuitem" onclick={onMergeCdb} disabled={isMergeBusy}>
+            <button class="package-item" role="menuitem" onclick={() => runToolAction(onMergeCdb)} disabled={isMergeBusy}>
               {isMergeBusy ? '...' : $_('nav.merge_cdb')}
             </button>
             <div class="package-separator"></div>
-            <button class="package-item" role="menuitem" onclick={onPackageZip} disabled={!hasPackageTarget || isPackageBusy}>
+            <button class="package-item" role="menuitem" onclick={() => runToolAction(onPackageZip)} disabled={!hasPackageTarget || isPackageBusy}>
               {$_('nav.package_zip')}
             </button>
-            <button class="package-item" role="menuitem" onclick={onPackageYpk} disabled={!hasPackageTarget || isPackageBusy}>
+            <button class="package-item" role="menuitem" onclick={() => runToolAction(onPackageYpk)} disabled={!hasPackageTarget || isPackageBusy}>
               {$_('nav.package_ypk')}
             </button>
             <div class="package-separator"></div>
-            <button class="package-item" role="menuitem" onclick={onBatchCdbEdit} disabled={!hasActiveCdb}>{$_('nav.tools_batch_cdb')}</button>
-            <button class="package-item" role="menuitem" onclick={onLuaReplace} disabled={!hasActiveCdb}>{$_('nav.tools_lua_replace')}</button>
+            <button class="package-item" role="menuitem" onclick={() => runToolAction(onBatchCdbEdit)} disabled={!hasActiveCdb}>{$_('nav.tools_batch_cdb')}</button>
+            <button class="package-item" role="menuitem" onclick={() => runToolAction(onLuaReplace)} disabled={!hasActiveCdb}>{$_('nav.tools_lua_replace')}</button>
             {#each extensionTools as tool}
               <button
                 class="package-item"
                 role="menuitem"
-                onclick={() => onOpenExtensionTool(tool.id)}
+                onclick={() => runToolAction(() => onOpenExtensionTool(tool.id))}
                 disabled={tool.disabled}
               >
                 {tool.label}
               </button>
             {/each}
-            <button class="package-item" role="menuitem" onclick={onAssetCheck} disabled={!hasActiveCdb}>{$_('nav.tools_asset_check')}</button>
+            <button class="package-item" role="menuitem" onclick={() => runToolAction(onAssetCheck)} disabled={!hasActiveCdb}>{$_('nav.tools_asset_check')}</button>
           </div>
         {/if}
       </div>

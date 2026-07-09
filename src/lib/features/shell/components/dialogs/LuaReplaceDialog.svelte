@@ -104,7 +104,7 @@
 </script>
 
 {#if open}
-  <div class="dialog-backdrop" role="presentation" onclick={onClose}>
+  <div class="dialog-backdrop" role="presentation">
     <div
       class="replace-dialog"
       role="dialog"

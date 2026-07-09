@@ -386,14 +386,15 @@ export const closeScriptTab = async (tabId: string) => {
   const currentTabs = get(scriptTabs);
   const index = currentTabs.findIndex((tab) => tab.id === tabId);
   if (index === -1) return;
+  const closedTab = currentTabs[index];
   await documentRuntime.close(tabId, true);
   const nextTabs = get(scriptTabs);
   if (get(activeScriptTabId) !== tabId) return;
   if (nextTabs.length > 0) {
-    const nextTab = nextTabs[Math.min(index, nextTabs.length - 1)];
+    const nextTab = nextTabs.filter((tab) => isSameCdbPath(tab.cdbPath, closedTab.cdbPath))[Math.min(index, nextTabs.length - 1)]
+      ?? nextTabs[Math.min(index, nextTabs.length - 1)];
     activeScriptTabId.set(nextTab.id);
     activateScriptView();
-    if (nextTab.sourceTabId) activeTabId.set(nextTab.sourceTabId);
     return;
   }
   activeScriptTabId.set(null);

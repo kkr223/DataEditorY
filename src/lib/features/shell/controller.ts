@@ -46,6 +46,11 @@ function toElement(target: EventTarget | null): HTMLElement | null {
   return null;
 }
 
+function currentMonacoElement() {
+  return document.querySelector<HTMLElement>('.monaco-editor.focused, .monaco-editor textarea:focus')?.closest<HTMLElement>('.monaco-editor')
+    ?? null;
+}
+
 function describeUndoTarget(element: HTMLElement | null): UndoTargetDescriptor | null {
   if (!element) return null;
 
@@ -78,13 +83,13 @@ export function isNativeTextUndoDescriptor(descriptor: UndoTargetDescriptor | nu
 }
 
 export function isNativeTextUndoTarget(target: EventTarget | null): boolean {
-  const candidates = [toElement(target), toElement(document.activeElement)];
+  const candidates = [toElement(target), toElement(document.activeElement), currentMonacoElement()];
 
   return candidates.some((element) => isNativeTextUndoDescriptor(describeUndoTarget(element)));
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {
-  const candidates = [toElement(target), toElement(document.activeElement)];
+  const candidates = [toElement(target), toElement(document.activeElement), currentMonacoElement()];
 
   return candidates.some((element) =>
     Boolean(

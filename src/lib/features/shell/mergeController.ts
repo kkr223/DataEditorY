@@ -239,11 +239,11 @@ export function createMergeController(
       }
     }
 
-    const outputDir = await tauriBridge.open({
-      directory: true,
-      multiple: false,
+    const outputPath = await tauriBridge.save({
+      filters: [{ name: 'YGOPro CDB Database', extensions: ['cdb'] }],
+      defaultPath: 'merged.cdb',
     });
-    if (!outputDir || typeof outputDir !== 'string') {
+    if (!outputPath) {
       return;
     }
 
@@ -258,7 +258,7 @@ export function createMergeController(
             const result = await startTask({
               kind: 'merge.execute',
               sourcePaths,
-              outputDir,
+              outputPath,
               includeImages,
               includeScripts,
             }) as { outputPath: string };
@@ -288,7 +288,7 @@ export function createMergeController(
               error,
               extra: {
                 sourcePaths,
-                outputDir,
+                outputPath,
                 mergeIncludeImages: includeImages,
                 mergeIncludeScripts: includeScripts,
               },

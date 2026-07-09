@@ -44,7 +44,8 @@ export type CoreStartTaskRequest =
   | {
       kind: 'merge.execute';
       sourcePaths: string[];
-      outputDir: string;
+      outputDir?: string;
+      outputPath?: string;
       includeImages: boolean;
       includeScripts: boolean;
     }

@@ -294,6 +294,21 @@ fn derive_output_cdb_path(output_dir: &Path) -> PathBuf {
     output_dir.join(format!("{folder_name}.cdb"))
 }
 
+fn resolve_output_cdb_path(request: &ExecuteCdbMergeRequest) -> Result<PathBuf, String> {
+    if let Some(output_path) = request
+        .output_path
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    {
+        return Ok(PathBuf::from(output_path));
+    }
+    if request.output_dir.trim().is_empty() {
+        return Err("Please choose an output CDB path".to_string());
+    }
+    Ok(derive_output_cdb_path(&PathBuf::from(&request.output_dir)))
+}
+
 fn validate_output_dir(output_dir: &Path, sources: &[MergeSourceContext]) -> Result<(), String> {
     let normalized_output_dir = output_dir
         .canonicalize()
@@ -321,27 +336,21 @@ pub fn collect_merge_sources_from_folder(
         return Err("Selected path is not a folder".to_string());
     }
 
-    let mut project_dirs = fs::read_dir(&root)
-        .map_err(|err| err.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|err| err.to_string())?;
-    project_dirs.sort_by_key(|entry| entry.file_name());
-
+    let mut pending_dirs = vec![root.clone()];
     let mut sources = Vec::new();
-    for project_dir in project_dirs {
-        let project_path = project_dir.path();
-        if !project_path.is_dir() {
-            continue;
-        }
-
-        let mut cdb_files = fs::read_dir(&project_path)
+    while let Some(project_path) = pending_dirs.pop() {
+        let mut entries = fs::read_dir(&project_path)
             .map_err(|err| err.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|err| err.to_string())?;
-        cdb_files.sort_by_key(|entry| entry.file_name());
+        entries.sort_by_key(|entry| entry.path());
 
-        for cdb_file in cdb_files {
-            let cdb_path = cdb_file.path();
+        for entry in entries {
+            let cdb_path = entry.path();
+            if cdb_path.is_dir() {
+                pending_dirs.push(cdb_path);
+                continue;
+            }
             if !cdb_path.is_file() || !is_cdb_file(&cdb_path) {
                 continue;
             }
@@ -388,7 +397,11 @@ pub fn execute_cdb_merge_with_progress(
         request.include_images,
         request.include_scripts,
     )?;
-    let output_dir = PathBuf::from(&request.output_dir);
+    let output_cdb_path = resolve_output_cdb_path(&request)?;
+    let output_dir = output_cdb_path
+        .parent()
+        .ok_or_else(|| "Unable to resolve the output directory".to_string())?
+        .to_path_buf();
     ensure_dir(&output_dir)?;
     validate_output_dir(&output_dir, &plan.sources)?;
 
@@ -419,7 +432,6 @@ pub fn execute_cdb_merge_with_progress(
         })
         .collect();
 
-    let output_cdb_path = derive_output_cdb_path(&output_dir);
     ensure_parent_dir(&output_cdb_path)?;
 
     let stage_dir = build_stage_dir(&output_cdb_path, "merge")?;
@@ -596,4 +608,41 @@ pub fn execute_cdb_merge_with_progress(
     Ok(ExecuteCdbMergeResponse {
         output_path: output_cdb_path.to_string_lossy().to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::{create_test_cdb, make_temp_dir};
+
+    #[test]
+    fn collect_merge_sources_recurses_into_nested_folders() {
+        let root = make_temp_dir("merge-recursive");
+        let nested = root.join("pack").join("sub");
+        fs::create_dir_all(&nested).unwrap();
+        let cdb_path = nested.join("cards.cdb");
+        create_test_cdb(&cdb_path, &[(100, 0x1)]);
+
+        let sources = collect_merge_sources_from_folder(root.to_str().unwrap()).unwrap();
+
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].path, cdb_path.to_string_lossy());
+        assert_eq!(sources[0].card_total, 1);
+    }
+
+    #[test]
+    fn resolve_output_cdb_path_prefers_explicit_output_path() {
+        let root = make_temp_dir("merge-output-path");
+        let output_path = root.join("custom-name.cdb");
+
+        let resolved = resolve_output_cdb_path(&ExecuteCdbMergeRequest {
+            source_paths: Vec::new(),
+            output_dir: root.to_string_lossy().to_string(),
+            output_path: Some(output_path.to_string_lossy().to_string()),
+            include_images: false,
+            include_scripts: false,
+        }).unwrap();
+
+        assert_eq!(resolved, output_path);
+    }
 }

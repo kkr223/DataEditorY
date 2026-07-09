@@ -494,15 +494,36 @@ function getFunctionFromNamespace(indexes: LuaCatalogIndexes, namespace: string,
 
 function normalizeStaticType(typeName: string | null | undefined) {
   if (!typeName) return null;
-  const candidate = typeName
+  const candidates = typeName
     .split('|')
     .map((item) => item.trim())
-    .find((item) => item && item !== 'nil' && item !== 'any' && item !== 'unknown');
-  return candidate ? candidate.replace(/[\[\]?]/g, '').trim() || null : null;
+    .filter((item) => item && item !== 'nil' && item !== 'any' && item !== 'unknown')
+    .map((item) => item.replace(/[\[\]?]/g, '').trim())
+    .filter(Boolean);
+  return candidates.length ? candidates.join('|') : null;
 }
 
-function getPrimaryReturnType(item: LuaFunctionItem) {
-  return item.returnType.split(/[|,\[]/, 1)[0]?.trim() || null;
+function staticTypeCandidates(typeName: string | null | undefined) {
+  return (normalizeStaticType(typeName) ?? '').split('|').filter(Boolean);
+}
+
+function getFunctionFromTypeCandidates(indexes: LuaCatalogIndexes, typeName: string | null | undefined, memberName: string) {
+  for (const namespace of staticTypeCandidates(typeName)) {
+    const item = getFunctionFromNamespace(indexes, namespace, memberName);
+    if (item) return { namespace, item };
+  }
+  return null;
+}
+
+function splitReturnTypes(item: LuaFunctionItem) {
+  return item.returnType
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function getReturnType(item: LuaFunctionItem, index = 0) {
+  return splitReturnTypes(item)[index]?.trim() || null;
 }
 
 function skipWhitespaceBackward(text: string, index: number) {
@@ -567,7 +588,7 @@ function getInvocationParameters(item: LuaFunctionItem, usesMethodSyntax: boolea
   const first = item.parameters[0] ?? '';
   const normalizedType = normalizeStaticType(first.split(/\s+/).slice(0, -1).join(' '));
   const name = first.replace(/[\[\]]/g, '').split('=').at(0)?.trim().split(/\s+/).at(-1)?.replace(/\?$/, '') ?? '';
-  if (normalizedType === item.namespace || name === 'self' || (item.namespace === 'Card' && name === 'c')
+  if (staticTypeCandidates(normalizedType).includes(item.namespace) || name === 'self' || (item.namespace === 'Card' && name === 'c')
     || (item.namespace === 'Effect' && name === 'e') || (item.namespace === 'Group' && name === 'g')) {
     return item.parameters.slice(1);
   }
@@ -616,7 +637,7 @@ function inferParameterType(functionNode: LuaNode, parameterName: string, index:
   return info?.shortName === 'initial_effect' && index === 0 && parameterName === 'c' ? 'Card' : null;
 }
 
-function inferExpressionType(node: LuaNode | undefined, scopes: LuaRuntimeScope[], analysis: LuaSemanticAnalysis): string | null {
+function inferExpressionType(node: LuaNode | undefined, scopes: LuaRuntimeScope[], analysis: LuaSemanticAnalysis, returnIndex = 0): string | null {
   if (!node) return null;
   if (node.type === 'Identifier') {
     const scoped = lookupRuntimeBinding(scopes, String(node.name ?? ''));
@@ -625,7 +646,7 @@ function inferExpressionType(node: LuaNode | undefined, scopes: LuaRuntimeScope[
   }
   if (node.type === 'CallExpression') {
     const callInfo = resolveCatalogCallFromNode(node, scopes, analysis);
-    return callInfo?.item ? normalizeStaticType(getPrimaryReturnType(callInfo.item)) : null;
+    return callInfo?.item ? normalizeStaticType(getReturnType(callInfo.item, returnIndex)) : null;
   }
   if (node.type === 'MemberExpression') {
     const base = node.base as LuaNode | undefined;
@@ -663,13 +684,13 @@ function inferExpressionTypeFromText(
       if (memberAccess) {
         const receiverNamespace = inferExpressionTypeFromText(memberAccess.receiver, scopes, analysis, depth + 1);
         const functionItem = receiverNamespace
-          ? getFunctionFromNamespace(analysis.catalogIndexes, receiverNamespace, memberAccess.memberName)
+          ? getFunctionFromTypeCandidates(analysis.catalogIndexes, receiverNamespace, memberAccess.memberName)?.item
           : getCatalogFunction(analysis.catalogIndexes, memberAccess.memberName);
-        return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+        return functionItem ? normalizeStaticType(getReturnType(functionItem)) : null;
       }
 
       const functionItem = getCatalogFunction(analysis.catalogIndexes, calleeExpression);
-      return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+      return functionItem ? normalizeStaticType(getReturnType(functionItem)) : null;
     }
   }
 
@@ -680,9 +701,14 @@ function inferExpressionTypeFromText(
 
   const receiverNamespace = inferExpressionTypeFromText(memberAccess.receiver, scopes, analysis, depth + 1);
   const functionItem = receiverNamespace
-    ? getFunctionFromNamespace(analysis.catalogIndexes, receiverNamespace, memberAccess.memberName)
+    ? getFunctionFromTypeCandidates(analysis.catalogIndexes, receiverNamespace, memberAccess.memberName)?.item
     : null;
-  return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+  return functionItem ? normalizeStaticType(getReturnType(functionItem)) : null;
+}
+
+function inferAssignedExpressionType(init: LuaNode[], index: number, scopes: LuaRuntimeScope[], analysis: LuaSemanticAnalysis) {
+  if (init[index]) return inferExpressionType(init[index], scopes, analysis);
+  return init.length === 1 ? inferExpressionType(init[0], scopes, analysis, index) : null;
 }
 
 function resolveMemberExpression(
@@ -699,13 +725,15 @@ function resolveMemberExpression(
   if (!namespace && receiver?.type === 'Identifier' && GLOBAL_NAMESPACES.has(String(receiver.name ?? ''))) {
     namespace = String(receiver.name);
   }
+  const resolved = getFunctionFromTypeCandidates(analysis.catalogIndexes, namespace, memberName);
+  if (resolved) namespace = resolved.namespace;
   if (!namespace || !analysis.catalogIndexes.functionsByNamespace.has(namespace)) return null;
   return {
     namespace,
     memberName,
     indexer: node.indexer === ':' ? ':' : '.',
     memberNode: member,
-    item: getFunctionFromNamespace(analysis.catalogIndexes, namespace, memberName),
+    item: resolved?.item ?? getFunctionFromNamespace(analysis.catalogIndexes, namespace, memberName),
   };
 }
 
@@ -746,7 +774,7 @@ function collectScopesAt(analysis: LuaSemanticAnalysis, position: LuaSemanticPos
             String(variable.name ?? ''),
             'local',
             rangeOf(variable, analysis.sourceLines),
-            inferExpressionType(init[index], scopes, analysis),
+            inferAssignedExpressionType(init, index, scopes, analysis),
           );
         }
         continue;
@@ -764,7 +792,7 @@ function collectScopesAt(analysis: LuaSemanticAnalysis, position: LuaSemanticPos
           if (!existing) continue;
           targetScope.set(String(variable.name ?? ''), {
             ...existing,
-            typeName: inferExpressionType(init[index], scopes, analysis),
+            typeName: inferAssignedExpressionType(init, index, scopes, analysis),
           });
         }
         continue;
@@ -973,7 +1001,9 @@ export function getCallInfoAt(document: LuaSemanticDocument, position: LuaSemant
     indexer = ':';
     const receiver = lookupRuntimeBinding(scopes, methodMatch[1]);
     namespace = receiver?.typeName || (GLOBAL_NAMESPACES.has(methodMatch[1]) ? methodMatch[1] : null);
-    const item = namespace ? getFunctionFromNamespace(analysis.catalogIndexes, namespace, methodMatch[2]) : (getCatalogFunction(analysis.catalogIndexes, methodMatch[2]) ?? null);
+    const resolved = namespace ? getFunctionFromTypeCandidates(analysis.catalogIndexes, namespace, methodMatch[2]) : null;
+    if (resolved) namespace = resolved.namespace;
+    const item = resolved?.item ?? (getCatalogFunction(analysis.catalogIndexes, methodMatch[2]) ?? null);
     if (item) {
       target = {
         kind: 'catalog',
@@ -1216,7 +1246,7 @@ export function getDiagnostics(document: LuaSemanticDocument) {
             String(variable.name ?? ''),
             'local',
             rangeOf(variable, document.sourceLines),
-            inferExpressionType(init[index], scopes, document.strictAnalysis!),
+            inferAssignedExpressionType(init, index, scopes, document.strictAnalysis!),
           );
         }
         continue;

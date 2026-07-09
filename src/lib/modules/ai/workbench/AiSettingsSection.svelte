@@ -16,7 +16,7 @@
     buildSkillTemplate,
   } from '$lib/features/ai/service';
   import { openTextFile } from '$lib/stores/textEditor.svelte';
-  import { writeTextFile } from '$lib/infrastructure/tauri/commands';
+  import { openInSystemEditor, writeTextFile } from '$lib/infrastructure/tauri/commands';
   import { invokeCommand } from '$lib/infrastructure/tauri';
   import { showToast } from '$lib/stores/toast.svelte';
 
@@ -80,7 +80,7 @@
   async function handleEditPrompt(file: string) {
     try {
       const absolutePath = await resolveAiPromptPath(file);
-      await openTextFile(absolutePath);
+      await openInSystemEditor(absolutePath);
     } catch (error) {
       console.error('Failed to open prompt file:', error);
       showToast(context.t('settings.prompt_open_failed'), 'error');
@@ -90,7 +90,7 @@
   async function handleEditSkill(file: string) {
     try {
       const absolutePath = await resolveAiSkillPath(file);
-      await openTextFile(absolutePath);
+      await openInSystemEditor(absolutePath);
     } catch (error) {
       console.error('Failed to open skill file:', error);
       showToast(context.t('settings.prompt_open_failed'), 'error');

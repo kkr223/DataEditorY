@@ -127,7 +127,10 @@ pub struct AnalyzeCdbMergeRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ExecuteCdbMergeRequest {
     pub source_paths: Vec<String>,
+    #[serde(default)]
     pub output_dir: String,
+    #[serde(default)]
+    pub output_path: Option<String>,
     #[serde(default)]
     pub include_images: bool,
     #[serde(default)]

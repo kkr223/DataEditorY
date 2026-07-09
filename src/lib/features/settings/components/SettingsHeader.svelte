@@ -26,6 +26,9 @@
     margin-bottom: 12px;
     flex-shrink: 0;
   }
+  .sp-header > div {
+    min-width: 0;
+  }
   .sp-header h2 {
     margin: 0;
     font-size: 1.15rem;
@@ -36,6 +39,7 @@
     margin: 1px 0 0;
     font-size: 0.78rem;
     color: var(--text-secondary);
+    overflow-wrap: anywhere;
   }
   .sp-save {
     flex-shrink: 0;

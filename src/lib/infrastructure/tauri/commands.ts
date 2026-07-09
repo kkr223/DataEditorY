@@ -163,7 +163,8 @@ export async function analyzeCdbMerge(sourcePaths: string[], includeImages: bool
 
 export async function executeCdbMerge(input: {
   sourcePaths: string[];
-  outputDir: string;
+  outputDir?: string;
+  outputPath?: string;
   includeImages: boolean;
   includeScripts: boolean;
 }) {

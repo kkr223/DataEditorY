@@ -148,6 +148,10 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-width: 0;
+  }
+  .sp-card-head {
+    min-width: 0;
   }
   .sp-card-head h3 {
     margin: 0;
@@ -165,6 +169,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    flex-wrap: wrap;
     gap: 12px;
   }
   .shortcut-hint {
@@ -227,7 +232,7 @@
   }
   .shortcut-row {
     display: grid;
-    grid-template-columns: minmax(180px, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
     gap: 12px;
     align-items: center;
     padding: 9px 10px;
@@ -262,8 +267,10 @@
   .shortcut-controls {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    min-width: 0;
     gap: 8px;
-    white-space: nowrap;
   }
   .shortcut-default {
     color: var(--text-disabled);

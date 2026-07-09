@@ -135,5 +135,71 @@ describe('lua semantic document', () => {
     expect(hoverInfo?.kind).toBe('catalog-function');
     expect(hoverInfo?.kind === 'catalog-function' ? hoverInfo.item.name : '').toBe('Duel.GetReleaseGroup');
   });
+
+  test('infers later variables from multiple catalog return values', () => {
+    const source = [
+      'function s.operation(e,tp)',
+      '  local g,tc=Duel.Pair()',
+      '  return tc:IsLocation(LOCATION_MZONE)',
+      'end',
+      '',
+    ].join('\n');
+    const catalog = {
+      ...luaCatalog,
+      functions: [
+        ...luaCatalog.functions,
+        {
+          name: 'Duel.Pair',
+          namespace: 'Duel',
+          shortName: 'Pair',
+          signature: 'Duel.Pair()',
+          returnType: 'Group, Card',
+          parameters: [],
+          description: '',
+          raw: '',
+          category: 'Test',
+        },
+      ],
+    };
+
+    const document = getLuaSemanticDocument(createModel(source, 8), catalog);
+    const hoverInfo = getHoverInfoAt(document, { lineNumber: 3, column: 15 });
+
+    expect(hoverInfo?.kind).toBe('catalog-function');
+    expect(hoverInfo?.kind === 'catalog-function' ? hoverInfo.item.name : '').toBe('Card.IsLocation');
+  });
+
+  test('resolves members from union return types beyond the first type', () => {
+    const source = [
+      'function s.operation(e,tp)',
+      '  local target=Duel.CardOrGroup()',
+      '  return target:GetFirst()',
+      'end',
+      '',
+    ].join('\n');
+    const catalog = {
+      ...luaCatalog,
+      functions: [
+        ...luaCatalog.functions,
+        {
+          name: 'Duel.CardOrGroup',
+          namespace: 'Duel',
+          shortName: 'CardOrGroup',
+          signature: 'Duel.CardOrGroup()',
+          returnType: 'Card|Group',
+          parameters: [],
+          description: '',
+          raw: '',
+          category: 'Test',
+        },
+      ],
+    };
+
+    const document = getLuaSemanticDocument(createModel(source, 9), catalog);
+    const hoverInfo = getHoverInfoAt(document, { lineNumber: 3, column: 18 });
+
+    expect(hoverInfo?.kind).toBe('catalog-function');
+    expect(hoverInfo?.kind === 'catalog-function' ? hoverInfo.item.name : '').toBe('Group.GetFirst');
+  });
 });
 
