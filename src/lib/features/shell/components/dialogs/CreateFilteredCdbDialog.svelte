@@ -18,7 +18,7 @@
 </script>
 
 {#if open}
-  <div class="shell-dialog-backdrop" role="presentation" onclick={(event) => event.currentTarget === event.target && onClose()}>
+  <div class="shell-dialog-backdrop" role="presentation">
     <div class="shell-dialog" role="dialog" aria-modal="true" aria-label={$_('editor.create_filtered_cdb_title')}>
       <div class="shell-dialog-header">
         <div>

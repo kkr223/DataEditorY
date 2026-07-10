@@ -1767,21 +1767,9 @@ export function createCardImageController(source: CardImageControllerSource) {
     }
   }
 
-  function handleBackdropClick(event: MouseEvent) {
-    if (event.currentTarget === event.target) {
-      closeDrawer();
-    }
-  }
-
   function closeForegroundEditor() {
     resetForegroundState();
     destroyForegroundPreview();
-  }
-
-  function handleForegroundBackdropClick(event: MouseEvent) {
-    if (event.currentTarget === event.target) {
-      closeForegroundEditor();
-    }
   }
 
   $effect(() => {
@@ -2033,8 +2021,6 @@ export function createCardImageController(source: CardImageControllerSource) {
     handleForegroundRotatePointerDown,
     handleDownload,
     handleSaveJpg,
-    handleBackdropClick,
     closeForegroundEditor,
-    handleForegroundBackdropClick,
   };
 }

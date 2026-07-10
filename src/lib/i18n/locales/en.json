@@ -359,7 +359,7 @@
     "script_template_description": "Supports {code} and {name}.",
     "script_template": "Script Template",
     "use_external_script_editor": "Use an external editor for scripts",
-    "use_external_script_editor_hint": "Use the system default .lua editor.",
+    "use_external_script_editor_hint": "When enabled, scripts open in the system default .lua editor.",
     "save_script_image_to_local": "Also save exported code images locally",
     "save_script_image_to_local_hint": "Also save a PNG locally.",
     "script_directory": "Script Directory",

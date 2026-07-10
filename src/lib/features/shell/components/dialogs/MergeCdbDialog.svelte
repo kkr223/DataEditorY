@@ -164,7 +164,7 @@
 />
 
 {#if open}
-  <div class="shell-dialog-backdrop" role="presentation" onclick={(event) => event.currentTarget === event.target && onClose()}>
+  <div class="shell-dialog-backdrop" role="presentation">
     <div
       class="shell-dialog shell-dialog-wide"
       class:is-sorting={isDragging}

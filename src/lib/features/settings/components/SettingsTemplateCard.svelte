@@ -20,30 +20,30 @@
 </script>
 
 <div class="sp-card sp-tpl" use:disableAutofill>
-  <div class="sp-tpl-head">
-    <div class="sp-card-head">
-      <h3>{title}</h3>
-      <p>{description}</p>
-    </div>
-    <label class="sp-check">
-      <input
-        type="checkbox"
-        checked={useExternalScriptEditor}
-        onchange={(event) => onExternalEditorChange((event.currentTarget as HTMLInputElement).checked)}
-      />
-      <span>{externalEditorLabel}</span>
-    </label>
+  <div class="sp-card-head">
+    <h3>{title}</h3>
+    <p>{description}</p>
   </div>
-  <small class="sp-hint">{externalEditorHint}</small>
-  <label class="sp-check sp-check-secondary">
+  <label class="sp-switch">
+    <input
+      type="checkbox"
+      checked={useExternalScriptEditor}
+      onchange={(event) => onExternalEditorChange((event.currentTarget as HTMLInputElement).checked)}
+    />
+    <span class="sp-switch-track" aria-hidden="true"></span>
+    <span>{externalEditorLabel}</span>
+  </label>
+  <small class="sp-hint sp-switch-hint">{externalEditorHint}</small>
+  <label class="sp-switch">
     <input
       type="checkbox"
       checked={saveScriptImageToLocal}
       onchange={(event) => onSaveScriptImageToLocalChange((event.currentTarget as HTMLInputElement).checked)}
     />
+    <span class="sp-switch-track" aria-hidden="true"></span>
     <span>{saveScriptImageToLocalLabel}</span>
   </label>
-  <small class="sp-hint">{saveScriptImageToLocalHint}</small>
+  <small class="sp-hint sp-switch-hint">{saveScriptImageToLocalHint}</small>
   <label class="sp-field">
     <span>{scriptDirectoryLabel}</span>
     <input
@@ -88,12 +88,58 @@
     color: var(--text-secondary);
     line-height: 1.4;
   }
-  .sp-tpl-head {
+  .sp-switch {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
+    align-items: center;
+    align-self: flex-start;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .sp-switch input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .sp-switch-track {
+    width: 32px;
+    height: 18px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--bg-surface-active);
+    box-shadow: inset 0 0 0 1px var(--border-color);
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  .sp-switch-track::after {
+    content: '';
+    display: block;
+    width: 14px;
+    height: 14px;
+    margin: 2px;
+    border-radius: 50%;
+    background: var(--text-disabled);
+    transition: transform 0.15s, background 0.15s;
+  }
+  .sp-switch input:checked + .sp-switch-track {
+    background: var(--accent-primary);
+    box-shadow: none;
+  }
+  .sp-switch input:checked + .sp-switch-track::after {
+    transform: translateX(14px);
+    background: #fff;
+  }
+  .sp-switch input:focus-visible + .sp-switch-track {
+    outline: 2px solid color-mix(in srgb, var(--accent-primary) 52%, transparent);
+    outline-offset: 2px;
+  }
+  .sp-switch > span:last-child {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-primary);
   }
   .sp-textarea {
     width: 100%;
@@ -115,17 +161,6 @@
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 16%, transparent);
   }
-  .sp-check {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    user-select: none;
-    min-width: 0;
-  }
-  .sp-check input { width: auto; accent-color: var(--accent-primary); }
-  .sp-check span { font-size: 0.8rem; font-weight: 500; color: var(--text-primary); }
-  .sp-check-secondary { margin-top: 2px; }
   .sp-field {
     display: flex;
     flex-direction: column;
@@ -157,5 +192,8 @@
     font-size: 0.72rem;
     color: var(--text-disabled);
     line-height: 1.35;
+  }
+  .sp-switch-hint {
+    margin-left: 40px;
   }
 </style>

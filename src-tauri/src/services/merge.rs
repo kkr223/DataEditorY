@@ -294,19 +294,51 @@ fn derive_output_cdb_path(output_dir: &Path) -> PathBuf {
     output_dir.join(format!("{folder_name}.cdb"))
 }
 
-fn resolve_output_cdb_path(request: &ExecuteCdbMergeRequest) -> Result<PathBuf, String> {
+fn normalize_output_cdb_name(output_path: &Path) -> String {
+    let raw_name = output_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("merged.cdb");
+    if raw_name
+        .rsplit_once('.')
+        .map(|(_, extension)| extension.eq_ignore_ascii_case("cdb"))
+        .unwrap_or(false)
+    {
+        raw_name.to_string()
+    } else {
+        format!("{raw_name}.cdb")
+    }
+}
+
+fn resolve_output_layout(request: &ExecuteCdbMergeRequest) -> Result<(PathBuf, PathBuf), String> {
     if let Some(output_path) = request
         .output_path
         .as_ref()
         .map(|value| value.trim())
         .filter(|value| !value.is_empty())
     {
-        return Ok(PathBuf::from(output_path));
+        let chosen_path = PathBuf::from(output_path);
+        let parent = chosen_path
+            .parent()
+            .ok_or_else(|| "Unable to resolve the output directory".to_string())?;
+        let folder_name = chosen_path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("merged");
+        let output_dir = parent.join(folder_name);
+        let output_cdb_path = output_dir.join(normalize_output_cdb_name(&chosen_path));
+        return Ok((output_dir, output_cdb_path));
     }
     if request.output_dir.trim().is_empty() {
         return Err("Please choose an output CDB path".to_string());
     }
-    Ok(derive_output_cdb_path(&PathBuf::from(&request.output_dir)))
+    let output_dir = PathBuf::from(&request.output_dir);
+    let output_cdb_path = derive_output_cdb_path(&output_dir);
+    Ok((output_dir, output_cdb_path))
 }
 
 fn validate_output_dir(output_dir: &Path, sources: &[MergeSourceContext]) -> Result<(), String> {
@@ -318,9 +350,11 @@ fn validate_output_dir(output_dir: &Path, sources: &[MergeSourceContext]) -> Res
             .dir
             .canonicalize()
             .unwrap_or_else(|_| source.dir.clone());
-        if normalized_output_dir == normalized_source_dir {
+        if normalized_output_dir == normalized_source_dir
+            || normalized_output_dir.starts_with(&normalized_source_dir)
+        {
             return Err(format!(
-                "Output folder cannot be the same as a source project folder: {}",
+                "Output folder cannot be the same as or inside a source project folder: {}",
                 source.dir.to_string_lossy()
             ));
         }
@@ -397,13 +431,9 @@ pub fn execute_cdb_merge_with_progress(
         request.include_images,
         request.include_scripts,
     )?;
-    let output_cdb_path = resolve_output_cdb_path(&request)?;
-    let output_dir = output_cdb_path
-        .parent()
-        .ok_or_else(|| "Unable to resolve the output directory".to_string())?
-        .to_path_buf();
-    ensure_dir(&output_dir)?;
+    let (output_dir, output_cdb_path) = resolve_output_layout(&request)?;
     validate_output_dir(&output_dir, &plan.sources)?;
+    ensure_dir(&output_dir)?;
 
     // Load full CardDto from source CDBs only for the execution phase
     // (the planning phase used lightweight summaries to avoid OOM).
@@ -631,18 +661,43 @@ mod tests {
     }
 
     #[test]
-    fn resolve_output_cdb_path_prefers_explicit_output_path() {
+    fn resolve_output_layout_wraps_explicit_output_path_in_same_name_folder() {
         let root = make_temp_dir("merge-output-path");
         let output_path = root.join("custom-name.cdb");
 
-        let resolved = resolve_output_cdb_path(&ExecuteCdbMergeRequest {
+        let (output_dir, resolved) = resolve_output_layout(&ExecuteCdbMergeRequest {
             source_paths: Vec::new(),
             output_dir: root.to_string_lossy().to_string(),
             output_path: Some(output_path.to_string_lossy().to_string()),
             include_images: false,
             include_scripts: false,
-        }).unwrap();
+        })
+        .unwrap();
 
-        assert_eq!(resolved, output_path);
+        assert_eq!(output_dir, root.join("custom-name"));
+        assert_eq!(resolved, root.join("custom-name").join("custom-name.cdb"));
+    }
+
+    #[test]
+    fn validate_output_dir_rejects_nested_source_project_folder() {
+        let root = make_temp_dir("merge-output-nested");
+        let source_dir = root.join("source");
+        let nested_output_dir = source_dir.join("merged");
+        fs::create_dir_all(&nested_output_dir).unwrap();
+
+        let source = MergeSourceContext {
+            path: source_dir.join("cards.cdb").to_string_lossy().to_string(),
+            name: "cards.cdb".to_string(),
+            dir: source_dir.clone(),
+            cards: Vec::new(),
+            assets: MergeSourceAssetIndex {
+                main_image_codes: HashSet::new(),
+                field_image_codes: HashSet::new(),
+                script_codes: HashSet::new(),
+            },
+        };
+
+        let error = validate_output_dir(&nested_output_dir, &[source]).unwrap_err();
+        assert!(error.contains("inside a source project folder"));
     }
 }

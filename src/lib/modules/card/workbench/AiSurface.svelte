@@ -49,6 +49,7 @@
     normalizeCardImageFormData,
   } from '$lib/features/card-image/layout';
   import { queueAiCardDraftPatch } from './aiProposalApplication.svelte';
+  import { renderMarkdown } from './markdown';
 
   const FULL_ACCESS_KEY = 'dataeditory:ai-full-access';
 
@@ -333,23 +334,6 @@
         node.removeEventListener('keydown', stopAiTextShortcut, { capture: true });
       },
     };
-  }
-
-  function escapeHtml(value: string) {
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
-  function renderMarkdown(content: string) {
-    return escapeHtml(content)
-      .replace(/```([\s\S]*?)```/g, (_match, code) => `<pre><code>${code.trim()}</code></pre>`)
-      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
-      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>');
   }
 
   function formatTokenCount(tokens: number) {

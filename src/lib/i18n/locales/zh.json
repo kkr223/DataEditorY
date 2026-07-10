@@ -359,7 +359,7 @@
     "script_template_description": "支持占位符 {code} 和 {name}。",
     "script_template": "脚本模板",
     "use_external_script_editor": "使用外部编辑器打开脚本",
-    "use_external_script_editor_hint": "使用系统默认 .lua 编辑器。",
+    "use_external_script_editor_hint": "开启后将使用系统默认的 .lua 编辑器打开脚本。",
     "save_script_image_to_local": "导出代码图片时同时保存到本地",
     "save_script_image_to_local_hint": "同时保存一份 PNG 到本地。",
     "script_directory": "脚本目录",
