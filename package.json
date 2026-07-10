@@ -42,7 +42,7 @@
     "monaco-editor": "^0.55.1",
     "sql.js": "^1.14.1",
     "svelte-i18n": "^4.0.1",
-    "yugioh-card-ts": "github:kkr223/yugioh-card-ts#package/v2.0.0"
+    "yugioh-card-ts": "github:kkr223/yugioh-card#package/v2.0.0"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",
