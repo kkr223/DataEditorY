@@ -55,7 +55,6 @@
     class:drawer-backdrop={mode === 'drawer'}
     class:workbench-root={mode === 'workbench'}
     role="presentation"
-    onclick={mode === 'drawer' ? controller.handleBackdropClick : undefined}
   >
     <div
       class:drawer-panel={mode === 'drawer'}
@@ -148,7 +147,7 @@
 {/if}
 
 {#if controller.state.foregroundEditorOpen}
-  <div class="foreground-backdrop" role="presentation" onclick={controller.handleForegroundBackdropClick}>
+  <div class="foreground-backdrop" role="presentation">
     <div class="foreground-dialog" role="dialog" aria-modal="true" aria-label={$_('editor.card_image_foreground_title')}>
       <div class="foreground-header">
         <div>

@@ -494,15 +494,36 @@ function getFunctionFromNamespace(indexes: LuaCatalogIndexes, namespace: string,
 
 function normalizeStaticType(typeName: string | null | undefined) {
   if (!typeName) return null;
-  const candidate = typeName
+  const candidates = typeName
     .split('|')
     .map((item) => item.trim())
-    .find((item) => item && item !== 'nil' && item !== 'any' && item !== 'unknown');
-  return candidate ? candidate.replace(/[\[\]?]/g, '').trim() || null : null;
+    .filter((item) => item && item !== 'nil' && item !== 'any' && item !== 'unknown')
+    .map((item) => item.replace(/[\[\]?]/g, '').trim())
+    .filter(Boolean);
+  return candidates.length ? candidates.join('|') : null;
 }
 
-function getPrimaryReturnType(item: LuaFunctionItem) {
-  return item.returnType.split(/[|,\[]/, 1)[0]?.trim() || null;
+function staticTypeCandidates(typeName: string | null | undefined) {
+  return (normalizeStaticType(typeName) ?? '').split('|').filter(Boolean);
+}
+
+function getFunctionFromTypeCandidates(indexes: LuaCatalogIndexes, typeName: string | null | undefined, memberName: string) {
+  for (const namespace of staticTypeCandidates(typeName)) {
+    const item = getFunctionFromNamespace(indexes, namespace, memberName);
+    if (item) return { namespace, item };
+  }
+  return null;
+}
+
+function splitReturnTypes(item: LuaFunctionItem) {
+  return item.returnType
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function getReturnType(item: LuaFunctionItem, index = 0) {
+  return splitReturnTypes(item)[index]?.trim() || null;
 }
 
 function skipWhitespaceBackward(text: string, index: number) {
@@ -567,7 +588,7 @@ function getInvocationParameters(item: LuaFunctionItem, usesMethodSyntax: boolea
   const first = item.parameters[0] ?? '';
   const normalizedType = normalizeStaticType(first.split(/\s+/).slice(0, -1).join(' '));
   const name = first.replace(/[\[\]]/g, '').split('=').at(0)?.trim().split(/\s+/).at(-1)?.replace(/\?$/, '') ?? '';
-  if (normalizedType === item.namespace || name === 'self' || (item.namespace === 'Card' && name === 'c')
+  if (staticTypeCandidates(normalizedType).includes(item.namespace) || name === 'self' || (item.namespace === 'Card' && name === 'c')
     || (item.namespace === 'Effect' && name === 'e') || (item.namespace === 'Group' && name === 'g')) {
     return item.parameters.slice(1);
   }
@@ -616,7 +637,7 @@ function inferParameterType(functionNode: LuaNode, parameterName: string, index:
   return info?.shortName === 'initial_effect' && index === 0 && parameterName === 'c' ? 'Card' : null;
 }
 
-function inferExpressionType(node: LuaNode | undefined, scopes: LuaRuntimeScope[], analysis: LuaSemanticAnalysis): string | null {
+function inferExpressionType(node: LuaNode | undefined, scopes: LuaRuntimeScope[], analysis: LuaSemanticAnalysis, returnIndex = 0): string | null {
   if (!node) return null;
   if (node.type === 'Identifier') {
     const scoped = lookupRuntimeBinding(scopes, String(node.name ?? ''));
@@ -625,7 +646,7 @@ function inferExpressionType(node: LuaNode | undefined, scopes: LuaRuntimeScope[
   }
   if (node.type === 'CallExpression') {
     const callInfo = resolveCatalogCallFromNode(node, scopes, analysis);
-    return callInfo?.item ? normalizeStaticType(getPrimaryReturnType(callInfo.item)) : null;
+    return callInfo?.item ? normalizeStaticType(getReturnType(callInfo.item, returnIndex)) : null;
   }
   if (node.type === 'MemberExpression') {
     const base = node.base as LuaNode | undefined;
@@ -663,13 +684,13 @@ function inferExpressionTypeFromText(
       if (memberAccess) {
         const receiverNamespace = inferExpressionTypeFromText(memberAccess.receiver, scopes, analysis, depth + 1);
         const functionItem = receiverNamespace
-          ? getFunctionFromNamespace(analysis.catalogIndexes, receiverNamespace, memberAccess.memberName)
+          ? getFunctionFromTypeCandidates(analysis.catalogIndexes, receiverNamespace, memberAccess.memberName)?.item
           : getCatalogFunction(analysis.catalogIndexes, memberAccess.memberName);
-        return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+        return functionItem ? normalizeStaticType(getReturnType(functionItem)) : null;
       }
 
       const functionItem = getCatalogFunction(analysis.catalogIndexes, calleeExpression);
-      return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+      return functionItem ? normalizeStaticType(getReturnType(functionItem)) : null;
     }
   }
 
@@ -680,30 +701,54 @@ function inferExpressionTypeFromText(
 
   const receiverNamespace = inferExpressionTypeFromText(memberAccess.receiver, scopes, analysis, depth + 1);
   const functionItem = receiverNamespace
-    ? getFunctionFromNamespace(analysis.catalogIndexes, receiverNamespace, memberAccess.memberName)
+    ? getFunctionFromTypeCandidates(analysis.catalogIndexes, receiverNamespace, memberAccess.memberName)?.item
     : null;
-  return functionItem ? normalizeStaticType(getPrimaryReturnType(functionItem)) : null;
+  return functionItem ? normalizeStaticType(getReturnType(functionItem)) : null;
+}
+
+function inferAssignedExpressionType(init: LuaNode[], index: number, scopes: LuaRuntimeScope[], analysis: LuaSemanticAnalysis) {
+  if (init[index]) return inferExpressionType(init[index], scopes, analysis);
+  return init.length === 1 ? inferExpressionType(init[0], scopes, analysis, index) : null;
+}
+
+function resolveMemberExpression(
+  node: LuaNode,
+  scopes: LuaRuntimeScope[],
+  analysis: LuaSemanticAnalysis,
+): { namespace: string; memberName: string; indexer: string; memberNode: LuaNode | undefined; item: LuaFunctionItem | null } | null {
+  if (node.type !== 'MemberExpression') return null;
+  const member = node.identifier as LuaNode | undefined;
+  const memberName = typeof member?.name === 'string' ? member.name : '';
+  if (!memberName) return null;
+  const receiver = node.base as LuaNode | undefined;
+  let namespace = inferExpressionType(receiver, scopes, analysis);
+  if (!namespace && receiver?.type === 'Identifier' && GLOBAL_NAMESPACES.has(String(receiver.name ?? ''))) {
+    namespace = String(receiver.name);
+  }
+  const resolved = getFunctionFromTypeCandidates(analysis.catalogIndexes, namespace, memberName);
+  if (resolved) namespace = resolved.namespace;
+  if (!namespace || !analysis.catalogIndexes.functionsByNamespace.has(namespace)) return null;
+  return {
+    namespace,
+    memberName,
+    indexer: node.indexer === ':' ? ':' : '.',
+    memberNode: member,
+    item: resolved?.item ?? getFunctionFromNamespace(analysis.catalogIndexes, namespace, memberName),
+  };
 }
 
 function resolveCatalogCallFromNode(node: LuaNode, scopes: LuaRuntimeScope[], analysis: LuaSemanticAnalysis) {
   if (node.type !== 'CallExpression') return null;
   const base = node.base as LuaNode | undefined;
   if (!base || base.type !== 'MemberExpression') return null;
-  const member = base.identifier as LuaNode | undefined;
-  const memberName = typeof member?.name === 'string' ? member.name : '';
-  if (!memberName) return null;
-  const receiver = base.base as LuaNode | undefined;
-  let namespace = inferExpressionType(receiver, scopes, analysis);
-  if (!namespace && receiver?.type === 'Identifier' && GLOBAL_NAMESPACES.has(String(receiver.name ?? ''))) {
-    namespace = String(receiver.name);
-  }
-  if (!namespace || !analysis.catalogIndexes.functionsByNamespace.has(namespace)) return null;
+  const resolved = resolveMemberExpression(base, scopes, analysis);
+  if (!resolved) return null;
   return {
-    namespace,
-    memberName,
-    indexer: base.indexer === ':' ? ':' : '.',
-    memberNode: member,
-    item: getFunctionFromNamespace(analysis.catalogIndexes, namespace, memberName),
+    namespace: resolved.namespace,
+    memberName: resolved.memberName,
+    indexer: resolved.indexer as ':' | '.',
+    memberNode: resolved.memberNode,
+    item: resolved.item,
   };
 }
 
@@ -729,7 +774,7 @@ function collectScopesAt(analysis: LuaSemanticAnalysis, position: LuaSemanticPos
             String(variable.name ?? ''),
             'local',
             rangeOf(variable, analysis.sourceLines),
-            inferExpressionType(init[index], scopes, analysis),
+            inferAssignedExpressionType(init, index, scopes, analysis),
           );
         }
         continue;
@@ -747,7 +792,7 @@ function collectScopesAt(analysis: LuaSemanticAnalysis, position: LuaSemanticPos
           if (!existing) continue;
           targetScope.set(String(variable.name ?? ''), {
             ...existing,
-            typeName: inferExpressionType(init[index], scopes, analysis),
+            typeName: inferAssignedExpressionType(init, index, scopes, analysis),
           });
         }
         continue;
@@ -956,7 +1001,9 @@ export function getCallInfoAt(document: LuaSemanticDocument, position: LuaSemant
     indexer = ':';
     const receiver = lookupRuntimeBinding(scopes, methodMatch[1]);
     namespace = receiver?.typeName || (GLOBAL_NAMESPACES.has(methodMatch[1]) ? methodMatch[1] : null);
-    const item = namespace ? getFunctionFromNamespace(analysis.catalogIndexes, namespace, methodMatch[2]) : (getCatalogFunction(analysis.catalogIndexes, methodMatch[2]) ?? null);
+    const resolved = namespace ? getFunctionFromTypeCandidates(analysis.catalogIndexes, namespace, methodMatch[2]) : null;
+    if (resolved) namespace = resolved.namespace;
+    const item = resolved?.item ?? (getCatalogFunction(analysis.catalogIndexes, methodMatch[2]) ?? null);
     if (item) {
       target = {
         kind: 'catalog',
@@ -1009,24 +1056,72 @@ export function getCallInfoAt(document: LuaSemanticDocument, position: LuaSemant
   };
 }
 
+function findHoverTargetFromAst(
+  node: LuaNode,
+  position: LuaSemanticPosition,
+  scopes: LuaRuntimeScope[],
+  analysis: LuaSemanticAnalysis,
+): LuaSemanticHoverInfo | null {
+  if (node.type === 'MemberExpression') {
+    const member = node.identifier as LuaNode | undefined;
+    if (member?.loc?.start && member.loc.end) {
+      const memberStart = nodeStart(member);
+      const memberEnd = nodeEnd(member);
+      if (comparePositions(position, memberStart) >= 0 && comparePositions(position, memberEnd) <= 0) {
+        const resolved = resolveMemberExpression(node, scopes, analysis);
+        if (resolved?.item) {
+          return {
+            kind: 'catalog-function',
+            item: resolved.item,
+            range: rangeOf(member, analysis.sourceLines),
+          };
+        }
+      }
+    }
+  }
+
+  for (const key of Object.keys(node)) {
+    if (key === 'type' || key === 'loc' || key === 'range' || key === 'isLocal' || key === 'indexer' || key === 'name') continue;
+    const child = (node as Record<string, unknown>)[key];
+    if (Array.isArray(child)) {
+      for (const item of child) {
+        if (item && typeof item === 'object' && 'type' in item) {
+          const found = findHoverTargetFromAst(item as LuaNode, position, scopes, analysis);
+          if (found) return found;
+        }
+      }
+    } else if (child && typeof child === 'object' && 'type' in child) {
+      const found = findHoverTargetFromAst(child as LuaNode, position, scopes, analysis);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export function getHoverInfoAt(document: LuaSemanticDocument, position: LuaSemanticPosition, options: LuaQueryOptions = {}): LuaSemanticHoverInfo | null {
   const analysis = analysisFor(document, position, options);
   if (!analysis) return null;
 
-  const line = document.sourceLines[position.lineNumber - 1] ?? '';
   const scopes = collectScopesAt(analysis, position);
+  const astResult = findHoverTargetFromAst(analysis.ast, position, scopes, analysis);
+  if (astResult) return astResult;
+
+  // ponytail: regex fallback for incomplete code where tolerant parsing masks the
+  // current line, preventing the AST from seeing member expressions on it.
+  const line = document.sourceLines[position.lineNumber - 1] ?? '';
   for (const match of line.matchAll(/([A-Za-z_][\w]*(?:\s*\([^()]*\))?(?:\s*[:.]\s*[A-Za-z_]\w*(?:\s*\([^()]*\))?)*)\s*([:.])\s*([A-Za-z_]\w*)/g)) {
     const start = (match.index ?? 0) + 1;
     const end = start + match[0].length;
     if (position.column < start || position.column > end) continue;
     const receiverName = (match[1] ?? '').trim();
     const memberName = match[3] ?? '';
+    const memberStart = start + match[0].lastIndexOf(memberName);
+    if (position.column < memberStart || position.column > memberStart + memberName.length - 1) continue;
     const namespace = match[2] === ':'
       ? inferExpressionTypeFromText(receiverName, scopes, analysis)
       : inferExpressionTypeFromText(receiverName, scopes, analysis) || receiverName;
     const item = namespace ? getFunctionFromNamespace(analysis.catalogIndexes, namespace, memberName) : null;
     if (item) {
-      const memberStart = start + match[0].lastIndexOf(memberName);
       return {
         kind: 'catalog-function',
         item,
@@ -1151,7 +1246,7 @@ export function getDiagnostics(document: LuaSemanticDocument) {
             String(variable.name ?? ''),
             'local',
             rangeOf(variable, document.sourceLines),
-            inferExpressionType(init[index], scopes, document.strictAnalysis!),
+            inferAssignedExpressionType(init, index, scopes, document.strictAnalysis!),
           );
         }
         continue;

@@ -47,6 +47,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
   }
   .sp-card-head h3 {
     margin: 0;
@@ -62,7 +63,7 @@
   }
   .sp-row-top {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     align-items: start;
   }
@@ -106,6 +107,7 @@
   .sp-btns {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
   }
   .sp-btn {

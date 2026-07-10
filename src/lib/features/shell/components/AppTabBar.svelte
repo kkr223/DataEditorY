@@ -82,6 +82,8 @@
         class:active={activeWorkspaceId === workspace.id}
         class:script-tab={workspace.kind === 'script'}
         onclick={() => onActivateWorkspace(workspace.id)}
+        onmousedown={(event) => { if (event.button === 1) event.preventDefault(); }}
+        onauxclick={(event) => { if (event.button === 1) { event.preventDefault(); void onCloseWorkspace(workspace.id); } }}
         oncontextmenu={(event) => openContextMenu(event, workspace)}
         title={workspace.subtitle}
       >

@@ -6,6 +6,7 @@
   import { runScriptTestPlan } from '$lib/features/ai/scriptTestRunner';
   import { runWorkspaceAgent, type AgentStage } from '$lib/native/aiApi';
   import { appSettingsState, connectAiProvider, loadAppSettings, saveAppSettings } from '$lib/stores/appSettings.svelte';
+  import { refreshCachedSearchForTab } from '$lib/stores/search';
   import { documentRuntime } from '$lib/platform/appRuntime';
   import { writeTextFile } from '$lib/infrastructure/tauri/commands';
   import { cloneEditableCard } from '$lib/domain/card/draft';
@@ -47,6 +48,8 @@
     createCardImageFormData,
     normalizeCardImageFormData,
   } from '$lib/features/card-image/layout';
+  import { queueAiCardDraftPatch } from './aiProposalApplication.svelte';
+  import { renderMarkdown } from './markdown';
 
   const FULL_ACCESS_KEY = 'dataeditory:ai-full-access';
 
@@ -317,6 +320,22 @@
     return Math.ceil(raw * 1.1);
   }
 
+  function stopAiTextShortcut(event: KeyboardEvent) {
+    if (!(event.ctrlKey || event.metaKey)) return;
+    if (['a', 'c', 'v', 'x'].includes(event.key.toLowerCase())) {
+      event.stopPropagation();
+    }
+  }
+
+  function stopAiTextShortcuts(node: HTMLElement) {
+    node.addEventListener('keydown', stopAiTextShortcut, { capture: true });
+    return {
+      destroy() {
+        node.removeEventListener('keydown', stopAiTextShortcut, { capture: true });
+      },
+    };
+  }
+
   function formatTokenCount(tokens: number) {
     if (tokens >= 1000) {
       const value = Math.round((tokens / 1000) * 10) / 10;
@@ -519,6 +538,8 @@
       kind: 'upsert',
       cards: [cloneEditableCard(patch.after as CardDataEntry)],
     });
+    await refreshCachedSearchForTab(patch.documentId);
+    queueAiCardDraftPatch({ id: patch.id, patch: patch.after as Partial<CardDataEntry> });
   }
 
   async function applyBatchCardPatch(patch: Extract<WorkspaceAiPatch, { kind: 'batch-card' }>) {
@@ -537,6 +558,7 @@
     }
     if (cards.length) {
       await executeCardCommand(patch.documentId, { kind: 'upsert', cards });
+      await refreshCachedSearchForTab(patch.documentId);
     }
   }
 
@@ -735,7 +757,7 @@
   });
 </script>
 
-<section class="ai-surface">
+<section class="ai-surface" use:stopAiTextShortcuts>
   <aside class="thread-list" aria-label={$_('surface.ai_threads')}>
     <div class="rail-title">
       <span>{$_('surface.ai_threads')}</span>
@@ -815,7 +837,7 @@
         {:else}
           <article class={`message ${message.role}`}>
             <strong>{message.role}{message.model ? ` / ${message.model}` : ''}</strong>
-            <p>{message.content}</p>
+            <div class="message-content">{@html renderMarkdown(message.content)}</div>
           </article>
         {/if}
       {:else}
@@ -1341,7 +1363,7 @@
     word-break: break-word;
   }
 
-  .message strong {
+  .message > strong {
     display: block;
     margin-bottom: 6px;
     color: var(--ai-muted);
@@ -1349,11 +1371,31 @@
     text-transform: uppercase;
   }
 
-  .message p,
+  .message-content,
   .empty-message {
-    white-space: pre-wrap;
     line-height: 1.55;
     word-break: break-word;
+  }
+
+  .message-content :global(pre) {
+    margin: 8px 0;
+    padding: 9px 10px;
+    overflow: auto;
+    border-radius: 6px;
+    background: var(--bg-base);
+  }
+
+  .message-content :global(code) {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--bg-base);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+  }
+
+  .message-content :global(pre code) {
+    padding: 0;
+    background: transparent;
   }
 
   .empty-message {

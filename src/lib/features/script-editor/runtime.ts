@@ -56,6 +56,7 @@ export function buildScriptEditorMonacoOptions() {
   return {
     automaticLayout: true,
     contextmenu: false,
+    links: false,
     minimap: { enabled: false },
     fontSize: 14,
     lineHeight: 22,

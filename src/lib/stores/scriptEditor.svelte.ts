@@ -1,7 +1,11 @@
 import { derived, get, writable } from 'svelte/store';
 import type { ScriptWorkspaceState } from '$lib/types';
 import { activeTabId, tabs } from '$lib/stores/db';
-import { activateEditorView, activateScriptView } from '$lib/stores/appShell.svelte';
+import {
+  activateEditorView,
+  activateScriptView,
+  appShellState,
+} from '$lib/stores/appShell.svelte';
 import {
   getCardScriptInfo,
   readTextFile,
@@ -386,17 +390,33 @@ export const closeScriptTab = async (tabId: string) => {
   const currentTabs = get(scriptTabs);
   const index = currentTabs.findIndex((tab) => tab.id === tabId);
   if (index === -1) return;
+  const closedTab = currentTabs[index];
+  const cdbIndex = currentTabs
+    .filter((tab) => isSameCdbPath(tab.cdbPath, closedTab.cdbPath))
+    .findIndex((tab) => tab.id === tabId);
+  const wasScriptView = appShellState.mainView === 'script';
   await documentRuntime.close(tabId, true);
   const nextTabs = get(scriptTabs);
   if (get(activeScriptTabId) !== tabId) return;
-  if (nextTabs.length > 0) {
-    const nextTab = nextTabs[Math.min(index, nextTabs.length - 1)];
-    activeScriptTabId.set(nextTab.id);
-    activateScriptView();
-    if (nextTab.sourceTabId) activeTabId.set(nextTab.sourceTabId);
+  const nextCdbTabs = nextTabs.filter((tab) => isSameCdbPath(tab.cdbPath, closedTab.cdbPath));
+  if (nextCdbTabs.length > 0) {
+    const nextTab = nextCdbTabs[Math.min(cdbIndex, nextCdbTabs.length - 1)];
+    if (wasScriptView) {
+      activateScriptTab(nextTab.id);
+    } else {
+      activeScriptTabId.set(nextTab.id);
+    }
     return;
   }
   activeScriptTabId.set(null);
+  if (appShellState.settingsReturnView === 'script') {
+    appShellState.settingsReturnView = 'editor';
+  }
+  if (!wasScriptView) return;
+  const cdbTab = closedTab.sourceTabId
+    ? get(tabs).find((tab) => tab.id === closedTab.sourceTabId)
+    : get(tabs).find((tab) => isSameCdbPath(tab.path, closedTab.cdbPath));
+  if (cdbTab) documentRuntime.activate(cdbTab.id);
   activateEditorView();
 };
 

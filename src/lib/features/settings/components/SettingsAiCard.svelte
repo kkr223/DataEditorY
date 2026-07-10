@@ -92,6 +92,10 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
+  }
+  .sp-card-head {
+    min-width: 0;
   }
   .sp-card-head h3 {
     margin: 0;
@@ -109,6 +113,7 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 10px;
   }
   .sp-badge {
@@ -128,7 +133,7 @@
   }
   .sp-ai-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px 12px;
   }
   .sp-ai-foot {
@@ -149,6 +154,7 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
+    min-width: 0;
   }
   .sp-field > span {
     font-size: 0.74rem;
@@ -180,6 +186,8 @@
   .sp-btns {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 6px;
   }
   .sp-btn {

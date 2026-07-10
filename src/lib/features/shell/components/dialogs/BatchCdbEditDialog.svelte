@@ -203,7 +203,7 @@
   function addOperation() {
     operations = [...operations, {
       id: crypto.randomUUID(),
-      groupId: selectedGroupId || getCardGroups()[0]?.id || '',
+      groupId: selectedGroupId || '',
       field: 'category',
       value: '',
     }];
@@ -220,13 +220,23 @@
     const tab = get(activeTab);
     if (!tab) return;
 
-    const groups: BatchOperationGroup[] = getCardGroups().map((group) => ({
+    const targetCards = await resolveTargetCards();
+    const transientGroupId = '__current_target__';
+    const savedGroups: BatchOperationGroup[] = getCardGroups().map((group) => ({
       id: group.id,
       cardIds: [...group.cardIds],
     }));
+    const groups = [
+      ...savedGroups,
+      { id: transientGroupId, cardIds: targetCards.map((card) => card.code) },
+    ];
     const groupIds = new Set(groups.map((group) => group.id));
-    if (operations.some((operation) => !operation.groupId || !groupIds.has(operation.groupId))) {
+    if (operations.some((operation) => operation.groupId && !groupIds.has(operation.groupId))) {
       showToast($_('batch_cdb.group_required'), 'error');
+      return;
+    }
+    if (targetCards.length === 0 && operations.some((operation) => !operation.groupId)) {
+      showToast($_('card_group.empty_target'), 'error');
       return;
     }
 
@@ -234,7 +244,7 @@
     try {
       invalidatePreview();
       const normalizedOperations: BatchFieldOperation[] = operations.map((operation) => ({
-        groupId: operation.groupId,
+        groupId: operation.groupId || transientGroupId,
         field: operation.field,
         value: normalizeOperationValue(operation),
       }));
@@ -293,7 +303,7 @@
 </script>
 
 {#if open}
-  <div class="dialog-backdrop" role="presentation" onclick={closeDialog}>
+  <div class="dialog-backdrop" role="presentation">
     <div
       class="batch-dialog"
       role="dialog"

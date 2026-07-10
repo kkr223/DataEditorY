@@ -25,12 +25,6 @@
     lastOpen = open;
   }
 
-  function handleBackdropClick(event: MouseEvent) {
-    if (event.target === event.currentTarget) {
-      onClose();
-    }
-  }
-
   function handleBackdropKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -56,7 +50,6 @@
     aria-modal="false"
     aria-label={title}
     tabindex="-1"
-    onclick={handleBackdropClick}
     onkeydown={handleBackdropKeydown}
   >
     <section class="script-diagnostics-panel" use:disableAutofill>
