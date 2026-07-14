@@ -13,6 +13,7 @@ import {
   pushDraftUndoHistory,
   resolvePageNavigationTarget,
   resolveSelectionNavigationTarget,
+  shouldAutoCommitDraftForSelectionChange,
   stepBackDraftUndoHistory,
 } from '$lib/features/card-editor/controller';
 import { createCardSnapshot } from '$lib/domain/card/draft';
@@ -397,6 +398,32 @@ describe('card editor controller helpers', () => {
       delta: 1,
       pageSize: 50,
     })).toBeNull();
+  });
+
+  test('does not auto-commit selection changes caused by an active draft commit', () => {
+    expect(shouldAutoCommitDraftForSelectionChange({
+      isDbLoaded: true,
+      isCommittingDraft: true,
+      selectedCardCode: 2000,
+      lastSyncedSelectedId: 1000,
+      isDraftDirty: true,
+    })).toBe(false);
+
+    expect(shouldAutoCommitDraftForSelectionChange({
+      isDbLoaded: true,
+      isCommittingDraft: false,
+      selectedCardCode: 2000,
+      lastSyncedSelectedId: 1000,
+      isDraftDirty: true,
+    })).toBe(true);
+
+    expect(shouldAutoCommitDraftForSelectionChange({
+      isDbLoaded: true,
+      isCommittingDraft: false,
+      selectedCardCode: 2000,
+      lastSyncedSelectedId: null,
+      isDraftDirty: true,
+    })).toBe(false);
   });
 
   test('tracks script generation state through a controller boundary', () => {

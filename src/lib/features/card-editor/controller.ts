@@ -430,6 +430,21 @@ export function resolvePageNavigationTarget(input: {
   return nextPage;
 }
 
+export function shouldAutoCommitDraftForSelectionChange(input: {
+  isDbLoaded: boolean;
+  isCommittingDraft: boolean;
+  selectedCardCode: number | null;
+  lastSyncedSelectedId: number | null;
+  isDraftDirty: boolean;
+}) {
+  return input.isDbLoaded
+    && !input.isCommittingDraft
+    && input.selectedCardCode !== null
+    && input.lastSyncedSelectedId !== null
+    && input.selectedCardCode !== input.lastSyncedSelectedId
+    && input.isDraftDirty;
+}
+
 export async function handleCardEditorKeydown(
   event: KeyboardEvent,
   input: {

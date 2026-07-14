@@ -18,6 +18,7 @@
     handleCardEditorKeydown,
     resolvePageNavigationTarget,
     resolveSelectionNavigationTarget,
+    shouldAutoCommitDraftForSelectionChange,
     stepBackDraftUndoHistory,
     type DraftUndoEntry,
   } from "$lib/features/card-editor/controller";
@@ -54,6 +55,7 @@
   let lastLoadedCardSnapshot = $state("");
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
   let isKeyboardNavigating = $state(false);
+  let isCommittingDraft = $state(false);
   let draftUndoHistory = $state.raw<DraftUndoEntry[]>(createDraftUndoHistory(initialDraftCard));
   let trackedDraftSnapshot = $state(createCardSnapshot(initialDraftCard));
   let suspendDraftUndoTracking = 0;
@@ -340,8 +342,13 @@
   }
 
   async function handleModify() {
-    if (!$isDbLoaded) return false;
-    return modifyDraftCardFlow({ draftCard, originalCardCode, isEditingExisting, t: (key, options) => $_(key, options as never), saveDraftCard });
+    if (!$isDbLoaded || isCommittingDraft) return false;
+    isCommittingDraft = true;
+    try {
+      return await modifyDraftCardFlow({ draftCard, originalCardCode, isEditingExisting, t: (key, options) => $_(key, options as never), saveDraftCard });
+    } finally {
+      isCommittingDraft = false;
+    }
   }
 
   async function handleSaveAs() {
@@ -448,13 +455,14 @@
 
   $effect(() => {
     const selectedCard = getAllCardsMap().get(editorState.selectedId ?? -1) ?? null;
-    if (
-      $isDbLoaded
-      && selectedCard
-      && lastSyncedSelectedId !== null
-      && selectedCard.code !== lastSyncedSelectedId
-      && isDraftDirty()
-    ) {
+    if (shouldAutoCommitDraftForSelectionChange({
+      isDbLoaded: $isDbLoaded,
+      isCommittingDraft,
+      selectedCardCode: selectedCard?.code ?? null,
+      lastSyncedSelectedId,
+      isDraftDirty: isDraftDirty(),
+    })) {
+      if (!selectedCard) return;
       const targetId = selectedCard.code;
       const restoreId = lastSyncedSelectedId;
       if (autoCommitSelectionTargetId !== targetId) {
