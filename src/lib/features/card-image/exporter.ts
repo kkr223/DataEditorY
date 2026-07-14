@@ -1,6 +1,6 @@
 import type { CardDataEntry } from '$lib/types';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { pathExists, writeBinaryFile } from '$lib/infrastructure/tauri/commands';
+import { pathExists, writeBinaryFile } from '$lib/native/assetApi';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 import {
   createCardImageFormData,

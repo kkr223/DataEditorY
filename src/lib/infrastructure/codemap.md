@@ -11,5 +11,5 @@ Single adapter implementation for the Tauri runtime.
 ## Integration
 
 - **Consumed by**: native APIs, platform (`appRuntime.ts`), selected low-level stores/services
-- **Depends on**: `@tauri-apps/api`, `@tauri-apps/plugin-dialog`, `@tauri-apps/plugin-fs`
+- **Depends on**: `@tauri-apps/api`, `@tauri-apps/plugin-dialog`
 - **Sub-map**: [tauri/](tauri/codemap.md)

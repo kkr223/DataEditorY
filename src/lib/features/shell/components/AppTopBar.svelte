@@ -106,12 +106,13 @@
         class="nav-item-group package-nav-group"
         role="group"
         aria-label={$_('nav.tools')}
-        onmouseenter={onShowPackageMenu}
-        onmouseleave={onHidePackageMenu}
-        onfocusin={onShowPackageMenu}
-        onfocusout={onHidePackageMenu}
       >
-        <button class="nav-item" aria-haspopup="menu" aria-expanded={isPackageMenuVisible}>
+        <button
+          class="nav-item"
+          aria-haspopup="menu"
+          aria-expanded={isPackageMenuVisible}
+          onclick={() => (isPackageMenuVisible ? onHidePackageMenu() : onShowPackageMenu())}
+        >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"></path><path d="M1 3h22v5H1z"></path><path d="M10 12h4"></path><path d="M12 3v18"></path></svg>
           {$_('nav.tools')}
           <svg xmlns="http://www.w3.org/2000/svg" class="nav-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>

@@ -1,8 +1,10 @@
 import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
 import { getSelectedCards } from '$lib/stores/editor.svelte';
 import type { AiAppContext } from '$lib/features/ai/service';
-import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
-import { getCardScriptInfo } from '$lib/infrastructure/tauri/commands';
+import { tauriBridge } from '$lib/infrastructure/tauri';
+import { readTextFile } from '$lib/native/assetApi';
+import { getCardScriptInfo } from '$lib/native/scriptApi';
+import { loadSecretKey } from '$lib/native/settingsApi';
 import { documentRuntime } from '$lib/platform/appRuntime';
 import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
 import { getCardImageDocument } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
@@ -13,7 +15,7 @@ export function createAiAppContext(): AiAppContext {
   return {
     async getAiConfig() {
       await loadAppSettings();
-      const secretKey = await invokeCommand<string | null>('load_secret_key');
+      const secretKey = await loadSecretKey();
       if (!secretKey) {
         throw new Error('Secret key is not configured');
       }
@@ -61,7 +63,7 @@ export function createAiAppContext(): AiAppContext {
         return { exists: false, path: info.path, content: null };
       }
 
-      const content = await invokeCommand<string>('read_text_file', { path: info.path });
+      const content = await readTextFile(info.path);
       return { exists: true, path: info.path, content };
     },
     readImageConfig(code: number) {

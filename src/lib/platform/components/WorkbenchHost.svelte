@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Component } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import { documentRuntime } from '$lib/platform/appRuntime';
   import { documentState, getActiveDataDocument } from '$lib/platform/store.svelte';
   import { activeTabId } from '$lib/stores/db';
@@ -13,6 +14,7 @@
     module: { default: Component };
   } | null>(null);
   let loadError = $state('');
+  let loadSequence = 0;
 
   const TOOL_DOCUMENT_TYPES = new Set([
     LUA_SCRIPT_TYPE,
@@ -39,8 +41,10 @@
   $effect(() => {
     documentState.activeDocumentId;
     const target = workbench;
+    const sequence = ++loadSequence;
     if (!target) {
       loadedWorkbench = null;
+      loadError = '';
       return;
     }
     if (loadedWorkbench?.id === target.id) {
@@ -50,12 +54,14 @@
     loadError = '';
     void target.component()
       .then((module) => {
+        if (sequence !== loadSequence || workbench?.id !== target.id) return;
         loadedWorkbench = {
           id: target.id,
           module: module as { default: Component },
         };
       })
       .catch((error) => {
+        if (sequence !== loadSequence) return;
         loadError = error instanceof Error ? error.message : String(error);
       });
   });
@@ -67,7 +73,7 @@
   {@const Component = loadedWorkbench.module.default}
   <Component />
 {:else}
-  <div class="workbench-message">Open or create a document to begin.</div>
+  <div class="workbench-message">{$_('nav.open_or_create_document')}</div>
 {/if}
 
 <style>

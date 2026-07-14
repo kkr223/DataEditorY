@@ -161,13 +161,6 @@ pub fn read_text_file(path: String) -> Result<String, String> {
     fs::read_to_string(&path).map_err(|err| err.to_string())
 }
 
-pub fn write_cdb(path: String, data: Vec<u8>) -> Result<(), String> {
-    if let Some(parent) = Path::new(&path).parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    fs::write(&path, data).map_err(|err| err.to_string())
-}
-
 pub fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
     if let Some(parent) = Path::new(&path).parent() {
         let _ = fs::create_dir_all(parent);
@@ -217,9 +210,10 @@ pub fn resolve_resource_file(app: &AppHandle, relative_path: String) -> Result<S
 
     for candidate in dedupe_candidate_paths(candidates) {
         if candidate.is_file() {
-            return candidate.to_str().map(|s| s.to_string()).ok_or_else(|| {
-                format!("Failed to convert path to string: {:?}", candidate)
-            });
+            return candidate
+                .to_str()
+                .map(|s| s.to_string())
+                .ok_or_else(|| format!("Failed to convert path to string: {:?}", candidate));
         }
     }
 
@@ -352,14 +346,6 @@ pub fn read_builtin_lua_helper_scripts() -> Vec<LuaHelperScript> {
             content: content.replace("\r\n", "\n"),
         })
         .collect()
-}
-
-pub fn copy_image(src: String, dest: String) -> Result<(), String> {
-    if let Some(parent) = Path::new(&dest).parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    fs::copy(&src, &dest).map_err(|err| err.to_string())?;
-    Ok(())
 }
 
 pub fn read_image(path: String) -> Result<Vec<u8>, String> {

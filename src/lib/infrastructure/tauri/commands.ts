@@ -65,15 +65,6 @@ export async function readCardScriptDocument(cdbPath: string, cardId: number) {
   return invokeCommand<CardScriptDocument>('read_card_script', { cdbPath, cardId });
 }
 
-export async function writeCardScriptDocument(cdbPath: string, cardId: number, content: string, overwrite = true) {
-  return invokeCommand<CardScriptInfo>('write_card_script', {
-    cdbPath,
-    cardId,
-    content,
-    overwrite,
-  });
-}
-
 export async function saveCardScriptDocument(cdbPath: string, cardId: number, content: string) {
   return invokeCommand<CardScriptInfo>('save_card_script', { cdbPath, cardId, content });
 }
@@ -102,6 +93,10 @@ export async function writeBinaryFile(path: string, data: number[]) {
 
 export async function readCdbFile(path: string) {
   return invokeCommand<number[]>('read_cdb', { path });
+}
+
+export async function readImageFile(path: string) {
+  return invokeCommand<number[]>('read_image', { path });
 }
 
 export async function writeTextFile(path: string, content: string) {
@@ -177,4 +172,8 @@ export async function consumePendingOpenCdbPaths() {
 
 export async function loadStringsConfContent() {
   return invokeCommand<string>('load_strings_conf');
+}
+
+export async function resolveResourceFile(relativePath: string) {
+  return invokeCommand<string>('resolve_resource_file', { relativePath });
 }

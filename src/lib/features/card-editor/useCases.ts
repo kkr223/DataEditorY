@@ -1,6 +1,6 @@
 import type { CardDataEntry } from '$lib/types';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { deleteCard, getCardById, modifyCard } from '$lib/stores/db';
+import { deleteCard, getCardById, modifyCard, replaceCardId } from '$lib/stores/db';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import { setSingleSelectedCard, updateVisibleCards } from '$lib/stores/editor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
@@ -57,18 +57,15 @@ export async function saveDraftCardFlow(input: {
   nextCard.code = targetCode;
   const dbCard = toPersistableDraftCard(nextCard);
 
-  const ok = await modifyCard(dbCard);
+  const shouldReplaceId = input.removeOriginal
+    && input.originalCardCode !== null
+    && input.originalCardCode !== targetCode;
+  const ok = shouldReplaceId
+    ? await replaceCardId(dbCard, input.originalCardCode as number)
+    : await modifyCard(dbCard);
   if (!ok) {
     showToast(input.t('editor.save_failed'), 'error');
     return false;
-  }
-
-  if (input.removeOriginal && input.originalCardCode !== null && input.originalCardCode !== targetCode) {
-    const deleted = await deleteCard(input.originalCardCode);
-    if (!deleted) {
-      showToast(input.t('editor.save_failed'), 'error');
-      return false;
-    }
   }
 
   input.setDraftCard(cloneEditableCard(dbCard));
@@ -96,7 +93,6 @@ export async function modifyDraftCardFlow(input: {
   const targetCode = getValidatedCardCode(input.draftCard, input.t);
   if (!targetCode) return false;
 
-  const existing = await getCardById(targetCode);
   if (input.isEditingExisting && input.originalCardCode === targetCode) {
     return input.saveDraftCard(targetCode);
   }
@@ -115,22 +111,10 @@ export async function modifyDraftCardFlow(input: {
       },
     );
 
-    if (existing && existing.code !== input.originalCardCode) {
-      const overwriteExisting = await tauriBridge.ask(
-        input.t('editor.overwrite_target_confirm', {
-          values: { code: String(targetCode) },
-        }),
-        {
-          title: input.t('editor.overwrite_target_title'),
-          kind: 'warning',
-        },
-      );
-      if (!overwriteExisting) return false;
-    }
-
     return input.saveDraftCard(targetCode, !!removeOriginal);
   }
 
+  const existing = await getCardById(targetCode);
   if (existing) {
     const overwriteExisting = await tauriBridge.ask(
       input.t('editor.overwrite_target_confirm', {

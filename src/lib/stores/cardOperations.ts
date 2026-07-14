@@ -69,6 +69,29 @@ export async function modifyCard(card: CardDataEntry): Promise<boolean> {
   return modifyCards([card]);
 }
 
+export async function replaceCardId(card: CardDataEntry, originalCardId: number): Promise<boolean> {
+  const tab = get(activeTab);
+  if (!tab || card.code === originalCardId) return false;
+
+  try {
+    await documentRuntime.execute(
+      tab.id,
+      {
+        kind: 'replaceCardId',
+        card: cloneCard(card),
+        originalCardId,
+      } satisfies CardCollectionCommand,
+    );
+    recordUndoLabel(tab.id, `Change card ID ${originalCardId} to ${card.code}`);
+    clearSourceFilterCacheForTab(tab.id);
+    await refreshCachedSearchForTab(tab.id);
+    return true;
+  } catch (err) {
+    console.error('Failed to change card ID:', err);
+    return false;
+  }
+}
+
 export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): Promise<boolean> {
   const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab) return false;

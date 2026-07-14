@@ -28,28 +28,6 @@ pub fn read_card_script(cdb_path: String, card_id: u32) -> Result<CardScriptDocu
     })
 }
 
-pub fn write_card_script(
-    cdb_path: String,
-    card_id: u32,
-    content: String,
-    overwrite: bool,
-) -> Result<CardScriptInfo, String> {
-    let script_path = build_card_script_path(&cdb_path, card_id)?;
-    if script_path.exists() && !overwrite {
-        return Err("Script already exists".to_string());
-    }
-
-    if let Some(parent) = script_path.parent() {
-        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-    }
-
-    fs::write(&script_path, normalize_script_content(content)).map_err(|err| err.to_string())?;
-    Ok(CardScriptInfo {
-        path: script_path.to_string_lossy().to_string(),
-        exists: true,
-    })
-}
-
 pub fn save_card_script(
     cdb_path: String,
     card_id: u32,

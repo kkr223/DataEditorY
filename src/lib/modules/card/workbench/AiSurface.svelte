@@ -1,5 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
+  import { tauriBridge } from '$lib/infrastructure/tauri';
   import { activeTab } from '$lib/stores/db';
   import { showToast } from '$lib/stores/toast.svelte';
   import { createAiAppContext } from '$lib/features/ai/context';
@@ -8,7 +9,7 @@
   import { appSettingsState, connectAiProvider, loadAppSettings, saveAppSettings } from '$lib/stores/appSettings.svelte';
   import { refreshCachedSearchForTab } from '$lib/stores/search';
   import { documentRuntime } from '$lib/platform/appRuntime';
-  import { writeTextFile } from '$lib/infrastructure/tauri/commands';
+  import { writeTextFile } from '$lib/native/assetApi';
   import { cloneEditableCard } from '$lib/domain/card/draft';
   import type { CardDataEntry } from '$lib/types';
   import type { CardCollectionCommand, CardSearchExpression, CardSearchPage } from '$lib/modules/card';
@@ -140,7 +141,10 @@
 
   async function removeThread(thread: ReturnType<typeof getAiThreads>[number], event: MouseEvent) {
     event.stopPropagation();
-    const ok = await confirm($_('surface.ai_delete_thread_confirm', { values: { title: thread.title } }));
+    const ok = await tauriBridge.ask(
+      $_('surface.ai_delete_thread_confirm', { values: { title: thread.title } }),
+      { title: $_('surface.ai_title'), kind: 'warning' },
+    );
     if (!ok) return;
     if (isRunning && activeThread?.id === thread.id) cancelRun();
     deleteAiThread(thread.id);
@@ -531,7 +535,10 @@
     );
     if (!current) throw new Error(`Card ${patch.cardCode} is not open`);
     if (!fullAccess && cardChanged(current, patch.before)) {
-      const ok = await confirm($_('surface.ai_before_mismatch_confirm'));
+      const ok = await tauriBridge.ask(
+        $_('surface.ai_before_mismatch_confirm'),
+        { title: $_('surface.ai_title'), kind: 'warning' },
+      );
       if (!ok) throw new Error('Skipped: target changed');
     }
     await executeCardCommand(patch.documentId, {
@@ -551,7 +558,10 @@
       );
       if (!current) throw new Error(`Card ${item.cardCode} is not open`);
       if (!fullAccess && cardChanged(current, item.before)) {
-        const ok = await confirm($_('surface.ai_before_mismatch_confirm'));
+        const ok = await tauriBridge.ask(
+          $_('surface.ai_before_mismatch_confirm'),
+          { title: $_('surface.ai_title'), kind: 'warning' },
+        );
         if (!ok) throw new Error(`Skipped changed card ${item.cardCode}`);
       }
       cards.push(cloneEditableCard(item.after as CardDataEntry));

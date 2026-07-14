@@ -1,5 +1,5 @@
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { importCardImageFile } from '$lib/infrastructure/tauri/commands';
+import { importCardImageFile } from '$lib/native/assetApi';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 
 export async function getPicsDir(cdbPath: string) {

@@ -1,5 +1,5 @@
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { openInSystemEditor } from '$lib/infrastructure/tauri/commands';
+import { openInSystemEditor } from '$lib/native/scriptApi';
 import {
   clearCustomCoverImage,
   saveAppSettings,

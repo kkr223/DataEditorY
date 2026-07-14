@@ -1,5 +1,6 @@
 import { get } from 'svelte/store';
 import { tick } from 'svelte';
+import { _ } from 'svelte-i18n';
 import {
   appShellState,
   activateEditorView,
@@ -109,7 +110,7 @@ export async function openSettingsWorkspace() {
     await documentRuntime.createDocument({
       typeId: SETTINGS_TYPE,
       providerId: SETTINGS_PROVIDER_ID,
-      title: 'Settings',
+      title: String(get(_)('settings.title')),
       initialData: {},
     });
   }
@@ -252,7 +253,7 @@ export async function saveWorkspaceDocumentAs(id: string) {
   if (!tab) return false;
 
   const targetPath = await tauriBridge.save({
-    title: 'Save CDB As',
+    title: String(get(_)('nav.save_as')),
     defaultPath: tab.path || tab.name,
     filters: [{ name: 'YGOPro CDB Database', extensions: ['cdb'] }],
   });

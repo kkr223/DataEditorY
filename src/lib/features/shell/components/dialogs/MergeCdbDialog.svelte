@@ -3,7 +3,7 @@
   import type {
     AnalyzeCdbMergeResponse,
     MergeSourceItem,
-  } from '$lib/infrastructure/tauri/commands';
+  } from '$lib/native/taskApi';
 
   /* ── drag-sort state ── */
   let draggedIndex = $state(-1);

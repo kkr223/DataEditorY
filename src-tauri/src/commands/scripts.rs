@@ -17,16 +17,6 @@ pub(crate) fn read_card_script(
 }
 
 #[tauri::command]
-pub(crate) fn write_card_script(
-    cdb_path: String,
-    card_id: u32,
-    content: String,
-    overwrite: bool,
-) -> Result<CardScriptInfo, String> {
-    services::scripts::write_card_script(cdb_path, card_id, content, overwrite)
-}
-
-#[tauri::command]
 pub(crate) fn save_card_script(
     cdb_path: String,
     card_id: u32,

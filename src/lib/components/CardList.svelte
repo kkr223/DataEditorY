@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
-  import { readTextFile } from '$lib/infrastructure/tauri/commands';
+  import { readTextFile } from '$lib/native/assetApi';
   import { tauriBridge } from '$lib/infrastructure/tauri';
   import {
     clearSearchError,

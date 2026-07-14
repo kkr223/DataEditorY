@@ -4,7 +4,7 @@ import { _ } from 'svelte-i18n';
 import type { CardDataEntry } from '$lib/types';
 import { showToast } from '$lib/stores/toast.svelte';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from '$lib/infrastructure/tauri/commands';
+import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from '$lib/native/assetApi';
 import { getPicsDir } from '$lib/services/cardImageService';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 import {

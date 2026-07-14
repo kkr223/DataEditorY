@@ -2,7 +2,7 @@ import { get, fromStore } from 'svelte/store';
 import { _, locale } from 'svelte-i18n';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { consumePendingOpenCdbPaths } from '$lib/infrastructure/tauri/commands';
+import { consumePendingOpenCdbPaths } from '$lib/native/cdbApi';
 import {
   deleteCards,
   getCardsByIds,
@@ -152,7 +152,7 @@ export function createShellLayoutController() {
   async function handleOpenRecent(path: string) {
     const openedId = await openCdbHistoryEntry(path);
     if (!openedId) {
-      showToast('Open recent failed', 'error');
+      showToast(String(get(_)('nav.open_recent_failed')), 'error');
       return;
     }
 
@@ -195,10 +195,10 @@ export function createShellLayoutController() {
     const hasOther = paths.some((path) => !isCdbFilePath(path));
     state.isFileDragActive = hasCdb || hasOther;
     state.dragOverlayMessage = hasCdb
-      ? 'Drop .cdb to open'
+      ? String(get(_)('nav.drag_open_cdb'))
       : hasOther
-        ? 'Drop to open as text'
-        : 'Unsupported file';
+        ? String(get(_)('nav.drag_open_text'))
+        : String(get(_)('nav.drag_unsupported_file'));
   }
 
   function clearFileDragState() {
@@ -208,7 +208,10 @@ export function createShellLayoutController() {
 
   async function handleSave() {
     const ok = await saveActiveWorkspaceDocument();
-    showToast(ok ? 'Saved' : 'Save failed', ok ? 'success' : 'error');
+    showToast(
+      String(get(_)(ok ? 'editor.save_success' : 'editor.save_failed')),
+      ok ? 'success' : 'error',
+    );
   }
 
   async function handleCloseWorkspace(workspaceId: string) {
@@ -225,18 +228,20 @@ export function createShellLayoutController() {
   async function handleCopySelection() {
     const selectedCards = getSelectedCards();
     if (selectedCards.length === 0) {
-      showToast('Clipboard is empty', 'info');
+      showToast(String(get(_)('editor.clipboard_empty')), 'info');
       return;
     }
 
     setCardClipboard(selectedCards);
-    showToast(`Copied ${selectedCards.length} cards`, 'success');
+    showToast(String(get(_)('editor.cards_copied', {
+      values: { count: String(selectedCards.length) },
+    } as never)), 'success');
   }
 
   async function handlePasteSelection() {
     if (!isDbLoadedState.current) return;
     if (!hasCardClipboard()) {
-      showToast('Clipboard is empty', 'info');
+      showToast(String(get(_)('editor.clipboard_empty')), 'info');
       return;
     }
 
@@ -244,9 +249,11 @@ export function createShellLayoutController() {
     const conflictingCards = await getCardsByIds(clipboardCards.map((card) => card.code));
     if (conflictingCards.length > 0) {
       const shouldOverwrite = await tauriBridge.ask(
-        `Overwrite ${conflictingCards.length} existing cards?`,
+        String(get(_)('editor.paste_conflict_confirm', {
+          values: { count: String(conflictingCards.length) },
+        } as never)),
         {
-          title: 'Paste conflicts',
+          title: String(get(_)('editor.paste_conflict_title')),
           kind: 'warning',
         },
       );
@@ -261,7 +268,7 @@ export function createShellLayoutController() {
     } satisfies CardDataEntry));
     const ok = await modifyCards(pastedCards);
     if (!ok) {
-      showToast('Paste failed', 'error');
+      showToast(String(get(_)('editor.paste_failed')), 'error');
       return;
     }
 
@@ -277,7 +284,9 @@ export function createShellLayoutController() {
       clearSelection();
     }
 
-    showToast(`Pasted ${pastedCards.length} cards`, 'success');
+    showToast(String(get(_)('editor.cards_pasted', {
+      values: { count: String(pastedCards.length) },
+    } as never)), 'success');
   }
 
   async function handleDeleteSelection() {
@@ -285,25 +294,32 @@ export function createShellLayoutController() {
 
     const selectedIds = getSelectedCardIds();
     if (selectedIds.length === 0) {
-      showToast('No card selected', 'info');
+      showToast(String(get(_)('editor.no_card_selected')), 'info');
       return;
     }
 
-    const confirmed = await tauriBridge.ask(`Delete ${selectedIds.length} selected cards?`, {
-      title: 'Delete selected cards',
-      kind: 'warning',
-    });
+    const confirmed = await tauriBridge.ask(
+      String(get(_)('editor.delete_selected_confirm', {
+        values: { count: String(selectedIds.length) },
+      } as never)),
+      {
+        title: String(get(_)('editor.delete_selected_title')),
+        kind: 'warning',
+      },
+    );
 
     if (!confirmed) return;
 
     const ok = await deleteCards(selectedIds);
     if (!ok) {
-      showToast('Delete failed', 'error');
+      showToast(String(get(_)('editor.delete_failed')), 'error');
       return;
     }
 
     await handleSearch();
-    showToast(`Deleted ${selectedIds.length} cards`, 'success');
+    showToast(String(get(_)('editor.cards_deleted', {
+      values: { count: String(selectedIds.length) },
+    } as never)), 'success');
   }
 
   async function handleUndoLastOperation() {

@@ -188,7 +188,7 @@
   async function handleReload() {
     const tab = getActiveTextTab();
     if (!tab || !editorInstance || !monacoApi) return;
-    const { readTextFile } = await import('$lib/infrastructure/tauri/commands');
+    const { readTextFile } = await import('$lib/native/assetApi');
     try {
       const content = (await readTextFile(tab.path)).replaceAll('\r\n', '\n');
       const model = editorInstance.getModel();

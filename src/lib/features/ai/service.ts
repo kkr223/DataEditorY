@@ -9,6 +9,7 @@ import type {
   WorkspaceAiProposal,
   WorkspaceAiToolRun,
 } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+import { resolveResourceFile } from '$lib/native/assetApi';
 
 type AiRole = 'system' | 'user' | 'assistant' | 'tool';
 
@@ -580,13 +581,11 @@ export async function loadAiSkillFiles(): Promise<string[]> {
 }
 
 export async function resolveAiPromptPath(file: string): Promise<string> {
-  const { invokeCommand } = await import('$lib/infrastructure/tauri');
-  return invokeCommand<string>('resolve_resource_file', { relativePath: `ai-prompts/${file}` });
+  return resolveResourceFile(`ai-prompts/${file}`);
 }
 
 export async function resolveAiSkillPath(file: string): Promise<string> {
-  const { invokeCommand } = await import('$lib/infrastructure/tauri');
-  return invokeCommand<string>('resolve_resource_file', { relativePath: `ai-skills/${file}` });
+  return resolveResourceFile(`ai-skills/${file}`);
 }
 
 export function getAiPromptFileName(index = 0): string {

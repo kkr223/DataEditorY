@@ -81,8 +81,6 @@ pub fn run() {
         ))
         .manage(document_host::DocumentHostState::new())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             let paths = collect_cdb_paths_from_args(argv.into_iter().skip(1));
             queue_open_cdb_paths(app, paths);
@@ -103,14 +101,12 @@ pub fn run() {
             commands::lua_replace::apply_lua_replace,
             commands::media::read_cdb,
             commands::media::read_text_file,
-            commands::media::write_cdb,
             commands::media::write_file,
             commands::media::path_exists,
             commands::media::resolve_resource_file,
             commands::media::list_image_folder_entries,
             commands::media::read_lua_helper_scripts,
             commands::media::read_builtin_lua_helper_scripts,
-            commands::media::copy_image,
             commands::media::read_image,
             commands::media::import_card_image,
             commands::media::load_strings_conf,
@@ -126,7 +122,6 @@ pub fn run() {
             commands::settings::clear_cover_image,
             commands::scripts::get_card_script_info,
             commands::scripts::read_card_script,
-            commands::scripts::write_card_script,
             commands::scripts::save_card_script,
             commands::package::package_cdb_assets_as_zip,
             commands::app::append_error_log,

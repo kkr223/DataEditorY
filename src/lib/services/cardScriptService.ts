@@ -5,7 +5,7 @@ import {
   openInSystemEditor,
   readCardScriptDocument,
   saveCardScriptDocument,
-} from '$lib/infrastructure/tauri/commands';
+} from '$lib/native/scriptApi';
 import { openOrCreateScriptTab } from '$lib/stores/scriptEditor.svelte';
 import { buildTemplateContent } from '$lib/features/script-editor/template';
 

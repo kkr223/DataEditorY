@@ -1,5 +1,5 @@
 import type { SelectOption } from '$lib/types';
-import { loadStringsConfContent } from '$lib/infrastructure/tauri/commands';
+import { loadStringsConfContent } from '$lib/native/assetApi';
 
 export type SetcodeOption = SelectOption<string> & { label: string };
 export type SetcodeCatalogLoadResult = {

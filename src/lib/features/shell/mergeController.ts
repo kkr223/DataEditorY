@@ -4,7 +4,7 @@ import { tauriBridge } from '$lib/infrastructure/tauri';
 import {
   type AnalyzeCdbMergeResponse,
   type MergeSourceItem,
-} from '$lib/infrastructure/tauri/commands';
+} from '$lib/native/taskApi';
 import { activeTab, openCdbPath, tabs } from '$lib/stores/db';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';

@@ -1,8 +1,10 @@
 import { writable, derived, get } from 'svelte/store';
-import { readTextFile, writeTextFile } from '$lib/infrastructure/tauri/commands';
+import { _ } from 'svelte-i18n';
+import { readTextFile, writeTextFile } from '$lib/native/assetApi';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { activateTextView, activateEditorView } from '$lib/stores/appShell.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
+import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 
 export type TextTab = {
   id: string;
@@ -21,6 +23,8 @@ export const activeTextTab = derived(
   [textTabs, activeTextTabId],
   ([$tabs, $activeId]) => $tabs.find((tab) => tab.id === $activeId) ?? null,
 );
+
+const inflightTextOpens = new Map<string, Promise<string | null>>();
 
 export const getActiveTextTab = () => get(activeTextTab);
 
@@ -92,35 +96,47 @@ export function getTextTabLanguage(tab: TextTab) {
 export async function openTextFile(path: string): Promise<string | null> {
   const normalized = path.trim();
   if (!normalized) return null;
+  const pathIdentity = getCdbPathIdentity(normalized);
 
-  const existing = get(textTabs).find((tab) => tab.path === normalized);
+  const existing = get(textTabs).find((tab) => getCdbPathIdentity(tab.path) === pathIdentity);
   if (existing) {
     activateTextTab(existing.id);
     return existing.id;
   }
 
-  try {
-    const content = await readTextFile(normalized);
-    const normalizedContent = content.replaceAll('\r\n', '\n');
-    const id = crypto.randomUUID();
-    const tab: TextTab = {
-      id,
-      path: normalized,
-      name: basename(normalized),
-      content: normalizedContent,
-      savedContent: normalizedContent,
-      isDirty: false,
-      viewState: null,
-    };
-    textTabs.update((tabs) => [...tabs, tab]);
-    activeTextTabId.set(id);
-    activateTextView();
-    return id;
-  } catch (error) {
-    console.error('Failed to open text file:', error);
-    showToast(`Failed to open ${basename(normalized)}`, 'error');
-    return null;
-  }
+  const inflight = inflightTextOpens.get(pathIdentity);
+  if (inflight) return inflight;
+
+  const request = (async () => {
+    try {
+      const content = await readTextFile(normalized);
+      const normalizedContent = content.replaceAll('\r\n', '\n');
+      const id = crypto.randomUUID();
+      const tab: TextTab = {
+        id,
+        path: normalized,
+        name: basename(normalized),
+        content: normalizedContent,
+        savedContent: normalizedContent,
+        isDirty: false,
+        viewState: null,
+      };
+      textTabs.update((tabs) => [...tabs, tab]);
+      activeTextTabId.set(id);
+      activateTextView();
+      return id;
+    } catch (error) {
+      console.error('Failed to open text file:', error);
+      showToast(String(get(_)('editor.text_open_failed', {
+        values: { name: basename(normalized) },
+      } as never)), 'error');
+      return null;
+    } finally {
+      inflightTextOpens.delete(pathIdentity);
+    }
+  })();
+  inflightTextOpens.set(pathIdentity, request);
+  return request;
 }
 
 export async function openTextFileDialog(): Promise<string | null> {
@@ -165,6 +181,16 @@ export async function saveTextTab(tabId: string, destinationPath?: string): Prom
 
   const targetPath = destinationPath ?? tab.path;
   if (!targetPath) return false;
+  const targetIdentity = getCdbPathIdentity(targetPath);
+  const conflictingTab = get(textTabs).find((item) => (
+    item.id !== tabId && getCdbPathIdentity(item.path) === targetIdentity
+  ));
+  if (conflictingTab) {
+    showToast(String(get(_)('editor.text_already_open', {
+      values: { name: conflictingTab.name },
+    } as never)), 'error');
+    return false;
+  }
 
   try {
     await writeTextFile(targetPath, tab.content);
@@ -182,7 +208,9 @@ export async function saveTextTab(tabId: string, destinationPath?: string): Prom
     return true;
   } catch (error) {
     console.error('Failed to save text file:', error);
-    showToast(`Failed to save ${tab.name}`, 'error');
+    showToast(String(get(_)('editor.text_save_failed', {
+      values: { name: tab.name },
+    } as never)), 'error');
     return false;
   }
 }
@@ -192,7 +220,7 @@ export async function saveTextTabAs(tabId: string): Promise<boolean> {
   if (!tab) return false;
 
   const targetPath = await tauriBridge.save({
-    title: 'Save File As',
+    title: String(get(_)('editor.text_save_as_title')),
     defaultPath: tab.path || tab.name,
   });
   if (!targetPath) return false;

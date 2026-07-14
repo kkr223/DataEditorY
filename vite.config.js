@@ -27,14 +27,6 @@ export default defineConfig(async () => ({
             return;
           }
 
-          if (normalizedId.includes("/node_modules/monaco-editor/esm/vs/basic-languages/lua/")) {
-            return "vendor-monaco-lua";
-          }
-
-          if (normalizedId.includes("/node_modules/monaco-editor/")) {
-            return "vendor-monaco";
-          }
-
           if (normalizedId.includes("/node_modules/yugioh-card-ts/")) {
             return "vendor-yugioh-card-ts";
           }

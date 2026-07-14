@@ -115,8 +115,16 @@ pub struct CardSearchPage {
     rename_all_fields = "camelCase"
 )]
 pub enum CardCollectionCommand {
-    Upsert { cards: Vec<CardDto> },
-    Delete { card_ids: Vec<u32> },
+    Upsert {
+        cards: Vec<CardDto>,
+    },
+    Delete {
+        card_ids: Vec<u32>,
+    },
+    ReplaceCardId {
+        card: CardDto,
+        original_card_id: u32,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -273,5 +281,36 @@ mod tests {
         assert!(
             matches!(delete, CardCollectionCommand::Delete { card_ids } if card_ids == vec![483])
         );
+
+        let replace: CardCollectionCommand = serde_json::from_value(json!({
+            "kind": "replaceCardId",
+            "card": {
+                "code": 200,
+                "alias": 0,
+                "setcode": [],
+                "type": 0,
+                "attack": 0,
+                "defense": 0,
+                "level": 0,
+                "race": 0,
+                "attribute": 0,
+                "category": 0,
+                "ot": 0,
+                "name": "",
+                "desc": "",
+                "strings": [],
+                "lscale": 0,
+                "rscale": 0,
+                "linkMarker": 0,
+                "ruleCode": 0
+            },
+            "originalCardId": 100
+        }))
+        .expect("replace card id command should deserialize");
+        assert!(matches!(
+            replace,
+            CardCollectionCommand::ReplaceCardId { card, original_card_id }
+                if card.code == 200 && original_card_id == 100
+        ));
     }
 }

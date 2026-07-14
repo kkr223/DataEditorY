@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
   import LuaScriptEditor from '$lib/components/LuaScriptEditor.svelte';
   import { activeTab } from '$lib/stores/db';
@@ -27,6 +28,7 @@
   } from '$lib/domain/script/tabIdentity';
   import { getWorkspaceDocument } from '$lib/core/workspace/store.svelte';
   import { confirmWorkspaceClose } from '$lib/application/workspace/lifecycle';
+  import { showToast } from '$lib/stores/toast.svelte';
 
   let isOpening = $state(false);
   let isMissingScript = $state(false);
@@ -34,6 +36,8 @@
   let restorationCompletePath = '';
   let lastPersistedScriptKey = '';
   let lastResolvedCardKey = '';
+  let lastRestorationPath = '';
+  let restorationSequence = 0;
   let resolveSequence = 0;
   const selectedCard = $derived(getSelectedCard());
   const activeCdb = $derived($activeTab);
@@ -46,6 +50,11 @@
     const tab = $activeScriptTab;
     if (!tab || !activeCdb) return null;
     return isSameCdbPath(tab.cdbPath, activeCdb.path) ? tab : null;
+  });
+
+  onDestroy(() => {
+    restorationSequence += 1;
+    resolveSequence += 1;
   });
 
   async function closeSurfaceScriptTab(tabId: string) {
@@ -73,6 +82,11 @@
   $effect(() => {
     const path = activeCdb?.path ?? '';
     const sourceTabId = activeCdb?.id ?? null;
+    if (path !== lastRestorationPath) {
+      lastRestorationPath = path;
+      restorationSequence += 1;
+    }
+    const sequence = restorationSequence;
     workspaceMetadataState.ready;
     workspaceMetadataState.metadata;
     if (!path || !sourceTabId || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restoredPath === path) {
@@ -98,11 +112,13 @@
             cardName: tab.cardName ?? '',
             activate: false,
           });
+          if (sequence !== restorationSequence || !isSameCdbPath(activeCdb?.path ?? '', path)) return;
           if (tabId && tab.viewState) {
             setScriptTabViewState(tabId, tab.viewState);
           }
         }
 
+        if (sequence !== restorationSequence || !isSameCdbPath(activeCdb?.path ?? '', path)) return;
         const currentActive = $activeScriptTab;
         const alreadyActive = currentActive
           && isSameCdbPath(currentActive.cdbPath, path)
@@ -114,7 +130,9 @@
       } catch (error) {
         console.error('Failed to restore script surface tabs', error);
       } finally {
-        restorationCompletePath = path;
+        if (sequence === restorationSequence && isSameCdbPath(activeCdb?.path ?? '', path)) {
+          restorationCompletePath = path;
+        }
       }
     })();
   });
@@ -150,6 +168,14 @@
           cardName,
           activate: true,
         });
+      })
+      .catch((error) => {
+        if (sequence !== resolveSequence) return;
+        lastResolvedCardKey = '';
+        showToast(
+          `${$_('editor.script_open_failed')}: ${error instanceof Error ? error.message : String(error)}`,
+          'error',
+        );
       })
       .finally(() => {
         if (sequence === resolveSequence) isOpening = false;

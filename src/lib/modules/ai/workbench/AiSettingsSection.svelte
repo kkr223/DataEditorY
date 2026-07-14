@@ -16,8 +16,7 @@
     buildSkillTemplate,
   } from '$lib/features/ai/service';
   import { openTextFile } from '$lib/stores/textEditor.svelte';
-  import { writeTextFile } from '$lib/infrastructure/tauri/commands';
-  import { invokeCommand } from '$lib/infrastructure/tauri';
+  import { resolveResourceFile, writeTextFile } from '$lib/native/assetApi';
   import { showToast } from '$lib/stores/toast.svelte';
 
   let { context }: { context: SettingsWorkbenchContext } = $props();
@@ -114,7 +113,7 @@
       const absolutePath = await resolveAiSkillPath(file);
       await writeTextFile(absolutePath, buildSkillTemplate(safeName));
       // ponytail: write manifest directly; resource dir writable in dev, may be read-only in installed builds
-      const manifestPath = await invokeCommand<string>('resolve_resource_file', { relativePath: 'ai-skills/manifest.json' });
+      const manifestPath = await resolveResourceFile('ai-skills/manifest.json');
       const nextManifest = [...skillFiles, file];
       await writeTextFile(manifestPath, JSON.stringify(nextManifest, null, 2) + '\n');
       await refreshLists();

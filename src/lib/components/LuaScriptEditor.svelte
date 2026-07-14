@@ -14,6 +14,7 @@
     shareScriptImageFlow,
   } from '$lib/features/script-editor/useCases';
   import { buildScriptImageRenderInfo } from '$lib/features/script-editor/view';
+  import { openCardScriptWorkspace } from '$lib/services/cardScriptService';
   import { sortLuaDiagnosticsByLocation } from '$lib/features/script-editor/controller';
   import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
   import ScriptDiagnosticsOverlay from '$lib/features/script-editor/components/ScriptDiagnosticsOverlay.svelte';
@@ -89,7 +90,6 @@
       return;
     }
 
-    const { openCardScriptWorkspace } = await import('$lib/services/cardScriptService');
     await openCardScriptWorkspace({
       cdbPath: dbTab.path,
       sourceTabId: dbTab.id,
