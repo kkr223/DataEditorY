@@ -59,6 +59,18 @@ export async function getCardsByIdsInTab(tabId: string, cardIds: number[]): Prom
   }
 }
 
+export async function getAllCardsInTab(tabId: string): Promise<CardDataEntry[]> {
+  try {
+    return await documentRuntime.query<CardDataEntry[]>(
+      tabId,
+      { kind: 'all' } satisfies CardCollectionQuery,
+    );
+  } catch (err) {
+    console.error('Failed to fetch all cards:', err);
+    return [];
+  }
+}
+
 export async function getCardsByIds(cardIds: number[]): Promise<CardDataEntry[]> {
   const tab = get(activeTab);
   if (!tab) return [];

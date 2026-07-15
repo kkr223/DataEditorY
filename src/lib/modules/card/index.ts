@@ -16,6 +16,13 @@ export const cardModule: ExtensionModule = {
     acceptedTypeIds: [CARD_COLLECTION_TYPE],
     component: () => import('./workbench/CardCollectionWorkbench.svelte'),
   }],
+  globalTools: [{
+    id: 'card.showcase-image',
+    labelKey: 'nav.tools_showcase_image',
+    order: 20,
+    requiresActiveCdb: true,
+    component: () => import('$lib/features/shell/components/dialogs/CardShowcaseImageDialog.svelte'),
+  }],
 };
 
 export * from './types';
