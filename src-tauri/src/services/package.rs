@@ -227,11 +227,16 @@ fn collect_package_source_paths(
 ) -> Result<Vec<PathBuf>, String> {
     let mut paths = vec![cdb_file_path.to_path_buf()];
     let mut workspace_paths = None;
+    let cdb_name = cdb_file_path
+        .file_stem()
+        .map(|value| value.to_string_lossy())
+        .unwrap_or_default();
 
     for pattern in include_patterns {
-        if pattern_contains_card_field(pattern) {
+        let pattern = pattern.replace("{cdb_name}", cdb_name.as_ref());
+        if pattern_contains_card_field(&pattern) {
             for card in &manifest.cards {
-                let rendered = render_package_pattern(pattern, card);
+                let rendered = render_package_pattern(&pattern, card);
                 paths.extend(collect_paths_for_rendered_pattern(
                     cdb_dir,
                     &rendered,
@@ -241,7 +246,7 @@ fn collect_package_source_paths(
         } else {
             paths.extend(collect_paths_for_rendered_pattern(
                 cdb_dir,
-                pattern,
+                &pattern,
                 &mut workspace_paths,
             )?);
         }
@@ -604,10 +609,12 @@ mod tests {
         let cdb_path = root.join("cards.cdb");
         let pics_dir = root.join("pics");
         let script_dir = root.join("script");
+        let named_dir = root.join("cards");
         let output_zip_path = root.join("cards.zip");
 
         fs::create_dir_all(&pics_dir).unwrap();
         fs::create_dir_all(&script_dir).unwrap();
+        fs::create_dir_all(&named_dir).unwrap();
 
         create_test_cdb(&cdb_path, &[(111, 0x1), (222, 0x1)]);
         fs::write(pics_dir.join("111.webp"), [1u8]).unwrap();
@@ -616,6 +623,7 @@ mod tests {
         fs::write(script_dir.join("111.lua"), "-- direct").unwrap();
         fs::write(script_dir.join("shared.lua"), "-- shared").unwrap();
         fs::write(root.join("readme.txt"), "pack me").unwrap();
+        fs::write(named_dir.join("database.txt"), "named asset").unwrap();
 
         package_cdb_assets_as_zip_with_progress(
             cdb_path.to_string_lossy().to_string(),
@@ -624,6 +632,7 @@ mod tests {
                 "pics/{code}.webp".to_string(),
                 "script/*.lua".to_string(),
                 "readme.txt".to_string(),
+                "{cdb_name}/database.txt".to_string(),
             ],
             &mut |_| {},
         )
@@ -644,6 +653,7 @@ mod tests {
         assert!(entries.contains(&"script/111.lua".to_string()));
         assert!(entries.contains(&"script/shared.lua".to_string()));
         assert!(entries.contains(&"readme.txt".to_string()));
+        assert!(entries.contains(&"cards/database.txt".to_string()));
 
         let _ = fs::remove_dir_all(&root);
     }

@@ -159,6 +159,7 @@
       <SettingsTemplateCard
         title={$_('settings.script_template_title')}
         description={$_('settings.script_template_description')}
+        templateHelp={$_('settings.script_template_description')}
         externalEditorLabel={$_('settings.use_external_script_editor')}
         externalEditorHint={$_('settings.use_external_script_editor_hint')}
         saveScriptImageToLocalLabel={$_('settings.save_script_image_to_local')}
@@ -193,6 +194,7 @@
         title={$_('settings.package_include_title')}
         description={$_('settings.package_include_description')}
         hint={$_('settings.package_include_hint')}
+        templateHelp={$_('settings.package_include_template_help')}
         patternsText={form.packageIncludePatternsText}
         onPatternsInput={(value) => {
           form.packageIncludePatternsText = value;

@@ -4,13 +4,17 @@
   export let title = '';
   export let description = '';
   export let hint = '';
+  export let templateHelp = '';
   export let patternsText = '';
   export let onPatternsInput: (value: string) => void = () => {};
 </script>
 
 <div class="sp-card sp-package" use:disableAutofill>
   <div class="sp-card-head">
-    <h3>{title}</h3>
+    <div class="sp-title-row">
+      <h3>{title}</h3>
+      <button type="button" class="sp-template-help" title={templateHelp} aria-label={templateHelp}>?</button>
+    </div>
     <p>{description}</p>
   </div>
   <textarea
@@ -38,6 +42,24 @@
     font-size: 0.88rem;
     font-weight: 700;
     color: var(--text-primary);
+  }
+  .sp-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sp-template-help {
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    padding: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    cursor: help;
   }
   .sp-card-head p {
     margin: 2px 0 0;
