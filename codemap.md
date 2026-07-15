@@ -183,7 +183,8 @@ Use AI
 - **Single-card editor**: existing editor layout retained; edits flow through draft validation and working-copy commits.
 - **DEX-style draft search**: `从草稿搜索` builds Card Explorer filters from the current draft.
 - **Selection and groups**: selection is separate from active card and filtered results; card groups are metadata-backed task inputs.
-- **Batch tools**: CDB field batch edit, Lua search/replace with diff preview, asset check, merge, package.
+- **Batch tools**: CDB field batch edit, Lua search/replace with diff preview, asset check, merge, package, and showcase image generation.
+- **Showcase images**: generate PNG strips from the current CDB, selection, filter result, or card group; each row combines card art, YGO card details, and effect text, with optional attribution removal and image header text.
 - **Script surface**: active card opens `c{id}.lua`; internal script tabs stay inside the CDB workspace.
 - **AI surface**: workspace agent with visible tool calls, `@card` context mentions, auditable proposals, and optional full-access auto-apply.
 - **Metadata**: `.dey/{cdb-stem}.workspace.json` persists editor-only state without polluting `.cdb`.
