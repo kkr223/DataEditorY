@@ -7,6 +7,8 @@
   export let externalEditorHint = '';
   export let saveScriptImageToLocalLabel = '';
   export let saveScriptImageToLocalHint = '';
+  export let autoCompleteFunctionParametersLabel = '';
+  export let autoCompleteFunctionParametersHint = '';
   export let scriptDirectoryLabel = '';
   export let scriptDirectoryHint = '';
   export let scriptTemplate = '';
@@ -15,8 +17,10 @@
   export let onScriptDirectoryInput: (value: string) => void = () => {};
   export let useExternalScriptEditor = false;
   export let saveScriptImageToLocal = false;
+  export let autoCompleteFunctionParameters = true;
   export let onExternalEditorChange: (value: boolean) => void = () => {};
   export let onSaveScriptImageToLocalChange: (value: boolean) => void = () => {};
+  export let onAutoCompleteFunctionParametersChange: (value: boolean) => void = () => {};
 </script>
 
 <div class="sp-card sp-tpl" use:disableAutofill>
@@ -44,6 +48,16 @@
     <span>{saveScriptImageToLocalLabel}</span>
   </label>
   <small class="sp-hint sp-switch-hint">{saveScriptImageToLocalHint}</small>
+  <label class="sp-switch">
+    <input
+      type="checkbox"
+      checked={autoCompleteFunctionParameters}
+      onchange={(event) => onAutoCompleteFunctionParametersChange((event.currentTarget as HTMLInputElement).checked)}
+    />
+    <span class="sp-switch-track" aria-hidden="true"></span>
+    <span>{autoCompleteFunctionParametersLabel}</span>
+  </label>
+  <small class="sp-hint sp-switch-hint">{autoCompleteFunctionParametersHint}</small>
   <label class="sp-field">
     <span>{scriptDirectoryLabel}</span>
     <input

@@ -367,6 +367,8 @@
     "use_external_script_editor_hint": "When enabled, scripts open in the system default .lua editor.",
     "save_script_image_to_local": "Also save exported code images locally",
     "save_script_image_to_local_hint": "Also save a PNG locally.",
+    "auto_complete_function_parameters": "Insert parameters when completing functions",
+    "auto_complete_function_parameters_hint": "When disabled, function completion inserts only the function name.",
     "script_directory": "Script Directory",
     "script_directory_hint": "Used by the built-in script runner; empty preloads only built-in constant, utility, and procedure.",
     "package_include_title": "Package Includes",

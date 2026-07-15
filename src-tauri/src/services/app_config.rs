@@ -177,6 +177,7 @@ pub(crate) fn to_settings_payload(
         script_template: normalize_script_template(settings.script_template),
         use_external_script_editor: settings.use_external_script_editor,
         save_script_image_to_local: settings.save_script_image_to_local,
+        auto_complete_function_parameters: settings.auto_complete_function_parameters,
         package_include_patterns: normalize_package_include_patterns(Some(
             settings.package_include_patterns,
         )),

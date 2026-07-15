@@ -163,6 +163,8 @@
         externalEditorHint={$_('settings.use_external_script_editor_hint')}
         saveScriptImageToLocalLabel={$_('settings.save_script_image_to_local')}
         saveScriptImageToLocalHint={$_('settings.save_script_image_to_local_hint')}
+        autoCompleteFunctionParametersLabel={$_('settings.auto_complete_function_parameters')}
+        autoCompleteFunctionParametersHint={$_('settings.auto_complete_function_parameters_hint')}
         scriptDirectoryLabel={$_('settings.script_directory')}
         scriptDirectoryHint={$_('settings.script_directory_hint')}
         scriptDirectory={form.scriptDirectory}
@@ -180,6 +182,10 @@
         saveScriptImageToLocal={form.saveScriptImageToLocal}
         onSaveScriptImageToLocalChange={(value) => {
           form.saveScriptImageToLocal = value;
+        }}
+        autoCompleteFunctionParameters={form.autoCompleteFunctionParameters}
+        onAutoCompleteFunctionParametersChange={(value) => {
+          form.autoCompleteFunctionParameters = value;
         }}
       />
 

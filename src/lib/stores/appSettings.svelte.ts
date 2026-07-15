@@ -11,6 +11,7 @@ export interface AppSettingsPayload {
   scriptTemplate: string;
   useExternalScriptEditor: boolean;
   saveScriptImageToLocal: boolean;
+  autoCompleteFunctionParameters: boolean;
   packageIncludePatterns: string[];
   shortcutBindings: Record<string, string>;
   hasSecretKey: boolean;
@@ -62,6 +63,7 @@ function createDefaultSettings(): AppSettingsPayload {
     scriptTemplate: DEFAULT_SCRIPT_TEMPLATE,
     useExternalScriptEditor: false,
     saveScriptImageToLocal: false,
+    autoCompleteFunctionParameters: true,
     packageIncludePatterns: [...DEFAULT_PACKAGE_INCLUDE_PATTERNS],
     shortcutBindings: normalizeShortcutBindingMap(undefined),
     hasSecretKey: false,
@@ -168,6 +170,7 @@ function applySettings(payload: AppSettingsPayload) {
     scriptTemplate: normalizeScriptTemplate(payload.scriptTemplate),
     useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
     saveScriptImageToLocal: Boolean(payload.saveScriptImageToLocal),
+    autoCompleteFunctionParameters: payload.autoCompleteFunctionParameters !== false,
     packageIncludePatterns: normalizePackageIncludePatterns(payload.packageIncludePatterns),
     shortcutBindings: normalizeShortcutBindingMap(payload.shortcutBindings),
     hasSecretKey: Boolean(payload.hasSecretKey),
@@ -269,6 +272,7 @@ export async function saveAppSettings(input: {
   scriptTemplate: string;
   useExternalScriptEditor?: boolean;
   saveScriptImageToLocal?: boolean;
+  autoCompleteFunctionParameters?: boolean;
   packageIncludePatterns?: string[];
   shortcutBindings?: Record<string, string>;
   secretKey?: string;
@@ -286,6 +290,7 @@ export async function saveAppSettings(input: {
         scriptTemplate: input.scriptTemplate,
         useExternalScriptEditor: input.useExternalScriptEditor,
         saveScriptImageToLocal: input.saveScriptImageToLocal,
+        autoCompleteFunctionParameters: input.autoCompleteFunctionParameters,
         packageIncludePatterns: input.packageIncludePatterns
           ? normalizePackageIncludePatterns(input.packageIncludePatterns)
           : undefined,

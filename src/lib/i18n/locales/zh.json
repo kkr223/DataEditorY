@@ -367,6 +367,8 @@
     "use_external_script_editor_hint": "开启后将使用系统默认的 .lua 编辑器打开脚本。",
     "save_script_image_to_local": "导出代码图片时同时保存到本地",
     "save_script_image_to_local_hint": "同时保存一份 PNG 到本地。",
+    "auto_complete_function_parameters": "函数补全时自动填充参数",
+    "auto_complete_function_parameters_hint": "关闭后，选择函数补全项时只插入函数名。",
     "script_directory": "脚本目录",
     "script_directory_hint": "用于应用内脚本测试；留空时仅预加载内置 constant、utility、procedure。",
     "package_include_title": "打包包含项",

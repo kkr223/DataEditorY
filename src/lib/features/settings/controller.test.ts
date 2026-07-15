@@ -21,6 +21,7 @@ describe('settings controller helpers', () => {
     expect(state.scriptTemplate).toBe('');
     expect(state.useExternalScriptEditor).toBe(false);
     expect(state.saveScriptImageToLocal).toBe(false);
+    expect(state.autoCompleteFunctionParameters).toBe(true);
     expect(state.packageIncludePatternsText).toBe('');
     expect(state.secretKey).toBe('');
     expect(typeof state.shortcutBindings).toBe('object');
@@ -48,6 +49,7 @@ describe('settings controller helpers', () => {
         scriptTemplate: '-- template',
         useExternalScriptEditor: true,
         saveScriptImageToLocal: true,
+        autoCompleteFunctionParameters: false,
         packageIncludePatterns: ['pics/{code}.jpg', 'script/c{code}.lua'],
         shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
         hasSecretKey: true,
@@ -65,6 +67,7 @@ describe('settings controller helpers', () => {
     expect(form.scriptTemplate).toBe('-- template');
     expect(form.useExternalScriptEditor).toBe(true);
     expect(form.saveScriptImageToLocal).toBe(true);
+    expect(form.autoCompleteFunctionParameters).toBe(false);
     expect(form.packageIncludePatternsText).toBe('pics/{code}.jpg\nscript/c{code}.lua');
     expect(form.secretKey).toBe('');
     expect(result.isHydrated).toBe(true);
@@ -85,6 +88,7 @@ describe('settings controller helpers', () => {
         scriptTemplate: '-- updated',
         useExternalScriptEditor: false,
         saveScriptImageToLocal: false,
+        autoCompleteFunctionParameters: true,
         packageIncludePatterns: ['pics/{code}.jpg'],
         shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
         hasSecretKey: true,
@@ -115,12 +119,32 @@ describe('settings controller helpers', () => {
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
+      autoCompleteFunctionParameters: true,
       packageIncludePatterns: ['pics/{code}.jpg'],
       shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: false,
       coverImagePath: null,
       errorLogPath: '',
     })).toBe(false);
+
+    form.autoCompleteFunctionParameters = false;
+    expect(isSettingsFormDirty(form, {
+      apiBaseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
+      temperature: 1,
+      ygoproPath: '',
+      scriptDirectory: '',
+      scriptTemplate: '-- template',
+      useExternalScriptEditor: false,
+      saveScriptImageToLocal: false,
+      autoCompleteFunctionParameters: true,
+      packageIncludePatterns: ['pics/{code}.jpg'],
+      shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
+      hasSecretKey: false,
+      coverImagePath: null,
+      errorLogPath: '',
+    })).toBe(true);
+    form.autoCompleteFunctionParameters = true;
 
     form.packageIncludePatternsText = 'pics/{code}.jpg\nscript/c{code}.lua';
     expect(isSettingsFormDirty(form, {
@@ -132,6 +156,7 @@ describe('settings controller helpers', () => {
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
+      autoCompleteFunctionParameters: true,
       packageIncludePatterns: ['pics/{code}.jpg'],
       shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: false,
@@ -150,6 +175,7 @@ describe('settings controller helpers', () => {
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
+      autoCompleteFunctionParameters: true,
       packageIncludePatterns: ['pics/{code}.jpg'],
       shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: false,
@@ -168,6 +194,7 @@ describe('settings controller helpers', () => {
       scriptTemplate: '-- template',
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
+      autoCompleteFunctionParameters: true,
       packageIncludePatterns: ['pics/{code}.jpg'],
       shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: true,

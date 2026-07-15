@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   getCompletionInsertParameters,
   isFunctionReferenceParameter,
+  shouldInsertFunctionArguments,
   shouldInsertFunctionReferenceOnly,
 } from './completion';
 
@@ -18,6 +19,12 @@ describe('lua function completion helpers', () => {
     expect(shouldInsertFunctionReferenceOnly(['function f', 'integer tp'], 0)).toBe(true);
     expect(shouldInsertFunctionReferenceOnly(['function f', 'integer tp'], 1)).toBe(false);
     expect(shouldInsertFunctionReferenceOnly(['function f'], 2)).toBe(false);
+  });
+
+  test('respects the function parameter completion setting', () => {
+    expect(shouldInsertFunctionArguments(true, ['Card c'], -1)).toBe(true);
+    expect(shouldInsertFunctionArguments(false, ['Card c'], -1)).toBe(false);
+    expect(shouldInsertFunctionArguments(true, ['function f'], 0)).toBe(false);
   });
 
   test('only keeps required parameters for function completion insertion', () => {

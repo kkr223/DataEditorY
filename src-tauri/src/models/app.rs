@@ -16,6 +16,7 @@ pub(crate) struct PersistedAppSettings {
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: bool,
     pub(crate) save_script_image_to_local: bool,
+    pub(crate) auto_complete_function_parameters: bool,
     pub(crate) package_include_patterns: Vec<String>,
     pub(crate) shortcut_bindings: HashMap<String, String>,
     pub(crate) encrypted_secret_key: Option<String>,
@@ -32,6 +33,7 @@ impl Default for PersistedAppSettings {
             script_template: DEFAULT_SCRIPT_TEMPLATE.to_string(),
             use_external_script_editor: false,
             save_script_image_to_local: false,
+            auto_complete_function_parameters: true,
             package_include_patterns: DEFAULT_PACKAGE_INCLUDE_PATTERNS
                 .iter()
                 .map(|item| item.to_string())
@@ -53,6 +55,7 @@ pub(crate) struct AppSettingsPayload {
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: bool,
     pub(crate) save_script_image_to_local: bool,
+    pub(crate) auto_complete_function_parameters: bool,
     pub(crate) package_include_patterns: Vec<String>,
     pub(crate) shortcut_bindings: HashMap<String, String>,
     pub(crate) has_secret_key: bool,
@@ -71,6 +74,7 @@ pub(crate) struct SaveAppSettingsRequest {
     pub(crate) script_template: String,
     pub(crate) use_external_script_editor: Option<bool>,
     pub(crate) save_script_image_to_local: Option<bool>,
+    pub(crate) auto_complete_function_parameters: Option<bool>,
     pub(crate) package_include_patterns: Option<Vec<String>>,
     pub(crate) shortcut_bindings: Option<HashMap<String, String>>,
     pub(crate) secret_key: Option<String>,
@@ -151,4 +155,15 @@ pub(crate) struct AppendErrorLogRequest {
     pub(crate) message: String,
     pub(crate) stack: Option<String>,
     pub(crate) extra: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PersistedAppSettings;
+
+    #[test]
+    fn legacy_settings_enable_function_parameter_completion_by_default() {
+        let settings: PersistedAppSettings = serde_json::from_str("{}").unwrap();
+        assert!(settings.auto_complete_function_parameters);
+    }
 }

@@ -70,6 +70,7 @@ export async function saveSettingsFlow(input: {
       scriptTemplate: input.form.scriptTemplate,
       useExternalScriptEditor: input.form.useExternalScriptEditor,
       saveScriptImageToLocal: input.form.saveScriptImageToLocal,
+      autoCompleteFunctionParameters: input.form.autoCompleteFunctionParameters,
       packageIncludePatterns: parsePackageIncludePatternsText(input.form.packageIncludePatternsText),
       shortcutBindings: input.form.shortcutBindings,
       secretKey: input.form.secretKey,
