@@ -23,6 +23,7 @@
     type DraftUndoEntry,
   } from "$lib/features/card-editor/controller";
   import { deleteDraftCardFlow, modifyDraftCardFlow, saveAsDraftCardFlow, saveDraftCardFlow } from "$lib/features/card-editor/useCases";
+  import { pickCardImageFlow } from "$lib/features/card-editor/extraUseCases";
   import { createCardEditorLifecycleController, setupCardEditorOnMount, syncDefaultCoverSourceEffect, syncLoadedDraftEffect, syncWorkspaceLifecycleEffect, teardownCardEditorOnDestroy, trackDraftUndoEffect } from "$lib/features/card-editor/lifecycle";
   import { handleResetSearch, handleSearchFromDraft } from "$lib/features/card-editor/searchController";
   import CardEditorFooter from "$lib/features/card-editor/components/CardEditorFooter.svelte";
@@ -407,6 +408,17 @@
     if (imageSrc) isImagePreviewOpen = true;
   }
 
+  async function handleImageClick() {
+    await pickCardImageFlow({
+      activeCdbPath: $activeTab?.path ?? null,
+      draftCard,
+      t: (key, options) => $_(key, options as never),
+      setImageSrc: (src) => {
+        imageSrc = src;
+      },
+    });
+  }
+
   function closeImagePreview() {
     isImagePreviewOpen = false;
   }
@@ -592,6 +604,7 @@
       scaleLeftLabel={$_("editor.scale_left")}
       scaleRightLabel={$_("editor.scale_right")}
       hintsLabel={$_("editor.hints")}
+      onImageClick={handleImageClick}
       onImageDoubleClick={handleImageDoubleClick}
       onImageError={lifecycleController.handleImageError}
       onSetcodeSelectChange={handleSetcodeSelectChange}
