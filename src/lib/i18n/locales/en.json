@@ -24,7 +24,7 @@
     "package_zip": "Package ZIP",
     "package_ypk": "Package YPK",
     "tools": "Tools",
-    "tools_batch_cdb": "Batch Field Edit",
+    "tools_batch_cdb": "Batch Edit",
     "tools_lua_replace": "Lua Replace",
     "tools_batch_image_export": "Batch Image Export",
     "tools_asset_check": "Asset Check",
@@ -115,6 +115,24 @@
     "saved": "Card group saved"
   },
   "batch_cdb": {
+    "fields": {
+      "alias": "Alias",
+      "ot": "OT / License",
+      "type": "Card Type",
+      "attack": "ATK",
+      "defense": "DEF",
+      "level": "Level / Rank",
+      "race": "Race",
+      "attribute": "Attribute",
+      "category": "Effect Category",
+      "lscale": "Left Pendulum Scale",
+      "rscale": "Right Pendulum Scale",
+      "linkMarker": "Link Marker",
+      "ruleCode": "Rule Code",
+      "name": "Name",
+      "desc": "Description",
+      "setcode": "Setcode"
+    },
     "group_required": "Every operation must target a valid card group",
     "title": "Batch Field Edit",
     "description": "Choose a card group and add field operations.",

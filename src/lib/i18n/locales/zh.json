@@ -24,7 +24,7 @@
     "package_zip": "打包 ZIP",
     "package_ypk": "打包 YPK",
     "tools": "工具",
-    "tools_batch_cdb": "批量字段编辑",
+    "tools_batch_cdb": "批量编辑",
     "tools_lua_replace": "Lua 全局替换",
     "tools_batch_image_export": "批量卡图导出",
     "tools_asset_check": "资源检查",
@@ -115,6 +115,24 @@
     "saved": "卡片组已保存"
   },
   "batch_cdb": {
+    "fields": {
+      "alias": "同名卡",
+      "ot": "许可",
+      "type": "卡片种类",
+      "attack": "攻击力",
+      "defense": "守备力",
+      "level": "星级/阶级",
+      "race": "种族",
+      "attribute": "属性",
+      "category": "效果分类",
+      "lscale": "左灵摆刻度",
+      "rscale": "右灵摆刻度",
+      "linkMarker": "连接标记",
+      "ruleCode": "规则代码",
+      "name": "卡名",
+      "desc": "效果/描述",
+      "setcode": "字段"
+    },
     "group_required": "每个操作都必须选择一个有效的卡片组",
     "title": "批量字段编辑",
     "description": "选择卡片组并添加字段操作。",

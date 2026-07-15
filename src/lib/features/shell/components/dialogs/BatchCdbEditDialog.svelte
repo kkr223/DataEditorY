@@ -61,23 +61,23 @@
     onClose?: () => void;
   } = $props();
 
-  const fieldOptions: Array<{ value: BatchField; label: string; kind: 'number' | 'text' | 'setcode' }> = [
-    { value: 'alias', label: 'Alias', kind: 'number' },
-    { value: 'ot', label: 'OT / 许可', kind: 'number' },
-    { value: 'type', label: 'Type', kind: 'number' },
-    { value: 'attack', label: 'ATK', kind: 'number' },
-    { value: 'defense', label: 'DEF', kind: 'number' },
-    { value: 'level', label: 'Level', kind: 'number' },
-    { value: 'race', label: 'Race', kind: 'number' },
-    { value: 'attribute', label: 'Attribute', kind: 'number' },
-    { value: 'category', label: 'Category', kind: 'number' },
-    { value: 'lscale', label: 'Left Scale', kind: 'number' },
-    { value: 'rscale', label: 'Right Scale', kind: 'number' },
-    { value: 'linkMarker', label: 'Link Marker', kind: 'number' },
-    { value: 'ruleCode', label: 'Rule Code', kind: 'number' },
-    { value: 'name', label: 'Name', kind: 'text' },
-    { value: 'desc', label: 'Description', kind: 'text' },
-    { value: 'setcode', label: 'Setcode', kind: 'setcode' },
+  const fieldOptions: Array<{ value: BatchField; kind: 'number' | 'text' | 'setcode' }> = [
+    { value: 'alias', kind: 'number' },
+    { value: 'ot', kind: 'number' },
+    { value: 'type', kind: 'number' },
+    { value: 'attack', kind: 'number' },
+    { value: 'defense', kind: 'number' },
+    { value: 'level', kind: 'number' },
+    { value: 'race', kind: 'number' },
+    { value: 'attribute', kind: 'number' },
+    { value: 'category', kind: 'number' },
+    { value: 'lscale', kind: 'number' },
+    { value: 'rscale', kind: 'number' },
+    { value: 'linkMarker', kind: 'number' },
+    { value: 'ruleCode', kind: 'number' },
+    { value: 'name', kind: 'text' },
+    { value: 'desc', kind: 'text' },
+    { value: 'setcode', kind: 'setcode' },
   ];
 
   let target = $state<BatchTarget>('selection');
@@ -373,7 +373,7 @@
             </select>
             <select bind:value={operation.field} onchange={invalidatePreview}>
               {#each fieldOptions as option}
-                <option value={option.value}>{option.label}</option>
+                <option value={option.value}>{$_(`batch_cdb.fields.${option.value}`)}</option>
               {/each}
             </select>
             <input
