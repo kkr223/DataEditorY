@@ -1,5 +1,5 @@
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { openInSystemEditor } from '$lib/infrastructure/tauri/commands';
+import { openInSystemEditor } from '$lib/native/scriptApi';
 import {
   clearCustomCoverImage,
   saveAppSettings,
@@ -70,6 +70,7 @@ export async function saveSettingsFlow(input: {
       scriptTemplate: input.form.scriptTemplate,
       useExternalScriptEditor: input.form.useExternalScriptEditor,
       saveScriptImageToLocal: input.form.saveScriptImageToLocal,
+      autoCompleteFunctionParameters: input.form.autoCompleteFunctionParameters,
       packageIncludePatterns: parsePackageIncludePatternsText(input.form.packageIncludePatternsText),
       shortcutBindings: input.form.shortcutBindings,
       secretKey: input.form.secretKey,

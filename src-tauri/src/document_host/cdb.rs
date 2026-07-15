@@ -184,6 +184,46 @@ pub fn execute(
             )?;
             push_undo(state, document_id, UndoEntry::Delete { cards });
         }
+        CardCollectionCommand::ReplaceCardId {
+            card,
+            original_card_id,
+        } => {
+            if card.code == original_card_id {
+                return Err("Replacement card ID must differ from the original ID".to_string());
+            }
+            let affected_ids = vec![card.code, original_card_id];
+            let found_previous = cdb_cards::get_cards_by_ids(
+                sessions,
+                crate::models::cdb::GetCardsByIdsRequest {
+                    tab_id: document_id.clone(),
+                    card_ids: affected_ids.clone(),
+                },
+            )?;
+            let previous_by_id = found_previous
+                .into_iter()
+                .map(|previous| (previous.code, previous))
+                .collect::<HashMap<_, _>>();
+            let previous_cards = affected_ids
+                .iter()
+                .map(|card_id| previous_by_id.get(card_id).cloned())
+                .collect::<Vec<_>>();
+            cdb_cards::undo_modify_operation(
+                sessions,
+                crate::models::cdb::UndoModifyOperationRequest {
+                    tab_id: document_id.clone(),
+                    cards_to_restore: vec![card],
+                    ids_to_delete: vec![original_card_id],
+                },
+            )?;
+            push_undo(
+                state,
+                document_id,
+                UndoEntry::Upsert {
+                    affected_ids,
+                    previous_cards,
+                },
+            );
+        }
     }
     Ok(ProviderCommandResult {
         changed: true,
@@ -263,5 +303,82 @@ fn push_undo(state: &DocumentHostState, document_id: String, entry: UndoEntry) {
     stack.push_back(entry);
     if stack.len() > 100 {
         stack.pop_front();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, fs, sync::Mutex};
+
+    use super::*;
+    use crate::{
+        services::cdb_session::open_cdb_tab_in_dir,
+        test_helpers::{create_test_cdb, make_temp_dir},
+    };
+
+    #[test]
+    fn replacing_a_card_id_is_one_undoable_operation() {
+        let root = make_temp_dir("replace-card-id");
+        let source_path = root.join("cards.cdb");
+        create_test_cdb(&source_path, &[(100, 1), (200, 2)]);
+        let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+        open_cdb_tab_in_dir(
+            &sessions,
+            &root.join("sessions"),
+            "replace-test".to_string(),
+            source_path.to_string_lossy().to_string(),
+        )
+        .expect("open test CDB");
+        let state = DocumentHostState::new();
+
+        execute(
+            &state,
+            &sessions,
+            "replace-test".to_string(),
+            CardCollectionCommand::ReplaceCardId {
+                card: CardDto {
+                    code: 200,
+                    type_: 3,
+                    ..Default::default()
+                },
+                original_card_id: 100,
+            },
+        )
+        .expect("replace card ID");
+        assert!(
+            cdb_cards::get_card_by_id(&sessions, "replace-test".to_string(), 100)
+                .expect("read original ID")
+                .is_none()
+        );
+        assert_eq!(
+            cdb_cards::get_card_by_id(&sessions, "replace-test".to_string(), 200)
+                .expect("read replacement ID")
+                .expect("replacement card")
+                .type_,
+            3
+        );
+
+        undo(&state, &sessions, "replace-test".to_string()).expect("undo replacement");
+        assert_eq!(
+            cdb_cards::get_card_by_id(&sessions, "replace-test".to_string(), 100)
+                .expect("read restored original")
+                .expect("restored original")
+                .type_,
+            1
+        );
+        assert_eq!(
+            cdb_cards::get_card_by_id(&sessions, "replace-test".to_string(), 200)
+                .expect("read restored target")
+                .expect("restored target")
+                .type_,
+            2
+        );
+        assert!(
+            !undo(&state, &sessions, "replace-test".to_string())
+                .expect("second undo")
+                .changed
+        );
+
+        let _ = fs::remove_dir_all(root);
     }
 }

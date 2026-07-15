@@ -6,7 +6,7 @@ import {
   type BackgroundTaskProgressEvent,
   type MergeSourceItem,
   type AnalyzeCdbMergeResponse,
-} from '$lib/infrastructure/tauri/commands';
+} from '$lib/native/taskApi';
 import { activeTab } from '$lib/stores/db';
 import { showToast } from '$lib/stores/toast.svelte';
 import { createFilterCdbController } from '$lib/features/shell/filterCdbController';

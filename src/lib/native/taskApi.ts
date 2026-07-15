@@ -6,6 +6,12 @@ import {
   packageCdbAssetsAsZip,
   type BackgroundTaskProgressEvent,
 } from '$lib/infrastructure/tauri/commands';
+
+export type {
+  AnalyzeCdbMergeResponse,
+  BackgroundTaskProgressEvent,
+  MergeSourceItem,
+} from '$lib/infrastructure/tauri/commands';
 import { documentRuntime } from '$lib/platform/appRuntime';
 import { applyBatchOperations } from './cdbApi';
 import { checkAssets } from './assetApi';

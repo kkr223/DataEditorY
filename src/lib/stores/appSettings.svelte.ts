@@ -11,6 +11,7 @@ export interface AppSettingsPayload {
   scriptTemplate: string;
   useExternalScriptEditor: boolean;
   saveScriptImageToLocal: boolean;
+  autoCompleteFunctionParameters: boolean;
   packageIncludePatterns: string[];
   shortcutBindings: Record<string, string>;
   hasSecretKey: boolean;
@@ -46,6 +47,7 @@ type CachedModelList = {
 };
 
 type ModelCacheMap = Record<string, CachedModelList>;
+let settingsLoadPromise: Promise<AppSettingsPayload> | null = null;
 
 function isSamePatternList(left: string[], right: string[]) {
   return left.length === right.length && left.every((item, index) => item === right[index]);
@@ -61,6 +63,7 @@ function createDefaultSettings(): AppSettingsPayload {
     scriptTemplate: DEFAULT_SCRIPT_TEMPLATE,
     useExternalScriptEditor: false,
     saveScriptImageToLocal: false,
+    autoCompleteFunctionParameters: true,
     packageIncludePatterns: [...DEFAULT_PACKAGE_INCLUDE_PATTERNS],
     shortcutBindings: normalizeShortcutBindingMap(undefined),
     hasSecretKey: false,
@@ -167,6 +170,7 @@ function applySettings(payload: AppSettingsPayload) {
     scriptTemplate: normalizeScriptTemplate(payload.scriptTemplate),
     useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
     saveScriptImageToLocal: Boolean(payload.saveScriptImageToLocal),
+    autoCompleteFunctionParameters: payload.autoCompleteFunctionParameters !== false,
     packageIncludePatterns: normalizePackageIncludePatterns(payload.packageIncludePatterns),
     shortcutBindings: normalizeShortcutBindingMap(payload.shortcutBindings),
     hasSecretKey: Boolean(payload.hasSecretKey),
@@ -242,18 +246,21 @@ async function resolveSecretKey(providedSecretKey?: string) {
   return stored?.trim() || '';
 }
 
-export async function loadAppSettings(force = false) {
-  if (appSettingsState.loading) return appSettingsState.values;
-  if (appSettingsState.loaded && !force) return appSettingsState.values;
+export function loadAppSettings(force = false) {
+  if (appSettingsState.loaded && !force) return Promise.resolve(appSettingsState.values);
+  if (settingsLoadPromise) return settingsLoadPromise;
 
   appSettingsState.loading = true;
-  try {
-    const payload = await invokeCommand<AppSettingsPayload>('load_app_settings');
-    applySettings(payload);
-    return appSettingsState.values;
-  } finally {
-    appSettingsState.loading = false;
-  }
+  settingsLoadPromise = invokeCommand<AppSettingsPayload>('load_app_settings')
+    .then((payload) => {
+      applySettings(payload);
+      return appSettingsState.values;
+    })
+    .finally(() => {
+      appSettingsState.loading = false;
+      settingsLoadPromise = null;
+    });
+  return settingsLoadPromise;
 }
 
 export async function saveAppSettings(input: {
@@ -265,6 +272,7 @@ export async function saveAppSettings(input: {
   scriptTemplate: string;
   useExternalScriptEditor?: boolean;
   saveScriptImageToLocal?: boolean;
+  autoCompleteFunctionParameters?: boolean;
   packageIncludePatterns?: string[];
   shortcutBindings?: Record<string, string>;
   secretKey?: string;
@@ -282,6 +290,7 @@ export async function saveAppSettings(input: {
         scriptTemplate: input.scriptTemplate,
         useExternalScriptEditor: input.useExternalScriptEditor,
         saveScriptImageToLocal: input.saveScriptImageToLocal,
+        autoCompleteFunctionParameters: input.autoCompleteFunctionParameters,
         packageIncludePatterns: input.packageIncludePatterns
           ? normalizePackageIncludePatterns(input.packageIncludePatterns)
           : undefined,

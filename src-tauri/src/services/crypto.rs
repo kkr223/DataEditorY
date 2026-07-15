@@ -23,7 +23,7 @@ pub(crate) fn get_or_create_cipher_key(app: &AppHandle) -> Result<[u8; 32], Stri
             key.copy_from_slice(&bytes);
             return Ok(key);
         }
-        // File is corrupt / wrong size 鈥?regenerate below.
+        // The file is corrupt or has the wrong size; regenerate it below.
     }
 
     let mut key = [0u8; 32];
@@ -112,6 +112,6 @@ pub(crate) fn decrypt_secret_key(
         return Ok(plaintext);
     }
 
-    // Legacy fallback 鈥?the secret was encrypted before the migration.
+    // Legacy fallback for secrets encrypted before the migration.
     decrypt_with_key(&legacy_cipher_key(app), encrypted_secret_key)
 }

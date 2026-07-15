@@ -19,6 +19,11 @@ import {
   undoLastOperationInTab,
 } from '$lib/stores/db';
 
+export {
+  consumePendingOpenCdbPaths,
+  createCdbFromCards,
+} from '$lib/infrastructure/tauri/commands';
+
 export type CardPatch = {
   id: number;
   fields: Partial<CardDataEntry>;

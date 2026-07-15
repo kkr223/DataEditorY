@@ -17,11 +17,11 @@
   export let isSharingImage = false;
   export let sharingImageLabel = '';
   export let savingLabel = '';
-  export let onReload: () => void | Promise<void> = () => {};
-  export let onCheckDiagnostics: () => void | Promise<void> = () => {};
-  export let onOpenExternal: () => void | Promise<void> = () => {};
-  export let onShareImage: () => void | Promise<void> = () => {};
-  export let onSave: () => void | Promise<void> = () => {};
+  export let onReload: () => void | Promise<void>;
+  export let onCheckDiagnostics: () => void | Promise<void>;
+  export let onOpenExternal: () => void | Promise<void>;
+  export let onShareImage: () => void | Promise<void>;
+  export let onSave: () => void | Promise<void>;
 </script>
 
 <div class="script-toolbar">

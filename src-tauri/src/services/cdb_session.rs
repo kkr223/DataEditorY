@@ -120,40 +120,6 @@ pub(crate) fn open_cdb_tab_in_dir(
     Ok(response)
 }
 
-#[allow(dead_code)]
-pub(crate) fn create_cdb_tab_in_dir(
-    sessions: &OpenCdbSessions,
-    session_dir: &Path,
-    tab_id: String,
-    path: String,
-) -> Result<OpenCdbTabResponse, String> {
-    let original_path = Path::new(path.trim()).to_path_buf();
-    ensure_parent_dir(&original_path)?;
-
-    let temp_path = build_temp_path_in_dir(session_dir, &tab_id)?;
-    ensure_parent_dir(&temp_path)?;
-
-    let cdb = cdb_repository::create_cdb(&temp_path)?;
-
-    fs::copy(&temp_path, &original_path).map_err(|err| err.to_string())?;
-
-    register_session(
-        sessions,
-        tab_id,
-        CdbSessionMeta {
-            path: original_path.to_string_lossy().to_string(),
-            working_path: temp_path,
-            cdb: Arc::new(Mutex::new(cdb)),
-        },
-    )?;
-
-    Ok(OpenCdbTabResponse {
-        name: basename(original_path.to_string_lossy().as_ref()),
-        cached_cards: Vec::new(),
-        cached_total: 0,
-    })
-}
-
 fn build_open_response(original_path: &str, cdb: &YgoProCdb) -> Result<OpenCdbTabResponse, String> {
     let (cached_cards, cached_total) = cdb
         .query_raw_page("1=1", &HashMap::new(), 1, 50)
@@ -253,37 +219,6 @@ mod tests {
         with_session_meta(&sessions, "tab-open", |session| {
             let expected = std::fs::canonicalize(&source_path).unwrap();
             assert_eq!(Path::new(&session.path), expected.as_path());
-            assert!(session.working_path.is_file());
-            Ok(())
-        })
-        .unwrap();
-
-        let _ = fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn creates_new_cdb_and_persists_original_file() {
-        let root = make_temp_dir("create");
-        let session_dir = root.join("sessions");
-        let source_path = root.join("workspace").join("fresh.cdb");
-        let sessions = make_sessions();
-
-        let response = create_cdb_tab_in_dir(
-            &sessions,
-            &session_dir,
-            "tab-create".to_string(),
-            source_path.to_string_lossy().to_string(),
-        )
-        .unwrap();
-
-        assert_eq!(response.name, "fresh.cdb");
-        assert_eq!(response.cached_total, 0);
-        assert!(source_path.is_file());
-
-        let cards = cdb_repository::load_all_cards_from_path(&source_path).unwrap();
-        assert!(cards.is_empty());
-
-        with_session_meta(&sessions, "tab-create", |session| {
             assert!(session.working_path.is_file());
             Ok(())
         })

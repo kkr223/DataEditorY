@@ -3,7 +3,7 @@ import type { CardDataEntry, SearchFilters } from '$lib/types';
 import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
 import { parseDeckTextToCardIds, splitSourceTerms } from '$lib/domain/search/sourceFilters';
 import { RuleExpressionError } from '$lib/domain/search/ruleExpression';
-import { listImageFolderEntries } from '$lib/infrastructure/tauri/commands';
+import { listImageFolderEntries } from '$lib/native/assetApi';
 import { documentRuntime } from '$lib/platform/appRuntime';
 import {
   buildCardSearchExpression,

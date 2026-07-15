@@ -55,6 +55,7 @@ export {
   getCardsByIdsInTab,
   getCardsByIds,
   modifyCard,
+  replaceCardId,
   modifyCardsInTab,
   modifyCardsWithSnapshotInTab,
   modifyCards,

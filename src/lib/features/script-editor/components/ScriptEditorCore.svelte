@@ -49,7 +49,11 @@
     type ScriptMonacoModule as MonacoModule,
     type ScriptMonacoRuntime,
   } from '$lib/features/script-editor/runtime';
-  import { resolveReferenceManualInsertText, type LuaReferenceManualItem } from '$lib/features/script-editor/lua/reference';
+  import {
+    loadReferenceManualItems,
+    resolveReferenceManualInsertText,
+    type LuaReferenceManualItem,
+  } from '$lib/features/script-editor/lua/reference';
 
   function createDefaultHintState(): ScriptEditorCoreHintState {
     return {
@@ -211,11 +215,10 @@
 
     updateReferenceState({ isLoading: true });
     try {
-      const module = await import('$lib/features/script-editor/lua/reference');
       updateReferenceState({
         items: {
           ...referenceState.items,
-          [kind]: await module.loadReferenceManualItems(kind),
+          [kind]: await loadReferenceManualItems(kind),
         },
       });
     } finally {

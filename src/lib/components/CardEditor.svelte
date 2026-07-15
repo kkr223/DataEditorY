@@ -14,14 +14,17 @@
   import { isShortcutEvent } from "$lib/features/shortcuts/registry";
   import {
     CARD_LIST_PAGE_SIZE,
+    createCardImageInteractionController,
     createDraftUndoHistory,
     handleCardEditorKeydown,
     resolvePageNavigationTarget,
     resolveSelectionNavigationTarget,
+    shouldAutoCommitDraftForSelectionChange,
     stepBackDraftUndoHistory,
     type DraftUndoEntry,
   } from "$lib/features/card-editor/controller";
   import { deleteDraftCardFlow, modifyDraftCardFlow, saveAsDraftCardFlow, saveDraftCardFlow } from "$lib/features/card-editor/useCases";
+  import { pickCardImageFlow } from "$lib/features/card-editor/extraUseCases";
   import { createCardEditorLifecycleController, setupCardEditorOnMount, syncDefaultCoverSourceEffect, syncLoadedDraftEffect, syncWorkspaceLifecycleEffect, teardownCardEditorOnDestroy, trackDraftUndoEffect } from "$lib/features/card-editor/lifecycle";
   import { handleResetSearch, handleSearchFromDraft } from "$lib/features/card-editor/searchController";
   import CardEditorFooter from "$lib/features/card-editor/components/CardEditorFooter.svelte";
@@ -54,6 +57,7 @@
   let lastLoadedCardSnapshot = $state("");
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
   let isKeyboardNavigating = $state(false);
+  let isCommittingDraft = $state(false);
   let draftUndoHistory = $state.raw<DraftUndoEntry[]>(createDraftUndoHistory(initialDraftCard));
   let trackedDraftSnapshot = $state(createCardSnapshot(initialDraftCard));
   let suspendDraftUndoTracking = 0;
@@ -105,6 +109,13 @@
       return saveCdbTabAs($activeTabId, destinationPath);
     },
     t: (key, options) => $_(key, options as never),
+  });
+  const imageInteractionController = createCardImageInteractionController({
+    onPickImage: pickCardImage,
+    hasImageSrc: () => Boolean(imageSrc),
+    setPreviewOpen: (value) => {
+      isImagePreviewOpen = value;
+    },
   });
 
   const isEditingExisting = $derived(originalCardCode !== null);
@@ -340,8 +351,13 @@
   }
 
   async function handleModify() {
-    if (!$isDbLoaded) return false;
-    return modifyDraftCardFlow({ draftCard, originalCardCode, isEditingExisting, t: (key, options) => $_(key, options as never), saveDraftCard });
+    if (!$isDbLoaded || isCommittingDraft) return false;
+    isCommittingDraft = true;
+    try {
+      return await modifyDraftCardFlow({ draftCard, originalCardCode, isEditingExisting, t: (key, options) => $_(key, options as never), saveDraftCard });
+    } finally {
+      isCommittingDraft = false;
+    }
   }
 
   async function handleSaveAs() {
@@ -387,7 +403,7 @@
     cancelScriptGeneration: () => {
       // Optional modules own their own cancellable work.
     },
-    disposeImageInteraction: () => {},
+    disposeImageInteraction: imageInteractionController.dispose,
   }));
 
   onDestroy(() => {
@@ -395,9 +411,15 @@
     teardownCardEditorOnDestroy({ handleEditorKeydown });
   });
 
-  function handleImageDoubleClick(event: MouseEvent) {
-    event.preventDefault();
-    if (imageSrc) isImagePreviewOpen = true;
+  async function pickCardImage() {
+    await pickCardImageFlow({
+      activeCdbPath: $activeTab?.path ?? null,
+      draftCard,
+      t: (key, options) => $_(key, options as never),
+      setImageSrc: (src) => {
+        imageSrc = src;
+      },
+    });
   }
 
   function closeImagePreview() {
@@ -448,13 +470,14 @@
 
   $effect(() => {
     const selectedCard = getAllCardsMap().get(editorState.selectedId ?? -1) ?? null;
-    if (
-      $isDbLoaded
-      && selectedCard
-      && lastSyncedSelectedId !== null
-      && selectedCard.code !== lastSyncedSelectedId
-      && isDraftDirty()
-    ) {
+    if (shouldAutoCommitDraftForSelectionChange({
+      isDbLoaded: $isDbLoaded,
+      isCommittingDraft,
+      selectedCardCode: selectedCard?.code ?? null,
+      lastSyncedSelectedId,
+      isDraftDirty: isDraftDirty(),
+    })) {
+      if (!selectedCard) return;
       const targetId = selectedCard.code;
       const restoreId = lastSyncedSelectedId;
       if (autoCommitSelectionTargetId !== targetId) {
@@ -584,7 +607,8 @@
       scaleLeftLabel={$_("editor.scale_left")}
       scaleRightLabel={$_("editor.scale_right")}
       hintsLabel={$_("editor.hints")}
-      onImageDoubleClick={handleImageDoubleClick}
+      onImageClick={imageInteractionController.handleImageClick}
+      onImageDoubleClick={imageInteractionController.handleImageDoubleClick}
       onImageError={lifecycleController.handleImageError}
       onSetcodeSelectChange={handleSetcodeSelectChange}
       onSetcodeHexChange={handleSetcodeHexChange}

@@ -1,9 +1,9 @@
-import { invokeCommand } from '$lib/infrastructure/tauri';
 import {
+  readImageFile,
   readTextFile,
   writeBinaryFile,
   writeTextFile,
-} from '$lib/infrastructure/tauri/commands';
+} from '$lib/native/assetApi';
 import { builtInModules } from '$lib/modules/active';
 import { DocumentRuntime } from './runtime';
 
@@ -13,7 +13,7 @@ const codecContext = {
     await writeTextFile(path, content);
   },
   async readBinary(path: string) {
-    const bytes = await invokeCommand<number[]>('read_image', { path });
+    const bytes = await readImageFile(path);
     return new Uint8Array(bytes);
   },
   async writeBinary(path: string, content: Uint8Array) {

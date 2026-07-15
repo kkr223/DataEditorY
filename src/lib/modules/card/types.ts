@@ -51,7 +51,8 @@ export type CardCollectionQuery =
 
 export type CardCollectionCommand =
   | { kind: 'upsert'; cards: CardDataEntry[] }
-  | { kind: 'delete'; cardIds: number[] };
+  | { kind: 'delete'; cardIds: number[] }
+  | { kind: 'replaceCardId'; card: CardDataEntry; originalCardId: number };
 
 export type CardSearchPage = {
   cards: CardDataEntry[];

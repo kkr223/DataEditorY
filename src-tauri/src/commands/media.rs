@@ -13,13 +13,6 @@ pub(crate) fn read_text_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub(crate) fn write_cdb(path: String, data: Vec<u8>) -> Result<(), String> {
-    services::media::write_cdb(path, data)
-}
-
-/// Generic file-write command 鈥?identical to write_cdb but with a clearer
-/// name for non-database file writes (images, scripts, exports, etc.).
-#[tauri::command]
 pub(crate) fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
     services::media::write_file(path, data)
 }
@@ -52,11 +45,6 @@ pub(crate) fn read_lua_helper_scripts(
 #[tauri::command]
 pub(crate) fn read_builtin_lua_helper_scripts() -> Vec<services::media::LuaHelperScript> {
     services::media::read_builtin_lua_helper_scripts()
-}
-
-#[tauri::command]
-pub(crate) fn copy_image(src: String, dest: String) -> Result<(), String> {
-    services::media::copy_image(src, dest)
 }
 
 #[tauri::command]

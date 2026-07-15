@@ -44,8 +44,9 @@ import 'monaco-editor/esm/vs/editor/contrib/contextmenu/browser/contextmenu';
 import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded } from '../lua/diagnostics';
-import { getCompletionInsertParameters, shouldInsertFunctionReferenceOnly } from './completion';
+import { getCompletionInsertParameters, shouldInsertFunctionArguments } from './completion';
 import { loadExternalLuaCatalog } from '../lua/catalog';
+import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import {
   getCallInfoAt,
   getFunctionSymbols,
@@ -1093,7 +1094,8 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
     lineNumber: position.lineNumber,
     column: position.column,
   });
-  const insertFunctionReferenceOnly = shouldInsertFunctionReferenceOnly(
+  const insertFunctionArguments = shouldInsertFunctionArguments(
+    appSettingsState.values.autoCompleteFunctionParameters,
     activeCall?.target?.parameters ?? null,
     activeCall?.activeParameter ?? -1,
   );
@@ -1231,14 +1233,14 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
         description: getInlineDescription(item.description, item.signature),
       },
       kind: monaco.languages.CompletionItemKind.Function,
-      insertText: insertFunctionReferenceOnly
-        ? displayName
-        : buildFunctionInsertText(displayName, item, {
+      insertText: insertFunctionArguments
+        ? buildFunctionInsertText(displayName, item, {
             omitFirstParameter: namespaceContext?.kind === 'method',
-          }),
-      insertTextRules: insertFunctionReferenceOnly
-        ? monaco.languages.CompletionItemInsertTextRule.None
-        : monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          })
+        : displayName,
+      insertTextRules: insertFunctionArguments
+        ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+        : monaco.languages.CompletionItemInsertTextRule.None,
       detail: toSignatureLabel(item),
       documentation: buildFunctionDocumentation(item),
       sortText: `2000-${displayName}`,

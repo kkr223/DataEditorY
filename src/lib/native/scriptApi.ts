@@ -4,12 +4,7 @@ export {
   openInSystemEditor,
   readCardScriptDocument,
   saveCardScriptDocument,
-  writeCardScriptDocument,
 } from '$lib/infrastructure/tauri/commands';
-
-export {
-  openCardScriptWorkspace,
-} from '$lib/services/cardScriptService';
 
 import { invokeCommand } from '$lib/infrastructure/tauri';
 

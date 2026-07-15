@@ -9,12 +9,12 @@
     value = 0,
     title = '',
     buttonLabel = '',
-    onChange = () => {},
+    onChange,
   }: {
     value?: number;
     title?: string;
     buttonLabel?: string;
-    onChange?: (value: number) => void;
+    onChange: (value: number) => void;
   } = $props();
 
   let isOpen = $state(false);

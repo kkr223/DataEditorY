@@ -27,10 +27,12 @@
   import { documentRuntime } from '$lib/platform/appRuntime';
   import type { SettingsWorkbenchContext } from '$lib/modules/settings/workbench/context';
   import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
+  import { showToast } from '$lib/stores/toast.svelte';
   import { SETTINGS_WORKSPACE_ID } from '$lib/core/workspace/store.svelte';
 
   const form = $state(createSettingsFormState());
   let isHydrated = $state(false);
+  let loadFailed = $state(false);
   let activeTab = $state<'general' | 'shortcuts' | 'ai'>('general');
   const hasContributedSettings = documentRuntime.registry.findSettingsSections().length > 0;
   let settingsDescription = $derived($_(hasContributedSettings
@@ -50,7 +52,11 @@
   }
 
   async function handleSaveSettings() {
-    await saveSettingsFlow({ form, t: $_ });
+    if (!appSettingsState.loaded || loadFailed) {
+      showToast($_('settings.load_failed'), 'error');
+      return false;
+    }
+    return saveSettingsFlow({ form, t: $_ });
   }
 
   async function handleOpenErrorLog() {
@@ -61,7 +67,11 @@
   }
 
   onMount(() => {
-    void loadAppSettings().catch(() => undefined);
+    void loadAppSettings().catch((error) => {
+      console.error('Failed to load settings', error);
+      loadFailed = true;
+      showToast($_('settings.load_failed'), 'error');
+    });
   });
 
   $effect(() => {
@@ -74,7 +84,7 @@
   });
 
   $effect(() => {
-    setWorkspaceSaveHandler(SETTINGS_WORKSPACE_ID, () => saveSettingsFlow({ form, t: $_ }));
+    setWorkspaceSaveHandler(SETTINGS_WORKSPACE_ID, handleSaveSettings);
 
     return () => {
       clearWorkspaceSaveHandler(SETTINGS_WORKSPACE_ID);
@@ -104,6 +114,7 @@
     saveLabel={$_('settings.save')}
     savingLabel={$_('settings.saving')}
     saving={appSettingsState.saving}
+    disabled={!appSettingsState.loaded || loadFailed}
     onSave={handleSaveSettings}
   />
 
@@ -148,10 +159,13 @@
       <SettingsTemplateCard
         title={$_('settings.script_template_title')}
         description={$_('settings.script_template_description')}
+        templateHelp={$_('settings.script_template_description')}
         externalEditorLabel={$_('settings.use_external_script_editor')}
         externalEditorHint={$_('settings.use_external_script_editor_hint')}
         saveScriptImageToLocalLabel={$_('settings.save_script_image_to_local')}
         saveScriptImageToLocalHint={$_('settings.save_script_image_to_local_hint')}
+        autoCompleteFunctionParametersLabel={$_('settings.auto_complete_function_parameters')}
+        autoCompleteFunctionParametersHint={$_('settings.auto_complete_function_parameters_hint')}
         scriptDirectoryLabel={$_('settings.script_directory')}
         scriptDirectoryHint={$_('settings.script_directory_hint')}
         scriptDirectory={form.scriptDirectory}
@@ -170,12 +184,17 @@
         onSaveScriptImageToLocalChange={(value) => {
           form.saveScriptImageToLocal = value;
         }}
+        autoCompleteFunctionParameters={form.autoCompleteFunctionParameters}
+        onAutoCompleteFunctionParametersChange={(value) => {
+          form.autoCompleteFunctionParameters = value;
+        }}
       />
 
       <SettingsPackageCard
         title={$_('settings.package_include_title')}
         description={$_('settings.package_include_description')}
         hint={$_('settings.package_include_hint')}
+        templateHelp={$_('settings.package_include_template_help')}
         patternsText={form.packageIncludePatternsText}
         onPatternsInput={(value) => {
           form.packageIncludePatternsText = value;

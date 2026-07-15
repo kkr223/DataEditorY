@@ -10,6 +10,7 @@ export type SettingsFormState = {
   scriptTemplate: string;
   useExternalScriptEditor: boolean;
   saveScriptImageToLocal: boolean;
+  autoCompleteFunctionParameters: boolean;
   packageIncludePatternsText: string;
   shortcutBindings: Record<string, string>;
   secretKey: string;
@@ -25,6 +26,7 @@ export function createSettingsFormState(): SettingsFormState {
     scriptTemplate: '',
     useExternalScriptEditor: false,
     saveScriptImageToLocal: false,
+    autoCompleteFunctionParameters: true,
     packageIncludePatternsText: '',
     shortcutBindings: normalizeShortcutBindingMap(undefined),
     secretKey: '',
@@ -72,6 +74,7 @@ export function hydrateSettingsForm(
   form.scriptTemplate = values.scriptTemplate;
   form.useExternalScriptEditor = values.useExternalScriptEditor;
   form.saveScriptImageToLocal = values.saveScriptImageToLocal;
+  form.autoCompleteFunctionParameters = values.autoCompleteFunctionParameters;
   form.packageIncludePatternsText = formatPackageIncludePatternsText(values.packageIncludePatterns);
   form.shortcutBindings = normalizeShortcutBindingMap(values.shortcutBindings);
 
@@ -96,6 +99,7 @@ export function isSettingsFormDirty(
     || form.scriptTemplate !== values.scriptTemplate
     || form.useExternalScriptEditor !== values.useExternalScriptEditor
     || form.saveScriptImageToLocal !== values.saveScriptImageToLocal
+    || form.autoCompleteFunctionParameters !== values.autoCompleteFunctionParameters
     || formatPackageIncludePatternsText(parsePackageIncludePatternsText(form.packageIncludePatternsText)) !== formatPackageIncludePatternsText(values.packageIncludePatterns)
     || formatShortcutBindings(form.shortcutBindings) !== formatShortcutBindings(values.shortcutBindings)
     || form.secretKey.trim().length > 0;

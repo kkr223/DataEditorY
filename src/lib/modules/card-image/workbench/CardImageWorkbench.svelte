@@ -34,6 +34,7 @@
   let documentData = $state<CardImageConfigDocument | null>(null);
   let loadError = $state('');
   let lastLoadedKey = '';
+  let loadSequence = 0;
   let saveSequence = 0;
 
   const activeDocument = $derived(getActiveDataDocument());
@@ -108,6 +109,7 @@
     documentState.activeDocumentId;
     documentState.documents;
     const document = activeDocument;
+    const sequence = ++loadSequence;
     if (!document || document.typeId !== CARD_IMAGE_CONFIG_TYPE) {
       documentData = null;
       loadError = '';
@@ -121,9 +123,11 @@
     loadError = '';
     void documentRuntime.query(document.id, {})
       .then((value) => {
+        if (sequence !== loadSequence || activeDocument?.id !== document.id) return;
         documentData = normalizeDocument(value);
       })
       .catch((error) => {
+        if (sequence !== loadSequence) return;
         loadError = error instanceof Error ? error.message : String(error);
       });
   });

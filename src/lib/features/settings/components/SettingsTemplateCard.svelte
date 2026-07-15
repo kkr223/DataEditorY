@@ -3,10 +3,13 @@
 
   export let title = '';
   export let description = '';
+  export let templateHelp = '';
   export let externalEditorLabel = '';
   export let externalEditorHint = '';
   export let saveScriptImageToLocalLabel = '';
   export let saveScriptImageToLocalHint = '';
+  export let autoCompleteFunctionParametersLabel = '';
+  export let autoCompleteFunctionParametersHint = '';
   export let scriptDirectoryLabel = '';
   export let scriptDirectoryHint = '';
   export let scriptTemplate = '';
@@ -15,13 +18,18 @@
   export let onScriptDirectoryInput: (value: string) => void = () => {};
   export let useExternalScriptEditor = false;
   export let saveScriptImageToLocal = false;
+  export let autoCompleteFunctionParameters = true;
   export let onExternalEditorChange: (value: boolean) => void = () => {};
   export let onSaveScriptImageToLocalChange: (value: boolean) => void = () => {};
+  export let onAutoCompleteFunctionParametersChange: (value: boolean) => void = () => {};
 </script>
 
 <div class="sp-card sp-tpl" use:disableAutofill>
   <div class="sp-card-head">
-    <h3>{title}</h3>
+    <div class="sp-title-row">
+      <h3>{title}</h3>
+      <button type="button" class="sp-template-help" title={templateHelp} aria-label={templateHelp}>?</button>
+    </div>
     <p>{description}</p>
   </div>
   <label class="sp-switch">
@@ -44,6 +52,16 @@
     <span>{saveScriptImageToLocalLabel}</span>
   </label>
   <small class="sp-hint sp-switch-hint">{saveScriptImageToLocalHint}</small>
+  <label class="sp-switch">
+    <input
+      type="checkbox"
+      checked={autoCompleteFunctionParameters}
+      onchange={(event) => onAutoCompleteFunctionParametersChange((event.currentTarget as HTMLInputElement).checked)}
+    />
+    <span class="sp-switch-track" aria-hidden="true"></span>
+    <span>{autoCompleteFunctionParametersLabel}</span>
+  </label>
+  <small class="sp-hint sp-switch-hint">{autoCompleteFunctionParametersHint}</small>
   <label class="sp-field">
     <span>{scriptDirectoryLabel}</span>
     <input
@@ -95,6 +113,24 @@
     gap: 8px;
     cursor: pointer;
     user-select: none;
+  }
+  .sp-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sp-template-help {
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    padding: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    cursor: help;
   }
   .sp-switch input {
     position: absolute;

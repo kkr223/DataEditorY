@@ -21,7 +21,6 @@ Card Editor Feature — manages the single-card editing form, DEX-style draft se
 - `CardEditorFooter.svelte` — action buttons in draft-search-first order: search from draft, reset search, clear new, save as, modify, delete
 - `CardCategoryPopover.svelte` — category/OT field editor
 - `CardImagePreview.svelte` — card image thumbnail preview
-- `CardImageDrawerHost.svelte` — legacy drawer host; current workspace image flow routes through the Image surface
 
 ## Integration
 

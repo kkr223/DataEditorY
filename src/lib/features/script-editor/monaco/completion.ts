@@ -71,3 +71,12 @@ export function shouldInsertFunctionReferenceOnly(
   return isFunctionReferenceParameter(parameters[activeParameter]);
 }
 
+export function shouldInsertFunctionArguments(
+  autoCompleteFunctionParameters: boolean,
+  parameters: string[] | null | undefined,
+  activeParameter: number,
+) {
+  return autoCompleteFunctionParameters
+    && !shouldInsertFunctionReferenceOnly(parameters, activeParameter);
+}
+

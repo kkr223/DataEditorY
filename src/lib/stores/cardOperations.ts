@@ -59,6 +59,18 @@ export async function getCardsByIdsInTab(tabId: string, cardIds: number[]): Prom
   }
 }
 
+export async function getAllCardsInTab(tabId: string): Promise<CardDataEntry[]> {
+  try {
+    return await documentRuntime.query<CardDataEntry[]>(
+      tabId,
+      { kind: 'all' } satisfies CardCollectionQuery,
+    );
+  } catch (err) {
+    console.error('Failed to fetch all cards:', err);
+    return [];
+  }
+}
+
 export async function getCardsByIds(cardIds: number[]): Promise<CardDataEntry[]> {
   const tab = get(activeTab);
   if (!tab) return [];
@@ -67,6 +79,29 @@ export async function getCardsByIds(cardIds: number[]): Promise<CardDataEntry[]>
 
 export async function modifyCard(card: CardDataEntry): Promise<boolean> {
   return modifyCards([card]);
+}
+
+export async function replaceCardId(card: CardDataEntry, originalCardId: number): Promise<boolean> {
+  const tab = get(activeTab);
+  if (!tab || card.code === originalCardId) return false;
+
+  try {
+    await documentRuntime.execute(
+      tab.id,
+      {
+        kind: 'replaceCardId',
+        card: cloneCard(card),
+        originalCardId,
+      } satisfies CardCollectionCommand,
+    );
+    recordUndoLabel(tab.id, `Change card ID ${originalCardId} to ${card.code}`);
+    clearSourceFilterCacheForTab(tab.id);
+    await refreshCachedSearchForTab(tab.id);
+    return true;
+  } catch (err) {
+    console.error('Failed to change card ID:', err);
+    return false;
+  }
 }
 
 export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): Promise<boolean> {

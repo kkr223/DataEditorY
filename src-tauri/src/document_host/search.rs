@@ -230,6 +230,26 @@ fn numeric_column(field: &NumericField) -> &'static str {
     }
 }
 
+fn mask_column(field: &MaskField) -> &'static str {
+    match field {
+        MaskField::Attribute => "datas.attribute",
+        MaskField::Race => "datas.race",
+        MaskField::Type => "datas.type",
+        MaskField::LinkMarker => "datas.def",
+    }
+}
+
+fn compare_operator(operator: &CompareOperator) -> &'static str {
+    match operator {
+        CompareOperator::Eq => "=",
+        CompareOperator::Ne => "<>",
+        CompareOperator::Gt => ">",
+        CompareOperator::Gte => ">=",
+        CompareOperator::Lt => "<",
+        CompareOperator::Lte => "<=",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,25 +290,5 @@ mod tests {
         assert_eq!(compiled.params.get("q0"), Some(&json!("%A/%/_//B%")));
         assert_eq!(compiled.params.get("q1"), Some(&json!(1)));
         assert_eq!(compiled.params.get("q2"), Some(&json!(2)));
-    }
-}
-
-fn mask_column(field: &MaskField) -> &'static str {
-    match field {
-        MaskField::Attribute => "datas.attribute",
-        MaskField::Race => "datas.race",
-        MaskField::Type => "datas.type",
-        MaskField::LinkMarker => "datas.def",
-    }
-}
-
-fn compare_operator(operator: &CompareOperator) -> &'static str {
-    match operator {
-        CompareOperator::Eq => "=",
-        CompareOperator::Ne => "<>",
-        CompareOperator::Gt => ">",
-        CompareOperator::Gte => ">=",
-        CompareOperator::Lt => "<",
-        CompareOperator::Lte => "<=",
     }
 }

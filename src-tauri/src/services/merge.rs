@@ -415,13 +415,6 @@ pub fn analyze_cdb_merge_paths(
     Ok(build_analysis_response(&plan))
 }
 
-#[allow(dead_code)]
-pub fn execute_cdb_merge(
-    request: ExecuteCdbMergeRequest,
-) -> Result<ExecuteCdbMergeResponse, String> {
-    execute_cdb_merge_with_progress(request, &mut |_| {})
-}
-
 pub fn execute_cdb_merge_with_progress(
     request: ExecuteCdbMergeRequest,
     progress: &mut dyn FnMut(TaskProgressPayload),

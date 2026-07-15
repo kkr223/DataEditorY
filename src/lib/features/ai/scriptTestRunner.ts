@@ -6,7 +6,7 @@ import {
   readLuaHelperScripts,
   readTextFile,
   type LuaHelperScript,
-} from '$lib/infrastructure/tauri/commands';
+} from '$lib/native/assetApi';
 import {
   normalizeScriptTestPlan,
   type ScriptTestCheck,

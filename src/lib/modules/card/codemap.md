@@ -7,6 +7,7 @@ Defines the `ygo.card-collection` data type and the CDB workspace workbench. Thi
 - Registers `CARD_COLLECTION_TYPE` with validation
 - Provides the `card.workbench` that renders `CardCollectionWorkbench.svelte`
 - Hosts current-card surfaces in `workbench/`: Card, Script, Image, AI
+- Registers the `card.showcase-image` global tool used to generate showcase PNG strips for CDB card sets
 - Keeps top-level app tabs CDB-only; surface tabs are not shell tabs
 - Exports search expression types (`searchExpression.ts`) and card collection types (`types.ts`)
 

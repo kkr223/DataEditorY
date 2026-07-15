@@ -13,6 +13,7 @@ import {
   pushDraftUndoHistory,
   resolvePageNavigationTarget,
   resolveSelectionNavigationTarget,
+  shouldAutoCommitDraftForSelectionChange,
   stepBackDraftUndoHistory,
 } from '$lib/features/card-editor/controller';
 import { createCardSnapshot } from '$lib/domain/card/draft';
@@ -399,6 +400,32 @@ describe('card editor controller helpers', () => {
     })).toBeNull();
   });
 
+  test('does not auto-commit selection changes caused by an active draft commit', () => {
+    expect(shouldAutoCommitDraftForSelectionChange({
+      isDbLoaded: true,
+      isCommittingDraft: true,
+      selectedCardCode: 2000,
+      lastSyncedSelectedId: 1000,
+      isDraftDirty: true,
+    })).toBe(false);
+
+    expect(shouldAutoCommitDraftForSelectionChange({
+      isDbLoaded: true,
+      isCommittingDraft: false,
+      selectedCardCode: 2000,
+      lastSyncedSelectedId: 1000,
+      isDraftDirty: true,
+    })).toBe(true);
+
+    expect(shouldAutoCommitDraftForSelectionChange({
+      isDbLoaded: true,
+      isCommittingDraft: false,
+      selectedCardCode: 2000,
+      lastSyncedSelectedId: null,
+      isDraftDirty: true,
+    })).toBe(false);
+  });
+
   test('tracks script generation state through a controller boundary', () => {
     const state = createCardScriptGenerationState();
     const controller = createCardScriptGenerationController(state);
@@ -421,10 +448,9 @@ describe('card editor controller helpers', () => {
     expect(state.abortController).toBeNull();
   });
 
-  test('coordinates image click, preview, and drawer state', async () => {
+  test('coordinates image click and preview state', async () => {
     const imageState = {
       previewOpen: false,
-      drawerOpen: false,
       picked: 0,
     };
 
@@ -434,12 +460,8 @@ describe('card editor controller helpers', () => {
         imageState.picked += 1;
       },
       hasImageSrc: () => true,
-      hasCardImageCapability: () => true,
       setPreviewOpen: (value) => {
         imageState.previewOpen = value;
-      },
-      setDrawerOpen: (value) => {
-        imageState.drawerOpen = value;
       },
     });
 
@@ -449,18 +471,16 @@ describe('card editor controller helpers', () => {
     expect(imageState.picked).toBe(1);
     expect(controller.hasPendingClick()).toBe(false);
 
+    controller.handleImageClick();
+    controller.handleImageClick();
     controller.handleImageDoubleClick({
       preventDefault() {},
     });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(imageState.picked).toBe(1);
     expect(imageState.previewOpen).toBe(true);
 
     controller.closePreview();
     expect(imageState.previewOpen).toBe(false);
-
-    expect(controller.openDrawer()).toBe(true);
-    expect(imageState.drawerOpen).toBe(true);
-
-    controller.closeDrawer();
-    expect(imageState.drawerOpen).toBe(false);
   });
 });

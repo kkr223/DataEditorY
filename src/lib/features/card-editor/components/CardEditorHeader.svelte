@@ -8,8 +8,8 @@
   export let aliasLabel = "";
   export let nameLabel = "";
   export let newCardLabel = "";
-  export let onSave: () => void | Promise<void> = () => {};
-  export let onNewCard: () => void = () => {};
+  export let onSave: () => void | Promise<void>;
+  export let onNewCard: () => void;
 </script>
 
 <div class="top-strip" use:disableAutofill>

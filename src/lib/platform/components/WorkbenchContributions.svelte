@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Component } from 'svelte';
   import { documentRuntime } from '$lib/platform/appRuntime';
+  import { loadExtensionComponents } from './loadExtensionComponents';
 
   let {
     workbenchId,
@@ -19,10 +20,9 @@
 
   $effect(() => {
     const targets = descriptors;
-    void Promise.all(targets.map(async (descriptor) => ({
-      id: descriptor.id,
-      component: (await descriptor.component() as { default: Component }).default,
-    }))).then((components) => {
+    void loadExtensionComponents(targets, (error) => {
+      console.error('Failed to load workbench contribution', error);
+    }).then((components) => {
       loaded = components;
     });
   });

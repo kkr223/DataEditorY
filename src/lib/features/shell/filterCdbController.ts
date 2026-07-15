@@ -1,7 +1,8 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { copyCardAssets, createCdbFromCards } from '$lib/infrastructure/tauri/commands';
+import { copyCardAssets } from '$lib/native/assetApi';
+import { createCdbFromCards } from '$lib/native/cdbApi';
 import {
   activeTab,
   getCachedFilters,

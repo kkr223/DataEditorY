@@ -8,8 +8,8 @@ import {
 } from '$lib/stores/appShell.svelte';
 import {
   getCardScriptInfo,
-  readTextFile,
-} from '$lib/infrastructure/tauri/commands';
+} from '$lib/native/scriptApi';
+import { readTextFile } from '$lib/native/assetApi';
 import {
   buildScriptFileName,
   normalizeScriptContent,
@@ -132,66 +132,6 @@ export const activateScriptTab = (tabId: string) => {
     if (matchedDbTab) activeTabId.set(matchedDbTab.id);
   }
   activateScriptView();
-};
-
-export const syncScriptTabFromSavedContent = async (input: {
-  cdbPath: string;
-  sourceTabId: string | null;
-  cardCode: number;
-  cardName: string;
-  scriptPath: string;
-  content: string;
-}) => {
-  const normalized = normalizeScriptContent(input.content);
-  const existing = getScriptTabByKey(input.cdbPath, input.cardCode);
-  if (existing) {
-    await documentRuntime.execute(existing.id, {
-      kind: 'replace',
-      value: { content: normalized, language: 'lua' },
-    });
-    await documentRuntime.save(existing.id);
-    attachScriptMetadata(existing.id, {
-      ...input,
-      createdFromTemplate: false,
-    });
-    addOrUpdateScriptTab({
-      ...existing,
-      sourceTabId: input.sourceTabId,
-      cardName: input.cardName,
-      scriptPath: input.scriptPath,
-      content: normalized,
-      savedContent: normalized,
-      isDirty: false,
-      createdFromTemplate: false,
-    });
-    activateScriptTab(existing.id);
-    return existing.id;
-  }
-
-  const document = await documentRuntime.openSource({
-    uri: input.scriptPath,
-    path: input.scriptPath,
-    name: buildScriptFileName(input.cardCode),
-  });
-  attachScriptMetadata(document.id, {
-    ...input,
-    createdFromTemplate: false,
-  });
-  addOrUpdateScriptTab({
-    id: document.id,
-    cdbPath: input.cdbPath,
-    sourceTabId: input.sourceTabId,
-    cardCode: input.cardCode,
-    cardName: input.cardName,
-    scriptPath: input.scriptPath,
-    content: normalized,
-    savedContent: normalized,
-    isDirty: false,
-    viewState: null,
-    createdFromTemplate: false,
-  });
-  activateScriptTab(document.id);
-  return document.id;
 };
 
 export const openOrCreateScriptTab = async (input: {
@@ -395,6 +335,12 @@ export const closeScriptTab = async (tabId: string) => {
     .filter((tab) => isSameCdbPath(tab.cdbPath, closedTab.cdbPath))
     .findIndex((tab) => tab.id === tabId);
   const wasScriptView = appShellState.mainView === 'script';
+  const cdbTab = closedTab.sourceTabId
+    ? get(tabs).find((tab) => tab.id === closedTab.sourceTabId)
+    : get(tabs).find((tab) => isSameCdbPath(tab.path, closedTab.cdbPath));
+  if (get(activeScriptTabId) === tabId && cdbTab) {
+    documentRuntime.activate(cdbTab.id);
+  }
   await documentRuntime.close(tabId, true);
   const nextTabs = get(scriptTabs);
   if (get(activeScriptTabId) !== tabId) return;
@@ -413,10 +359,6 @@ export const closeScriptTab = async (tabId: string) => {
     appShellState.settingsReturnView = 'editor';
   }
   if (!wasScriptView) return;
-  const cdbTab = closedTab.sourceTabId
-    ? get(tabs).find((tab) => tab.id === closedTab.sourceTabId)
-    : get(tabs).find((tab) => isSameCdbPath(tab.path, closedTab.cdbPath));
-  if (cdbTab) documentRuntime.activate(cdbTab.id);
   activateEditorView();
 };
 

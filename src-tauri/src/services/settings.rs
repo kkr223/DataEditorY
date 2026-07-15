@@ -37,6 +37,9 @@ pub fn save_app_settings(
     settings.save_script_image_to_local = request
         .save_script_image_to_local
         .unwrap_or(settings.save_script_image_to_local);
+    settings.auto_complete_function_parameters = request
+        .auto_complete_function_parameters
+        .unwrap_or(settings.auto_complete_function_parameters);
     if let Some(package_include_patterns) = request.package_include_patterns {
         settings.package_include_patterns =
             normalize_package_include_patterns(Some(package_include_patterns));

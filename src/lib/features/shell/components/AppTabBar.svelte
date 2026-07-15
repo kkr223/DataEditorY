@@ -5,21 +5,19 @@
   let {
     workspaces = [],
     activeWorkspaceId = null,
-    activeTabId = null,
-    onActivateWorkspace = (_tabId: string) => {},
-    onSaveWorkspace = async (_tabId: string) => {},
-    onSaveWorkspaceAs = async (_tabId: string) => {},
-    onCloseWorkspace = async (_tabId: string) => {},
-    onOpenAnother = async () => {},
+    onActivateWorkspace,
+    onSaveWorkspace,
+    onSaveWorkspaceAs,
+    onCloseWorkspace,
+    onOpenAnother,
   }: {
     workspaces?: WorkspaceDocument[];
     activeWorkspaceId?: string | null;
-    activeTabId?: string | null;
-    onActivateWorkspace?: (tabId: string) => void;
-    onSaveWorkspace?: (tabId: string) => unknown | Promise<unknown>;
-    onSaveWorkspaceAs?: (tabId: string) => unknown | Promise<unknown>;
-    onCloseWorkspace?: (tabId: string) => void | Promise<void>;
-    onOpenAnother?: () => void | Promise<void>;
+    onActivateWorkspace: (tabId: string) => void;
+    onSaveWorkspace: (tabId: string) => unknown | Promise<unknown>;
+    onSaveWorkspaceAs: (tabId: string) => unknown | Promise<unknown>;
+    onCloseWorkspace: (tabId: string) => void | Promise<void>;
+    onOpenAnother: () => void | Promise<void>;
   } = $props();
 
   let contextMenu = $state<{
@@ -46,6 +44,14 @@
     }
 
     return 'db';
+  }
+
+  function getWorkspaceTitle(workspace: WorkspaceDocument) {
+    return workspace.kind === 'settings' ? $_('nav.settings') : workspace.title;
+  }
+
+  function getWorkspaceSubtitle(workspace: WorkspaceDocument) {
+    return workspace.kind === 'settings' ? $_('settings.title') : workspace.subtitle;
   }
 
   function openContextMenu(event: MouseEvent, workspace: WorkspaceDocument) {
@@ -85,7 +91,7 @@
         onmousedown={(event) => { if (event.button === 1) event.preventDefault(); }}
         onauxclick={(event) => { if (event.button === 1) { event.preventDefault(); void onCloseWorkspace(workspace.id); } }}
         oncontextmenu={(event) => openContextMenu(event, workspace)}
-        title={workspace.subtitle}
+        title={getWorkspaceSubtitle(workspace)}
       >
         {#if getWorkspaceIcon(workspace) === 'settings'}
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.3l.06.06A1.65 1.65 0 0 0 8.92 4a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v-.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 1 1 19.63 7l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.44.55.94 1.08 1H21a2 2 0 1 1 0 4h-.09c-.53.06-.94.56-1.08 1z"></path></svg>
@@ -98,7 +104,7 @@
         {:else}
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
         {/if}
-        <span class="tab-name">{workspace.title}</span>
+        <span class="tab-name">{getWorkspaceTitle(workspace)}</span>
         {#if workspace.dirty}
           <span class="tab-dirty" aria-label={$_('editor.unsaved_badge')} title={$_('editor.unsaved_badge')}>•</span>
         {/if}
@@ -111,7 +117,7 @@
         >×</span>
       </button>
     {/each}
-    <button class="tab-add" onclick={onOpenAnother} title="Open another CDB">
+    <button class="tab-add" onclick={onOpenAnother} title={$_('nav.open_another_cdb')}>
       +
     </button>
 

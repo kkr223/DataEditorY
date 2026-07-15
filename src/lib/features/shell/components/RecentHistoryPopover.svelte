@@ -5,15 +5,15 @@
   let {
     visible = false,
     entries = [],
-    onOpen = async (_path: string) => {},
-    onRemove = (_path: string) => {},
-    onHideImmediately = () => {},
+    onOpen,
+    onRemove,
+    onHideImmediately,
   }: {
     visible?: boolean;
     entries?: RecentCdbEntry[];
-    onOpen?: (path: string) => void | Promise<void>;
-    onRemove?: (path: string) => void;
-    onHideImmediately?: () => void;
+    onOpen: (path: string) => void | Promise<void>;
+    onRemove: (path: string) => void;
+    onHideImmediately: () => void;
   } = $props();
 </script>
 

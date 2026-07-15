@@ -4,10 +4,17 @@ export {
   listImageFolderEntries,
   loadStringsConfContent,
   pathExists,
+  readBuiltinLuaHelperScripts,
+  readCdbFile,
+  readImageFile,
+  readLuaHelperScripts,
   readTextFile,
+  resolveResourceFile,
   writeBinaryFile,
   writeTextFile,
 } from '$lib/infrastructure/tauri/commands';
+
+export type { LuaHelperScript } from '$lib/infrastructure/tauri/commands';
 
 import { invokeCommand } from '$lib/infrastructure/tauri';
 

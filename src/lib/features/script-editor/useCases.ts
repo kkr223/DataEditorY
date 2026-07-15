@@ -9,7 +9,7 @@ import { normalizeCardStrings } from '$lib/domain/card/draft';
 import { buildScriptImagePath } from '$lib/domain/script/workspace';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import { openScriptExternally } from '$lib/services/cardScriptService';
-import { writeBinaryFile } from '$lib/infrastructure/tauri/commands';
+import { writeBinaryFile } from '$lib/native/assetApi';
 import { normalizeScriptCardContext } from '$lib/features/script-editor/controller';
 import { isSameCdbPath } from '$lib/domain/script/tabIdentity';
 

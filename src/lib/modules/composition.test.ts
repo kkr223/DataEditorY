@@ -17,7 +17,8 @@ describe('built-in module composition', () => {
     ]);
     expect(registry.modules.has('ai')).toBe(true);
     expect(registry.modules.has('card-image')).toBe(false);
-    expect(registry.findGlobalTools()).toEqual([]);
+    expect(registry.findGlobalTools().map((tool) => tool.id))
+      .toEqual(['card.showcase-image']);
     expect(registry.taskRunners.has('batch.image.export-card')).toBe(false);
   });
 
@@ -29,6 +30,8 @@ describe('built-in module composition', () => {
       .toBe('card-image.json-codec');
     expect(registry.findGlobalTools().map((tool) => tool.id))
       .toContain('card-image.batch-export');
+    expect(registry.findGlobalTools().map((tool) => tool.id))
+      .toContain('card.showcase-image');
     expect(registry.taskRunners.has('batch.image.export-card')).toBe(true);
   });
 });

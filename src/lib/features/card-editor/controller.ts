@@ -120,9 +120,7 @@ export function createCardImageInteractionController(input: {
   clickDelayMs?: number;
   onPickImage: () => void | Promise<void>;
   hasImageSrc: () => boolean;
-  hasCardImageCapability: () => boolean;
   setPreviewOpen: (value: boolean) => void;
-  setDrawerOpen: (value: boolean) => void;
 }) {
   let clickTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -159,16 +157,6 @@ export function createCardImageInteractionController(input: {
     },
     closePreview() {
       input.setPreviewOpen(false);
-    },
-    openDrawer() {
-      if (!input.hasCardImageCapability()) {
-        return false;
-      }
-      input.setDrawerOpen(true);
-      return true;
-    },
-    closeDrawer() {
-      input.setDrawerOpen(false);
     },
   };
 }
@@ -428,6 +416,21 @@ export function resolvePageNavigationTarget(input: {
   }
 
   return nextPage;
+}
+
+export function shouldAutoCommitDraftForSelectionChange(input: {
+  isDbLoaded: boolean;
+  isCommittingDraft: boolean;
+  selectedCardCode: number | null;
+  lastSyncedSelectedId: number | null;
+  isDraftDirty: boolean;
+}) {
+  return input.isDbLoaded
+    && !input.isCommittingDraft
+    && input.selectedCardCode !== null
+    && input.lastSyncedSelectedId !== null
+    && input.selectedCardCode !== input.lastSyncedSelectedId
+    && input.isDraftDirty;
 }
 
 export async function handleCardEditorKeydown(
