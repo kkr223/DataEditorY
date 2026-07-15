@@ -244,6 +244,22 @@
     "category": "Typed Definitions"
   },
   {
+    "name": "Card.Metallization_material",
+    "namespace": "Card",
+    "shortName": "Metallization_material",
+    "signature": "Card.Metallization_material(ft, lv, race, att)",
+    "returnType": "void",
+    "parameters": [
+      "integer ft",
+      "integer lv",
+      "integer race",
+      "integer att"
+    ],
+    "description": "解放检查（金属化·强化反射装甲）",
+    "raw": "function Card.Metallization_material(ft, lv, race, att) end",
+    "category": "Typed Definitions"
+  },
+  {
     "name": "Card.GetCode",
     "namespace": "Card",
     "shortName": "GetCode",
@@ -1201,7 +1217,7 @@
     "namespace": "Card",
     "shortName": "SetReason",
     "signature": "Card.SetReason(c, reason)",
-    "returnType": "boolean",
+    "returnType": "void",
     "parameters": [
       "Card c",
       "integer reason"
@@ -1475,14 +1491,16 @@
     "name": "Card.IsOriginalCodeRule",
     "namespace": "Card",
     "shortName": "IsOriginalCodeRule",
-    "signature": "Card.IsOriginalCodeRule(c, code)",
+    "signature": "Card.IsOriginalCodeRule(c, code1, code2?, ...)",
     "returnType": "boolean",
     "parameters": [
       "Card c",
-      "integer code"
+      "integer code1",
+      "integer code2?",
+      "integer ..."
     ],
     "description": "检查c是否在规则上当做code使用",
-    "raw": "function Card.IsOriginalCodeRule(c, code) end",
+    "raw": "function Card.IsOriginalCodeRule(c, code1, code2, ...) end",
     "category": "Typed Definitions"
   },
   {
@@ -1653,16 +1671,16 @@
     "name": "Card.IsDefense",
     "namespace": "Card",
     "shortName": "IsDefense",
-    "signature": "Card.IsDefense(c, def, atk2?, ...)",
+    "signature": "Card.IsDefense(c, def, def2?, ...)",
     "returnType": "boolean",
     "parameters": [
       "Card c",
       "integer def",
-      "integer atk2?",
+      "integer def2?",
       "integer ..."
     ],
     "description": "检查c的守备力是否是 def1[, 或者为 def2...]，如果c不是怪兽卡，或者不在 LOCATION_MZONE 则都返回false",
-    "raw": "function Card.IsDefense(c, def, atk2, ...) end",
+    "raw": "function Card.IsDefense(c, def, def2, ...) end",
     "category": "Typed Definitions"
   },
   {
@@ -2084,7 +2102,7 @@
     "namespace": "Card",
     "shortName": "CheckUnionTarget",
     "signature": "Card.CheckUnionTarget(c, ec)",
-    "returnType": "Card",
+    "returnType": "boolean",
     "parameters": [
       "Card c",
       "Card ec"
@@ -2834,15 +2852,17 @@
     "name": "Card.IsSynchroSummonable",
     "namespace": "Card",
     "shortName": "IsSynchroSummonable",
-    "signature": "Card.IsSynchroSummonable(c, tuner, mg?)",
+    "signature": "Card.IsSynchroSummonable(c, tuner, mg?, min?, max?)",
     "returnType": "boolean",
     "parameters": [
       "Card c",
       "Card|nil tuner",
-      "Group mg?"
+      "Group mg?",
+      "integer min?",
+      "integer max?"
     ],
     "description": "检查是否可以以tuner作为调整，场上的卡[或mg]为同调素材对c进行同调召唤手续\n如果tuner是nil，此函数与Card.IsSpecialSummonable作用相同",
-    "raw": "function Card.IsSynchroSummonable(c, tuner, mg) end",
+    "raw": "function Card.IsSynchroSummonable(c, tuner, mg, min, max) end",
     "category": "Typed Definitions"
   },
   {
@@ -2865,16 +2885,17 @@
     "name": "Card.IsLinkSummonable",
     "namespace": "Card",
     "shortName": "IsLinkSummonable",
-    "signature": "Card.IsLinkSummonable(c, mg, min?, max?)",
+    "signature": "Card.IsLinkSummonable(c, mg, lcard?, min?, max?)",
     "returnType": "boolean",
     "parameters": [
       "Card c",
       "Group|nil mg",
+      "Card|nil lcard?",
       "integer min?",
       "integer max?"
     ],
     "description": "检查是否可以在场上的卡[或mg][中选出 min-max 个连接素材]对c进行连接召唤手续\n如果mg为nil，此函数与 c:IsSpecialSummonable(SUMMON_TYPE_LINK)作用相同",
-    "raw": "function Card.IsLinkSummonable(c, mg, min, max) end",
+    "raw": "function Card.IsLinkSummonable(c, mg, lcard, min, max) end",
     "category": "Typed Definitions"
   },
   {
@@ -2950,13 +2971,14 @@
     "name": "Card.IsAbleToHand",
     "namespace": "Card",
     "shortName": "IsAbleToHand",
-    "signature": "Card.IsAbleToHand(c)",
+    "signature": "Card.IsAbleToHand(c, player?)",
     "returnType": "boolean",
     "parameters": [
-      "Card c"
+      "Card c",
+      "integer player?"
     ],
     "description": "检查c是否可以送去手卡\n注：仅当卡片或者玩家受到“不能加入手卡”的效果的影响时（如雷王）此函数才返回false\n##以下几个函数类似",
-    "raw": "function Card.IsAbleToHand(c) end",
+    "raw": "function Card.IsAbleToHand(c, player) end",
     "category": "Typed Definitions"
   },
   {
@@ -3083,13 +3105,14 @@
     "name": "Card.IsAbleToRemoveAsCost",
     "namespace": "Card",
     "shortName": "IsAbleToRemoveAsCost",
-    "signature": "Card.IsAbleToRemoveAsCost(c)",
+    "signature": "Card.IsAbleToRemoveAsCost(c, pos?)",
     "returnType": "boolean",
     "parameters": [
-      "Card c"
+      "Card c",
+      "integer pos?"
     ],
     "description": "检查c是否可以作为cost除外",
-    "raw": "function Card.IsAbleToRemoveAsCost(c) end",
+    "raw": "function Card.IsAbleToRemoveAsCost(c, pos) end",
     "category": "Typed Definitions"
   },
   {
@@ -3564,7 +3587,7 @@
     "namespace": "Card",
     "shortName": "RemoveCounter",
     "signature": "Card.RemoveCounter(c, player, countertype, count, reason)",
-    "returnType": "void",
+    "returnType": "boolean",
     "parameters": [
       "Card c",
       "integer player",
@@ -3632,6 +3655,21 @@
     ],
     "description": "检查c是否可以用效果改变表示形式",
     "raw": "function Card.IsCanChangePosition(c) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Card.IsCanBePlacedOnField",
+    "namespace": "Card",
+    "shortName": "IsCanBePlacedOnField",
+    "signature": "Card.IsCanBePlacedOnField(c, toplayer?, tolocation?)",
+    "returnType": "boolean",
+    "parameters": [
+      "Card c",
+      "integer toplayer?",
+      "integer tolocation?"
+    ],
+    "description": "检查c是否可以放置到指定玩家的场上区域\n若toplayer不是0或1，或c处于禁止状态，或会违反唯一性限制，则返回false",
+    "raw": "function Card.IsCanBePlacedOnField(c, toplayer, tolocation) end",
     "category": "Typed Definitions"
   },
   {
@@ -3713,14 +3751,15 @@
     "name": "Card.IsCanBeFusionMaterial",
     "namespace": "Card",
     "shortName": "IsCanBeFusionMaterial",
-    "signature": "Card.IsCanBeFusionMaterial(c, fc?)",
+    "signature": "Card.IsCanBeFusionMaterial(c, fc?, summon_type?)",
     "returnType": "boolean",
     "parameters": [
       "Card c",
-      "Card fc?"
+      "Card fc?",
+      "integer summon_type?"
     ],
     "description": "检查c是否可以成为[融合怪兽fc的]融合素材",
-    "raw": "function Card.IsCanBeFusionMaterial(c, fc) end",
+    "raw": "function Card.IsCanBeFusionMaterial(c, fc, summon_type) end",
     "category": "Typed Definitions"
   },
   {
@@ -5076,7 +5115,7 @@
     "namespace": "Group",
     "shortName": "CancelableSelect",
     "signature": "Group.CancelableSelect(g, player, min, max, ex)",
-    "returnType": "Group",
+    "returnType": "Group|nil",
     "parameters": [
       "Group g",
       "integer player",
@@ -5312,7 +5351,7 @@
     "namespace": "Group",
     "shortName": "SearchCard",
     "signature": "Group.SearchCard(g, f, ...)",
-    "returnType": "Card",
+    "returnType": "Card|nil",
     "parameters": [
       "Group g",
       "function f",
@@ -6337,7 +6376,7 @@
     "namespace": "Duel",
     "shortName": "GetControl",
     "signature": "Duel.GetControl(targets, player, reset_phase?, reset_count?, zone?)",
-    "returnType": "boolean",
+    "returnType": "integer",
     "parameters": [
       "Card|Group targets",
       "integer player",
@@ -6345,7 +6384,7 @@
       "integer reset_count?",
       "integer zone?"
     ],
-    "description": "让玩家 player [直到 reset_count 次 reset_phase 时][在区域 zone]\n得到 targets 的控制权，返回值表示是否成功",
+    "description": "让玩家 player [直到 reset_count 次 reset_phase 时][在区域 zone]\n得到 targets 的控制权，返回值表示成功的数量",
     "raw": "function Duel.GetControl(targets, player, reset_phase, reset_count, zone) end",
     "category": "Typed Definitions"
   },
@@ -6729,7 +6768,7 @@
     "namespace": "Duel",
     "shortName": "GetLocationCount",
     "signature": "Duel.GetLocationCount(player, location, use_player?, reason?, zone?)",
-    "returnType": "integer",
+    "returnType": "integer, integer zone",
     "parameters": [
       "integer player",
       "integer location",
@@ -6780,7 +6819,7 @@
     "namespace": "Duel",
     "shortName": "GetLocationCountFromEx",
     "signature": "Duel.GetLocationCountFromEx(player, reason_player?, targets?, sc?, zone?)",
-    "returnType": "integer",
+    "returnType": "integer, integer zone",
     "parameters": [
       "integer player",
       "integer reason_player?",
@@ -6854,7 +6893,7 @@
     "namespace": "Duel",
     "shortName": "GetFieldCard",
     "signature": "Duel.GetFieldCard(player, location, seq)",
-    "returnType": "Card",
+    "returnType": "Card|nil",
     "parameters": [
       "integer player",
       "integer location",
@@ -7217,7 +7256,7 @@
     "namespace": "Duel",
     "shortName": "GetFirstMatchingCard",
     "signature": "Duel.GetFirstMatchingCard(f, player, s, o, ex, ...)",
-    "returnType": "Card",
+    "returnType": "Card|nil",
     "parameters": [
       "function|nil f",
       "integer player",
@@ -7407,7 +7446,7 @@
     "namespace": "Duel",
     "shortName": "CheckTribute",
     "signature": "Duel.CheckTribute(c, min, max?, mg?, toplayer?, zone?)",
-    "returnType": "Group",
+    "returnType": "boolean",
     "parameters": [
       "Card c",
       "integer min",
@@ -7573,13 +7612,14 @@
     "name": "Duel.GetSynchroMaterial",
     "namespace": "Duel",
     "shortName": "GetSynchroMaterial",
-    "signature": "Duel.GetSynchroMaterial(player)",
+    "signature": "Duel.GetSynchroMaterial(player, facedown?)",
     "returnType": "Group",
     "parameters": [
-      "integer player"
+      "integer player",
+      "boolean facedown?"
     ],
     "description": "获取玩家可以作为同调素材的卡片组",
-    "raw": "function Duel.GetSynchroMaterial(player) end",
+    "raw": "function Duel.GetSynchroMaterial(player, facedown) end",
     "category": "Typed Definitions"
   },
   {
@@ -7587,7 +7627,7 @@
     "namespace": "Duel",
     "shortName": "SelectSynchroMaterial",
     "signature": "Duel.SelectSynchroMaterial(player, c, f1, f2, min, max, smat?, mg?)",
-    "returnType": "Group",
+    "returnType": "Group|nil",
     "parameters": [
       "integer player",
       "Card c",
@@ -7626,7 +7666,7 @@
     "namespace": "Duel",
     "shortName": "SelectTunerMaterial",
     "signature": "Duel.SelectTunerMaterial(player, c, tuner, f1, f2, min, max, mg?)",
-    "returnType": "Group",
+    "returnType": "Group|nil",
     "parameters": [
       "integer player",
       "Card c",
@@ -7879,7 +7919,7 @@
     "namespace": "Duel",
     "shortName": "SelectXyzMaterial",
     "signature": "Duel.SelectXyzMaterial(player, c, f, lv, min, max, mg?)",
-    "returnType": "Group",
+    "returnType": "Group|nil",
     "parameters": [
       "integer player",
       "Card c",
@@ -8154,7 +8194,7 @@
     "namespace": "Duel",
     "shortName": "AnnounceLevel",
     "signature": "Duel.AnnounceLevel(player, min?, max?, ...)",
-    "returnType": "integer",
+    "returnType": "integer 宣言的等级, integer 宣言的等级在所有选项中的位置(0开始)",
     "parameters": [
       "integer player",
       "integer|nil min?",
@@ -8197,13 +8237,13 @@
     "namespace": "Duel",
     "shortName": "AnnounceNumber",
     "signature": "Duel.AnnounceNumber(player, number, ...)",
-    "returnType": "integer, integer",
+    "returnType": "integer 宣言的数字, integer 宣言数字在所有选项中的位置(0开始)",
     "parameters": [
       "integer player",
       "integer number",
       "any ..."
     ],
-    "description": "让玩家player宣言一个数字\n从第二个参数开始，每一个参数代表一个可宣言的数字\n第一个返回值是宣言的数字，第二个返回值是宣言数字在所有选项中的位置",
+    "description": "让玩家player宣言一个数字\n从第二个参数开始，每一个参数代表一个可宣言的数字",
     "raw": "function Duel.AnnounceNumber(player, number, ...) end",
     "category": "Typed Definitions"
   },
@@ -8476,14 +8516,15 @@
     "name": "Duel.IsPlayerCanRemove",
     "namespace": "Duel",
     "shortName": "IsPlayerCanRemove",
-    "signature": "Duel.IsPlayerCanRemove(player, c?)",
+    "signature": "Duel.IsPlayerCanRemove(player, c?, reason?)",
     "returnType": "boolean",
     "parameters": [
       "integer player",
-      "Card c?"
+      "Card c?",
+      "integer reason?"
     ],
     "description": "检查玩家player是否能除外c",
-    "raw": "function Duel.IsPlayerCanRemove(player, c) end",
+    "raw": "function Duel.IsPlayerCanRemove(player, c, reason) end",
     "category": "Typed Definitions"
   },
   {
@@ -11411,410 +11452,6 @@
     "description": "显示消息提示框，最大长度 1024 个字符（1个汉字2个字符）\n注意，只会在本地生效，在服务器端不会生效。",
     "raw": "function Debug.ShowHint(msg) end",
     "category": "Typed Definitions"
-  },
-  {
-    "name": "math.abs",
-    "namespace": "math",
-    "shortName": "abs",
-    "signature": "math.abs(number x)",
-    "returnType": "number",
-    "parameters": [
-      "number x"
-    ],
-    "description": "返回 x 的绝对值",
-    "raw": "number math.abs(number x)",
-    "category": "math"
-  },
-  {
-    "name": "math.ceil",
-    "namespace": "math",
-    "shortName": "ceil",
-    "signature": "math.ceil(number x)",
-    "returnType": "number",
-    "parameters": [
-      "number x"
-    ],
-    "description": "返回不小于 x 的最小整数",
-    "raw": "number math.ceil(number x)",
-    "category": "math"
-  },
-  {
-    "name": "math.floor",
-    "namespace": "math",
-    "shortName": "floor",
-    "signature": "math.floor(number x)",
-    "returnType": "number",
-    "parameters": [
-      "number x"
-    ],
-    "description": "返回不大于 x 的最大整数",
-    "raw": "number math.floor(number x)",
-    "category": "math"
-  },
-  {
-    "name": "math.max",
-    "namespace": "math",
-    "shortName": "max",
-    "signature": "math.max(number x, ...)",
-    "returnType": "number",
-    "parameters": [
-      "number x",
-      "..."
-    ],
-    "description": "返回参数中的最大值",
-    "raw": "number math.max(number x, ...)",
-    "category": "math"
-  },
-  {
-    "name": "math.min",
-    "namespace": "math",
-    "shortName": "min",
-    "signature": "math.min(number x, ...)",
-    "returnType": "number",
-    "parameters": [
-      "number x",
-      "..."
-    ],
-    "description": "返回参数中的最小值",
-    "raw": "number math.min(number x, ...)",
-    "category": "math"
-  },
-  {
-    "name": "math.random",
-    "namespace": "math",
-    "shortName": "random",
-    "signature": "math.random([int m[, int n]])",
-    "returnType": "number",
-    "parameters": [
-      "[int m[, int n]]"
-    ],
-    "description": "无参数时返回 [0,1) 随机数；一个参数时返回 [1,m]；两个参数时返回 [m,n]",
-    "raw": "number math.random([int m[, int n]])",
-    "category": "math"
-  },
-  {
-    "name": "math.randomseed",
-    "namespace": "math",
-    "shortName": "randomseed",
-    "signature": "math.randomseed(int x)",
-    "returnType": "void",
-    "parameters": [
-      "int x"
-    ],
-    "description": "设置随机数种子",
-    "raw": "void math.randomseed(int x)",
-    "category": "math"
-  },
-  {
-    "name": "math.sqrt",
-    "namespace": "math",
-    "shortName": "sqrt",
-    "signature": "math.sqrt(number x)",
-    "returnType": "number",
-    "parameters": [
-      "number x"
-    ],
-    "description": "返回 x 的平方根",
-    "raw": "number math.sqrt(number x)",
-    "category": "math"
-  },
-  {
-    "name": "math.log",
-    "namespace": "math",
-    "shortName": "log",
-    "signature": "math.log(number x)",
-    "returnType": "number",
-    "parameters": [
-      "number x"
-    ],
-    "description": "返回 x 的自然对数",
-    "raw": "number math.log(number x)",
-    "category": "math"
-  },
-  {
-    "name": "string.format",
-    "namespace": "string",
-    "shortName": "format",
-    "signature": "string.format(string fmt, ...)",
-    "returnType": "string",
-    "parameters": [
-      "string fmt",
-      "..."
-    ],
-    "description": "格式化字符串",
-    "raw": "string string.format(string fmt, ...)",
-    "category": "string"
-  },
-  {
-    "name": "string.len",
-    "namespace": "string",
-    "shortName": "len",
-    "signature": "string.len(string s)",
-    "returnType": "int",
-    "parameters": [
-      "string s"
-    ],
-    "description": "返回字符串长度",
-    "raw": "int string.len(string s)",
-    "category": "string"
-  },
-  {
-    "name": "string.sub",
-    "namespace": "string",
-    "shortName": "sub",
-    "signature": "string.sub(string s, int i[, int j])",
-    "returnType": "string",
-    "parameters": [
-      "string s",
-      "int i[, int j]"
-    ],
-    "description": "返回子字符串 s[i..j]",
-    "raw": "string string.sub(string s, int i[, int j])",
-    "category": "string"
-  },
-  {
-    "name": "string.rep",
-    "namespace": "string",
-    "shortName": "rep",
-    "signature": "string.rep(string s, int n)",
-    "returnType": "string",
-    "parameters": [
-      "string s",
-      "int n"
-    ],
-    "description": "返回字符串 s 重复 n 次的结果",
-    "raw": "string string.rep(string s, int n)",
-    "category": "string"
-  },
-  {
-    "name": "string.upper",
-    "namespace": "string",
-    "shortName": "upper",
-    "signature": "string.upper(string s)",
-    "returnType": "string",
-    "parameters": [
-      "string s"
-    ],
-    "description": "转大写",
-    "raw": "string string.upper(string s)",
-    "category": "string"
-  },
-  {
-    "name": "string.lower",
-    "namespace": "string",
-    "shortName": "lower",
-    "signature": "string.lower(string s)",
-    "returnType": "string",
-    "parameters": [
-      "string s"
-    ],
-    "description": "转小写",
-    "raw": "string string.lower(string s)",
-    "category": "string"
-  },
-  {
-    "name": "string.reverse",
-    "namespace": "string",
-    "shortName": "reverse",
-    "signature": "string.reverse(string s)",
-    "returnType": "string",
-    "parameters": [
-      "string s"
-    ],
-    "description": "反转字符串",
-    "raw": "string string.reverse(string s)",
-    "category": "string"
-  },
-  {
-    "name": "string.byte",
-    "namespace": "string",
-    "shortName": "byte",
-    "signature": "string.byte(string s[, int i[, int j]])",
-    "returnType": "int",
-    "parameters": [
-      "string s[, int i[, int j]]"
-    ],
-    "description": "返回字符的数值编码",
-    "raw": "int string.byte(string s[, int i[, int j]])",
-    "category": "string"
-  },
-  {
-    "name": "string.char",
-    "namespace": "string",
-    "shortName": "char",
-    "signature": "string.char(int ...)",
-    "returnType": "string",
-    "parameters": [
-      "int ..."
-    ],
-    "description": "将数值编码转为字符",
-    "raw": "string string.char(int ...)",
-    "category": "string"
-  },
-  {
-    "name": "string.find",
-    "namespace": "string",
-    "shortName": "find",
-    "signature": "string.find(string s, string pattern[, int init[, bool plain]])",
-    "returnType": "int,int",
-    "parameters": [
-      "string s",
-      "string pattern[, int init[, bool plain]]"
-    ],
-    "description": "在 s 中查找 pattern，返回起止位置",
-    "raw": "int,int string.find(string s, string pattern[, int init[, bool plain]])",
-    "category": "string"
-  },
-  {
-    "name": "string.match",
-    "namespace": "string",
-    "shortName": "match",
-    "signature": "string.match(string s, string pattern[, int init])",
-    "returnType": "string",
-    "parameters": [
-      "string s",
-      "string pattern[, int init]"
-    ],
-    "description": "在 s 中匹配 pattern，返回捕获",
-    "raw": "string string.match(string s, string pattern[, int init])",
-    "category": "string"
-  },
-  {
-    "name": "string.gmatch",
-    "namespace": "string",
-    "shortName": "gmatch",
-    "signature": "string.gmatch(string s, string pattern)",
-    "returnType": "function",
-    "parameters": [
-      "string s",
-      "string pattern"
-    ],
-    "description": "返回迭代器，遍历 s 中所有匹配 pattern 的子串",
-    "raw": "function string.gmatch(string s, string pattern)",
-    "category": "string"
-  },
-  {
-    "name": "string.gsub",
-    "namespace": "string",
-    "shortName": "gsub",
-    "signature": "string.gsub(string s, string pattern, string|function|table repl[, int n])",
-    "returnType": "string",
-    "parameters": [
-      "string s",
-      "string pattern",
-      "string|function|table repl[, int n]"
-    ],
-    "description": "替换 s 中匹配 pattern 的内容",
-    "raw": "string string.gsub(string s, string pattern, string|function|table repl[, int n])",
-    "category": "string"
-  },
-  {
-    "name": "table.insert",
-    "namespace": "table",
-    "shortName": "insert",
-    "signature": "table.insert(table list, ...)",
-    "returnType": "void",
-    "parameters": [
-      "table list",
-      "..."
-    ],
-    "description": "在 list 末尾（或指定位置）插入元素",
-    "raw": "void table.insert(table list, ...)",
-    "category": "table"
-  },
-  {
-    "name": "table.remove",
-    "namespace": "table",
-    "shortName": "remove",
-    "signature": "table.remove(table list[, int pos])",
-    "returnType": "...",
-    "parameters": [
-      "table list[, int pos]"
-    ],
-    "description": "移除并返回 list 中指定位置的元素",
-    "raw": "... table.remove(table list[, int pos])",
-    "category": "table"
-  },
-  {
-    "name": "table.sort",
-    "namespace": "table",
-    "shortName": "sort",
-    "signature": "table.sort(table list[, function comp])",
-    "returnType": "void",
-    "parameters": [
-      "table list[, function comp]"
-    ],
-    "description": "对 list 进行原地排序",
-    "raw": "void table.sort(table list[, function comp])",
-    "category": "table"
-  },
-  {
-    "name": "table.concat",
-    "namespace": "table",
-    "shortName": "concat",
-    "signature": "table.concat(table list[, string sep[, int i[, int j]]])",
-    "returnType": "string",
-    "parameters": [
-      "table list[, string sep[, int i[, int j]]]"
-    ],
-    "description": "将 list 中的元素连接为字符串",
-    "raw": "string table.concat(table list[, string sep[, int i[, int j]]])",
-    "category": "table"
-  },
-  {
-    "name": "table.maxn",
-    "namespace": "table",
-    "shortName": "maxn",
-    "signature": "table.maxn(table t)",
-    "returnType": "int",
-    "parameters": [
-      "table t"
-    ],
-    "description": "返回表中最大的正整数索引",
-    "raw": "int table.maxn(table t)",
-    "category": "table"
-  },
-  {
-    "name": "table.move",
-    "namespace": "table",
-    "shortName": "move",
-    "signature": "table.move(table a1, int f, int e, int t[, table a2])",
-    "returnType": "void",
-    "parameters": [
-      "table a1",
-      "int f",
-      "int e",
-      "int t[, table a2]"
-    ],
-    "description": "将 a1[f..e] 移动到 a2[t..] (a2默认为a1)",
-    "raw": "void table.move(table a1, int f, int e, int t[, table a2])",
-    "category": "table"
-  },
-  {
-    "name": "table.pack",
-    "namespace": "table",
-    "shortName": "pack",
-    "signature": "table.pack(...)",
-    "returnType": "table",
-    "parameters": [
-      "..."
-    ],
-    "description": "将参数打包为表",
-    "raw": "table table.pack(...)",
-    "category": "table"
-  },
-  {
-    "name": "table.unpack",
-    "namespace": "table",
-    "shortName": "unpack",
-    "signature": "table.unpack(table list[, int i[, int j]])",
-    "returnType": "...",
-    "parameters": [
-      "table list[, int i[, int j]]"
-    ],
-    "description": "展开表为多个返回值",
-    "raw": "... table.unpack(table list[, int i[, int j]])",
-    "category": "table"
   },
   {
     "name": "Card.GetPreviousOverlayCountOnField",
