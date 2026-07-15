@@ -1,5 +1,5 @@
 ###############################################
-# 最后更新时间：2025年12月8日09:34:00
+# 最后更新时间：2026年6月26日14:54
 # 使用的是 Fluorohydride 的源码版本
 # 脚本中用到的数据类型为以下几类：
 # int:		整数类型
@@ -165,13 +165,16 @@
 ●void Card.zw_equip_monster(Card c, int tp, Card tc)
 当作装备卡装备（异热同心武器）
 
+●void Card.Metallization_material(int ft, int lv, int race, int att)
+解放检查（金属化·强化反射装甲）
+
 ●int[,int] Card.GetCode(Card c)
 返回卡片 c 的当前卡号（可能因为效果改变）
 
 ●int Card.GetOriginalCode(Card c)
 返回卡片 c 的卡片记载的卡号
 
-●int[,int] Card.GetOriginalCodeRule(Card c)
+●int,int Card.GetOriginalCodeRule(Card c)
 返回卡片 c 规则上的代号（这张卡规则上当作XXX使用）
 
 ●int[,int,...] Card.GetFusionCode(Card c)
@@ -1035,7 +1038,7 @@ monsteronly==true 则表示只能对怪兽攻击
 ●bool Card.AddCounter(Card c, int countertype, int count[, bool singly=false])
 为卡片 c 放置 count 个 countertype 类型的指示物，singly==true 表示逐个添加至 count 个为止
 
-●void Card.RemoveCounter(Card c, int player, int countertype, int count, int reason)
+●bool Card.RemoveCounter(Card c, int player, int countertype, int count, int reason)
 让玩家 player 以原因 reason 移除卡片 c 上的 count 个 countertype 类型的指示物， countertype==0 则清除c的所有指示物,否则返回是否成功
 
 ●int Card.GetCounter(Card c, int countertype)
@@ -1058,6 +1061,10 @@ c:RegisterEffect(e1)
 
 ●bool Card.IsCanChangePosition(Card c)
 检查卡片 c 是否可以用效果改变表示形式
+
+●bool Card.IsCanBePlacedOnField(Card c[, int toplayer=c:GetOwner(), int tolocation=LOCATION_SZONE])
+检查卡片 c 是否可以放置到指定玩家的场上区域
+若 toplayer 不是0或1，或c处于禁止状态，或会违反唯一性限制，则返回false
 
 ●bool Card.IsCanTurnSet(Card c)
 检查卡片 c 是否可以转成里侧表示
@@ -1455,7 +1462,7 @@ cost_check == false 表示不用支付cost
 ●Group Group.Select(Group g, int player, int minc, int maxc, Card|Group ex|nil)
 让玩家 player 从卡片组 g 中选择 minc-maxc 张不等于 ex 的卡
 
-●Card Group.SelectUnselect(Group cg, Group sg, int player[, bool btok=false, bool cancelable=false, int minc=1, int maxc=1])
+●Card|nil Group.SelectUnselect(Group cg, Group sg, int player[, bool btok=false, bool cancelable=false, int minc=1, int maxc=1])
 让玩家 player 从卡片组 cg 中选择 1 张卡放入卡片组 sg ，并返回选的卡。  
 btok 表示是否可以点击完成选择的按钮， cancelable 表示是否可以取消已选择的卡， 
 minc 和 maxc 是客户端的文字缓冲提示，表示需要选择 minc-maxc 张卡，但是这个只是影响视觉效果，并不代表必须要选择那个数量
@@ -1464,7 +1471,7 @@ minc 和 maxc 是客户端的文字缓冲提示，表示需要选择 minc-maxc �
 让玩家 player 从卡片组 g 中随机选择 count 张卡
 因为是随机选择，所以参数 player 基本无用，由系统随机选取
 
-●Group Group.CancelableSelect(Group g, int player, int minc, int maxc, Card|Group ex|nil)
+●Group|nil Group.CancelableSelect(Group g, int player, int minc, int maxc, Card|Group ex|nil)
 让玩家 player 从卡片组 g 中选择 minc-maxc 张不等于 ex 的卡，可以取消并返回nil
 
 ●bool Group.IsExists(Group g, function f, int count, Card|Group ex|nil, ...)
@@ -1536,7 +1543,7 @@ end
 ●bool Group.IsContains(Group g, Card c)
 检查卡片组 g 中是否存在卡片 c
 
-●Card Group.SearchCard(Group g, function f, ...)
+●Card|nil Group.SearchCard(Group g, function f, ...)
 过滤函数，返回卡片组 g 中满足筛选条件 f 的第一张卡，若没有则返回nil，从第3个参数开始为额外参数
 
 ●int Group.GetBinClassCount(Group g, function f, ...)
@@ -1746,7 +1753,7 @@ e 表示要限制连锁的效果，ep 表示要限制连锁的玩家，tp 表示
 ●void Duel.SetChainLimitTillChainEnd(function f)
 功能同 Duel.SetChainLimit，但是此函数设定的连锁条件直到连锁结束才会解除
 
-●Effect Duel.GetChainMaterial(int player)
+●Effect|nil Duel.GetChainMaterial(int player)
 返回玩家 player 受到的连锁素材的效果，此函数仅用于融合类卡的效果
 
 ●void Duel.ConfirmDecktop(int player, int count)
@@ -1976,7 +1983,7 @@ reason 为 LOCATION_REASON_TOFIELD 或 LOCATION_REASON_CONTROL
 ##第三个第四个额外参数与凯撒斗技场等限制格子的效果有关
 第2个返回值表示 player 场上的可用的格子以外的格子的代码
 
-●int,int Duel.GetLocationCountFromEx(int player[, int reason_player=player, Group|Card targets|nil, Card|int sc, int zone=0xff])
+●int,int Duel.GetLocationCountFromEx(int player[, int reason_player=player, Group|Card targets|nil, (Card sc)|(int type), int zone=0xff])
 返回玩家 player 场上[假如因玩家 reason_player 的原因让 targets 离场后，把卡片 sc 在 zone 区域特殊召唤]可用的 能让额外卡组的怪兽 出场的空格数
 第4个参数可以传入 int 类型(参考对象： 笑容宇宙<35259350>)
 第2个返回值表示 player 场上的可用的格子以外的格子的代码
@@ -1999,7 +2006,7 @@ s_range 我方区域，o_range 对方区域
 ●int Duel.GetLinkedZone(int player)
 返回以玩家 player 来看的所有连接区域
 
-●Card Duel.GetFieldCard(int player, int location, int seq)
+●Card|nil Duel.GetFieldCard(int player, int location, int seq)
 返回玩家 player 的场上位于区域 location 序号为 seq 的卡，常用于获得场地区域·灵摆区域的卡
 注：召唤·反转召唤·特殊召唤 之际 或者 发动被无效 的卡无法获取
 
@@ -2076,7 +2083,7 @@ value 只对 phase==PHASE_BATTLE 才有用，value==1 跳过战斗阶段的结�
 ●Card Duel.GetAttacker()
 返回此次战斗攻击的卡
 
-●Card|nil Duel.GetAttackTarget()
+●Card Duel.GetAttackTarget()
 返回此次战斗被攻击的卡，如果返回nil表示是直接攻击
 
 ●Card,Card Duel.GetBattleMonster(int player)
@@ -2122,7 +2129,7 @@ s 代表以 player 来看的自己的位置，o 代表以 player 来看的对方
 s 代表以 player 来看的自己的位置，o 代表以 player 来看的对方的位置
 第6个参数开始为额外参数
 
-●Card Duel.GetFirstMatchingCard(function f|nil, int player, int s, int o, Card|Group ex|nil, ...)
+●Card|nil Duel.GetFirstMatchingCard(function f|nil, int player, int s, int o, Card|Group ex|nil, ...)
 过滤函数，返回以 player 来看的指定位置满足过滤条件 f 并且不等于 ex 的第一张卡,没有则返回nil
 s 代表以 player 来看的自己的位置，o 代表以 player 来看的对方的位置
 第6个参数开始为额外参数
@@ -2140,7 +2147,7 @@ s 代表以 player 来看的自己的位置，o 代表以 player 来看的对方
 ●Group Duel.GetReleaseGroup(int player[, bool use_hand=false, int reason = REASON_COST])
 返回玩家 player 可以 reason 原因解放（非上级召唤用）的卡片组， use_hand==true 则包括手卡
 
-●int Duel.GetReleaseGroupCount(int player[, bool use_hand=false, int reason = REASON_COST])
+●integer Duel.GetReleaseGroupCount(int player[, bool use_hand=false, int reason = REASON_COST])
 返回玩家 player 可以 reason 原因解放（非上级召唤用）的卡片数量， use_hand==true 则包括手卡
 
 ●bool Duel.CheckReleaseGroup(int player, function f|nil, int count, Card|Group ex|nil, ...)
@@ -2167,7 +2174,7 @@ s 代表以 player 来看的自己的位置，o 代表以 player 来看的对方
 此数量不一定等于 Duel.GetTributeGroup 的返回值中的卡片数量
 因为某些卡可以作为多个祭品来使用
 
-●Group Duel.CheckTribute(Card c, int minc[, int maxc=minc, Group mg|nil, int toplayer=c:GetControler(), int zone=0x1f])
+●bool Duel.CheckTribute(Card c, int minc[, int maxc=minc, Group mg|nil, int toplayer=c:GetControler(), int zone=0x1f])
 判断场上[或 mg 中]是否存在用于通常召唤卡片 c[到 toplayer 场上的区域 zone]的 minc[到 maxc]个祭品
 
 ●Group Duel.SelectTribute(int player, Card c, int minc, int maxc[, Group mg|nil, int toplayer=player])
@@ -2213,10 +2220,11 @@ not_material==true 则即使有素材原本不能作为 c 的融合素材，也�
 ●void Duel.SetSynchroMaterial(Group g)
 设置卡片组 g 为需要使用的同调素材
 
-●Group Duel.GetSynchroMaterial(int player)
+●Group Duel.GetSynchroMaterial(int player[, bool facedown=false])
 返回玩家 player 的可以作为同调素材的卡片组(一般是怪兽区的卡)
+若 facedown==true 里侧表示的卡片也纳入可作为同调素材的卡片组中(注意同调召唤手续有表侧表示检查)
 
-●Group Duel.SelectSynchroMaterial(int player, Card c, function f1|nil, function f2|nil, int minc, int maxc[, Card smat|nil, Group mg|nil])
+●Group|nil Duel.SelectSynchroMaterial(int player, Card c, function f1|nil, function f2|nil, int minc, int maxc[, Card smat|nil, Group mg|nil])
 让玩家 player 从场上[或 mg 中]选择用于同调卡片 c 需要的[必须包含卡片 smat 在内（如果有 mg~=nil 则忽略此参数）]满足条件的一组素材
 f1 是 1 只需要满足的过滤条件，f2 是 minc-maxc 只需要满足的过滤条件
 f1,f2 之中，至少有一种为调整的条件
@@ -2226,7 +2234,7 @@ f1,f2 之中，至少有一种为调整的条件
 f1 是 1 只需要满足的过滤条件，f2 是 minc-maxc 只需要满足的过滤条件
 f1,f2 之中，至少有一种为调整的条件
 
-●Group Duel.SelectTunerMaterial(int player, Card c, Card tuner, function f1|nil, function f2|nil, int minc, int maxc[, Group mg|nil])
+●Group|nil Duel.SelectTunerMaterial(int player, Card c, Card tuner, function f1|nil, function f2|nil, int minc, int maxc[, Group mg|nil])
 让玩家从场上[或 mg 中]选择用于同调召唤卡片 c 需要的满足条件的以卡片 tuner 作为调整的 minc-maxc 张卡的一组素材
 f1 是 1 只需要满足的过滤条件，f2 是 minc-maxc 只需要满足的过滤条件
 
@@ -2309,7 +2317,7 @@ chainc==0 表示当前连锁
 ●bool Duel.CheckXyzMaterial(Card c, function f|nil, int lv, int minc, int maxc, Group mg|nil)
 检查场上[或 mg 中]是否存在用于超量召唤卡片 c 的超量用等级为 lv 的 minc-maxc 个满足过滤条件 f 的叠放素材
 
-●Group Duel.SelectXyzMaterial(int player, Card c, function f|nil, int lv, int minc, int maxc[, Group mg|nil])
+●Group|nil Duel.SelectXyzMaterial(int player, Card c, function f|nil, int lv, int minc, int maxc[, Group mg|nil])
 让玩家 player 为超量怪兽 c 从场上[或 mg 中]选择超量用等级为 lv 的 minc-maxc 个满足条件f的叠放素材
 
 ●void Duel.Overlay(Card c, Card|Group ocard)
@@ -3754,105 +3762,3 @@ proc==true 则完成正规召唤程序(即解除苏生限制)
 ●void Debug.ShowHint(string msg)
 显示消息提示框，最大长度 1024 个字符（1个汉字2个字符）
 注意，只会在本地生效，在服务器端不会生效。
-
-========== math ============
-##Lua标准数学库
-
-●number math.abs(number x)
-返回 x 的绝对值
-
-●number math.ceil(number x)
-返回不小于 x 的最小整数
-
-●number math.floor(number x)
-返回不大于 x 的最大整数
-
-●number math.max(number x, ...)
-返回参数中的最大值
-
-●number math.min(number x, ...)
-返回参数中的最小值
-
-●number math.random([int m[, int n]])
-无参数时返回 [0,1) 随机数；一个参数时返回 [1,m]；两个参数时返回 [m,n]
-
-●void math.randomseed(int x)
-设置随机数种子
-
-●number math.sqrt(number x)
-返回 x 的平方根
-
-●number math.log(number x)
-返回 x 的自然对数
-
-●number math.huge
-正无穷大常量
-
-========== string ===========
-##Lua标准字符串库
-
-●string string.format(string fmt, ...)
-格式化字符串
-
-●int string.len(string s)
-返回字符串长度
-
-●string string.sub(string s, int i[, int j])
-返回子字符串 s[i..j]
-
-●string string.rep(string s, int n)
-返回字符串 s 重复 n 次的结果
-
-●string string.upper(string s)
-转大写
-
-●string string.lower(string s)
-转小写
-
-●string string.reverse(string s)
-反转字符串
-
-●int string.byte(string s[, int i[, int j]])
-返回字符的数值编码
-
-●string string.char(int ...)
-将数值编码转为字符
-
-●int,int string.find(string s, string pattern[, int init[, bool plain]])
-在 s 中查找 pattern，返回起止位置
-
-●string string.match(string s, string pattern[, int init])
-在 s 中匹配 pattern，返回捕获
-
-●function string.gmatch(string s, string pattern)
-返回迭代器，遍历 s 中所有匹配 pattern 的子串
-
-●string string.gsub(string s, string pattern, string|function|table repl[, int n])
-替换 s 中匹配 pattern 的内容
-
-========== table ============
-##Lua标准表库
-
-●void table.insert(table list, ...)
-在 list 末尾（或指定位置）插入元素
-
-●... table.remove(table list[, int pos])
-移除并返回 list 中指定位置的元素
-
-●void table.sort(table list[, function comp])
-对 list 进行原地排序
-
-●string table.concat(table list[, string sep[, int i[, int j]]])
-将 list 中的元素连接为字符串
-
-●int table.maxn(table t)
-返回表中最大的正整数索引
-
-●void table.move(table a1, int f, int e, int t[, table a2])
-将 a1[f..e] 移动到 a2[t..] (a2默认为a1)
-
-●table table.pack(...)
-将参数打包为表
-
-●... table.unpack(table list[, int i[, int j]])
-展开表为多个返回值
