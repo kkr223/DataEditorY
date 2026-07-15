@@ -40,13 +40,13 @@
   export let scaleLeftLabel = "";
   export let scaleRightLabel = "";
   export let hintsLabel = "";
-  export let onImageClick: () => void = () => {};
-  export let onImageDoubleClick: (event: MouseEvent) => void = () => {};
-  export let onImageError: (failedSrc: string) => void = () => {};
-  export let onSetcodeSelectChange: (index: number, value: string) => void = () => {};
-  export let onSetcodeHexChange: (index: number, value: string) => void = () => {};
-  export let onUpdateDraftLevel: (nextLevel: number) => void = () => {};
-  export let onUpdateDraftScale: (side: "left" | "right", nextScale: number) => void = () => {};
+  export let onImageClick: () => void;
+  export let onImageDoubleClick: (event: MouseEvent) => void;
+  export let onImageError: (failedSrc: string) => void;
+  export let onSetcodeSelectChange: (index: number, value: string) => void;
+  export let onSetcodeHexChange: (index: number, value: string) => void;
+  export let onUpdateDraftLevel: (nextLevel: number) => void;
+  export let onUpdateDraftScale: (side: "left" | "right", nextScale: number) => void;
 
   type TypeOption = { bit: number; key: string };
   type TypeSection = { rows: TypeOption[][] };

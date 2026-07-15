@@ -330,6 +330,7 @@
     "saving": "保存中...",
     "save_success": "设置已保存",
     "save_failed": "设置保存失败",
+    "load_failed": "设置加载失败，已禁止保存以避免覆盖原设置",
     "cover_title": "默认卡背",
     "cover_description": "默认卡背图片。",
     "cover_pick": "选择 cover.jpg",

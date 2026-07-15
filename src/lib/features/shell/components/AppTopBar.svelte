@@ -11,28 +11,28 @@
     isPackageBusy = false,
     isOpenHistoryVisible = false,
     recentEntries = [],
-    onOpen = async () => {},
-    onCreate = async () => {},
-    onCreateFilteredCdb = async () => {},
-    onMergeCdb = async () => {},
-    onBatchCdbEdit = () => {},
-    onLuaReplace = () => {},
+    onOpen,
+    onCreate,
+    onCreateFilteredCdb,
+    onMergeCdb,
+    onBatchCdbEdit,
+    onLuaReplace,
     extensionTools = [],
-    onOpenExtensionTool = (_id: string) => {},
-    onAssetCheck = () => {},
-    onOpenSettings = () => {},
-    onPackageZip = async () => {},
-    onPackageYpk = async () => {},
-    onToggleTheme = () => {},
-    onToggleLanguage = () => {},
-    onShowOpenHistory = () => {},
-    onHideOpenHistory = () => {},
-    onHideOpenHistoryImmediately = () => {},
-    onShowPackageMenu = () => {},
-    onHidePackageMenu = () => {},
+    onOpenExtensionTool,
+    onAssetCheck,
+    onOpenSettings,
+    onPackageZip,
+    onPackageYpk,
+    onToggleTheme,
+    onToggleLanguage,
+    onShowOpenHistory,
+    onHideOpenHistory,
+    onHideOpenHistoryImmediately,
+    onShowPackageMenu,
+    onHidePackageMenu,
     isPackageMenuVisible = false,
-    onOpenRecent = async (_path: string) => {},
-    onRemoveRecent = (_path: string) => {},
+    onOpenRecent,
+    onRemoveRecent,
   }: {
     theme?: 'dark' | 'light';
     hasActiveCdb?: boolean;
@@ -41,28 +41,28 @@
     isPackageBusy?: boolean;
     isOpenHistoryVisible?: boolean;
     recentEntries?: RecentCdbEntry[];
-    onOpen?: () => void | Promise<void>;
-    onCreate?: () => void | Promise<void>;
-    onCreateFilteredCdb?: () => void | Promise<void>;
-    onMergeCdb?: () => void | Promise<void>;
-    onBatchCdbEdit?: () => void;
-    onLuaReplace?: () => void;
+    onOpen: () => void | Promise<void>;
+    onCreate: () => void | Promise<void>;
+    onCreateFilteredCdb: () => void | Promise<void>;
+    onMergeCdb: () => void | Promise<void>;
+    onBatchCdbEdit: () => void;
+    onLuaReplace: () => void;
     extensionTools?: Array<{ id: string; label: string; disabled?: boolean }>;
-    onOpenExtensionTool?: (id: string) => void;
-    onAssetCheck?: () => void;
-    onOpenSettings?: () => void;
-    onPackageZip?: () => void | Promise<void>;
-    onPackageYpk?: () => void | Promise<void>;
-    onToggleTheme?: () => void;
-    onToggleLanguage?: () => void;
-    onShowOpenHistory?: () => void;
-    onHideOpenHistory?: () => void;
-    onHideOpenHistoryImmediately?: () => void;
-    onShowPackageMenu?: () => void;
-    onHidePackageMenu?: () => void;
+    onOpenExtensionTool: (id: string) => void;
+    onAssetCheck: () => void;
+    onOpenSettings: () => void;
+    onPackageZip: () => void | Promise<void>;
+    onPackageYpk: () => void | Promise<void>;
+    onToggleTheme: () => void;
+    onToggleLanguage: () => void;
+    onShowOpenHistory: () => void;
+    onHideOpenHistory: () => void;
+    onHideOpenHistoryImmediately: () => void;
+    onShowPackageMenu: () => void;
+    onHidePackageMenu: () => void;
     isPackageMenuVisible?: boolean;
-    onOpenRecent?: (path: string) => void | Promise<void>;
-    onRemoveRecent?: (path: string) => void;
+    onOpenRecent: (path: string) => void | Promise<void>;
+    onRemoveRecent: (path: string) => void;
   } = $props();
 
   function runToolAction(action: () => void | Promise<void>) {

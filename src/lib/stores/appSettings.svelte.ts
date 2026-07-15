@@ -46,6 +46,7 @@ type CachedModelList = {
 };
 
 type ModelCacheMap = Record<string, CachedModelList>;
+let settingsLoadPromise: Promise<AppSettingsPayload> | null = null;
 
 function isSamePatternList(left: string[], right: string[]) {
   return left.length === right.length && left.every((item, index) => item === right[index]);
@@ -242,18 +243,21 @@ async function resolveSecretKey(providedSecretKey?: string) {
   return stored?.trim() || '';
 }
 
-export async function loadAppSettings(force = false) {
-  if (appSettingsState.loading) return appSettingsState.values;
-  if (appSettingsState.loaded && !force) return appSettingsState.values;
+export function loadAppSettings(force = false) {
+  if (appSettingsState.loaded && !force) return Promise.resolve(appSettingsState.values);
+  if (settingsLoadPromise) return settingsLoadPromise;
 
   appSettingsState.loading = true;
-  try {
-    const payload = await invokeCommand<AppSettingsPayload>('load_app_settings');
-    applySettings(payload);
-    return appSettingsState.values;
-  } finally {
-    appSettingsState.loading = false;
-  }
+  settingsLoadPromise = invokeCommand<AppSettingsPayload>('load_app_settings')
+    .then((payload) => {
+      applySettings(payload);
+      return appSettingsState.values;
+    })
+    .finally(() => {
+      appSettingsState.loading = false;
+      settingsLoadPromise = null;
+    });
+  return settingsLoadPromise;
 }
 
 export async function saveAppSettings(input: {

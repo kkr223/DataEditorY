@@ -4,7 +4,8 @@
   export let saveLabel = '';
   export let savingLabel = '';
   export let saving = false;
-  export let onSave: () => void | Promise<void> = () => {};
+  export let disabled = false;
+  export let onSave: () => unknown | Promise<unknown>;
 </script>
 
 <header class="sp-header">
@@ -12,7 +13,7 @@
     <h2>{title}</h2>
     <p class="sp-subtitle">{description}</p>
   </div>
-  <button class="sp-save" type="button" onclick={onSave} disabled={saving}>
+  <button class="sp-save" type="button" onclick={onSave} disabled={saving || disabled}>
     {saving ? savingLabel : saveLabel}
   </button>
 </header>

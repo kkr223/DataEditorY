@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Component } from 'svelte';
   import { documentRuntime } from '$lib/platform/appRuntime';
+  import { loadExtensionComponents } from './loadExtensionComponents';
 
   let { context }: { context: unknown } = $props();
 
@@ -8,10 +9,9 @@
   let loaded = $state<Array<{ id: string; component: Component }>>([]);
 
   $effect(() => {
-    void Promise.all(descriptors.map(async (descriptor) => ({
-      id: descriptor.id,
-      component: (await descriptor.component() as { default: Component }).default,
-    }))).then((components) => {
+    void loadExtensionComponents(descriptors, (error) => {
+      console.error('Failed to load settings section', error);
+    }).then((components) => {
       loaded = components;
     });
   });

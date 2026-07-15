@@ -5,21 +5,19 @@
   let {
     workspaces = [],
     activeWorkspaceId = null,
-    activeTabId = null,
-    onActivateWorkspace = (_tabId: string) => {},
-    onSaveWorkspace = async (_tabId: string) => {},
-    onSaveWorkspaceAs = async (_tabId: string) => {},
-    onCloseWorkspace = async (_tabId: string) => {},
-    onOpenAnother = async () => {},
+    onActivateWorkspace,
+    onSaveWorkspace,
+    onSaveWorkspaceAs,
+    onCloseWorkspace,
+    onOpenAnother,
   }: {
     workspaces?: WorkspaceDocument[];
     activeWorkspaceId?: string | null;
-    activeTabId?: string | null;
-    onActivateWorkspace?: (tabId: string) => void;
-    onSaveWorkspace?: (tabId: string) => unknown | Promise<unknown>;
-    onSaveWorkspaceAs?: (tabId: string) => unknown | Promise<unknown>;
-    onCloseWorkspace?: (tabId: string) => void | Promise<void>;
-    onOpenAnother?: () => void | Promise<void>;
+    onActivateWorkspace: (tabId: string) => void;
+    onSaveWorkspace: (tabId: string) => unknown | Promise<unknown>;
+    onSaveWorkspaceAs: (tabId: string) => unknown | Promise<unknown>;
+    onCloseWorkspace: (tabId: string) => void | Promise<void>;
+    onOpenAnother: () => void | Promise<void>;
   } = $props();
 
   let contextMenu = $state<{

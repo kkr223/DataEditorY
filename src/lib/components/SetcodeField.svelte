@@ -7,16 +7,16 @@
     options = [],
     knownValues = new Set<string>(),
     customLabel = "Custom",
-    onSelectChange = () => {},
-    onHexChange = () => {},
+    onSelectChange,
+    onHexChange,
   }: {
     index: number;
     hexValue?: string;
     options?: SetcodeOption[];
     knownValues?: ReadonlySet<string>;
     customLabel?: string;
-    onSelectChange?: (index: number, value: string) => void;
-    onHexChange?: (index: number, value: string) => void;
+    onSelectChange: (index: number, value: string) => void;
+    onHexChange: (index: number, value: string) => void;
   } = $props();
 
   let normalizedHex = $derived(hexValue ? `0x${hexValue.padStart(4, "0").toUpperCase()}` : "");

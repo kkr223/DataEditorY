@@ -14,6 +14,7 @@
   import { isShortcutEvent } from "$lib/features/shortcuts/registry";
   import {
     CARD_LIST_PAGE_SIZE,
+    createCardImageInteractionController,
     createDraftUndoHistory,
     handleCardEditorKeydown,
     resolvePageNavigationTarget,
@@ -108,6 +109,13 @@
       return saveCdbTabAs($activeTabId, destinationPath);
     },
     t: (key, options) => $_(key, options as never),
+  });
+  const imageInteractionController = createCardImageInteractionController({
+    onPickImage: pickCardImage,
+    hasImageSrc: () => Boolean(imageSrc),
+    setPreviewOpen: (value) => {
+      isImagePreviewOpen = value;
+    },
   });
 
   const isEditingExisting = $derived(originalCardCode !== null);
@@ -395,7 +403,7 @@
     cancelScriptGeneration: () => {
       // Optional modules own their own cancellable work.
     },
-    disposeImageInteraction: () => {},
+    disposeImageInteraction: imageInteractionController.dispose,
   }));
 
   onDestroy(() => {
@@ -403,12 +411,7 @@
     teardownCardEditorOnDestroy({ handleEditorKeydown });
   });
 
-  function handleImageDoubleClick(event: MouseEvent) {
-    event.preventDefault();
-    if (imageSrc) isImagePreviewOpen = true;
-  }
-
-  async function handleImageClick() {
+  async function pickCardImage() {
     await pickCardImageFlow({
       activeCdbPath: $activeTab?.path ?? null,
       draftCard,
@@ -604,8 +607,8 @@
       scaleLeftLabel={$_("editor.scale_left")}
       scaleRightLabel={$_("editor.scale_right")}
       hintsLabel={$_("editor.hints")}
-      onImageClick={handleImageClick}
-      onImageDoubleClick={handleImageDoubleClick}
+      onImageClick={imageInteractionController.handleImageClick}
+      onImageDoubleClick={imageInteractionController.handleImageDoubleClick}
       onImageError={lifecycleController.handleImageError}
       onSetcodeSelectChange={handleSetcodeSelectChange}
       onSetcodeHexChange={handleSetcodeHexChange}

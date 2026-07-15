@@ -13,12 +13,12 @@
   export let modifyLabel = "";
   export let deleteLabel = "";
   export let extensionActions: Snippet | null = null;
-  export let onNewCard: () => void = () => {};
-  export let onResetSearch: () => void | Promise<void> = () => {};
-  export let onSearch: () => void | Promise<void> = () => {};
-  export let onSaveAs: () => void | Promise<void> = () => {};
-  export let onModify: () => void | Promise<unknown> = () => {};
-  export let onDelete: () => void | Promise<void> = () => {};
+  export let onNewCard: () => void;
+  export let onResetSearch: () => void | Promise<void>;
+  export let onSearch: () => void | Promise<void>;
+  export let onSaveAs: () => void | Promise<void>;
+  export let onModify: () => void | Promise<unknown>;
+  export let onDelete: () => void | Promise<void>;
 </script>
 
 <div class="editor-meta-row">

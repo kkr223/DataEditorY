@@ -478,7 +478,10 @@ export function createShellLayoutController() {
       applyTheme('dark');
     }
 
-    void loadAppSettings();
+    void loadAppSettings().catch((error) => {
+      console.error('Failed to load settings:', error);
+      void writeErrorLog({ source: 'shell.load-app-settings', error });
+    });
     loadRecentCdbHistory();
     const unlisteners: Array<() => void> = [];
 

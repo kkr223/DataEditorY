@@ -448,10 +448,9 @@ describe('card editor controller helpers', () => {
     expect(state.abortController).toBeNull();
   });
 
-  test('coordinates image click, preview, and drawer state', async () => {
+  test('coordinates image click and preview state', async () => {
     const imageState = {
       previewOpen: false,
-      drawerOpen: false,
       picked: 0,
     };
 
@@ -461,12 +460,8 @@ describe('card editor controller helpers', () => {
         imageState.picked += 1;
       },
       hasImageSrc: () => true,
-      hasCardImageCapability: () => true,
       setPreviewOpen: (value) => {
         imageState.previewOpen = value;
-      },
-      setDrawerOpen: (value) => {
-        imageState.drawerOpen = value;
       },
     });
 
@@ -476,18 +471,16 @@ describe('card editor controller helpers', () => {
     expect(imageState.picked).toBe(1);
     expect(controller.hasPendingClick()).toBe(false);
 
+    controller.handleImageClick();
+    controller.handleImageClick();
     controller.handleImageDoubleClick({
       preventDefault() {},
     });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(imageState.picked).toBe(1);
     expect(imageState.previewOpen).toBe(true);
 
     controller.closePreview();
     expect(imageState.previewOpen).toBe(false);
-
-    expect(controller.openDrawer()).toBe(true);
-    expect(imageState.drawerOpen).toBe(true);
-
-    controller.closeDrawer();
-    expect(imageState.drawerOpen).toBe(false);
   });
 });

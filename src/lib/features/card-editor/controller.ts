@@ -120,9 +120,7 @@ export function createCardImageInteractionController(input: {
   clickDelayMs?: number;
   onPickImage: () => void | Promise<void>;
   hasImageSrc: () => boolean;
-  hasCardImageCapability: () => boolean;
   setPreviewOpen: (value: boolean) => void;
-  setDrawerOpen: (value: boolean) => void;
 }) {
   let clickTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -159,16 +157,6 @@ export function createCardImageInteractionController(input: {
     },
     closePreview() {
       input.setPreviewOpen(false);
-    },
-    openDrawer() {
-      if (!input.hasCardImageCapability()) {
-        return false;
-      }
-      input.setDrawerOpen(true);
-      return true;
-    },
-    closeDrawer() {
-      input.setDrawerOpen(false);
     },
   };
 }
