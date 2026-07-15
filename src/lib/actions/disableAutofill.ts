@@ -23,7 +23,6 @@ function applyAutofillGuards(node: HTMLElement) {
     if (!shouldDisableAutofill(field)) continue;
 
     field.setAttribute('autocomplete', 'off');
-    field.setAttribute('autocorrect', 'off');
     field.setAttribute('autocapitalize', 'off');
     field.setAttribute('spellcheck', 'false');
     field.setAttribute('data-form-type', 'other');
