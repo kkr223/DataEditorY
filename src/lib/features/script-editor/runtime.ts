@@ -52,6 +52,28 @@ export function attachFontZoomActions(editor: MonacoEditor.IStandaloneCodeEditor
   };
 }
 
+export function attachSnippetTabNavigation(editor: MonacoEditor.IStandaloneCodeEditor, monaco: ScriptMonacoApi) {
+  const actions: MonacoEditor.IActionDescriptor[] = [
+    {
+      id: 'dataeditory.snippet.nextPlaceholder',
+      label: 'Go to Next Snippet Placeholder',
+      keybindings: [monaco.KeyCode.Tab],
+      precondition: 'inSnippetMode && hasNextTabstop',
+      run: (activeEditor) => activeEditor.trigger('dataeditory', 'jumpToNextSnippetPlaceholder', null),
+    },
+    {
+      id: 'dataeditory.snippet.previousPlaceholder',
+      label: 'Go to Previous Snippet Placeholder',
+      keybindings: [monaco.KeyMod.Shift | monaco.KeyCode.Tab],
+      precondition: 'inSnippetMode && hasPrevTabstop',
+      run: (activeEditor) => activeEditor.trigger('dataeditory', 'jumpToPrevSnippetPlaceholder', null),
+    },
+  ];
+
+  const disposables = actions.map((action) => editor.addAction(action));
+  return () => disposables.forEach((disposable) => disposable.dispose());
+}
+
 export function buildScriptEditorMonacoOptions() {
   return {
     automaticLayout: true,
@@ -106,6 +128,7 @@ export async function createScriptMonacoRuntime(input: {
   const editor = loadedMonaco.editor.create(input.host, buildScriptEditorMonacoOptions());
   const callHighlightDecorations = editor.createDecorationsCollection();
   const disposeFontZoom = attachFontZoomActions(editor, loadedMonaco);
+  const disposeSnippetTabNavigation = attachSnippetTabNavigation(editor, loadedMonaco);
   const disposables = [
     editor.onDidChangeModelContent(input.onDidChangeModelContent),
     editor.onDidChangeCursorPosition(input.onDidChangeCursorPosition),
@@ -140,6 +163,7 @@ export async function createScriptMonacoRuntime(input: {
         disposable.dispose();
       }
       disposeFontZoom();
+      disposeSnippetTabNavigation();
       themeObserver.disconnect();
       window.removeEventListener('keydown', input.onWindowKeydown);
       window.removeEventListener('keyup', input.onWindowKeyup);
