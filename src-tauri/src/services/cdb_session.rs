@@ -9,14 +9,16 @@ use tauri::AppHandle;
 use ygopro_cdb_encode_rs::YgoProCdb;
 
 use crate::{
-    models::cdb::OpenCdbTabResponse,
+    models::cdb::{CardDto, OpenCdbTabResponse},
     repository::cdb as cdb_repository,
     session::cdb::{
         app_temp_dir, basename, build_temp_path_in_dir, canonicalize_path, cleanup_temp_path,
-        ensure_parent_dir, remove_session, replace_session, update_session_path, with_session_meta,
-        CdbSessionMeta, OpenCdbSessions,
+        ensure_parent_dir, remove_session, replace_session, CdbSessionMeta, OpenCdbSessions,
     },
 };
+
+#[cfg(test)]
+use crate::session::cdb::with_session_meta;
 
 pub fn open_cdb_tab(
     app: &AppHandle,
@@ -43,29 +45,29 @@ pub fn save_cdb_tab_to(
     tab_id: String,
     destination: Option<String>,
 ) -> Result<String, String> {
+    let mut sessions = sessions
+        .0
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let session = sessions
+        .get_mut(&tab_id)
+        .ok_or_else(|| format!("Unknown cdb tab: {tab_id}"))?;
     let target = destination
-        .or_else(|| with_session_meta(sessions, &tab_id, |session| Ok(session.path.clone())).ok())
+        .or_else(|| Some(session.path.clone()))
         .filter(|path| !path.trim().is_empty())
         .ok_or_else(|| "A destination path is required for this document".to_string())?;
 
-    with_session_meta(sessions, &tab_id, |session| {
-        let target_path = Path::new(&target);
-        ensure_parent_dir(target_path)?;
-        // Lock the CDB to ensure no write transaction is in flight
-        let _cdb_guard = session
-            .cdb
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        // Write to a temporary file then rename atomically to prevent
-        // corruption if the copy is interrupted (power loss, disk full).
-        let tmp_path = target_path.with_extension("cdb.tmp");
-        fs::copy(&session.working_path, &tmp_path).map_err(|err| err.to_string())?;
-        fs::rename(&tmp_path, target_path).map_err(|err| err.to_string())?;
-        // Best-effort cleanup of stale tmp file from a previous crash
-        let _ = fs::remove_file(target_path.with_extension("cdb.tmp"));
-        Ok(())
-    })?;
-    update_session_path(sessions, &tab_id, canonicalize_path(&target))?;
+    let target_path = Path::new(&target);
+    ensure_parent_dir(target_path)?;
+    let _cdb_guard = session
+        .cdb
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let tmp_path = target_path.with_extension("cdb.tmp");
+    fs::copy(&session.working_path, &tmp_path).map_err(|err| err.to_string())?;
+    fs::rename(&tmp_path, target_path).map_err(|err| err.to_string())?;
+    let _ = fs::remove_file(target_path.with_extension("cdb.tmp"));
+    session.path = canonicalize_path(&target);
     Ok(target)
 }
 
@@ -73,11 +75,26 @@ pub fn create_unsaved_cdb_tab(
     app: &AppHandle,
     sessions: &OpenCdbSessions,
     tab_id: String,
+    initial_cards: Vec<CardDto>,
 ) -> Result<OpenCdbTabResponse, String> {
     let session_dir = app_temp_dir(app)?;
+    create_unsaved_cdb_tab_in_dir(sessions, &session_dir, tab_id, initial_cards)
+}
+
+fn create_unsaved_cdb_tab_in_dir(
+    sessions: &OpenCdbSessions,
+    session_dir: &Path,
+    tab_id: String,
+    initial_cards: Vec<CardDto>,
+) -> Result<OpenCdbTabResponse, String> {
     let temp_path = build_temp_path_in_dir(&session_dir, &tab_id)?;
     ensure_parent_dir(&temp_path)?;
-    let cdb = cdb_repository::create_cdb(&temp_path)?;
+    let mut cdb = cdb_repository::create_cdb(&temp_path)?;
+    if !initial_cards.is_empty() {
+        cdb.add_cards(&initial_cards)
+            .map_err(|err| err.to_string())?;
+    }
+    let cached_total = initial_cards.len() as u32;
     register_session(
         sessions,
         tab_id,
@@ -89,8 +106,8 @@ pub fn create_unsaved_cdb_tab(
     )?;
     Ok(OpenCdbTabResponse {
         name: "Untitled.cdb".to_string(),
-        cached_cards: Vec::new(),
-        cached_total: 0,
+        cached_cards: initial_cards.into_iter().take(50).collect(),
+        cached_total,
     })
 }
 
@@ -220,6 +237,31 @@ mod tests {
             let expected = std::fs::canonicalize(&source_path).unwrap();
             assert_eq!(Path::new(&session.path), expected.as_path());
             assert!(session.working_path.is_file());
+            Ok(())
+        })
+        .unwrap();
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn creates_unsaved_cdb_with_initial_cards() {
+        let root = make_temp_dir("create-initial");
+        let sessions = make_sessions();
+
+        let response = create_unsaved_cdb_tab_in_dir(
+            &sessions,
+            &root,
+            "tab-create".to_string(),
+            vec![sample_card(100, "Alpha")],
+        )
+        .unwrap();
+
+        assert_eq!(response.cached_total, 1);
+        assert_eq!(response.cached_cards[0].code, 100);
+        with_session_meta(&sessions, "tab-create", |session| {
+            let cards = cdb_repository::load_all_cards_from_path(&session.working_path)?;
+            assert_eq!(cards.len(), 1);
             Ok(())
         })
         .unwrap();

@@ -57,9 +57,8 @@ export {
   modifyCard,
   replaceCardId,
   modifyCardsInTab,
-  modifyCardsWithSnapshotInTab,
   modifyCards,
   deleteCard,
   deleteCards,
-  deleteCardsWithSnapshotInTab,
+  deleteCardsInTab,
 } from './cardOperations';

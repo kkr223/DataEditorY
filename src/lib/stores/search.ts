@@ -34,6 +34,8 @@ interface ResolvedSourceFilterIds {
 const SEARCH_PAGE_SIZE = 50;
 const EXACT_NAME_CHUNK_SIZE = 100;
 const cachedSearchRefreshListeners = new Set<(snapshot: CachedSearchSnapshot) => void>();
+const latestSearchRequestByTab = new Map<string, number>();
+let nextSearchRequest = 0;
 
 // Source-filter resolution caches (module-level, in-memory)
 // Key for deckTextCache:       trimmed deckText string
@@ -55,6 +57,7 @@ function boundedSet<K, V>(map: Map<K, V>, key: K, value: V): void {
 
 /** Clear the image-folder cache entries for a specific tab (call on reset / data mutation / tab close). */
 export function clearSourceFilterCacheForTab(tabId: string): void {
+  latestSearchRequestByTab.delete(tabId);
   const prefix = `${tabId}|`;
   for (const key of imageFolderCache.keys()) {
     if (key.startsWith(prefix)) {
@@ -107,6 +110,16 @@ function updateCachedSearchSnapshot(snapshot: CachedSearchSnapshot) {
   for (const listener of cachedSearchRefreshListeners) {
     listener(listenerSnapshot);
   }
+}
+
+function beginCachedSearch(tabId: string) {
+  const requestId = ++nextSearchRequest;
+  latestSearchRequestByTab.set(tabId, requestId);
+  return requestId;
+}
+
+function isLatestCachedSearch(tabId: string, requestId: number) {
+  return latestSearchRequestByTab.get(tabId) === requestId;
 }
 
 export async function searchCardsPageInTab(
@@ -218,6 +231,7 @@ export async function refreshCachedSearchForTab(tabId: string): Promise<boolean>
 
   const filters = parseCachedFiltersJson(tab.cachedFilters);
   let page = Math.max(1, tab.cachedPage || 1);
+  const requestId = beginCachedSearch(tab.id);
 
   try {
     let { cards, total } = await searchCardsPageInTab(tab.id, filters, page);
@@ -229,13 +243,15 @@ export async function refreshCachedSearchForTab(tabId: string): Promise<boolean>
       }
     }
 
-    updateCachedSearchSnapshot({
-      tabId: tab.id,
-      cards,
-      total,
-      page,
-      filters,
-    });
+    if (isLatestCachedSearch(tab.id, requestId)) {
+      updateCachedSearchSnapshot({
+        tabId: tab.id,
+        cards,
+        total,
+        page,
+        filters,
+      });
+    }
     return true;
   } catch (err) {
     if (err instanceof RuleExpressionError) {
@@ -286,17 +302,20 @@ export async function searchCardsPage(
 ): Promise<{ cards: CardDataEntry[]; total: number }> {
   const tab = get(activeTab);
   if (!tab) return { cards: [], total: 0 };
+  const requestId = beginCachedSearch(tab.id);
 
   try {
     const safePage = Math.max(1, page);
     const response = await searchCardsPageInTab(tab.id, filters, safePage, pageSize);
-    updateCachedSearchSnapshot({
-      tabId: tab.id,
-      cards: response.cards,
-      total: response.total,
-      page: safePage,
-      filters,
-    });
+    if (isLatestCachedSearch(tab.id, requestId)) {
+      updateCachedSearchSnapshot({
+        tabId: tab.id,
+        cards: response.cards,
+        total: response.total,
+        page: safePage,
+        filters,
+      });
+    }
     return response;
   } catch (err) {
     if (err instanceof RuleExpressionError) {

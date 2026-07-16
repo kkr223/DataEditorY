@@ -192,29 +192,17 @@ export async function createCdbFile(path?: string): Promise<string | null> {
 }
 
 export async function closeTab(tabId: string) {
-  const currentTabs = get(tabs);
-  const idx = currentTabs.findIndex(t => t.id === tabId);
-  if (idx === -1) return;
+  if (!get(tabs).some((tab) => tab.id === tabId)) return;
 
   try {
     await documentRuntime.close(tabId, true);
   } catch (err) {
     console.error('Failed to close CDB tab:', err);
+    return;
   }
 
-  const newTabs = currentTabs.filter(t => t.id !== tabId);
-  tabs.set(newTabs);
   clearUndoHistory(tabId);
   clearSourceFilterCacheForTab(tabId);
-
-  if (get(activeTabId) === tabId) {
-    if (newTabs.length > 0) {
-      const newIdx = Math.min(idx, newTabs.length - 1);
-      activeTabId.set(newTabs[newIdx].id);
-    } else {
-      activeTabId.set(null);
-    }
-  }
 }
 
 export async function saveCdbFile(): Promise<boolean> {

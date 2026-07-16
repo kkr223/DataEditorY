@@ -16,6 +16,7 @@ let _allCardsMap = $state.raw<Map<number, CardDataEntry>>(new Map());
 let _allCardsIndexMap = $state.raw<Map<number, number>>(new Map());
 let _visibleCardIdSet = $state.raw<Set<number>>(new Set());
 let _totalCards = $state(0);
+let searchRequestRevision = 0;
 
 function rebuildCardIndexes(cards: CardDataEntry[]) {
   const cardMap = new Map<number, CardDataEntry>();
@@ -218,6 +219,7 @@ export function selectCardRange(cardId: number, preserveExisting = false) {
 }
 
 export async function handleSearch(preserveSelection = false, resetPage = false) {
+  const requestRevision = ++searchRequestRevision;
   const prevSelectedId = editorState.selectedId;
   const prevSelectedIds = [...editorState.selectedIds];
   const prevAnchorId = editorState.selectionAnchorId;
@@ -229,13 +231,17 @@ export async function handleSearch(preserveSelection = false, resetPage = false)
   if (resetPage) {
     editorState.currentPage = 1;
   }
+  const filters = { ...editorState.searchFilters };
+  const page = editorState.currentPage;
 
   let cards: CardDataEntry[];
   let total: number;
   try {
-    ({ cards, total } = await searchCardsPage(editorState.searchFilters, editorState.currentPage));
+    ({ cards, total } = await searchCardsPage(filters, page));
+    if (requestRevision !== searchRequestRevision || get(activeTabId) !== currentTabId) return false;
     clearSearchError();
   } catch (err) {
+    if (requestRevision !== searchRequestRevision || get(activeTabId) !== currentTabId) return false;
     editorState.currentPage = prevPage;
 
     if (err instanceof RuleExpressionError) {
@@ -248,9 +254,6 @@ export async function handleSearch(preserveSelection = false, resetPage = false)
     console.error('Failed to update search results:', err);
     return false;
   }
-
-  // If the active tab changed while the search was in flight, discard the results.
-  if (get(activeTabId) !== currentTabId) return false;
 
   setAllCards(cards);
   _totalCards = total;

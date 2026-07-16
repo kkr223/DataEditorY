@@ -226,7 +226,9 @@ fn numeric_column(field: &NumericField) -> &'static str {
         NumericField::Attribute => "datas.attribute",
         NumericField::Race => "datas.race",
         NumericField::Type => "datas.type",
-        NumericField::LinkMarker => "datas.def",
+        NumericField::LinkMarker => {
+            "(CASE WHEN (datas.type & 67108864) = 67108864 THEN datas.def END)"
+        }
     }
 }
 
@@ -235,7 +237,9 @@ fn mask_column(field: &MaskField) -> &'static str {
         MaskField::Attribute => "datas.attribute",
         MaskField::Race => "datas.race",
         MaskField::Type => "datas.type",
-        MaskField::LinkMarker => "datas.def",
+        MaskField::LinkMarker => {
+            "(CASE WHEN (datas.type & 67108864) = 67108864 THEN datas.def END)"
+        }
     }
 }
 
@@ -290,5 +294,17 @@ mod tests {
         assert_eq!(compiled.params.get("q0"), Some(&json!("%A/%/_//B%")));
         assert_eq!(compiled.params.get("q1"), Some(&json!(1)));
         assert_eq!(compiled.params.get("q2"), Some(&json!(2)));
+    }
+
+    #[test]
+    fn link_markers_only_read_defense_from_link_monsters() {
+        let compiled = compile_search(&CardSearchExpression::MaskContains {
+            field: MaskField::LinkMarker,
+            value: 64,
+        })
+        .expect("link marker filter should compile");
+
+        assert!(compiled.clause.contains("datas.type & 67108864"));
+        assert!(compiled.clause.contains("THEN datas.def"));
     }
 }
