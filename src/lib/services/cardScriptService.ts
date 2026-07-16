@@ -6,10 +6,16 @@ import {
   readCardScriptDocument,
   saveCardScriptDocument,
 } from '$lib/native/scriptApi';
-import { openOrCreateScriptTab } from '$lib/stores/scriptEditor.svelte';
+import { getOpenScriptTab, openOrCreateScriptTab, saveScriptTab } from '$lib/stores/scriptEditor.svelte';
 import { buildTemplateContent } from '$lib/features/script-editor/template';
 
-export async function getExistingCardScriptInfo(cdbPath: string, cardCode: number) {
+export async function getExistingCardScriptInfo(
+  cdbPath: string,
+  cardCode: number,
+  sourceTabId?: string | null,
+) {
+  const openTab = getOpenScriptTab(cdbPath, cardCode, sourceTabId);
+  if (openTab) return { path: openTab.scriptPath, exists: true };
   return getCardScriptInfo(cdbPath, cardCode);
 }
 
@@ -30,9 +36,21 @@ export async function openCardScriptWorkspace(input: {
 
 export async function ensureCardScriptFile(input: {
   cdbPath: string;
+  sourceTabId?: string | null;
   cardCode: number;
   cardName: string;
 }) {
+  const openTab = getOpenScriptTab(input.cdbPath, input.cardCode, input.sourceTabId);
+  if (openTab) {
+    if (!(await saveScriptTab(openTab.id))) {
+      throw new Error(`Failed to save open script ${openTab.scriptPath}`);
+    }
+    return {
+      path: openTab.scriptPath,
+      createdFromTemplate: false,
+    };
+  }
+
   const loaded = await readCardScriptDocument(input.cdbPath, input.cardCode);
   if (loaded.exists) {
     return {

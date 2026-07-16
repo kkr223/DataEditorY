@@ -5,6 +5,7 @@ import {
   saveWorkspaceMetadata,
   type WorkspaceMetadata,
 } from '$lib/native/metadataApi';
+import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 
 const METADATA_SAVE_DELAY_MS = 700;
 
@@ -13,6 +14,11 @@ export const workspaceMetadataState = $state({
   metadata: null as WorkspaceMetadata | null,
   ready: false,
 });
+
+const isCurrentMetadataPath = (path: string) => (
+  workspaceMetadataState.ready
+  && getCdbPathIdentity(workspaceMetadataState.cdbPath) === getCdbPathIdentity(path)
+);
 
 export type WorkspaceAiMessage = {
   id: string;
@@ -67,6 +73,7 @@ export type WorkspaceAiPatch =
       kind: 'script';
       documentId: string;
       cdbPath: string;
+      cardCode?: number;
       path: string;
       content: string;
     }
@@ -330,8 +337,8 @@ export function setScriptSurfaceState(input: WorkspaceScriptSurfaceState) {
   }));
 }
 
-export function getCardImageDocument(cardCode: number) {
-  const image = workspaceMetadataState.metadata?.image;
+function readCardImageDocument(metadata: WorkspaceMetadata | null, cardCode: number) {
+  const image = metadata?.image;
   const perCard = image && typeof image === 'object'
     ? (image.perCard as Record<string, unknown> | undefined)
     : undefined;
@@ -341,25 +348,59 @@ export function getCardImageDocument(cardCode: number) {
     : null;
 }
 
-export function setCardImageDocument(cardCode: number, document: CardImageConfigDocument) {
-  updateWorkspaceMetadata((metadata) => {
-    const image = metadata.image && typeof metadata.image === 'object'
-      ? metadata.image
-      : {};
-    const perCard = image.perCard && typeof image.perCard === 'object'
-      ? image.perCard as Record<string, unknown>
-      : {};
-    return {
-      ...metadata,
-      image: {
-        ...image,
-        perCard: {
-          ...perCard,
-          [String(cardCode)]: document,
-        },
+export function getCardImageDocument(cardCode: number) {
+  return readCardImageDocument(workspaceMetadataState.metadata, cardCode);
+}
+
+export async function getCardImageDocumentForPath(cdbPath: string, cardCode: number) {
+  const path = cdbPath.trim();
+  if (!path) return null;
+  if (isCurrentMetadataPath(path)) {
+    return getCardImageDocument(cardCode);
+  }
+  return readCardImageDocument(await loadWorkspaceMetadata(path), cardCode);
+}
+
+function setCardImageDocumentInMetadata(
+  metadata: WorkspaceMetadata,
+  cardCode: number,
+  document: CardImageConfigDocument,
+) {
+  const image = metadata.image && typeof metadata.image === 'object'
+    ? metadata.image
+    : {};
+  const perCard = image.perCard && typeof image.perCard === 'object'
+    ? image.perCard as Record<string, unknown>
+    : {};
+  return {
+    ...metadata,
+    image: {
+      ...image,
+      perCard: {
+        ...perCard,
+        [String(cardCode)]: document,
       },
-    };
-  });
+    },
+  };
+}
+
+export function setCardImageDocument(cardCode: number, document: CardImageConfigDocument) {
+  updateWorkspaceMetadata((metadata) => setCardImageDocumentInMetadata(metadata, cardCode, document));
+}
+
+export async function setCardImageDocumentForPath(
+  cdbPath: string,
+  cardCode: number,
+  document: CardImageConfigDocument,
+) {
+  const path = cdbPath.trim();
+  if (!path) return;
+  if (isCurrentMetadataPath(path)) {
+    setCardImageDocument(cardCode, document);
+    return;
+  }
+  const metadata = await loadWorkspaceMetadata(path);
+  await saveWorkspaceMetadata(path, setCardImageDocumentInMetadata(metadata, cardCode, document));
 }
 
 function createId(prefix: string) {

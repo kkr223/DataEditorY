@@ -7,7 +7,11 @@ import { getCardScriptInfo } from '$lib/native/scriptApi';
 import { loadSecretKey } from '$lib/native/settingsApi';
 import { documentRuntime } from '$lib/platform/appRuntime';
 import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
-import { getCardImageDocument } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+import {
+  getCardImageDocumentForPath,
+} from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+import { getOpenScriptTab } from '$lib/stores/scriptEditor.svelte';
+import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 
@@ -52,10 +56,17 @@ export function createAiAppContext(): AiAppContext {
     },
     async readCardScript(code: number, dbPath?: string) {
       const target = this.listOpenDatabases().find((database) => (
-        dbPath ? database.path === dbPath : database.isActive
+        dbPath
+          ? getCdbPathIdentity(database.path) === getCdbPathIdentity(dbPath)
+          : database.isActive
       ));
       if (!target) {
         return { exists: false, path: null, content: null };
+      }
+
+      const openTab = getOpenScriptTab(target.path, code, target.id);
+      if (openTab) {
+        return { exists: true, path: openTab.scriptPath, content: openTab.content };
       }
 
       const info = await getCardScriptInfo(target.path, code);
@@ -66,14 +77,15 @@ export function createAiAppContext(): AiAppContext {
       const content = await readTextFile(info.path);
       return { exists: true, path: info.path, content };
     },
-    readImageConfig(code: number) {
-      return getCardImageDocument(code);
+    async readImageConfig(code: number, dbPath?: string) {
+      const target = this.listOpenDatabases().find((database) => (
+        dbPath
+          ? getCdbPathIdentity(database.path) === getCdbPathIdentity(dbPath)
+          : database.isActive
+      ));
+      return target ? getCardImageDocumentForPath(target.path, code) : null;
     },
     async resolveScriptPath(dbPath: string, fileName: string) {
-      await loadAppSettings();
-      if (appSettingsState.values.scriptDirectory.trim()) {
-        return tauriBridge.join(appSettingsState.values.scriptDirectory.trim(), fileName);
-      }
       const cdbDir = await tauriBridge.dirname(dbPath);
       const scriptDir = await tauriBridge.join(cdbDir, 'script');
       return tauriBridge.join(scriptDir, fileName);

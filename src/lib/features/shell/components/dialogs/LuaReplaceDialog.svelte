@@ -10,6 +10,8 @@
   } from '$lib/native/scriptApi';
   import { startTask } from '$lib/native/taskApi';
   import { appendWorkspaceTaskHistory } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+  import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+  import { getScriptTabsForCdb, reloadScriptTab } from '$lib/stores/scriptEditor.svelte';
 
   let {
     open = false,
@@ -62,6 +64,7 @@
   async function runApply() {
     const request = buildRequest();
     if (!request || !preview) return;
+    const previewFiles = preview.files;
     const confirmed = await tauriBridge.ask(
       $_('lua_replace.confirm_message', {
         values: {
@@ -73,9 +76,23 @@
     );
     if (!confirmed) return;
 
+    const dbTab = get(activeTab);
+    if (!dbTab) return;
+    const openAffectedTabs = getScriptTabsForCdb({ tabId: dbTab.id, path: dbTab.path })
+      .filter((tab) => previewFiles.some((file) => (
+        getCdbPathIdentity(file.path) === getCdbPathIdentity(tab.scriptPath)
+      )));
+    if (openAffectedTabs.some((tab) => tab.isDirty)) {
+      showToast($_('lua_replace.open_dirty_script'), 'error');
+      return;
+    }
+
     isRunning = true;
     try {
       const result = await startTask({ kind: 'lua.replace.apply', request }) as LuaReplacePreview;
+      for (const tab of openAffectedTabs) {
+        await reloadScriptTab(tab.id);
+      }
       showToast($_('lua_replace.apply_success', {
         values: {
           files: String(result.fileCount),

@@ -10,6 +10,7 @@ import type {
   WorkspaceAiToolRun,
 } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
 import { resolveResourceFile } from '$lib/native/assetApi';
+import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 
 type AiRole = 'system' | 'user' | 'assistant' | 'tool';
 
@@ -67,7 +68,7 @@ export type AiAppContext = {
     path: string | null;
     content: string | null;
   }>;
-  readImageConfig: (code: number, dbPath?: string) => unknown;
+  readImageConfig: (code: number, dbPath?: string) => unknown | Promise<unknown>;
   resolveScriptPath: (dbPath: string, fileName: string) => Promise<string>;
   resolveScriptTestPath: (dbPath: string, code: number) => Promise<string>;
 };
@@ -289,7 +290,7 @@ const TOOL_DEFINITIONS: Record<AiToolName, AiToolDefinition> = {
     type: 'function',
     function: {
       name: 'read_card_script',
-      description: 'Read the Lua script file for a card from the configured script directory. Returns exists (bool), path, and content. Always call this before generating or modifying a script to avoid overwriting existing work.',
+      description: 'Read the Lua script file for a card from the CDB sibling script directory. Returns exists (bool), path, and content. Always call this before generating or modifying a script to avoid overwriting existing work.',
       parameters: {
         type: 'object',
         properties: {
@@ -633,7 +634,8 @@ function chooseSkills(input: string, skills: AiSkill[]) {
 function getActiveDb(context: AiAppContext, dbPath?: string) {
   const tabs = context.listOpenDatabases();
   if (dbPath) {
-    return tabs.find((tab) => tab.path === dbPath) ?? null;
+    const identity = getCdbPathIdentity(dbPath);
+    return tabs.find((tab) => getCdbPathIdentity(tab.path) === identity) ?? null;
   }
   return tabs.find((tab) => tab.id === context.getActiveDatabaseId()) ?? tabs[0] ?? null;
 }
@@ -748,7 +750,9 @@ async function runTool(input: {
     const pageNumber = Math.max(1, Math.round(Number(args.page ?? 1)));
     const limit = Math.max(1, Math.min(50, Math.round(Number(args.limit ?? 10))));
     const tabs = typeof args.dbPath === 'string'
-      ? context.listOpenDatabases().filter((tab) => tab.path === args.dbPath)
+      ? context.listOpenDatabases().filter((tab) => (
+        getCdbPathIdentity(tab.path) === getCdbPathIdentity(String(args.dbPath))
+      ))
       : context.listOpenDatabases();
     const results = [];
     for (const tab of tabs) {
@@ -866,11 +870,13 @@ async function runTool(input: {
     const fileName = String(args.fileName ?? '').trim().replace(/\\/g, '/').split('/').pop() ?? '';
     const content = String(args.content ?? '');
     if (!tab || !fileName.endsWith('.lua') || !content.trim()) throw new Error('opened database, lua fileName, and content are required');
+    const cardCodeMatch = /^c(\d+)\.lua$/i.exec(fileName);
     const patch: WorkspaceAiPatch = {
       id: createId('ai-patch'),
       kind: 'script',
       documentId: tab.id,
       cdbPath: tab.path,
+      cardCode: cardCodeMatch ? Number(cardCodeMatch[1]) : undefined,
       path: await context.resolveScriptPath(tab.path, fileName),
       content,
     };

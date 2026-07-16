@@ -10,7 +10,7 @@
   import { activeScriptTab } from '$lib/stores/scriptEditor.svelte';
   import { activateEditorView, activateScriptView } from '$lib/stores/appShell.svelte';
   import { documentRuntime } from '$lib/platform/appRuntime';
-  import { isSameCdbPath } from '$lib/domain/script/tabIdentity';
+  import { isScriptTabOwnedByCdb } from '$lib/domain/script/tabIdentity';
 
   type SurfaceEntry = {
     id: CardSurfaceId;
@@ -43,7 +43,7 @@
   const hasCurrentCdbScriptTab = $derived(Boolean(
     $activeTab
       && $activeScriptTab
-      && isSameCdbPath($activeScriptTab.cdbPath, $activeTab.path),
+      && isScriptTabOwnedByCdb($activeScriptTab, { tabId: $activeTab.id, path: $activeTab.path }),
   ));
 
   function selectSurface(surface: CardSurfaceId) {

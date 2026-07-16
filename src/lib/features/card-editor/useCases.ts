@@ -201,7 +201,7 @@ export async function openCardScriptFlow(input: {
   if (!code) return;
 
   try {
-    const existingInfo = await getExistingCardScriptInfo(input.activeCdbPath, code);
+    const existingInfo = await getExistingCardScriptInfo(input.activeCdbPath, code, input.activeTabId);
 
     if (!existingInfo.exists) {
       const shouldCreate = await tauriBridge.ask(
@@ -220,6 +220,7 @@ export async function openCardScriptFlow(input: {
     if (appSettingsState.values.useExternalScriptEditor) {
       const ensured = await ensureCardScriptFile({
         cdbPath: input.activeCdbPath,
+        sourceTabId: input.activeTabId,
         cardCode: code,
         cardName: input.draftCard.name ?? '',
       });

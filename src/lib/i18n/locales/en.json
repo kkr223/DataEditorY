@@ -207,6 +207,7 @@
     "case_sensitive": "Case sensitive",
     "preview": "Preview",
     "apply": "Apply replace",
+    "open_dirty_script": "A matched script has unsaved changes; save or close it before replacing",
     "preview_summary": "{matches} matches in {files} files",
     "confirm_message": "Replace {matches} matches in {files} files?",
     "apply_success": "Lua replace completed: {matches} matches in {files} files"
@@ -527,6 +528,7 @@
     "card_image_config_import_failed": "Failed to import the card image config",
     "card_image_config_export_success": "Card image config exported",
     "card_image_config_export_failed": "Failed to export the card image config",
+    "card_image_config_export_conflict": "The target config file has unsaved editor changes; save or close it first",
     "card_image_foreground_button": "Edit Foreground",
     "card_image_foreground_title": "Foreground Editor",
     "card_image_foreground_description": "Upload and adjust a foreground layer.",

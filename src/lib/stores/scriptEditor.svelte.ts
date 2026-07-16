@@ -15,6 +15,7 @@ import {
   normalizeScriptContent,
 } from '$lib/domain/script/workspace';
 import {
+  findScriptTabByCard,
   getScriptTabKey,
   isSameCdbPath,
   isScriptTabOwnedByCdb,
@@ -69,10 +70,12 @@ documentRuntime.subscribe((snapshot) => {
   }));
 });
 
-const getScriptTabByKey = (cdbPath: string, cardCode: number) => {
-  const key = getScriptTabKey(cdbPath, cardCode);
-  return get(scriptTabs)
-    .find((tab) => getScriptTabKey(tab.cdbPath, tab.cardCode) === key) ?? null;
+export const getOpenScriptTab = (
+  cdbPath: string,
+  cardCode: number,
+  sourceTabId?: string | null,
+) => {
+  return findScriptTabByCard(get(scriptTabs), cdbPath, cardCode, sourceTabId);
 };
 
 const buildReferences = (input: {
@@ -145,7 +148,7 @@ export const openOrCreateScriptTab = async (input: {
   const inflight = inflightOpenRequests.get(key);
   if (inflight) return inflight;
 
-  const existing = getScriptTabByKey(input.cdbPath, input.cardCode);
+  const existing = getOpenScriptTab(input.cdbPath, input.cardCode, input.sourceTabId);
   if (existing) {
     activateScriptTab(existing.id);
     return { tabId: existing.id, createdFromTemplate: false };
@@ -224,7 +227,7 @@ export const openExistingScriptTab = async (input: {
   cardName: string;
   activate?: boolean;
 }): Promise<string | null> => {
-  const existing = getScriptTabByKey(input.cdbPath, input.cardCode);
+  const existing = getOpenScriptTab(input.cdbPath, input.cardCode, input.sourceTabId);
   if (existing) {
     if (input.activate) activateScriptTab(existing.id);
     return existing.id;

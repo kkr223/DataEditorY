@@ -13,10 +13,7 @@
     scriptTabs,
     setScriptTabViewState,
   } from '$lib/stores/scriptEditor.svelte';
-  import {
-    getExistingCardScriptInfo,
-    openCardScriptWorkspace,
-  } from '$lib/services/cardScriptService';
+  import { openCardScriptWorkspace } from '$lib/services/cardScriptService';
   import {
     getScriptSurfaceState,
     setScriptSurfaceState,
@@ -25,6 +22,7 @@
   import {
     getScriptTabKey,
     isSameCdbPath,
+    isScriptTabOwnedByCdb,
   } from '$lib/domain/script/tabIdentity';
   import { getWorkspaceDocument } from '$lib/core/workspace/store.svelte';
   import { confirmWorkspaceClose } from '$lib/application/workspace/lifecycle';
@@ -43,13 +41,13 @@
   const activeCdb = $derived($activeTab);
   const currentCdbScriptTabs = $derived.by(() => (
     activeCdb
-      ? $scriptTabs.filter((tab) => isSameCdbPath(tab.cdbPath, activeCdb.path))
+      ? $scriptTabs.filter((tab) => isScriptTabOwnedByCdb(tab, { tabId: activeCdb.id, path: activeCdb.path }))
       : []
   ));
   const surfaceScriptTab = $derived.by(() => {
     const tab = $activeScriptTab;
     if (!tab || !activeCdb) return null;
-    return isSameCdbPath(tab.cdbPath, activeCdb.path) ? tab : null;
+    return isScriptTabOwnedByCdb(tab, { tabId: activeCdb.id, path: activeCdb.path }) ? tab : null;
   });
 
   onDestroy(() => {
@@ -121,10 +119,12 @@
         if (sequence !== restorationSequence || !isSameCdbPath(activeCdb?.path ?? '', path)) return;
         const currentActive = $activeScriptTab;
         const alreadyActive = currentActive
-          && isSameCdbPath(currentActive.cdbPath, path)
+          && isScriptTabOwnedByCdb(currentActive, { tabId: sourceTabId, path })
           && currentCdbScriptTabs.some((tab) => tab.id === currentActive.id);
         if (!alreadyActive && activeCode) {
-          const active = $scriptTabs.find((tab) => isSameCdbPath(tab.cdbPath, path) && tab.cardCode === activeCode);
+          const active = $scriptTabs.find((tab) => (
+            isScriptTabOwnedByCdb(tab, { tabId: sourceTabId, path }) && tab.cardCode === activeCode
+          ));
           if (active) activateScriptTab(active.id);
         }
       } catch (error) {
@@ -151,23 +151,27 @@
     const sequence = ++resolveSequence;
     isOpening = true;
     isMissingScript = false;
-    if ($activeScriptTab && isSameCdbPath($activeScriptTab.cdbPath, path) && $activeScriptTab.cardCode !== cardCode) {
+    if (
+      $activeScriptTab
+      && isScriptTabOwnedByCdb($activeScriptTab, { tabId: sourceTabId, path })
+      && $activeScriptTab.cardCode !== cardCode
+    ) {
       activeScriptTabId.set(null);
     }
-    void getExistingCardScriptInfo(path, cardCode)
-      .then(async (info) => {
+    void openExistingScriptTab({
+      cdbPath: path,
+      sourceTabId,
+      cardCode,
+      cardName,
+      activate: false,
+    })
+      .then((tabId) => {
         if (sequence !== resolveSequence || getScriptTabKey(activeCdb?.path ?? '', selectedCard?.code ?? 0) !== cardKey) return;
-        if (!info.exists) {
+        if (!tabId) {
           isMissingScript = true;
           return;
         }
-        await openExistingScriptTab({
-          cdbPath: path,
-          sourceTabId,
-          cardCode,
-          cardName,
-          activate: true,
-        });
+        activateScriptTab(tabId);
       })
       .catch((error) => {
         if (sequence !== resolveSequence) return;
@@ -184,19 +188,21 @@
 
   $effect(() => {
     const path = activeCdb?.path ?? '';
-    if (!path || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restoredPath !== path) {
+    const sourceTabId = activeCdb?.id ?? null;
+    if (!path || !sourceTabId || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restoredPath !== path) {
       return;
     }
 
     const openTabs = $scriptTabs
-      .filter((tab) => isSameCdbPath(tab.cdbPath, path))
+      .filter((tab) => isScriptTabOwnedByCdb(tab, { tabId: sourceTabId, path }))
       .map((tab) => ({
         cardCode: tab.cardCode,
         cardName: tab.cardName,
         scriptPath: tab.scriptPath,
         viewState: tab.viewState,
       }));
-    const activeCardCode = $activeScriptTab && isSameCdbPath($activeScriptTab.cdbPath, path)
+    const activeCardCode = $activeScriptTab
+      && isScriptTabOwnedByCdb($activeScriptTab, { tabId: sourceTabId, path })
       ? $activeScriptTab.cardCode
       : null;
     const nextKey = JSON.stringify({ openTabs, activeCardCode });
