@@ -69,22 +69,6 @@ pub fn save_workspace_metadata(cdb_path: String, metadata: Value) -> Result<Valu
     Ok(next)
 }
 
-pub fn backup_workspace_metadata(cdb_path: String) -> Result<Option<String>, String> {
-    let path = workspace_metadata_path(&cdb_path)?;
-    if !path.exists() {
-        return Ok(None);
-    }
-
-    let timestamp = Utc::now().format("%Y%m%d%H%M%S");
-    let file_name = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .ok_or_else(|| "Workspace metadata path has no valid file name".to_string())?;
-    let backup_path = path.with_file_name(format!("{file_name}.{timestamp}.bak"));
-    fs::copy(&path, &backup_path).map_err(|err| err.to_string())?;
-    Ok(Some(backup_path.to_string_lossy().to_string()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

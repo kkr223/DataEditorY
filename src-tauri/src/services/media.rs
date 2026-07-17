@@ -394,69 +394,27 @@ pub fn import_card_image(
     writer.flush().map_err(|err| err.to_string())
 }
 
-fn strings_dir_candidates(app: &AppHandle) -> Vec<PathBuf> {
+fn strings_resource_candidates(app: &AppHandle, name: &str) -> Vec<PathBuf> {
     let mut candidates: Vec<PathBuf> = Vec::new();
 
     if let Ok(resource_dir) = app.path().resource_dir() {
-        candidates.push(resource_dir.join("resources").join(STRINGS_DIR_NAME));
-        candidates.push(resource_dir.join(STRINGS_DIR_NAME));
+        candidates.push(resource_dir.join("resources").join(name));
+        candidates.push(resource_dir.join(name));
     }
 
     if let Ok(current_dir) = std::env::current_dir() {
-        candidates.push(current_dir.join(STRINGS_DIR_NAME));
-        candidates.push(current_dir.join("static").join(STRINGS_DIR_NAME));
-        candidates.push(
-            current_dir
-                .join("static")
-                .join("resources")
-                .join(STRINGS_DIR_NAME),
-        );
+        candidates.push(current_dir.join(name));
+        candidates.push(current_dir.join("static").join(name));
+        candidates.push(current_dir.join("static").join("resources").join(name));
     }
 
     if let Ok(current_exe) = std::env::current_exe() {
         if let Some(exe_dir) = current_exe.parent() {
-            candidates.push(exe_dir.join(STRINGS_DIR_NAME));
-            candidates.push(exe_dir.join("resources").join(STRINGS_DIR_NAME));
+            candidates.push(exe_dir.join(name));
+            candidates.push(exe_dir.join("resources").join(name));
             if let Some(parent) = exe_dir.parent() {
-                candidates.push(parent.join(STRINGS_DIR_NAME));
-                candidates.push(parent.join("resources").join(STRINGS_DIR_NAME));
-            }
-        }
-    }
-
-    dedupe_candidate_paths(candidates)
-}
-
-fn legacy_strings_file_candidates(app: &AppHandle) -> Vec<PathBuf> {
-    let mut candidates: Vec<PathBuf> = Vec::new();
-
-    if let Ok(resource_dir) = app.path().resource_dir() {
-        candidates.push(
-            resource_dir
-                .join("resources")
-                .join(LEGACY_STRINGS_FILE_NAME),
-        );
-        candidates.push(resource_dir.join(LEGACY_STRINGS_FILE_NAME));
-    }
-
-    if let Ok(current_dir) = std::env::current_dir() {
-        candidates.push(current_dir.join(LEGACY_STRINGS_FILE_NAME));
-        candidates.push(current_dir.join("static").join(LEGACY_STRINGS_FILE_NAME));
-        candidates.push(
-            current_dir
-                .join("static")
-                .join("resources")
-                .join(LEGACY_STRINGS_FILE_NAME),
-        );
-    }
-
-    if let Ok(current_exe) = std::env::current_exe() {
-        if let Some(exe_dir) = current_exe.parent() {
-            candidates.push(exe_dir.join(LEGACY_STRINGS_FILE_NAME));
-            candidates.push(exe_dir.join("resources").join(LEGACY_STRINGS_FILE_NAME));
-            if let Some(parent) = exe_dir.parent() {
-                candidates.push(parent.join(LEGACY_STRINGS_FILE_NAME));
-                candidates.push(parent.join("resources").join(LEGACY_STRINGS_FILE_NAME));
+                candidates.push(parent.join(name));
+                candidates.push(parent.join("resources").join(name));
             }
         }
     }
@@ -551,7 +509,7 @@ fn read_strings_directory(dir: &Path) -> Result<Vec<String>, String> {
 pub fn load_strings_conf(app: &AppHandle) -> Result<String, String> {
     let mut aggregated = Vec::new();
 
-    for dir in strings_dir_candidates(app) {
+    for dir in strings_resource_candidates(app, STRINGS_DIR_NAME) {
         if !dir.exists() {
             continue;
         }
@@ -565,7 +523,7 @@ pub fn load_strings_conf(app: &AppHandle) -> Result<String, String> {
         return Ok(aggregated.join("\n"));
     }
 
-    for path in legacy_strings_file_candidates(app) {
+    for path in strings_resource_candidates(app, LEGACY_STRINGS_FILE_NAME) {
         if path.exists() {
             return read_strings_text_file(&path);
         }

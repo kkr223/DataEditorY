@@ -13,8 +13,6 @@ The build system uses compile-time module switching:
 - `extra.ts` — extends base with: `card-image`
 - `active.ts` — re-exports from either `base.ts` or `extra.ts` (rewritten at build time by `scripts/run-variant-build.mjs`)
 
-The `__APP_MODULE_IDS__` compile-time constant (injected by Vite) lists active module IDs for runtime feature-gating.
-
 ### Module Dependency Graph
 
 ```

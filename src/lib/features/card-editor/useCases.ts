@@ -7,7 +7,7 @@ import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { cloneEditableCard } from '$lib/domain/card/draft';
 import { createCardSnapshot, toPersistableDraftCard } from '$lib/domain/card/draft';
-import { validateCardDraft } from '$lib/domain/card/validation';
+import { getValidCardCode, validateCardDraft } from '$lib/domain/card/validation';
 import {
   ensureCardScriptFile,
   getExistingCardScriptInfo,
@@ -22,8 +22,8 @@ export function getValidatedCardCode(
   draftCard: CardDataEntry,
   t: Translate,
 ) {
-  const code = Number(draftCard.code ?? 0);
-  if (validateCardDraft(draftCard).some((issue) => issue.code === 'invalid-code')) {
+  const code = getValidCardCode(draftCard);
+  if (code === null) {
     showToast(t('editor.code_required'), 'error');
     return null;
   }
@@ -201,7 +201,7 @@ export async function openCardScriptFlow(input: {
   if (!code) return;
 
   try {
-    const existingInfo = await getExistingCardScriptInfo(input.activeCdbPath, code);
+    const existingInfo = await getExistingCardScriptInfo(input.activeCdbPath, code, input.activeTabId);
 
     if (!existingInfo.exists) {
       const shouldCreate = await tauriBridge.ask(
@@ -220,6 +220,7 @@ export async function openCardScriptFlow(input: {
     if (appSettingsState.values.useExternalScriptEditor) {
       const ensured = await ensureCardScriptFile({
         cdbPath: input.activeCdbPath,
+        sourceTabId: input.activeTabId,
         cardCode: code,
         cardName: input.draftCard.name ?? '',
       });

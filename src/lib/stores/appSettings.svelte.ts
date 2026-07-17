@@ -209,31 +209,32 @@ function getModelsEndpoint(apiBaseUrl: string) {
   return `${normalized}/models`;
 }
 
-function readModelContextLimit(item: unknown) {
-  if (!item || typeof item !== 'object') return null;
-  const record = item as Record<string, unknown>;
-  const topProvider = record.top_provider && typeof record.top_provider === 'object'
-    ? record.top_provider as Record<string, unknown>
-    : {};
-  const raw = record.context_length ?? record.contextLength ?? topProvider.context_length;
+function normalizeModelLimit(raw: unknown) {
   const value = Number(raw);
   return Number.isFinite(value) && value > 0 ? Math.round(value) : null;
 }
 
-function readModelOutputLimit(item: unknown) {
-  if (!item || typeof item !== 'object') return null;
+function readModelLimits(item: unknown) {
+  if (!item || typeof item !== 'object') {
+    return { contextLimit: null, outputLimit: null };
+  }
   const record = item as Record<string, unknown>;
   const topProvider = record.top_provider && typeof record.top_provider === 'object'
     ? record.top_provider as Record<string, unknown>
     : {};
-  const raw = record.max_completion_tokens
-    ?? record.maxCompletionTokens
-    ?? record.max_output_tokens
-    ?? record.maxOutputTokens
-    ?? topProvider.max_completion_tokens
-    ?? topProvider.maxCompletionTokens;
-  const value = Number(raw);
-  return Number.isFinite(value) && value > 0 ? Math.round(value) : null;
+  return {
+    contextLimit: normalizeModelLimit(
+      record.context_length ?? record.contextLength ?? topProvider.context_length,
+    ),
+    outputLimit: normalizeModelLimit(
+      record.max_completion_tokens
+        ?? record.maxCompletionTokens
+        ?? record.max_output_tokens
+        ?? record.maxOutputTokens
+        ?? topProvider.max_completion_tokens
+        ?? topProvider.maxCompletionTokens,
+    ),
+  };
 }
 
 async function resolveSecretKey(providedSecretKey?: string) {
@@ -368,8 +369,7 @@ export async function connectAiProvider(input: {
       ? payload.data
           .map((item: unknown) => {
             const id = item && typeof item === 'object' && 'id' in item ? String(item.id ?? '').trim() : '';
-            const limit = readModelContextLimit(item);
-            const outputLimit = readModelOutputLimit(item);
+            const { contextLimit: limit, outputLimit } = readModelLimits(item);
             if (id && limit) modelContextLimits[id] = limit;
             if (id && outputLimit) modelOutputLimits[id] = outputLimit;
             return id;
@@ -412,10 +412,6 @@ export async function connectAiProvider(input: {
       scriptTemplate: input.scriptTemplate,
       secretKey: input.secretKey,
     });
-    appSettingsState.modelOptions = models;
-    appSettingsState.modelContextLimits = modelContextLimits;
-    appSettingsState.modelOutputLimits = modelOutputLimits;
-    appSettingsState.modelsLoaded = true;
     return { models, selectedModel };
   } catch (error) {
     appSettingsState.connectionError = error instanceof Error ? error.message : 'Failed to load models';

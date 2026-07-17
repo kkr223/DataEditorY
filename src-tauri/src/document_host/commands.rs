@@ -4,6 +4,7 @@ use serde_json::{json, Value};
 use tauri::{AppHandle, State};
 
 use crate::{
+    models::cdb::CardDto,
     services::cdb_session,
     session::cdb::{basename, OpenCdbSessions},
 };
@@ -38,9 +39,19 @@ pub fn provider_open(
     if request.type_id != CARD_COLLECTION_TYPE {
         return Err(format!("Unsupported data type: {}", request.type_id));
     }
-    let _ = request.input;
     let response = if request.create {
-        cdb_session::create_unsaved_cdb_tab(&app, sessions.inner(), request.document_id)?
+        let initial_cards = request
+            .input
+            .map(serde_json::from_value::<Vec<CardDto>>)
+            .transpose()
+            .map_err(|err| format!("Invalid initial CDB data: {err}"))?
+            .unwrap_or_default();
+        cdb_session::create_unsaved_cdb_tab(
+            &app,
+            sessions.inner(),
+            request.document_id,
+            initial_cards,
+        )?
     } else {
         let source = request
             .source_uri

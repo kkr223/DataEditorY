@@ -10,6 +10,13 @@
   import { refreshCachedSearchForTab } from '$lib/stores/search';
   import { documentRuntime } from '$lib/platform/appRuntime';
   import { writeTextFile } from '$lib/native/assetApi';
+  import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+  import {
+    getOpenScriptTab,
+    getScriptTabsForCdb,
+    saveScriptTab,
+    updateScriptTabContent,
+  } from '$lib/stores/scriptEditor.svelte';
   import { cloneEditableCard } from '$lib/domain/card/draft';
   import type { CardDataEntry } from '$lib/types';
   import type { CardCollectionCommand, CardSearchExpression, CardSearchPage } from '$lib/modules/card';
@@ -34,8 +41,8 @@
     getActiveAiThread,
     getAiProposalsForThread,
     getAiThreads,
-    getCardImageDocument,
-    setCardImageDocument,
+    getCardImageDocumentForPath,
+    setCardImageDocumentForPath,
     updateAiProposalStatus,
     upsertAiToolRun,
     upsertAiThread,
@@ -578,6 +585,18 @@
   }
 
   async function applyScriptPatch(patch: Extract<WorkspaceAiPatch, { kind: 'script' }>) {
+    const openTab = patch.cardCode
+      ? getOpenScriptTab(patch.cdbPath, patch.cardCode, patch.documentId)
+      : getScriptTabsForCdb({ tabId: patch.documentId, path: patch.cdbPath }).find((tab) => (
+        getCdbPathIdentity(tab.scriptPath) === getCdbPathIdentity(patch.path)
+      ));
+    if (openTab) {
+      updateScriptTabContent(openTab.id, patch.content);
+      if (!(await saveScriptTab(openTab.id))) {
+        throw new Error(`Failed to save open script ${openTab.scriptPath}`);
+      }
+      return;
+    }
     await writeTextFile(patch.path, patch.content);
   }
 
@@ -631,8 +650,8 @@
     }
   }
 
-  function applyImagePatch(patch: Extract<WorkspaceAiPatch, { kind: 'image' }>) {
-    const current = getCardImageDocument(patch.cardCode);
+  async function applyImagePatch(patch: Extract<WorkspaceAiPatch, { kind: 'image' }>) {
+    const current = await getCardImageDocumentForPath(patch.cdbPath, patch.cardCode);
     const card = (patch.patch && typeof patch.patch === 'object' && 'card' in patch.patch)
       ? (patch.patch as { card?: CardDataEntry }).card
       : null;
@@ -640,7 +659,7 @@
     const formPatch = patch.patch && typeof patch.patch === 'object' && 'form' in patch.patch
       ? (patch.patch as { form?: Record<string, unknown> }).form ?? {}
       : patch.patch;
-    setCardImageDocument(patch.cardCode, {
+    await setCardImageDocumentForPath(patch.cdbPath, patch.cardCode, {
       kind: 'dataeditory-card-image-config',
       version: 1,
       ...current,

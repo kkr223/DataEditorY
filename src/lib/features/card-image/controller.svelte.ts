@@ -19,6 +19,11 @@ import {
   type CardImageLanguage,
 } from '$lib/features/card-image/layout';
 import { writeErrorLog } from '$lib/utils/errorLog';
+import {
+  getOpenTextTab,
+  saveTextTab,
+  updateTextTabContent,
+} from '$lib/stores/textEditor.svelte';
 
 type CardImageRenderData = CardImageFormData & {
   effectBlockBorderStyle: 'none' | 'default' | 'colored';
@@ -651,7 +656,19 @@ export function createCardImageController(source: CardImageControllerSource) {
           filters: [{ name: 'JSON', extensions: ['json'] }],
         });
         if (!targetPath) return;
-        await writeTextFile(targetPath, content);
+        const openTab = getOpenTextTab(targetPath);
+        if (openTab?.isDirty) {
+          showToast(t('editor.card_image_config_export_conflict'), 'error');
+          return;
+        }
+        if (openTab) {
+          updateTextTabContent(openTab.id, content);
+          if (!(await saveTextTab(openTab.id))) {
+            throw new Error('Failed to save the exported card image config');
+          }
+        } else {
+          await writeTextFile(targetPath, content);
+        }
       } else {
         const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
         const url = URL.createObjectURL(blob);

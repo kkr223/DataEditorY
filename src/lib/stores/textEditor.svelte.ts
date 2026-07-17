@@ -28,6 +28,11 @@ const inflightTextOpens = new Map<string, Promise<string | null>>();
 
 export const getActiveTextTab = () => get(activeTextTab);
 
+export const getOpenTextTab = (path: string) => {
+  const identity = getCdbPathIdentity(path.trim());
+  return get(textTabs).find((tab) => getCdbPathIdentity(tab.path) === identity) ?? null;
+};
+
 function basename(path: string) {
   const parts = path.split(/[\\/]/);
   return parts[parts.length - 1] || path;
@@ -98,7 +103,7 @@ export async function openTextFile(path: string): Promise<string | null> {
   if (!normalized) return null;
   const pathIdentity = getCdbPathIdentity(normalized);
 
-  const existing = get(textTabs).find((tab) => getCdbPathIdentity(tab.path) === pathIdentity);
+  const existing = getOpenTextTab(normalized);
   if (existing) {
     activateTextTab(existing.id);
     return existing.id;

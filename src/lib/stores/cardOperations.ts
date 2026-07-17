@@ -132,39 +132,6 @@ export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): P
   }
 }
 
-export async function modifyCardsWithSnapshotInTab(
-  tabId: string,
-  cards: CardDataEntry[],
-  previousCards: Array<CardDataEntry | null | undefined>,
-): Promise<boolean> {
-  const tab = get(tabs).find((item) => item.id === tabId);
-  if (!tab) return false;
-
-  try {
-    await documentRuntime.execute(
-      tab.id,
-      {
-        kind: 'upsert',
-        cards: cards.map((card) => cloneCard(card)),
-      } satisfies CardCollectionCommand,
-    );
-    recordUndoLabel(
-      tab.id,
-      cards.length === 1 ? `Edit card ${cards[0].code}` : `Modify ${cards.length} cards`,
-    );
-    void previousCards;
-    clearSourceFilterCacheForTab(tab.id);
-    const refreshed = await refreshCachedSearchForTab(tab.id);
-    if (!refreshed) {
-      syncCachedCardsInTab(tab.id, cards);
-    }
-    return true;
-  } catch (err) {
-    console.error('Failed to modify cards with snapshots:', err);
-    return false;
-  }
-}
-
 export async function modifyCards(cards: CardDataEntry[]): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
@@ -177,6 +144,15 @@ export async function deleteCard(cardId: number): Promise<boolean> {
 
 export async function deleteCards(cardIds: number[]): Promise<boolean> {
   const tab = get(activeTab);
+  if (!tab) return false;
+  return deleteCardsInTab(tab.id, cardIds);
+}
+
+export async function deleteCardsInTab(
+  tabId: string,
+  cardIds: number[],
+): Promise<boolean> {
+  const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab) return false;
 
   try {
@@ -193,34 +169,6 @@ export async function deleteCards(cardIds: number[]): Promise<boolean> {
     return true;
   } catch (err) {
     console.error('Failed to delete cards:', err);
-    return false;
-  }
-}
-
-export async function deleteCardsWithSnapshotInTab(
-  tabId: string,
-  cardIds: number[],
-  deletedCards: CardDataEntry[],
-): Promise<boolean> {
-  const tab = get(tabs).find((item) => item.id === tabId);
-  if (!tab) return false;
-
-  try {
-    await documentRuntime.execute(
-      tab.id,
-      { kind: 'delete', cardIds } satisfies CardCollectionCommand,
-    );
-    recordUndoLabel(
-      tab.id,
-      deletedCards.length === 1
-        ? `Delete card ${deletedCards[0].code}`
-        : `Delete ${deletedCards.length} cards`,
-    );
-    clearSourceFilterCacheForTab(tab.id);
-    await refreshCachedSearchForTab(tab.id);
-    return true;
-  } catch (err) {
-    console.error('Failed to delete cards with snapshots:', err);
     return false;
   }
 }

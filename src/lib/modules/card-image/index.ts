@@ -1,6 +1,6 @@
 import { MemoryDocumentProvider, type ExtensionModule } from '$lib/platform';
 import {
-  normalizeCardImageFormData,
+  normalizeCardImageConfigDocument,
   type CardImageConfigDocument,
 } from '$lib/features/card-image/layout';
 import {
@@ -17,14 +17,7 @@ const validateConfig = (value: unknown): CardImageConfigDocument => {
   if (!value || typeof value !== 'object') {
     throw new Error('Card image config must be an object');
   }
-  const input = value as Partial<CardImageConfigDocument>;
-  return {
-    kind: 'dataeditory-card-image-config',
-    version: 1,
-    form: normalizeCardImageFormData(input.form ?? {}),
-    exportScalePercent: input.exportScalePercent,
-    meta: input.meta,
-  };
+  return normalizeCardImageConfigDocument(value);
 };
 
 export const cardImageModule: ExtensionModule = {

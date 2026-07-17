@@ -114,7 +114,6 @@ pub fn run() {
             commands::media::open_in_default_app,
             commands::metadata::load_workspace_metadata,
             commands::metadata::save_workspace_metadata,
-            commands::metadata::backup_workspace_metadata,
             commands::settings::load_app_settings,
             commands::settings::save_app_settings,
             commands::settings::load_secret_key,

@@ -28,6 +28,7 @@ export const activeTab = derived(
 export const isDbLoaded = derived(activeTab, ($activeTab) => $activeTab !== null);
 
 let syncingRuntime = false;
+const inflightCdbOpens = new Map<string, Promise<string | null>>();
 
 documentRuntime.subscribe((snapshot) => {
   syncingRuntime = true;
@@ -104,18 +105,27 @@ async function openCdbAtPath(selected: string): Promise<string | null> {
     return existing.id;
   }
 
-  try {
-    const document = await documentRuntime.openSource({
-      uri: selected,
-      path: selected,
-      name: selected.split(/[\\/]/).pop() || 'unknown.cdb',
-    });
-    pushRecentCdbEntry({ path: selected, name: document.title });
-    return document.id;
-  } catch (err) {
-    console.error('Failed to read CDB:', err);
-    return null;
-  }
+  const inflight = inflightCdbOpens.get(selectedIdentity);
+  if (inflight) return inflight;
+
+  const request = (async () => {
+    try {
+      const document = await documentRuntime.openSource({
+        uri: selected,
+        path: selected,
+        name: selected.split(/[\\/]/).pop() || 'unknown.cdb',
+      });
+      pushRecentCdbEntry({ path: selected, name: document.title });
+      return document.id;
+    } catch (err) {
+      console.error('Failed to read CDB:', err);
+      return null;
+    } finally {
+      inflightCdbOpens.delete(selectedIdentity);
+    }
+  })();
+  inflightCdbOpens.set(selectedIdentity, request);
+  return request;
 }
 
 export async function openCdbPath(path: string): Promise<string | null> {
@@ -153,6 +163,12 @@ export async function createCdbFile(path?: string): Promise<string | null> {
   });
 
   if (selected && typeof selected === 'string') {
+    const selectedIdentity = getCdbPathIdentity(selected);
+    const existing = get(tabs).find((tab) => getCdbPathIdentity(tab.path) === selectedIdentity);
+    if (existing || inflightCdbOpens.has(selectedIdentity)) {
+      console.error(`Cannot create a CDB over an already open path: ${selected}`);
+      return null;
+    }
     try {
       const document = await documentRuntime.createDocument({
         typeId: CARD_COLLECTION_TYPE,
@@ -176,29 +192,17 @@ export async function createCdbFile(path?: string): Promise<string | null> {
 }
 
 export async function closeTab(tabId: string) {
-  const currentTabs = get(tabs);
-  const idx = currentTabs.findIndex(t => t.id === tabId);
-  if (idx === -1) return;
+  if (!get(tabs).some((tab) => tab.id === tabId)) return;
 
   try {
     await documentRuntime.close(tabId, true);
   } catch (err) {
     console.error('Failed to close CDB tab:', err);
+    return;
   }
 
-  const newTabs = currentTabs.filter(t => t.id !== tabId);
-  tabs.set(newTabs);
   clearUndoHistory(tabId);
   clearSourceFilterCacheForTab(tabId);
-
-  if (get(activeTabId) === tabId) {
-    if (newTabs.length > 0) {
-      const newIdx = Math.min(idx, newTabs.length - 1);
-      activeTabId.set(newTabs[newIdx].id);
-    } else {
-      activeTabId.set(null);
-    }
-  }
 }
 
 export async function saveCdbFile(): Promise<boolean> {

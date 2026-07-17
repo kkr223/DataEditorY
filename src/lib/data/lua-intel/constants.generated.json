@@ -3492,6 +3492,12 @@
     "category": "Codes"
   },
   {
+    "name": "EFFECT_REVEAL_ONFIELD",
+    "value": "376",
+    "description": "场上里侧表示卡片处于可以确认信息状态（看透心灵之眼）",
+    "category": "Codes"
+  },
+  {
     "name": "EFFECT_FLAG_EFFECT",
     "value": "0x20000000",
     "description": "标记类效果，即RegisterFlagEffect()创建的效果",
@@ -3996,9 +4002,9 @@
     "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
   },
   {
-    "name": "CATEGORY_HANDES",
+    "name": "CATEGORY_HANDES_SELF",
     "value": "0x80",
-    "description": "捨棄手牌效果",
+    "description": "捨棄自身手牌效果",
     "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
   },
   {
@@ -4155,6 +4161,18 @@
     "name": "CATEGORY_SSET",
     "value": "0x200000000",
     "description": "包含盖放魔陷的效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_HANDES_OPPO",
+    "value": "0x400000000",
+    "description": "捨棄對方手牌效果",
+    "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
+  },
+  {
+    "name": "CATEGORY_HANDES",
+    "value": "CATEGORY_HANDES_SELF+CATEGORY_HANDES_OPPO",
+    "description": "",
     "category": "Category 效果分类（表示这个效果将要发生什么事，OperationInfo设置了效果分类才能触发针对这一类型发动的卡，如破坏->星尘龙"
   },
   {

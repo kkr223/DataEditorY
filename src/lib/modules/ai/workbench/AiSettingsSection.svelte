@@ -15,8 +15,8 @@
     resolveAiSkillPath,
     buildSkillTemplate,
   } from '$lib/features/ai/service';
-  import { openTextFile } from '$lib/stores/textEditor.svelte';
-  import { resolveResourceFile, writeTextFile } from '$lib/native/assetApi';
+  import { getOpenTextTab, openTextFile } from '$lib/stores/textEditor.svelte';
+  import { readTextFile, resolveResourceFile, writeTextFile } from '$lib/native/assetApi';
   import { showToast } from '$lib/stores/toast.svelte';
 
   let { context }: { context: SettingsWorkbenchContext } = $props();
@@ -111,6 +111,17 @@
     isAddingSkill = true;
     try {
       const absolutePath = await resolveAiSkillPath(file);
+      if (getOpenTextTab(absolutePath)) {
+        showToast(context.t('settings.skill_add_failed'), 'error');
+        return;
+      }
+      try {
+        await readTextFile(absolutePath);
+        showToast(context.t('settings.skill_add_failed'), 'error');
+        return;
+      } catch {
+        // The file is absent; continue with creation.
+      }
       await writeTextFile(absolutePath, buildSkillTemplate(safeName));
       // ponytail: write manifest directly; resource dir writable in dev, may be read-only in installed builds
       const manifestPath = await resolveResourceFile('ai-skills/manifest.json');

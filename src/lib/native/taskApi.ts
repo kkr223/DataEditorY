@@ -20,29 +20,6 @@ import {
   previewLuaReplace,
   type LuaReplaceRequest,
 } from './scriptApi';
-export type CoreTaskKind =
-  | 'package.zip'
-  | 'merge.analyze'
-  | 'merge.execute'
-  | 'merge.collect-sources'
-  | 'batch.cdb.apply'
-  | 'lua.replace.preview'
-  | 'lua.replace.apply'
-  | 'asset.check';
-
-export type TaskKind = CoreTaskKind | (string & {});
-
-export type TaskStatus = 'running' | 'completed' | 'failed' | 'cancelled';
-
-export type TaskRecord = {
-  id: string;
-  kind: TaskKind;
-  status: TaskStatus;
-  startedAt: number;
-  completedAt?: number;
-  error?: string;
-};
-
 export type CoreStartTaskRequest =
   | { kind: 'package.zip'; cdbPath: string; outputPath: string }
   | { kind: 'merge.collect-sources'; directoryPath: string }
@@ -65,8 +42,6 @@ export type StartTaskRequest = CoreStartTaskRequest | {
   [key: string]: unknown;
 };
 
-const taskRecords = new Map<string, TaskRecord>();
-const taskCancellationHandlers = new Map<string, () => boolean | Promise<boolean>>();
 const CORE_TASK_KINDS = new Set<string>([
   'package.zip',
   'merge.collect-sources',
@@ -82,23 +57,10 @@ const isCoreTaskRequest = (request: StartTaskRequest): request is CoreStartTaskR
   CORE_TASK_KINDS.has(request.kind)
 );
 
-function createTaskId(kind: TaskKind) {
-  const random = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${kind}:${random}`;
-}
-
-function setTaskRecord(record: TaskRecord) {
-  taskRecords.set(record.id, record);
-  return record;
-}
-
-async function runTask(request: StartTaskRequest, taskId: string) {
+async function runTask(request: StartTaskRequest) {
   const extensionRunner = documentRuntime.registry.taskRunners.get(request.kind);
   if (extensionRunner) {
-    if (extensionRunner.cancel) {
-      taskCancellationHandlers.set(taskId, () => extensionRunner.cancel!(taskId));
-    }
-    return extensionRunner.run(request, { taskId });
+    return extensionRunner.run(request);
   }
   if (!isCoreTaskRequest(request)) {
     throw new Error(`No task runner registered for ${request.kind}`);
@@ -124,61 +86,8 @@ async function runTask(request: StartTaskRequest, taskId: string) {
   }
 }
 
-export async function startTask(request: StartTaskRequest, options: { taskId?: string } = {}) {
-  const taskId = options.taskId ?? createTaskId(request.kind);
-  setTaskRecord({
-    id: taskId,
-    kind: request.kind,
-    status: 'running',
-    startedAt: Date.now(),
-  });
-
-  try {
-    const result = await runTask(request, taskId);
-    const current = taskRecords.get(taskId);
-    setTaskRecord({
-      ...(current ?? { id: taskId, kind: request.kind, startedAt: Date.now() }),
-      status: current?.status === 'cancelled' ? 'cancelled' : 'completed',
-      completedAt: Date.now(),
-    });
-    return result;
-  } catch (error) {
-    const current = taskRecords.get(taskId);
-    setTaskRecord({
-      ...(current ?? { id: taskId, kind: request.kind, startedAt: Date.now() }),
-      status: current?.status === 'cancelled' ? 'cancelled' : 'failed',
-      completedAt: Date.now(),
-      ...(current?.status === 'cancelled'
-        ? {}
-        : { error: error instanceof Error ? error.message : String(error) }),
-    });
-    throw error;
-  } finally {
-    taskCancellationHandlers.delete(taskId);
-  }
-}
-
-export function getTask(taskId: string) {
-  return taskRecords.get(taskId) ?? null;
-}
-
-export async function cancelTask(taskId: string) {
-  const current = taskRecords.get(taskId);
-  if (!current || current.status !== 'running') {
-    return false;
-  }
-
-  const cancel = taskCancellationHandlers.get(taskId);
-  if (!cancel || !(await cancel())) {
-    return false;
-  }
-
-  setTaskRecord({
-    ...current,
-    status: 'cancelled',
-    completedAt: Date.now(),
-  });
-  return true;
+export function startTask(request: StartTaskRequest) {
+  return runTask(request);
 }
 
 export function onTaskProgress(listener: (event: BackgroundTaskProgressEvent) => void) {

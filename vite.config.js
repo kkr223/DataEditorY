@@ -1,20 +1,13 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
-import { getBuildVariantConfig } from "./scripts/build-variant-config.mjs";
 
 const DEFAULT_DEV_HOST = "127.0.0.1";
 const DEFAULT_DEV_PORT = 43127;
 const DEFAULT_HMR_PORT = 43128;
 const host = globalThis.process?.env?.TAURI_DEV_HOST || DEFAULT_DEV_HOST;
-const variant = getBuildVariantConfig(globalThis.process?.env?.APP_VARIANT);
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [sveltekit()],
-  define: {
-    __APP_BUILD_VARIANT__: JSON.stringify(variant.key),
-    __APP_BUILD_LABEL__: JSON.stringify(variant.label),
-    __APP_MODULE_IDS__: JSON.stringify(variant.modules),
-  },
   build: {
     chunkSizeWarningLimit: 3900,
     rollupOptions: {

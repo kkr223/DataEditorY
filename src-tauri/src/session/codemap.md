@@ -16,7 +16,7 @@ CDB Session Management — manages the lifecycle of open CDB workspace connectio
   - `canonicalize_path(path)` — normalizes path for cross-platform consistency
   - `basename(path)` — extracts filename
   - `with_session_meta(sessions, tab_id, f)` — safely accesses a session under lock
-  - `replace_session`, `remove_session`, `update_session_path` — session CRUD
+  - `replace_session`, `remove_session` — session CRUD
   - `cleanup_temp_path(path)` — deletes temp file on session close
   - `ensure_parent_dir(path)` — creates parent directories for save targets
 

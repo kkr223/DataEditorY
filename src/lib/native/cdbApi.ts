@@ -8,7 +8,7 @@ import {
 import {
   closeTab,
   createCdbFile,
-  deleteCardsWithSnapshotInTab,
+  deleteCardsInTab,
   getCardByIdInTab,
   getCardsByIdsInTab,
   modifyCardsInTab,
@@ -123,8 +123,8 @@ export function discardBatchOperationPreview(previewId: string) {
   return batchPreviewSnapshots.delete(previewId);
 }
 
-export async function deleteCards(sessionId: string, cardIds: number[], deletedCards: CardDataEntry[] = []) {
-  return deleteCardsWithSnapshotInTab(sessionId, cardIds, deletedCards);
+export async function deleteCards(sessionId: string, cardIds: number[]) {
+  return deleteCardsInTab(sessionId, cardIds);
 }
 
 export async function undo(sessionId: string) {

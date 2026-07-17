@@ -207,6 +207,7 @@
     "case_sensitive": "严格大小写",
     "preview": "预览",
     "apply": "应用替换",
+    "open_dirty_script": "命中的脚本正在编辑且有未保存修改，请先保存或关闭后再批量替换",
     "preview_summary": "{files} 个文件，{matches} 处命中",
     "confirm_message": "将替换 {files} 个文件中的 {matches} 处命中。确定继续？",
     "apply_success": "Lua 替换完成：{files} 个文件，{matches} 处命中"
@@ -527,6 +528,7 @@
     "card_image_config_import_failed": "导入卡图配置失败",
     "card_image_config_export_success": "卡图配置已导出",
     "card_image_config_export_failed": "导出卡图配置失败",
+    "card_image_config_export_conflict": "目标配置文件已在编辑器中修改，请先保存或关闭它",
     "card_image_foreground_button": "出框卡",
     "card_image_foreground_title": "出框卡编辑器",
     "card_image_foreground_description": "上传并调整前景图。",

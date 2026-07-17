@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { createEmptyCard } from './draft';
-import { validateCardDraft } from './validation';
+import { getValidCardCode, validateCardDraft } from './validation';
 
 describe('validateCardDraft', () => {
   test('blocks an invalid card ID while preserving non-blocking warnings', () => {
+    expect(getValidCardCode(createEmptyCard())).toBeNull();
     expect(validateCardDraft(createEmptyCard())).toEqual([
       { severity: 'error', code: 'invalid-code' },
       { severity: 'warning', code: 'empty-name' },
@@ -12,6 +13,7 @@ describe('validateCardDraft', () => {
   });
 
   test('allows incomplete but identifiable cards to be committed with warnings', () => {
+    expect(getValidCardCode({ code: 483 })).toBe(483);
     const issues = validateCardDraft({ ...createEmptyCard(), code: 483 });
     expect(issues.some((issue) => issue.severity === 'error')).toBe(false);
     expect(issues.filter((issue) => issue.severity === 'warning')).toHaveLength(2);

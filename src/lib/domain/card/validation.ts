@@ -5,11 +5,15 @@ export type CardDraftValidationIssue = {
   code: 'invalid-code' | 'empty-name' | 'empty-type';
 };
 
+export function getValidCardCode(card: Pick<CardDataEntry, 'code'>): number | null {
+  const code = Number(card.code ?? 0);
+  return Number.isInteger(code) && code > 0 ? code : null;
+}
+
 export function validateCardDraft(card: CardDataEntry): CardDraftValidationIssue[] {
   const issues: CardDraftValidationIssue[] = [];
-  const code = Number(card.code ?? 0);
 
-  if (!Number.isInteger(code) || code <= 0) {
+  if (getValidCardCode(card) === null) {
     issues.push({ severity: 'error', code: 'invalid-code' });
   }
   if (!card.name.trim()) {
