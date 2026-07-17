@@ -6,6 +6,10 @@ type ErrorLogInput = {
   extra?: Record<string, unknown> | string;
 };
 
+export function isExpectedCancellationError(error: unknown) {
+  return error instanceof Error && error.name === 'Canceled' && error.message === 'Canceled';
+}
+
 function normalizeError(error: unknown) {
   if (error instanceof Error) {
     return {

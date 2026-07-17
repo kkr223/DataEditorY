@@ -35,7 +35,7 @@ import {
 } from '$lib/stores/editor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { dispatchAppShortcut } from '$lib/utils/shortcuts';
-import { writeErrorLog } from '$lib/utils/errorLog';
+import { isExpectedCancellationError, writeErrorLog } from '$lib/utils/errorLog';
 import {
   type DragDropPayload,
   isCdbFilePath,
@@ -531,6 +531,10 @@ export function createShellLayoutController() {
       });
     };
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (isExpectedCancellationError(event.reason)) {
+        event.preventDefault();
+        return;
+      }
       void writeErrorLog({
         source: 'window.unhandledrejection',
         error: event.reason,
