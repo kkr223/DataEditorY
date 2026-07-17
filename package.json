@@ -31,10 +31,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-dialog": "~2",
-    "koishipro-core.js": "^1.5.1",
-    "leafer": "^2.0.4",
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-dialog": "~2.7.1",
+    "koishipro-core.js": "^1.5.2",
+    "leafer": "^2.2.2",
     "leafer-unified": "^1.0.3",
     "luaparse": "^0.3.1",
     "monaco-editor": "^0.55.1",
@@ -43,14 +43,18 @@
     "yugioh-card-ts": "github:kkr223/yugioh-card#package/v2.0.0"
   },
   "devDependencies": {
-    "@sveltejs/adapter-static": "^3.0.6",
-    "@sveltejs/kit": "^2.9.0",
+    "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/kit": "^2.69.3",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
-    "@tauri-apps/cli": "^2",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/luaparse": "^0.2.13",
-    "svelte": "^5.0.0",
-    "svelte-check": "^4.0.0",
+    "svelte": "^5.56.6",
+    "svelte-check": "^4.7.3",
     "typescript": "~5.6.2",
-    "vite": "^6.0.3"
+    "vite": "^6.4.3"
+  },
+  "overrides": {
+    "picomatch": "4.0.5",
+    "postcss": "8.5.19"
   }
 }
