@@ -212,6 +212,11 @@ export function createCardImageController(source: CardImageControllerSource) {
         .then((path) => toMediaProtocolSrc(path))
         .catch((error) => {
           console.error('Failed to resolve yugioh-card resource path', error);
+          void writeErrorLog({
+            source: 'card-image.resource.resolve',
+            error,
+            extra: { requestedPath: 'resources/yugioh-card' },
+          });
           resourcePathPromise = null;
           return `${window.location.origin}/resources/yugioh-card`;
         });
@@ -1532,6 +1537,16 @@ export function createCardImageController(source: CardImageControllerSource) {
       }
     } catch (error) {
       console.error('Failed to refresh card image preview', error);
+      void writeErrorLog({
+        source: 'card-image.preview',
+        error,
+        extra: {
+          language: state.form.language,
+          font: state.form.font,
+          resourcePath: state.resolvedResourcePath,
+          isTauri: tauriBridge.isTauri(),
+        },
+      });
       state.errorMessage = t('editor.card_image_generate_failed');
     }
   }
@@ -1720,6 +1735,11 @@ export function createCardImageController(source: CardImageControllerSource) {
       showToast(t('editor.card_image_download_success'), 'success');
     } catch (error) {
       console.error('Failed to download generated card image', error);
+      await writeErrorLog({
+        source: 'card-image.download',
+        error,
+        extra: { cardCode: card.code },
+      });
       showToast(t('editor.card_image_download_failed'), 'error');
     } finally {
       state.isDownloading = false;
@@ -1778,6 +1798,11 @@ export function createCardImageController(source: CardImageControllerSource) {
       }), 'success');
     } catch (error) {
       console.error('Failed to save rendered JPG to pics', error);
+      await writeErrorLog({
+        source: 'card-image.save-jpg',
+        error,
+        extra: { cardCode: card.code },
+      });
       showToast(t('editor.card_image_save_jpg_failed'), 'error');
     } finally {
       state.isSavingJpg = false;
