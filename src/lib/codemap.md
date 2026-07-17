@@ -22,7 +22,6 @@ Frontend Application Code — the Svelte/TypeScript desktop IDE organized around
 | `utils/` | Utility | Helper functions and legacy Lua utilities | [View](utils/codemap.md) |
 | `i18n/` | I18n | Chinese + English localization | [View](i18n/codemap.md) |
 | `types/` | Types | Shared TypeScript type definitions | [View](types/codemap.md) |
-| `config/` | Config | Build variant configuration constants | [View](config/codemap.md) |
 | `actions/` | Actions | Svelte DOM actions | [View](actions/codemap.md) |
 | `data/` | Data | Generated Lua intellisense catalog | — |
 | `build-stubs/` | Build | Stub files for base variant feature exclusion | — |

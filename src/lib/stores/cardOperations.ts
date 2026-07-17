@@ -145,23 +145,7 @@ export async function deleteCard(cardId: number): Promise<boolean> {
 export async function deleteCards(cardIds: number[]): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
-
-  try {
-    await documentRuntime.execute(
-      tab.id,
-      { kind: 'delete', cardIds } satisfies CardCollectionCommand,
-    );
-    recordUndoLabel(
-      tab.id,
-      cardIds.length === 1 ? `Delete card ${cardIds[0]}` : `Delete ${cardIds.length} cards`,
-    );
-    clearSourceFilterCacheForTab(tab.id);
-    await refreshCachedSearchForTab(tab.id);
-    return true;
-  } catch (err) {
-    console.error('Failed to delete cards:', err);
-    return false;
-  }
+  return deleteCardsInTab(tab.id, cardIds);
 }
 
 export async function deleteCardsInTab(

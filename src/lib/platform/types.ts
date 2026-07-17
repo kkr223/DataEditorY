@@ -140,8 +140,7 @@ export type GlobalToolDescriptor = {
 
 export type TaskRunnerDescriptor = {
   kind: string;
-  run(input: unknown, context?: { taskId: string }): Promise<unknown>;
-  cancel?(taskId: string): boolean | Promise<boolean>;
+  run(input: unknown): Promise<unknown>;
 };
 
 export type ExtensionModule = {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createCardImageFormData,
+  normalizeCardImageConfigDocument,
   normalizeCardImageFormData,
   parseCardImageConfigDocument,
   serializeCardImageConfigDocument,
@@ -41,6 +42,22 @@ describe("card image config document", () => {
     expect(parsed.form.password).toBe("46986414");
     expect(parsed.form.descriptionZoom).toBe(1.3);
     expect(parsed.exportScalePercent).toBeNull();
+  });
+
+  test("normalizes shared document metadata", () => {
+    const document = normalizeCardImageConfigDocument({
+      form: { name: "Dark Magician" },
+      meta: { cardCode: "46986414", cardName: "Dark Magician", exportedAt: 1 },
+    });
+
+    expect(document.kind).toBe("dataeditory-card-image-config");
+    expect(document.version).toBe(1);
+    expect(document.form.name).toBe("Dark Magician");
+    expect(document.meta).toEqual({
+      cardCode: 46986414,
+      cardName: "Dark Magician",
+      exportedAt: undefined,
+    });
   });
 });
 

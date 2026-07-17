@@ -285,6 +285,28 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
   };
 }
 
+export function normalizeCardImageConfigDocument(value: unknown): CardImageConfigDocument {
+  const input = value && typeof value === "object"
+    ? value as Partial<CardImageConfigDocument>
+    : {};
+  const meta = input.meta && typeof input.meta === "object" ? input.meta : undefined;
+  return {
+    kind: "dataeditory-card-image-config",
+    version: 1,
+    form: normalizeCardImageFormData(input.form ?? {}),
+    exportScalePercent: input.exportScalePercent,
+    meta: meta
+      ? {
+          cardCode: Number.isFinite(Number(meta.cardCode)) ? Number(meta.cardCode) : undefined,
+          cardName: typeof meta.cardName === "string" && meta.cardName.trim()
+            ? meta.cardName
+            : undefined,
+          exportedAt: typeof meta.exportedAt === "string" ? meta.exportedAt : undefined,
+        }
+      : undefined,
+  };
+}
+
 export function getCardImageLocaleDefaults(
   card: CardDataEntry,
   language: CardImageLanguage = "sc",

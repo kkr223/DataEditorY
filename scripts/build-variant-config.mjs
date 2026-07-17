@@ -10,27 +10,21 @@ const packageJsonPath = resolve(workspaceRoot, 'package.json');
 const BUILD_VARIANTS = {
   base: {
     key: 'base',
-    label: 'Base',
     productName: 'DataEditorY Base',
     identifier: 'com.kkr223.dataeditory.base',
     windowTitle: 'DataEditorY Base',
     features: {
       cardImage: false,
-      ai: false,
     },
-    modules: ['settings', 'card', 'cdb', 'lua', 'package', 'merge'],
   },
   extra: {
     key: 'extra',
-    label: 'Extra',
     productName: 'DataEditorY Extra',
     identifier: 'com.kkr223.dataeditory.extra',
     windowTitle: 'DataEditorY Extra',
     features: {
       cardImage: true,
-      ai: true,
     },
-    modules: ['settings', 'card', 'cdb', 'lua', 'package', 'merge', 'card-image', 'ai'],
   },
 };
 

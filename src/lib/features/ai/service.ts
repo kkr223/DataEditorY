@@ -589,10 +589,6 @@ export async function resolveAiSkillPath(file: string): Promise<string> {
   return resolveResourceFile(`ai-skills/${file}`);
 }
 
-export function getAiPromptFileName(index = 0): string {
-  return ['system-prompt.md'][index] ?? `prompt-${index}.md`;
-}
-
 export function buildSkillTemplate(name: string): string {
   return [
     '---',
@@ -607,14 +603,6 @@ export function buildSkillTemplate(name: string): string {
     '',
     'Describe the skill workflow here.',
   ].join('\n');
-}
-
-export function getSkillManifestUrl() {
-  return SKILL_MANIFEST_URL;
-}
-
-export function getPromptManifestUrl() {
-  return PROMPT_MANIFEST_URL;
 }
 
 function chooseSkills(input: string, skills: AiSkill[]) {
@@ -728,12 +716,13 @@ async function runTool(input: {
   patches: WorkspaceAiPatch[];
 }) {
   const { name, args, context, patches } = input;
+  const dbPath = typeof args.dbPath === 'string' ? args.dbPath : undefined;
   if (name === 'list_open_databases') {
     return context.listOpenDatabases();
   }
 
   if (name === 'get_database_summary') {
-    const tab = getActiveDb(context, typeof args.dbPath === 'string' ? args.dbPath : undefined)
+    const tab = getActiveDb(context, dbPath)
       ?? context.listOpenDatabases().find((item) => item.id === args.documentId);
     if (!tab) return null;
     const page = await context.queryCards<CardSearchPage>(tab.id, {
@@ -749,9 +738,9 @@ async function runTool(input: {
     const query = String(args.query ?? '').trim();
     const pageNumber = Math.max(1, Math.round(Number(args.page ?? 1)));
     const limit = Math.max(1, Math.min(50, Math.round(Number(args.limit ?? 10))));
-    const tabs = typeof args.dbPath === 'string'
+    const tabs = dbPath !== undefined
       ? context.listOpenDatabases().filter((tab) => (
-        getCdbPathIdentity(tab.path) === getCdbPathIdentity(String(args.dbPath))
+        getCdbPathIdentity(tab.path) === getCdbPathIdentity(dbPath)
       ))
       : context.listOpenDatabases();
     const results = [];
@@ -776,7 +765,7 @@ async function runTool(input: {
   if (name === 'get_card') {
     const code = Number(args.code ?? 0);
     if (!Number.isInteger(code) || code <= 0) throw new Error('code must be a positive integer');
-    const result = await getCard(context, code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    const result = await getCard(context, code, dbPath);
     return result ? { db: result.tab, card: result.card } : null;
   }
 
@@ -789,13 +778,13 @@ async function runTool(input: {
   if (name === 'read_card_script') {
     const code = Number(args.code ?? 0);
     if (!Number.isInteger(code) || code <= 0) throw new Error('code must be a positive integer');
-    return context.readCardScript(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    return context.readCardScript(code, dbPath);
   }
 
   if (name === 'get_script_test_context') {
     const code = Number(args.code ?? 0);
     if (!Number.isInteger(code) || code <= 0) throw new Error('code must be a positive integer');
-    const tab = getActiveDb(context, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    const tab = getActiveDb(context, dbPath);
     if (!tab) throw new Error('opened database is required');
     const script = await context.readCardScript(code, tab.path);
     return {
@@ -811,14 +800,14 @@ async function runTool(input: {
   if (name === 'read_image_config' || name === 'readimg') {
     const code = Number(args.code ?? 0);
     if (!Number.isInteger(code) || code <= 0) throw new Error('code must be a positive integer');
-    return context.readImageConfig(code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    return context.readImageConfig(code, dbPath);
   }
 
   if (name === 'propose_card_patch') {
     const code = Number(args.code ?? 0);
     const normalizedPatch = normalizeAiCardPatch(args.patch);
     if (!Number.isInteger(code) || code <= 0 || !normalizedPatch) throw new Error('code and patch are required');
-    const result = await getCard(context, code, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    const result = await getCard(context, code, dbPath);
     if (!result) throw new Error('target card was not found in an opened database');
     const patch: WorkspaceAiPatch = {
       id: createId('ai-patch'),
@@ -835,7 +824,7 @@ async function runTool(input: {
   }
 
   if (name === 'propose_batch_card_patch') {
-    const tab = getActiveDb(context, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    const tab = getActiveDb(context, dbPath);
     if (!tab || !Array.isArray(args.cards)) throw new Error('opened database and cards are required');
     const cards = [];
     for (const item of args.cards) {
@@ -866,7 +855,7 @@ async function runTool(input: {
   }
 
   if (name === 'propose_script_write') {
-    const tab = getActiveDb(context, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    const tab = getActiveDb(context, dbPath);
     const fileName = String(args.fileName ?? '').trim().replace(/\\/g, '/').split('/').pop() ?? '';
     const content = String(args.content ?? '');
     if (!tab || !fileName.endsWith('.lua') || !content.trim()) throw new Error('opened database, lua fileName, and content are required');
@@ -885,7 +874,7 @@ async function runTool(input: {
   }
 
   if (name === 'propose_script_test_plan') {
-    const tab = getActiveDb(context, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    const tab = getActiveDb(context, dbPath);
     const code = Number(args.code ?? 0);
     if (!tab || !Number.isInteger(code) || code <= 0 || !isRecord(args.plan)) throw new Error('opened database, code, and plan are required');
     const patch: WorkspaceAiPatch = {
@@ -903,7 +892,7 @@ async function runTool(input: {
 
   if (name === 'propose_image_config_patch') {
     const code = Number(args.code ?? 0);
-    const tab = getActiveDb(context, typeof args.dbPath === 'string' ? args.dbPath : undefined);
+    const tab = getActiveDb(context, dbPath);
     if (!tab || !Number.isInteger(code) || code <= 0 || !isRecord(args.patch)) throw new Error('opened database, code, and patch are required');
     const patch: WorkspaceAiPatch = {
       id: createId('ai-patch'),

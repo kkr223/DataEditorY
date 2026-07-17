@@ -41,6 +41,11 @@ export type OpenScriptTabResult = {
   createdFromTemplate: boolean;
 };
 
+type ScriptTabContext = Pick<
+  ScriptWorkspaceState,
+  'cdbPath' | 'sourceTabId' | 'cardCode' | 'cardName'
+>;
+
 const inflightOpenRequests = new Map<string, Promise<OpenScriptTabResult>>();
 
 documentRuntime.subscribe((snapshot) => {
@@ -78,11 +83,7 @@ export const getOpenScriptTab = (
   return findScriptTabByCard(get(scriptTabs), cdbPath, cardCode, sourceTabId);
 };
 
-const buildReferences = (input: {
-  cdbPath: string;
-  sourceTabId: string | null;
-  cardCode: number;
-}) => [{
+const buildReferences = (input: ScriptTabContext) => [{
   relation: 'card-script',
   typeId: CARD_COLLECTION_TYPE,
   documentId: input.sourceTabId ?? undefined,
@@ -92,13 +93,7 @@ const buildReferences = (input: {
 
 const attachScriptMetadata = (
   documentId: string,
-  input: {
-    cdbPath: string;
-    sourceTabId: string | null;
-    cardCode: number;
-    cardName: string;
-    createdFromTemplate: boolean;
-  },
+  input: ScriptTabContext & { createdFromTemplate: boolean },
 ) => {
   documentRuntime.patchMetadata(documentId, input);
   documentRuntime.setReferences(documentId, buildReferences(input));
@@ -110,6 +105,31 @@ const addOrUpdateScriptTab = (input: ScriptWorkspaceState) => {
     return existing
       ? currentTabs.map((tab) => (tab.id === input.id ? input : tab))
       : [...currentTabs, input];
+  });
+};
+
+const hydrateScriptTab = async (
+  documentId: string,
+  input: ScriptTabContext,
+  scriptPath: string,
+  createdFromTemplate: boolean,
+) => {
+  attachScriptMetadata(documentId, { ...input, createdFromTemplate });
+  const snapshot = await documentRuntime.query<LuaScriptDocument>(documentId, {});
+  const content = normalizeScriptContent(snapshot.content);
+  const { cdbPath, sourceTabId, cardCode, cardName } = input;
+  addOrUpdateScriptTab({
+    id: documentId,
+    cdbPath,
+    sourceTabId,
+    cardCode,
+    cardName,
+    scriptPath,
+    content,
+    savedContent: content,
+    isDirty: false,
+    viewState: null,
+    createdFromTemplate,
   });
 };
 
@@ -137,11 +157,7 @@ export const activateScriptTab = (tabId: string) => {
   activateScriptView();
 };
 
-export const openOrCreateScriptTab = async (input: {
-  cdbPath: string;
-  sourceTabId: string | null;
-  cardCode: number;
-  cardName: string;
+export const openOrCreateScriptTab = async (input: ScriptTabContext & {
   templateContent: string;
 }): Promise<OpenScriptTabResult> => {
   const key = getScriptTabKey(input.cdbPath, input.cardCode);
@@ -186,25 +202,7 @@ export const openOrCreateScriptTab = async (input: {
           name: buildScriptFileName(input.cardCode),
         });
       }
-      attachScriptMetadata(document.id, {
-        ...input,
-        createdFromTemplate: !info.exists,
-      });
-      const snapshot = await documentRuntime.query<LuaScriptDocument>(document.id, {});
-      const content = normalizeScriptContent(snapshot.content);
-      addOrUpdateScriptTab({
-        id: document.id,
-        cdbPath: input.cdbPath,
-        sourceTabId: input.sourceTabId,
-        cardCode: input.cardCode,
-        cardName: input.cardName,
-        scriptPath: info.path,
-        content,
-        savedContent: content,
-        isDirty: false,
-        viewState: null,
-        createdFromTemplate: !info.exists,
-      });
+      await hydrateScriptTab(document.id, input, info.path, !info.exists);
       activeScriptTabId.set(document.id);
       activateScriptView();
       return {
@@ -220,11 +218,7 @@ export const openOrCreateScriptTab = async (input: {
   return promise;
 };
 
-export const openExistingScriptTab = async (input: {
-  cdbPath: string;
-  sourceTabId: string | null;
-  cardCode: number;
-  cardName: string;
+export const openExistingScriptTab = async (input: ScriptTabContext & {
   activate?: boolean;
 }): Promise<string | null> => {
   const existing = getOpenScriptTab(input.cdbPath, input.cardCode, input.sourceTabId);
@@ -241,25 +235,7 @@ export const openExistingScriptTab = async (input: {
     path: info.path,
     name: buildScriptFileName(input.cardCode),
   });
-  attachScriptMetadata(document.id, {
-    ...input,
-    createdFromTemplate: false,
-  });
-  const snapshot = await documentRuntime.query<LuaScriptDocument>(document.id, {});
-  const content = normalizeScriptContent(snapshot.content);
-  addOrUpdateScriptTab({
-    id: document.id,
-    cdbPath: input.cdbPath,
-    sourceTabId: input.sourceTabId,
-    cardCode: input.cardCode,
-    cardName: input.cardName,
-    scriptPath: info.path,
-    content,
-    savedContent: content,
-    isDirty: false,
-    viewState: null,
-    createdFromTemplate: false,
-  });
+  await hydrateScriptTab(document.id, input, info.path, false);
   if (input.activate) activateScriptTab(document.id);
   return document.id;
 };

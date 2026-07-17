@@ -5,6 +5,7 @@
   import { documentState, getActiveDataDocument } from '$lib/platform/store.svelte';
   import type { CardDataEntry } from '$lib/types';
   import {
+    normalizeCardImageConfigDocument,
     normalizeCardImageFormData,
     type CardImageConfigDocument,
   } from '$lib/features/card-image/layout';
@@ -64,33 +65,9 @@
     };
   });
 
-  const normalizeDocument = (value: unknown): CardImageConfigDocument => {
-    const input = value && typeof value === 'object'
-      ? value as Partial<CardImageConfigDocument>
-      : {};
-    const meta = input.meta && typeof input.meta === 'object'
-      ? input.meta
-      : undefined;
-    return {
-      kind: 'dataeditory-card-image-config',
-      version: 1,
-      form: normalizeCardImageFormData(input.form ?? {}),
-      exportScalePercent: input.exportScalePercent,
-      meta: meta
-        ? {
-            cardCode: Number.isFinite(Number(meta.cardCode)) ? Number(meta.cardCode) : undefined,
-            cardName: typeof meta.cardName === 'string' && meta.cardName.trim()
-              ? meta.cardName
-              : undefined,
-            exportedAt: typeof meta.exportedAt === 'string' ? meta.exportedAt : undefined,
-          }
-        : undefined,
-    };
-  };
-
   const persistDocument = (document: CardImageConfigDocument) => {
     if (!activeDocument || activeDocument.typeId !== CARD_IMAGE_CONFIG_TYPE) return;
-    const nextDocument = normalizeDocument(document);
+    const nextDocument = normalizeCardImageConfigDocument(document);
     documentData = nextDocument;
     const documentId = activeDocument.id;
     const sequence = ++saveSequence;
@@ -102,8 +79,6 @@
       loadError = error instanceof Error ? error.message : String(error);
     });
   };
-
-  const handleSavedJpg = async () => {};
 
   $effect(() => {
     documentState.activeDocumentId;
@@ -124,7 +99,7 @@
     void documentRuntime.query(document.id, {})
       .then((value) => {
         if (sequence !== loadSequence || activeDocument?.id !== document.id) return;
-        documentData = normalizeDocument(value);
+        documentData = normalizeCardImageConfigDocument(value);
       })
       .catch((error) => {
         if (sequence !== loadSequence) return;
@@ -147,7 +122,6 @@
     documentKey={activeDocumentKey}
     initialDocument={documentData}
     onDocumentChange={persistDocument}
-    onSavedJpg={handleSavedJpg}
   />
 {:else}
   <div class="workbench-message">Loading...</div>
