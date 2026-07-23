@@ -149,7 +149,7 @@ async function renderCardBlob(data: CardImageFormData, type: 'png' | 'jpg', qual
 
     const exported = await exportYugiohCard(exportCard, type, {
       screenshot: true,
-      pixelRatio: 1,
+      pixelRatio: window.devicePixelRatio,
       blob: true,
       ...(quality !== undefined ? { quality } : {}),
     });

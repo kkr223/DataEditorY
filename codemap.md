@@ -110,7 +110,7 @@ Use AI
 
 6. **Typed native APIs** — Frontend feature code should use `src/lib/native/*Api.ts` wrappers instead of direct scattered `invoke()` calls.
 
-7. **Workspace metadata** — Editor-only state is saved under `.dey/{cdb-stem}.workspace.json` beside the CDB. Metadata stores UI layout, explorer filters, card groups, image overrides, AI threads/proposals/tool logs, opened script tabs, and task history.
+7. **Workspace metadata** — Editor-only state is saved under `.dey/{cdb-stem}.workspace.json` beside the CDB. Metadata stores UI layout, explorer filters, card groups, image references/overrides, AI threads/proposals/tool logs, opened script tabs, and task history. Image binaries live under `.dey/card-image/`, never inside the JSON.
 
 8. **Library-first rendering and CDB encoding** — Card image rendering uses `yugioh-card-ts`. CDB read/write uses `ygopro-cdb-encode-rs` / `cdb-encoder-rs`; app code does not implement the CDB file format.
 

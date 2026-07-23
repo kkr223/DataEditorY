@@ -13,6 +13,7 @@ Card Image Maker Feature (extra only) — maps current card/draft data to `yugio
 - **`adapter.ts`** — adapts card data from the editor into the `yugioh-card-ts` renderer format
 - **`exporter.ts`** — export helpers for single-card and batch image output
 - **`scriptRenderer.ts`** — renders Lua script code as a styled image (for code screenshot export)
+- **`workspaceAssets.ts`** — resolves `workspace-asset:` references from metadata to image files under `.dey/card-image/`
 
 ### Components
 
@@ -23,4 +24,4 @@ Card Image Maker Feature (extra only) — maps current card/draft data to `yugio
 ## Integration
 
 - **Consumed by**: `modules/card/workbench/ImageSurface.svelte`, `modules/card-image/workbench/CardImageWorkbench.svelte`
-- **Depends on**: `yugioh-card-ts`, `leafer`/`leafer-unified`, domain (`card/`), stores (`editor`), infrastructure
+- **Depends on**: `yugioh-card-ts`, `leafer`/`leafer-unified`, domain (`card/`), stores (`editor`), typed native asset APIs

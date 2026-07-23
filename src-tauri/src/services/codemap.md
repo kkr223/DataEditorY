@@ -14,7 +14,7 @@ Rust Business Services — service functions implementing CDB sessions, metadata
 | `package.rs` | ZIP/YPK packaging: collects CDB + `pics/` + `script/` + `strings.conf`, compresses with deflate |
 | `media.rs` | Media operations: `handle_media_protocol_request` (custom URI scheme for serving local images), `collect_cdb_paths_from_args` (CLI arg parsing), image reading/conversion/import |
 | `scripts.rs` | Script file management: resolve script path from CDB location, read/write/save `.lua` files, template-based creation |
-| `metadata.rs` | Workspace metadata: load/save `.dey/{cdb-stem}.workspace.json`; missing metadata returns an empty workspace shape |
+| `metadata.rs` | Workspace metadata: load/save `.dey/{cdb-stem}.workspace.json`; externalize embedded image data to `.dey/card-image/`; copy referenced assets on Save As |
 | `lua_replace.rs` | Lua search/replace preview and apply support for CDB-level migration tasks |
 | `assets_check.rs` | Resource validation for CDB-related pics/scripts/assets |
 | `settings.rs` | App settings: load/save JSON settings, API key encryption/decryption, cover image management |

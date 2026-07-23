@@ -17,6 +17,8 @@
   } from '$lib/features/card-image/layout';
   import type { ColorPreset } from '$lib/features/card-image/controller.svelte';
   import {
+    FOREGROUND_EDITOR_CARD_HEIGHT,
+    FOREGROUND_EDITOR_CARD_WIDTH,
     MAX_EXPORT_SCALE_PERCENT,
     MAX_FOREGROUND_SCALE,
     MIN_EXPORT_SCALE_PERCENT,
@@ -50,6 +52,9 @@
     isNameShadowColorPresetActive?: (color: string) => boolean;
     hasForegroundImage?: boolean;
   } = $props();
+
+  const exportWidth = $derived(Math.round(FOREGROUND_EDITOR_CARD_WIDTH * exportScalePercent / 100));
+  const exportHeight = $derived(Math.round(FOREGROUND_EDITOR_CARD_HEIGHT * exportScalePercent / 100));
 
   function updateColorField(key: keyof CardImageFormData, value: string) {
     form = normalizeCardImageFormData({
@@ -198,7 +203,7 @@
       <label class="field field-span-2">
         <span>{$_('editor.card_image_export_scale', { values: { percent: String(exportScalePercent) } })}</span>
         <input type="range" min={MIN_EXPORT_SCALE_PERCENT} max={MAX_EXPORT_SCALE_PERCENT} step="1" bind:value={exportScalePercent} />
-        <small class="field-hint">{$_('editor.card_image_export_scale_hint')}</small>
+        <small class="field-hint">{$_('editor.card_image_export_scale_hint', { values: { width: String(exportWidth), height: String(exportHeight) } })}</small>
       </label>
       <label class="field"><span>{$_('editor.card_image_description_zoom')}</span><input type="number" min="0.5" step="0.1" bind:value={form.descriptionZoom} /></label>
       <label class="field"><span>{$_('editor.card_image_description_weight')}</span><input type="number" min="0" step="100" bind:value={form.descriptionWeight} /></label>

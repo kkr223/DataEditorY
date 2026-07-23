@@ -17,6 +17,6 @@ Card Collection Workbench — the CDB workspace UI. It composes Card Explorer, t
 
 - `surfaceState.svelte.ts` — active surface and layout state, persisted through metadata.
 - `cardDraftWorkspaceState.svelte.ts` — per-workspace card draft state.
-- `workspaceMetadataState.svelte.ts` — `.dey` metadata load/save bridge.
+- `workspaceMetadataState.svelte.ts` — `.dey` metadata load/save bridge; Save As preserves referenced workspace image assets.
 - `aiMentions.ts` — pure text helpers for AI composer `@card` detection, replacement, deletion, and prompt context.
 - `aiContextRefs.ts`, `aiProposalPayload.ts`, `aiProposalDiff.ts`, `aiProposalApplication.svelte.ts` — AI proposal context, parsing, diff, and explicit apply boundaries.

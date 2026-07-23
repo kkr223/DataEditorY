@@ -23,6 +23,14 @@ export function loadWorkspaceMetadata(cdbPath: string) {
   return invokeCommand<WorkspaceMetadata>('load_workspace_metadata', { cdbPath });
 }
 
-export function saveWorkspaceMetadata(cdbPath: string, metadata: WorkspaceMetadata) {
-  return invokeCommand<WorkspaceMetadata>('save_workspace_metadata', { cdbPath, metadata });
+export function saveWorkspaceMetadata(
+  cdbPath: string,
+  metadata: WorkspaceMetadata,
+  sourceCdbPath?: string,
+) {
+  return invokeCommand<WorkspaceMetadata>('save_workspace_metadata', {
+    cdbPath,
+    metadata,
+    sourceCdbPath: sourceCdbPath ?? null,
+  });
 }

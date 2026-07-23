@@ -193,7 +193,7 @@
     "empty_target": "The selected range contains no cards",
     "generate": "Generate PNG",
     "generating": "Generating…",
-    "done": "Generated {images} showcase images from {cards} cards",
+    "done": "Generated {images} showcase images from {cards} cards and copied the first to the clipboard",
     "failed": "Failed to generate showcase images"
   },
   "lua_replace": {
@@ -615,7 +615,7 @@
     "card_image_copyright": "Copyright",
     "card_image_scale_factor": "Scale",
     "card_image_export_scale": "Export Scale: {percent}%",
-    "card_image_export_scale_hint": "Reference: 43% is about 399 x 582.",
+    "card_image_export_scale_hint": "Current resolution: {width} x {height}",
     "card_image_description_zoom": "Description Zoom",
     "card_image_description_weight": "Description Weight",
     "card_image_first_line_compress": "Compress First Line",

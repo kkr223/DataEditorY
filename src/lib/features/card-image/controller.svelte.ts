@@ -20,6 +20,11 @@ import {
 } from '$lib/features/card-image/layout';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import {
+  inlineWorkspaceCardImageAsset,
+  isWorkspaceCardImageAssetReference,
+  resolveWorkspaceCardImageAssetSrc,
+} from '$lib/features/card-image/workspaceAssets';
+import {
   getOpenTextTab,
   saveTextTab,
   updateTextTabContent,
@@ -119,6 +124,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     foregroundPreviewCard: null as InstanceType<YugiohCardConstructor> | null,
     foregroundRenderableUrl: '',
     croppedImageDataUrl: '',
+    persistedImage: '',
+    persistedForegroundImage: '',
     sourceImageUrl: '',
     sourceImageWidth: 0,
     sourceImageHeight: 0,
@@ -305,7 +312,11 @@ export function createCardImageController(source: CardImageControllerSource) {
     return {
       kind: 'dataeditory-card-image-config',
       version: 1,
-      form: normalizeCardImageFormData(state.form),
+      form: normalizeCardImageFormData({
+        ...state.form,
+        image: state.persistedImage,
+        foregroundImage: state.persistedForegroundImage,
+      }),
       exportScalePercent: state.exportScalePercent,
       meta: {
         cardCode: Number.isFinite(Number(card.code)) ? Number(card.code) : undefined,
@@ -325,7 +336,12 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   async function hydrateFromConfigDocument(document: CardImageConfigDocument) {
-    const form = normalizeCardImageFormData(document.form ?? {});
+    const persistedForm = normalizeCardImageFormData(document.form ?? {});
+    const form = normalizeCardImageFormData({
+      ...persistedForm,
+      image: resolveWorkspaceCardImageAssetSrc(source.cdbPath(), persistedForm.image),
+      foregroundImage: resolveWorkspaceCardImageAssetSrc(source.cdbPath(), persistedForm.foregroundImage),
+    });
     revokeSourceImageUrl();
     state.sourceImageWidth = 0;
     state.sourceImageHeight = 0;
@@ -334,6 +350,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.cropBox = { x: 0, y: 0, size: 0 };
     state.dragMode = null;
     state.dragPointerId = null;
+    state.persistedImage = persistedForm.image;
+    state.persistedForegroundImage = persistedForm.foregroundImage;
     state.croppedImageDataUrl = form.image || '';
     state.hasManualPreviewZoom = false;
     state.previewZoomPercent = DEFAULT_PREVIEW_ZOOM_PERCENT;
@@ -364,6 +382,8 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function resetImageState() {
+    state.persistedImage = '';
+    state.persistedForegroundImage = '';
     state.croppedImageDataUrl = '';
     state.sourceImageWidth = 0;
     state.sourceImageHeight = 0;
@@ -472,6 +492,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   function clearForegroundImage() {
     clearForegroundInitialState();
     revokeForegroundRenderableUrl();
+    state.persistedForegroundImage = '';
     updateForm({
       foregroundImage: '',
       foregroundWidth: 0,
@@ -573,6 +594,8 @@ export function createCardImageController(source: CardImageControllerSource) {
       state.cropBox = { x: 0, y: 0, size: 0 };
       state.dragMode = null;
       state.dragPointerId = null;
+      state.persistedImage = importedForm.image || '';
+      state.persistedForegroundImage = importedForm.foregroundImage || '';
       state.croppedImageDataUrl = importedForm.image || '';
       state.hasManualPreviewZoom = false;
       state.previewZoomPercent = DEFAULT_PREVIEW_ZOOM_PERCENT;
@@ -648,8 +671,13 @@ export function createCardImageController(source: CardImageControllerSource) {
   async function handleConfigExport() {
     const card = getCard();
     try {
+      const cdbPath = source.cdbPath();
       const content = serializeCardImageConfigDocument({
-        form: state.form,
+        form: normalizeCardImageFormData({
+          ...state.form,
+          image: await inlineWorkspaceCardImageAsset(cdbPath, state.persistedImage),
+          foregroundImage: await inlineWorkspaceCardImageAsset(cdbPath, state.persistedForegroundImage),
+        }),
         exportScalePercent: state.exportScalePercent,
         cardCode: Number(card.code ?? 0),
         cardName: card.name ?? '',
@@ -998,6 +1026,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       };
       state.initialForegroundState = nextInitialState;
       await syncForegroundRenderableUrl(uploaded.dataUrl);
+      state.persistedForegroundImage = uploaded.dataUrl;
       updateForm({
         foregroundImage: uploaded.dataUrl,
         foregroundWidth: nextInitialState.foregroundWidth,
@@ -1068,6 +1097,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     );
 
     state.croppedImageDataUrl = canvas.toDataURL('image/png');
+    state.persistedImage = state.croppedImageDataUrl;
     state.form.image = state.croppedImageDataUrl;
     state.cropModalOpen = false;
   }
@@ -1438,7 +1468,7 @@ export function createCardImageController(source: CardImageControllerSource) {
 
       const exported = await exportYugiohCard(exportCard, type, {
         screenshot: true,
-        pixelRatio: 1,
+        pixelRatio: window.devicePixelRatio,
         blob: true,
         ...(quality !== undefined ? { quality } : {}),
       });
@@ -1880,6 +1910,14 @@ export function createCardImageController(source: CardImageControllerSource) {
   });
 
   $effect(() => {
+    const form = source.initialDocument?.()?.form;
+    const image = typeof form?.image === 'string' ? form.image : '';
+    const foregroundImage = typeof form?.foregroundImage === 'string' ? form.foregroundImage : '';
+    if (isWorkspaceCardImageAssetReference(image)) state.persistedImage = image;
+    if (isWorkspaceCardImageAssetReference(foregroundImage)) state.persistedForegroundImage = foregroundImage;
+  });
+
+  $effect(() => {
     if (!source.open()) return;
 
     const currentLanguage = state.form.language as CardImageLanguage;
@@ -1906,6 +1944,8 @@ export function createCardImageController(source: CardImageControllerSource) {
 
     state.form;
     state.exportScalePercent;
+    state.persistedImage;
+    state.persistedForegroundImage;
     const document = createConfigDocument();
     const signature = getDocumentSignature(document);
     if (signature === lastDocumentSignature) return;
