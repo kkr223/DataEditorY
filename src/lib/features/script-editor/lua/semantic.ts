@@ -164,6 +164,13 @@ const COMMON_PARAM_TYPE_MAP: Record<string, string> = {
 };
 
 const strictDocumentCache = new Map<string, LuaSemanticDocument>();
+const catalogIndexesCache = new WeakMap<LuaCatalog, LuaCatalogIndexes>();
+
+export function clearLuaSemanticDocumentCache(uri: string) {
+  for (const key of strictDocumentCache.keys()) {
+    if (key.startsWith(`${uri}::`)) strictDocumentCache.delete(key);
+  }
+}
 
 function buildCatalogIndexes(catalog: LuaCatalog): LuaCatalogIndexes {
   const functionsByName = new Map<string, LuaFunctionItem>();
@@ -186,6 +193,15 @@ function buildCatalogIndexes(catalog: LuaCatalog): LuaCatalogIndexes {
   }
 
   return { functionsByName, functionsByNamespace, functionsByShortName, constantsByName };
+}
+
+function getCatalogIndexes(catalog: LuaCatalog) {
+  let indexes = catalogIndexesCache.get(catalog);
+  if (!indexes) {
+    indexes = buildCatalogIndexes(catalog);
+    catalogIndexesCache.set(catalog, indexes);
+  }
+  return indexes;
 }
 
 function defaultRange(sourceLines: string[]): LuaSourceRange {
@@ -923,7 +939,7 @@ export function getLuaSemanticDocument(model: LuaSemanticTextModel, catalog: Lua
 
   const source = model.getValue();
   const sourceLines = source.split('\n');
-  const catalogIndexes = buildCatalogIndexes(catalog);
+  const catalogIndexes = getCatalogIndexes(catalog);
   const strict = parseLua(source);
   const strictAnalysis = strict.ast ? createAnalysis(strict.ast, sourceLines, catalogIndexes) : null;
   const fallbackAnalysis = strictAnalysis ?? (() => {
@@ -966,10 +982,8 @@ export function getLuaSemanticDocument(model: LuaSemanticTextModel, catalog: Lua
     tolerantAnalysisByLine: new Map(),
   };
 
+  clearLuaSemanticDocumentCache(uri);
   strictDocumentCache.set(cacheKey, document);
-  for (const key of strictDocumentCache.keys()) {
-    if (key.startsWith(`${uri}::`) && key !== cacheKey) strictDocumentCache.delete(key);
-  }
   return document;
 }
 

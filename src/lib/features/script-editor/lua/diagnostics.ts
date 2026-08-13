@@ -10,25 +10,28 @@ import type { LuaCatalog } from '$lib/types';
 
 let luaCatalog: LuaCatalog = defaultLuaCatalog;
 let catalogLoadPromise: Promise<void> | null = null;
+let detachedSource = '';
+let detachedVersion = 0;
 
 function createDetachedModel(source: string): LuaSemanticTextModel {
   const sourceLines = source.split('\n');
-  let hash = 0;
-  for (let index = 0; index < source.length; index += 1) {
-    hash = (hash * 31 + source.charCodeAt(index)) >>> 0;
+  if (source !== detachedSource) {
+    detachedSource = source;
+    detachedVersion += 1;
   }
+  const versionId = detachedVersion;
 
   return {
     uri: {
       toString() {
-        return `inmemory://dataeditory/lua-diagnostics-${hash}.lua`;
+        return 'inmemory://dataeditory/lua-diagnostics.lua';
       },
     },
     getValue() {
       return source;
     },
     getVersionId() {
-      return hash;
+      return versionId;
     },
     getLineContent(lineNumber: number) {
       return sourceLines[lineNumber - 1] ?? '';

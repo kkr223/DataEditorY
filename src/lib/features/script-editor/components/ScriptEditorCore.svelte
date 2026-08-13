@@ -23,7 +23,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { onDestroy, onMount, untrack } from 'svelte';
-  import { activeScriptTab, getActiveScriptTab, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
+  import { activeScriptTab, getActiveScriptTab, registerScriptModelDisposer, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
   import { appSettingsState } from '$lib/stores/appSettings.svelte';
   import { collectLuaInlineHighlights } from '$lib/features/script-editor/lua/calls';
@@ -663,6 +663,7 @@
 
     monacoRuntime = runtime;
     monacoModule = monacoRuntime.module;
+    registerScriptModelDisposer(monacoModule.disposeScriptModel);
     monacoApi = monacoRuntime.api;
     editorInstance = monacoRuntime.editor;
     callHighlightDecorations = monacoRuntime.callHighlightDecorations;
