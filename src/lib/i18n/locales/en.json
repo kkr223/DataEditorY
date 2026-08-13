@@ -391,6 +391,8 @@
     "model": "Model",
     "temperature": "Model Temperature",
     "temperature_hint": "Default is 1. Adjust it between 0 and 2; higher values usually produce more varied output.",
+    "agent_max_steps": "Long-task Rounds",
+    "agent_max_steps_hint": "Maximum model calls per submission. Defaults to 100 and supports 1-200; higher values raise the time and cost ceiling.",
     "model_placeholder": "Connect first to load model options",
     "model_saved": "Selected model saved",
     "connect": "Connect",

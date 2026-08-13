@@ -11,6 +11,7 @@ import type {
 } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
 import { resolveResourceFile } from '$lib/native/assetApi';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+import { normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
 
 type AiRole = 'system' | 'user' | 'assistant' | 'tool';
 
@@ -47,6 +48,7 @@ export type AiConfig = {
   apiBaseUrl: string;
   model: string;
   temperature: number;
+  maxSteps: number;
   secretKey: string;
 };
 
@@ -123,7 +125,6 @@ export type AiToolName =
   | 'propose_image_config_patch';
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
-const MAX_AGENT_STEPS = 30;
 const MAX_TOOL_SUMMARY = 900;
 const SKILL_MANIFEST_URL = '/resources/ai-skills/manifest.json';
 const PROMPT_MANIFEST_URL = '/resources/ai-prompts/manifest.json';
@@ -989,6 +990,7 @@ export async function runWorkspaceAgent(input: {
   }
 
   const config = await input.context.getAiConfig();
+  const maxSteps = normalizeAgentMaxSteps(config.maxSteps);
   const toolRuns: WorkspaceAiToolRun[] = [];
   const patches: WorkspaceAiPatch[] = [];
   const tools = [...allowedToolNames].map((name) => TOOL_DEFINITIONS[name]);
@@ -999,8 +1001,9 @@ export async function runWorkspaceAgent(input: {
   ];
 
   let finalText = '';
+  let reachedStepLimit = true;
   const tokenUsage: AiTokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
-  for (let step = 0; step < MAX_AGENT_STEPS; step += 1) {
+  for (let step = 0; step < maxSteps; step += 1) {
     input.onStageChange?.('requesting_model');
     const payload = await requestChatCompletion(config, {
       model: config.model,
@@ -1027,6 +1030,7 @@ export async function runWorkspaceAgent(input: {
     });
 
     if (toolCalls.length === 0) {
+      reachedStepLimit = false;
       finalText = content || (patches.length ? '已生成沙盒提案。' : '');
       break;
     }
@@ -1082,7 +1086,13 @@ export async function runWorkspaceAgent(input: {
 
   input.onStageChange?.('finalizing_response');
   if (!finalText) {
-    finalText = patches.length ? '已生成沙盒提案，请在右侧 Review 中确认。' : '模型没有返回可用结果。';
+    if (reachedStepLimit) {
+      finalText = patches.length
+        ? `已达到 ${maxSteps} 轮调用上限；已生成的沙盒提案可在右侧 Review 中确认。`
+        : `已达到 ${maxSteps} 轮调用上限，模型尚未返回最终结果。可在设置中提高长程任务轮次后重试。`;
+    } else {
+      finalText = '模型没有返回可用结果。';
+    }
   }
 
   return {

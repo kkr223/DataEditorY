@@ -30,6 +30,7 @@ export function createAiAppContext(): AiAppContext {
         temperature: Number.isFinite(appSettingsState.values.temperature)
           ? appSettingsState.values.temperature
           : 1,
+        maxSteps: appSettingsState.values.agentMaxSteps,
         secretKey,
       };
     },

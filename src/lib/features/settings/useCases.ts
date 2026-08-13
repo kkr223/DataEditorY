@@ -8,7 +8,7 @@ import {
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import type { SettingsFormState } from '$lib/features/settings/controller';
-import { getNormalizedSettingsTemperature, parsePackageIncludePatternsText, validateSettingsForm } from '$lib/features/settings/controller';
+import { getNormalizedAgentMaxSteps, getNormalizedSettingsTemperature, parsePackageIncludePatternsText, validateSettingsForm } from '$lib/features/settings/controller';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -65,6 +65,7 @@ export async function saveSettingsFlow(input: {
       apiBaseUrl: input.form.apiBaseUrl,
       model: input.form.model,
       temperature: getNormalizedSettingsTemperature(input.form.temperature),
+      agentMaxSteps: getNormalizedAgentMaxSteps(input.form.agentMaxSteps),
       ygoproPath: input.form.ygoproPath,
       scriptDirectory: input.form.scriptDirectory,
       scriptTemplate: input.form.scriptTemplate,

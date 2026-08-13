@@ -9,6 +9,8 @@
   export let secretKeyLabel = '';
   export let temperatureLabel = '';
   export let temperatureHint = '';
+  export let agentMaxStepsLabel = '';
+  export let agentMaxStepsHint = '';
   export let connectHint = '';
   export let connectHintError = false;
   export let connectLabel = '';
@@ -17,11 +19,13 @@
   export let apiBaseUrl = '';
   export let secretKey = '';
   export let temperature: number | string = 1;
+  export let agentMaxSteps: number | string = 100;
   export let connecting = false;
   export let secretPlaceholder = '';
   export let onApiBaseUrlInput: (value: string) => void = () => {};
   export let onSecretKeyInput: (value: string) => void = () => {};
   export let onTemperatureInput: (value: number) => void = () => {};
+  export let onAgentMaxStepsInput: (value: number) => void = () => {};
   export let onConnect: () => void | Promise<void> = () => {};
   export let onClearSecretKey: () => void | Promise<void> = () => {};
 </script>
@@ -67,6 +71,19 @@
         oninput={(event) => onTemperatureInput(Number((event.currentTarget as HTMLInputElement).value))}
       />
       <small class="sp-hint">{temperatureHint}</small>
+    </label>
+
+    <label class="sp-field">
+      <span>{agentMaxStepsLabel}</span>
+      <input
+        type="number"
+        min="1"
+        max="200"
+        step="1"
+        value={agentMaxSteps}
+        oninput={(event) => onAgentMaxStepsInput(Number((event.currentTarget as HTMLInputElement).value))}
+      />
+      <small class="sp-hint">{agentMaxStepsHint}</small>
     </label>
   </div>
 

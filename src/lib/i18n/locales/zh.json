@@ -391,6 +391,8 @@
     "model": "模型",
     "temperature": "模型温度",
     "temperature_hint": "默认 1，可在 0 到 2 之间调整；数值越高，输出通常越发散。",
+    "agent_max_steps": "长程任务轮次",
+    "agent_max_steps_hint": "单次提交最多调用模型的次数。默认 100，可在 1 到 200 之间调整；轮次越高，耗时和费用上限越高。",
     "model_placeholder": "请先连接以拉取模型列表",
     "model_saved": "模型选择已保存",
     "connect": "连接",

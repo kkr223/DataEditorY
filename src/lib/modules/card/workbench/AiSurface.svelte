@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { tauriBridge } from '$lib/infrastructure/tauri';
   import { activeTab } from '$lib/stores/db';
@@ -60,6 +61,7 @@
   import { renderMarkdown } from './markdown';
 
   const FULL_ACCESS_KEY = 'dataeditory:ai-full-access';
+  const MENTION_SEARCH_DEBOUNCE_MS = 150;
 
   const threads = $derived.by(() => {
     workspaceMetadataState.metadata;
@@ -91,6 +93,8 @@
   let mentionOpen = $state(false);
   let mentionLoading = $state(false);
   let mentionRequestId = 0;
+  let mentionSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  let mentionTabId = '';
   const stageLabel = $derived(stage ? $_(`surface.ai_stage_${stage}`) : '');
   const accessModeLabel = $derived(fullAccess ? $_('surface.ai_full_access') : $_('surface.ai_review_access'));
 
@@ -103,10 +107,9 @@
   // Estimated context size (for compaction trigger only, not displayed)
   const modelContextLimit = $derived(appSettingsState.modelContextLimits[appSettingsState.values.model] ?? null);
   const modelOutputLimit = $derived(appSettingsState.modelOutputLimits[appSettingsState.values.model] ?? null);
-  const contextTokenEstimate = $derived.by(() => {
+  const threadContextTokenEstimate = $derived.by(() => {
     const thread = activeThread;
     let total = 2500; // system prompt + tools overhead
-    total += estimateTokenCount(composer);
     for (const ref of thread?.contextRefs ?? []) {
       total += estimateTokenCount(`${ref.type}:${ref.label}:${JSON.stringify(ref.value ?? '')}`);
     }
@@ -115,6 +118,7 @@
     }
     return total;
   });
+  const contextTokenEstimate = $derived(threadContextTokenEstimate + estimateTokenCount(composer));
 
   const filteredModelOptions = $derived.by(() => {
     const query = modelFilterActive ? appSettingsState.values.model.trim().toLowerCase() : '';
@@ -176,8 +180,7 @@
     return expressions.length === 1 ? expressions[0] : { kind: 'or', expressions };
   }
 
-  async function refreshMentionCandidates(query: string) {
-    const requestId = ++mentionRequestId;
+  async function refreshMentionCandidates(query: string, requestId: number) {
     const tab = $activeTab;
     if (!tab) {
       mentionCandidates = [];
@@ -193,16 +196,38 @@
         page: 1,
         pageSize: 8,
       });
-      if (requestId !== mentionRequestId) return;
+      if (requestId !== mentionRequestId || $activeTab?.id !== tab.id) return;
       mentionCandidates = page.cards;
       mentionOpen = Boolean(mentionToken);
     } catch {
-      if (requestId !== mentionRequestId) return;
+      if (requestId !== mentionRequestId || $activeTab?.id !== tab.id) return;
       mentionCandidates = [];
       mentionOpen = false;
     } finally {
       if (requestId === mentionRequestId) mentionLoading = false;
     }
+  }
+
+  function cancelMentionSearch() {
+    if (mentionSearchTimer !== null) {
+      clearTimeout(mentionSearchTimer);
+      mentionSearchTimer = null;
+    }
+    mentionRequestId += 1;
+    mentionLoading = false;
+  }
+
+  function scheduleMentionSearch(query: string) {
+    if (mentionSearchTimer !== null) {
+      clearTimeout(mentionSearchTimer);
+    }
+    const requestId = ++mentionRequestId;
+    mentionLoading = true;
+    mentionCandidates = [];
+    mentionSearchTimer = setTimeout(() => {
+      mentionSearchTimer = null;
+      void refreshMentionCandidates(query, requestId);
+    }, MENTION_SEARCH_DEBOUNCE_MS);
   }
 
   function syncComposerCardContextRefs(value: string) {
@@ -230,8 +255,9 @@
     mentionToken = token;
     mentionOpen = Boolean(token);
     if (token) {
-      void refreshMentionCandidates(token.query);
+      scheduleMentionSearch(token.query);
     } else {
+      cancelMentionSearch();
       mentionCandidates = [];
     }
   }
@@ -261,6 +287,7 @@
     const next = replaceCardMention(composer, token, cardMentionLabel(card));
     composer = next.text;
     addCardContext(card);
+    cancelMentionSearch();
     mentionOpen = false;
     mentionToken = null;
     mentionCandidates = [];
@@ -284,6 +311,7 @@
         const next = removeCardMentionRange(composer, range);
         composer = next.text;
         syncComposerCardContextRefs(next.text);
+        cancelMentionSearch();
         mentionOpen = false;
         mentionToken = null;
         mentionCandidates = [];
@@ -296,6 +324,7 @@
     }
 
     if (mentionOpen && event.key === 'Escape') {
+      cancelMentionSearch();
       mentionOpen = false;
       return;
     }
@@ -768,6 +797,18 @@
   });
 
   $effect(() => {
+    const tabId = $activeTab?.id ?? '';
+    if (tabId === mentionTabId) return;
+    mentionTabId = tabId;
+    cancelMentionSearch();
+    mentionToken = null;
+    mentionCandidates = [];
+    mentionOpen = false;
+  });
+
+  onDestroy(cancelMentionSearch);
+
+  $effect(() => {
     const thread = activeThread;
     const contextLimit = modelContextLimit;
     const outputLimit = modelOutputLimit;
@@ -892,7 +933,10 @@
           oninput={handleComposerInput}
           onmouseup={() => updateMentionMenu()}
           onkeydown={handleComposerKeydown}
-          onblur={() => { setTimeout(() => { mentionOpen = false; }, 120); }}
+          onblur={() => {
+            cancelMentionSearch();
+            setTimeout(() => { mentionOpen = false; }, 120);
+          }}
         ></textarea>
           {#if mentionOpen}
             <div class="mention-menu">
