@@ -5,6 +5,7 @@
   import { activeTab } from '$lib/stores/db';
   import {
     editorState,
+    clearSearchError,
     handleSearch,
     setAllCards,
     setSelectedCards,
@@ -13,7 +14,6 @@
   import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
   import { createCdbEditorSnapshot } from '$lib/core/workspace/cdbEditorSnapshot';
   import CardSurfaceRail from '$lib/modules/card/workbench/CardSurfaceRail.svelte';
-  import ScriptSurface from '$lib/modules/card/workbench/ScriptSurface.svelte';
   import {
     cardSurfaceState,
     type CardSurfaceId,
@@ -56,6 +56,11 @@
   } | null>(null);
   let extensionSurfaceError = $state('');
   let extensionLoadSequence = 0;
+  let scriptSurfacePromise: Promise<typeof import('./ScriptSurface.svelte')> | null = null;
+
+  function loadScriptSurface() {
+    return scriptSurfacePromise ??= import('./ScriptSurface.svelte');
+  }
 
   $effect(() => {
     const surfaceId = cardSurfaceState.activeSurface;
@@ -89,6 +94,7 @@
     if (nextTabId === hydratedTabId) return;
 
     hydratedTabId = nextTabId;
+    clearSearchError();
     if (!tab) {
       setAllCards([]);
       setTotalCards(0);
@@ -232,7 +238,10 @@
       <CardEditor />
     </div>
     {#if cardSurfaceState.activeSurface === 'script'}
-      <ScriptSurface />
+      {#await loadScriptSurface() then module}
+        {@const ScriptSurface = module.default}
+        <ScriptSurface />
+      {/await}
     {:else if extensionSurfaceError}
       <div class="surface-error" role="alert">{extensionSurfaceError}</div>
     {:else if loadedExtensionSurface?.id === cardSurfaceState.activeSurface}

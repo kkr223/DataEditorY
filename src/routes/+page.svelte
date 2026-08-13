@@ -1,80 +1,19 @@
 <script lang="ts">
-  import {
-    activeTabId,
-    getCachedCards,
-    getCachedFilters,
-    getCachedPage,
-    getCachedSelectionAnchorId,
-    getCachedSelectedId,
-    getCachedSelectedIds,
-    getCachedTotal
-  } from '$lib/stores/db';
-  import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-  import { clearSearchError, clearSelection, editorState, setAllCards, setTotalCards, getAllCards, setSelectedCards, setSingleSelectedCard } from '$lib/stores/editor.svelte';
   import { appShellState } from '$lib/stores/appShell.svelte';
   import WorkbenchHost from '$lib/platform/components/WorkbenchHost.svelte';
-  import TextEditorWorkbench from '$lib/components/TextEditorWorkbench.svelte';
 
-  function restoreSearchFilters() {
-    const cached = getCachedFilters();
-    return {
-      ...DEFAULT_SEARCH_FILTERS,
-      name: cached.name?.toString() ?? '',
-      id: cached.id?.toString() ?? '',
-      desc: cached.desc?.toString() ?? '',
-      imageFolderPath: cached.imageFolderPath?.toString() ?? '',
-      deckText: cached.deckText?.toString() ?? '',
-      rule: cached.rule?.toString() ?? '',
-      atkMin: cached.atkMin?.toString() ?? '',
-      atkMax: cached.atkMax?.toString() ?? '',
-      defMin: cached.defMin?.toString() ?? '',
-      defMax: cached.defMax?.toString() ?? '',
-      type: cached.type?.toString() ?? '',
-      subtype: cached.subtype?.toString() ?? '',
-      attribute: cached.attribute?.toString() ?? '',
-      race: cached.race?.toString() ?? '',
-      setcode1: cached.setcode1?.toString() ?? '',
-      setcode2: cached.setcode2?.toString() ?? '',
-      setcode3: cached.setcode3?.toString() ?? '',
-      setcode4: cached.setcode4?.toString() ?? '',
-    };
+  let textEditorWorkbenchPromise: Promise<typeof import('$lib/components/TextEditorWorkbench.svelte')> | null = null;
+
+  function loadTextEditorWorkbench() {
+    return textEditorWorkbenchPromise ??= import('$lib/components/TextEditorWorkbench.svelte');
   }
-
-  // React to tab changes: use cached results for instant switching
-  let lastTabId: string | null = null;
-  $effect(() => {
-    const currentTabId = $activeTabId;
-    if (currentTabId !== lastTabId) {
-      lastTabId = currentTabId;
-      if (currentTabId) {
-        clearSearchError();
-        setAllCards(getCachedCards());
-        setTotalCards(getCachedTotal());
-        editorState.searchFilters = restoreSearchFilters();
-        editorState.currentPage = getCachedPage();
-        const cards = getAllCards();
-        const cachedSelectedIds = getCachedSelectedIds();
-        if (cachedSelectedIds.length > 0) {
-          setSelectedCards(cachedSelectedIds, getCachedSelectedId(), getCachedSelectionAnchorId());
-          if (cards.length > 0 && editorState.selectedId === null) {
-            setSingleSelectedCard(cards[0].code);
-          }
-        } else {
-          setSingleSelectedCard(cards.length > 0 ? cards[0].code : null);
-        }
-      } else {
-        setAllCards([]);
-        setTotalCards(0);
-        editorState.currentPage = 1;
-        editorState.searchFilters = { ...DEFAULT_SEARCH_FILTERS };
-        clearSelection();
-      }
-    }
-  });
 </script>
 
 {#if appShellState.mainView === 'text'}
-  <TextEditorWorkbench />
+  {#await loadTextEditorWorkbench() then module}
+    {@const TextEditorWorkbench = module.default}
+    <TextEditorWorkbench />
+  {/await}
 {:else}
   <WorkbenchHost />
 {/if}

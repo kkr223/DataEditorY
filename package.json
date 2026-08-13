@@ -10,7 +10,7 @@
     "dev": "node scripts/run-variant-build.mjs dev-frontend",
     "dev:base": "node scripts/run-variant-build.mjs dev-frontend base",
     "dev:extra": "node scripts/run-variant-build.mjs dev-frontend extra",
-    "build:web:raw": "bun run build:lua-intel && svelte-kit sync && vite build && node scripts/remove-build-assets.mjs",
+    "build:web:raw": "bun run build:lua-intel && svelte-kit sync && vite build && node scripts/prepare-build-assets.mjs",
     "build": "node scripts/run-variant-build.mjs frontend",
     "build:base": "node scripts/run-variant-build.mjs frontend base",
     "build:extra": "node scripts/run-variant-build.mjs frontend extra",

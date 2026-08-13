@@ -12,6 +12,13 @@ const config = {
     adapter: adapter({
       fallback: "index.html",
     }),
+    files: {
+      assets:
+        process.env.DATAEDITORY_WEB_BUILD === "1" ||
+        process.env.npm_lifecycle_event === "build:web:raw"
+          ? "static-web"
+          : "static",
+    },
   },
 };
 

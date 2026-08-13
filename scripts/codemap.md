@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-Build System — Node.js scripts for managing the variant build pipeline (base/extra), Lua intellisense data generation, and build artifact cleanup.
+Build System — Node.js scripts for managing the variant build pipeline (base/extra), Lua intellisense data generation, and production web assets.
 
 ## Scripts
 
@@ -12,7 +12,7 @@ Build System — Node.js scripts for managing the variant build pipeline (base/e
 | `run-variant-build.mjs` | Main build orchestrator. Supports modes: `frontend` (build), `dev-frontend` (dev server), `check` (type check), `tauri` (desktop build), `build-all` (both variants). Rewrites `src/lib/modules/active.ts` to point to the correct variant entry file, then restores it |
 | `write-tauri-config.mjs` | Writes a variant-specific `tauri.conf.json` (used by CI to prepare config before `tauri-action`) |
 | `build-lua-intel.mjs` | Parses `_functions.txt`, `constant.lua`, `snippets.json`, and `def.lua` from `static/resources/` to generate `src/lib/data/lua-intel/catalog.generated.ts` — the Lua intellisense catalog |
-| `remove-build-assets.mjs` | Cleans up build output assets (post-build cleanup) |
+| `prepare-build-assets.mjs` | Copies only browser-consumed static resources into the production web build |
 
 ## Variant System Flow
 
