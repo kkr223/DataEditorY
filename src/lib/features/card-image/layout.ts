@@ -186,6 +186,7 @@ export const CARD_IMAGE_RARE_OPTIONS: StringOption[] = [
   { value: "ser", labelKey: "editor.card_image_option.rare.ser" },
   { value: "gser", labelKey: "editor.card_image_option.rare.gser" },
   { value: "pser", labelKey: "editor.card_image_option.rare.pser" },
+  { value: "o", labelKey: "editor.card_image_option.rare.o" },
 ];
 
 export const CARD_IMAGE_LASER_OPTIONS: StringOption[] = [

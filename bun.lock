@@ -560,7 +560,7 @@
 
     "ygopro-yrp-encode": ["ygopro-yrp-encode@1.0.8", "", { "dependencies": { "@cjser/lzma1": "~0.3.0-cjser.2", "ygopro-deck-encode": "^1.0.15" } }, "sha512-m1OkByxrLOo++H36OSUNETGByvZw8wdF7M76VM8i+IjJpvYUVLxXKN4/sCViM/6+dkcdyVf4ljCo5XU+OFVlaQ=="],
 
-    "yugioh-card-ts": ["yugioh-card-ts@github:kkr223/yugioh-card#3228866", { "dependencies": { "css-line-break": "^2.1.0" }, "peerDependencies": { "@leafer/node": "^2.0.4", "leafer": "^2.0.4", "leafer-unified": "^1.0.3", "skia-canvas": "^2.0.2" }, "optionalPeers": ["@leafer/node", "skia-canvas"] }, "kkr223-yugioh-card-3228866", "sha512-uXN/jQHXpD8azL5JAeyVSThg5I94Swu1jbvQTiMwAaKbnihdahR5UOpk/rxxZqbXYmmSqvYCYY7VOYSNLaNAgA=="],
+    "yugioh-card-ts": ["yugioh-card-ts@github:kkr223/yugioh-card#d89748f", { "dependencies": { "css-line-break": "^2.1.0" }, "peerDependencies": { "@leafer/node": "^2.0.4", "leafer": "^2.0.4", "leafer-unified": "^1.0.3", "skia-canvas": "^2.0.2" }, "optionalPeers": ["@leafer/node", "skia-canvas"] }, "kkr223-yugioh-card-d89748f", "sha512-eb9098o0w5BMCxWr5HDZGIqGcvAhYQ5VMBuTuYg71lS4k/kUE7iXZAdVnvg5TaJgw22ZVbqdUrytJIts2xKVDg=="],
 
     "zimmerframe": ["zimmerframe@1.1.4", "https://registry.npmmirror.com/zimmerframe/-/zimmerframe-1.1.4.tgz", {}, "sha512-B58NGBEoc8Y9MWWCQGl/gq9xBCe4IiKM0a2x7GZdQKOW5Exr8S1W24J6OgM1njK8xCRGvAJIL/MxXHf6SkmQKQ=="],
 

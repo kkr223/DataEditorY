@@ -659,7 +659,8 @@
         "hr": "HR",
         "ser": "SER",
         "gser": "GSER",
-        "pser": "PSER"
+        "pser": "PSER",
+        "o": "超框"
       },
       "laser": {
         "laser1": "角标 1",

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  CARD_IMAGE_RARE_OPTIONS,
   createCardImageFormData,
   normalizeCardImageConfigDocument,
   normalizeCardImageFormData,
@@ -16,6 +17,7 @@ describe("card image config document", () => {
         password: "89631139",
         image: "data:image/png;base64,AAA",
         foregroundImage: "data:image/png;base64,BBB",
+        rare: "o",
       }),
     });
     const exported = JSON.parse(raw);
@@ -26,11 +28,17 @@ describe("card image config document", () => {
     expect(exported.form).toBe(undefined);
     expect(exported.name).toBe("Blue-Eyes White Dragon");
     expect(exported.arrowList).toEqual([]);
+    expect(exported.rare).toBe("o");
     expect(parsed.form.name).toBe("Blue-Eyes White Dragon");
     expect(parsed.form.password).toBe("89631139");
     expect(parsed.form.image).toBe("data:image/png;base64,AAA");
     expect(parsed.form.foregroundImage).toBe("data:image/png;base64,BBB");
+    expect(parsed.form.rare).toBe("o");
     expect(parsed.exportScalePercent).toBeNull();
+  });
+
+  test("exposes the upstream out-frame rarity", () => {
+    expect(CARD_IMAGE_RARE_OPTIONS.some(({ value }) => value === "o")).toBe(true);
   });
 
   test("accepts plain form json for compatibility", () => {
