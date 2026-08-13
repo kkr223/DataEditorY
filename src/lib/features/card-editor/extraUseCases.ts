@@ -1,7 +1,13 @@
+import { get } from 'svelte/store';
 import type { CardDataEntry } from '$lib/types';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { getCardsByIds, modifyCard } from '$lib/stores/db';
-import { setSingleSelectedCard } from '$lib/stores/editor.svelte';
+import {
+  activeTabId,
+  getCardsByIdsInTab,
+  modifyCardsInTab,
+  refreshSearchAfterMutation,
+} from '$lib/stores/db';
+import { getAllCardsMap, setSingleSelectedCard } from '$lib/stores/editor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { cloneEditableCard, createEmptyCard } from '$lib/domain/card/draft';
 import { toPersistableCard } from '$lib/domain/card/draft';
@@ -45,13 +51,17 @@ export async function saveParsedCardsIndividuallyFlow(input: {
   handleSearch: (preserveSelection?: boolean) => Promise<boolean>;
   refreshDraftImage: (code: number, bustCache?: boolean) => Promise<void>;
 }) {
-  const validCards = input.cards.filter((card) => Number.isInteger(Number(card.code ?? 0)) && Number(card.code ?? 0) > 0);
+  const mutationTabId = get(activeTabId);
+  if (!mutationTabId) return false;
+  const validCards = input.cards
+    .map(cloneEditableCard)
+    .filter((card) => Number.isInteger(Number(card.code ?? 0)) && Number(card.code ?? 0) > 0);
   if (validCards.length === 0) {
     showToast(input.t('editor.code_required'), 'error');
     return false;
   }
 
-  const conflicts = await getCardsByIds(validCards.map((card) => Number(card.code)));
+  const conflicts = await getCardsByIdsInTab(mutationTabId, validCards.map((card) => Number(card.code)));
   if (conflicts.length > 0) {
     const shouldOverwrite = await tauriBridge.ask(
       input.t('editor.ai_parse_multi_overwrite_confirm', {
@@ -67,27 +77,20 @@ export async function saveParsedCardsIndividuallyFlow(input: {
     }
   }
 
-  let savedCount = 0;
-  let lastSavedCard: CardDataEntry | null = null;
-  for (const card of validCards) {
-    const ok = await modifyCard(toPersistableCard(card));
-    if (!ok) {
-      showToast(input.t('editor.save_failed'), 'error');
-      return false;
-    }
-
-    savedCount += 1;
-    lastSavedCard = cloneEditableCard(card);
-  }
-
-  if (!lastSavedCard) {
+  const savedCount = validCards.length;
+  const lastSavedCard = cloneEditableCard(validCards[savedCount - 1]);
+  const ok = await modifyCardsInTab(mutationTabId, validCards.map(toPersistableCard), false);
+  if (!ok) {
+    showToast(input.t('editor.save_failed'), 'error');
     return false;
   }
 
-  input.loadCardIntoDraft(lastSavedCard);
-  setSingleSelectedCard(lastSavedCard.code);
-  await input.handleSearch(true);
-  await input.refreshDraftImage(lastSavedCard.code, true);
+  await refreshSearchAfterMutation(mutationTabId, () => input.handleSearch(true));
+  if (get(activeTabId) === mutationTabId) {
+    input.loadCardIntoDraft(lastSavedCard);
+    if (getAllCardsMap().has(lastSavedCard.code)) setSingleSelectedCard(lastSavedCard.code);
+    await input.refreshDraftImage(lastSavedCard.code, true);
+  }
   showToast(
     input.t('editor.ai_parse_multi_saved', {
       values: { count: String(savedCount) },

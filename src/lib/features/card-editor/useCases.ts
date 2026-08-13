@@ -1,8 +1,16 @@
+import { get } from 'svelte/store';
 import type { CardDataEntry } from '$lib/types';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { deleteCard, getCardById, modifyCard, replaceCardId } from '$lib/stores/db';
+import {
+  activeTabId,
+  deleteCardsInTab,
+  getCardByIdInTab,
+  modifyCardsInTab,
+  refreshSearchAfterMutation,
+  replaceCardIdInTab,
+} from '$lib/stores/db';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
-import { setSingleSelectedCard, updateVisibleCards } from '$lib/stores/editor.svelte';
+import { getAllCardsMap, setSingleSelectedCard, updateVisibleCards } from '$lib/stores/editor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { cloneEditableCard } from '$lib/domain/card/draft';
@@ -32,6 +40,7 @@ export function getValidatedCardCode(
 }
 
 export async function saveDraftCardFlow(input: {
+  tabId: string;
   draftCard: CardDataEntry;
   originalCardCode: number | null;
   removeOriginal?: boolean;
@@ -60,22 +69,25 @@ export async function saveDraftCardFlow(input: {
   const shouldReplaceId = input.removeOriginal
     && input.originalCardCode !== null
     && input.originalCardCode !== targetCode;
+  const mutationTabId = input.tabId;
   const ok = shouldReplaceId
-    ? await replaceCardId(dbCard, input.originalCardCode as number)
-    : await modifyCard(dbCard);
+    ? await replaceCardIdInTab(mutationTabId, dbCard, input.originalCardCode as number, false)
+    : await modifyCardsInTab(mutationTabId, [dbCard], false);
   if (!ok) {
     showToast(input.t('editor.save_failed'), 'error');
     return false;
   }
 
-  input.setDraftCard(cloneEditableCard(dbCard));
-  input.setLastSyncedSelectedId(targetCode);
-  input.setLastLoadedCardSnapshot(createCardSnapshot(dbCard));
-  updateVisibleCards([dbCard]);
-  input.setOriginalCardCode(targetCode);
-  setSingleSelectedCard(targetCode);
-  await input.handleSearch(true);
-  await input.refreshDraftImage(targetCode, true);
+  await refreshSearchAfterMutation(mutationTabId, () => input.handleSearch(true));
+  if (get(activeTabId) === mutationTabId) {
+    input.setDraftCard(cloneEditableCard(dbCard));
+    input.setLastSyncedSelectedId(targetCode);
+    input.setLastLoadedCardSnapshot(createCardSnapshot(dbCard));
+    updateVisibleCards([dbCard]);
+    input.setOriginalCardCode(targetCode);
+    if (getAllCardsMap().has(targetCode)) setSingleSelectedCard(targetCode);
+    await input.refreshDraftImage(targetCode, true);
+  }
   showToast(
     input.t('editor.card_modified', { values: { code: String(targetCode) } }),
     'success',
@@ -84,6 +96,7 @@ export async function saveDraftCardFlow(input: {
 }
 
 export async function modifyDraftCardFlow(input: {
+  tabId: string;
   draftCard: CardDataEntry;
   originalCardCode: number | null;
   isEditingExisting: boolean;
@@ -114,7 +127,7 @@ export async function modifyDraftCardFlow(input: {
     return input.saveDraftCard(targetCode, !!removeOriginal);
   }
 
-  const existing = await getCardById(targetCode);
+  const existing = await getCardByIdInTab(input.tabId, targetCode);
   if (existing) {
     const overwriteExisting = await tauriBridge.ask(
       input.t('editor.overwrite_target_confirm', {
@@ -132,6 +145,7 @@ export async function modifyDraftCardFlow(input: {
 }
 
 export async function saveAsDraftCardFlow(input: {
+  tabId: string;
   draftCard: CardDataEntry;
   originalCardCode: number | null;
   t: Translate;
@@ -140,7 +154,7 @@ export async function saveAsDraftCardFlow(input: {
   const targetCode = getValidatedCardCode(input.draftCard, input.t);
   if (!targetCode) return;
 
-  const existing = await getCardById(targetCode);
+  const existing = await getCardByIdInTab(input.tabId, targetCode);
   if (existing && existing.code !== input.originalCardCode) {
     const overwriteExisting = await tauriBridge.ask(
       input.t('editor.overwrite_target_confirm', {
@@ -158,6 +172,7 @@ export async function saveAsDraftCardFlow(input: {
 }
 
 export async function deleteDraftCardFlow(input: {
+  tabId: string;
   originalCardCode: number | null;
   t: Translate;
   resetDraftCard: () => void;
@@ -177,16 +192,19 @@ export async function deleteDraftCardFlow(input: {
   );
   if (!confirmed) return;
 
-  if (await deleteCard(input.originalCardCode)) {
+  const mutationTabId = input.tabId;
+  if (await deleteCardsInTab(mutationTabId, [input.originalCardCode], false)) {
     showToast(
       input.t('editor.card_deleted', {
         values: { code: String(input.originalCardCode) },
       }),
       'success',
     );
-    input.clearSelection();
-    await input.handleSearch();
-    input.resetDraftCard();
+    await refreshSearchAfterMutation(mutationTabId, () => input.handleSearch());
+    if (get(activeTabId) === mutationTabId) {
+      input.clearSelection();
+      input.resetDraftCard();
+    }
   }
 }
 

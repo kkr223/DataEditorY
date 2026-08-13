@@ -4,18 +4,19 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { consumePendingOpenCdbPaths } from '$lib/native/cdbApi';
 import {
-  deleteCards,
-  getCardsByIds,
+  deleteCardsInTab,
+  getCardsByIdsInTab,
   getLastUndoLabel,
   hasUndoableAction,
   isDbLoaded,
   loadRecentCdbHistory,
-  modifyCards,
+  modifyCardsInTab,
   openCdbHistoryEntry,
   openCdbPath,
   recentCdbHistory,
   removeRecentCdbHistoryEntry,
-  undoLastOperation,
+  refreshSearchAfterMutation,
+  undoLastOperationInTab,
   type RecentCdbEntry,
   activeTabId,
 } from '$lib/stores/db';
@@ -240,13 +241,15 @@ export function createShellLayoutController() {
 
   async function handlePasteSelection() {
     if (!isDbLoadedState.current) return;
+    const mutationTabId = get(activeTabId);
+    if (!mutationTabId) return;
     if (!hasCardClipboard()) {
       showToast(String(get(_)('editor.clipboard_empty')), 'info');
       return;
     }
 
     const clipboardCards = getCardClipboard();
-    const conflictingCards = await getCardsByIds(clipboardCards.map((card) => card.code));
+    const conflictingCards = await getCardsByIdsInTab(mutationTabId, clipboardCards.map((card) => card.code));
     if (conflictingCards.length > 0) {
       const shouldOverwrite = await tauriBridge.ask(
         String(get(_)('editor.paste_conflict_confirm', {
@@ -266,14 +269,15 @@ export function createShellLayoutController() {
       setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
       strings: Array.isArray(card.strings) ? [...card.strings] : [],
     } satisfies CardDataEntry));
-    const ok = await modifyCards(pastedCards);
+    const ok = await modifyCardsInTab(mutationTabId, pastedCards, false);
     if (!ok) {
       showToast(String(get(_)('editor.paste_failed')), 'error');
       return;
     }
 
     const prevSelectedIds = getSelectedCardIds();
-    await handleSearch(true);
+    await refreshSearchAfterMutation(mutationTabId, () => handleSearch(true));
+    if (get(activeTabId) !== mutationTabId) return;
     const visibleIds = pastedCards
       .map((card) => card.code)
       .filter((code) => getAllCardsMap().has(code));
@@ -291,6 +295,8 @@ export function createShellLayoutController() {
 
   async function handleDeleteSelection() {
     if (!isDbLoadedState.current) return;
+    const mutationTabId = get(activeTabId);
+    if (!mutationTabId) return;
 
     const selectedIds = getSelectedCardIds();
     if (selectedIds.length === 0) {
@@ -310,13 +316,13 @@ export function createShellLayoutController() {
 
     if (!confirmed) return;
 
-    const ok = await deleteCards(selectedIds);
+    const ok = await deleteCardsInTab(mutationTabId, selectedIds, false);
     if (!ok) {
       showToast(String(get(_)('editor.delete_failed')), 'error');
       return;
     }
 
-    await handleSearch();
+    await refreshSearchAfterMutation(mutationTabId, () => handleSearch());
     showToast(String(get(_)('editor.cards_deleted', {
       values: { count: String(selectedIds.length) },
     } as never)), 'success');
@@ -326,6 +332,7 @@ export function createShellLayoutController() {
     if (!isDbLoadedState.current) return;
 
     const tabId = get(activeTabId);
+    if (!tabId) return;
     if (hasWorkspaceCardDraftUndo(tabId)) {
       dispatchAppShortcut('undo-draft');
       return;
@@ -347,13 +354,13 @@ export function createShellLayoutController() {
 
     if (!confirmed) return;
 
-    const ok = await undoLastOperation();
+    const ok = await undoLastOperationInTab(tabId, false);
     if (!ok) {
       showToast(String(get(_)('editor.undo_failed')), 'error');
       return;
     }
 
-    await handleSearch(true);
+    await refreshSearchAfterMutation(tabId, () => handleSearch(true));
     showToast(String(get(_)('editor.undo_success')), 'success');
   }
 

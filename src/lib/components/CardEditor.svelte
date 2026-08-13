@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from "svelte";
   import { _ } from "svelte-i18n";
-  import { activeTab, activeTabId, isDbLoaded, saveCdbFile, saveCdbTabAs } from "$lib/stores/db";
+  import { activeTab, activeTabId, isDbLoaded, saveCdbTab, saveCdbTabAs } from "$lib/stores/db";
   import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleReset, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
   import { showToast } from "$lib/stores/toast.svelte";
   import type { CardDataEntry } from "$lib/types";
@@ -101,13 +101,6 @@
     },
     getActiveCdbPath: () => $activeTab?.path,
     isDbLoaded: () => $isDbLoaded,
-    saveCdbFile: async (destinationPath) => {
-      if (!destinationPath || !$activeTabId || !$activeTab?.path) {
-        return saveCdbFile();
-      }
-      await copyWorkspaceMetadataForSaveAs($activeTab.path, destinationPath);
-      return saveCdbTabAs($activeTabId, destinationPath);
-    },
     t: (key, options) => $_(key, options as never),
   });
   const imageInteractionController = createCardImageInteractionController({
@@ -290,8 +283,15 @@
   }
 
   async function handleSaveWorkspace(destinationPath?: string) {
-    if (!$activeTabId) return false;
-    return lifecycleController.handleSaveWorkspace(handleModify, destinationPath);
+    const tabId = $activeTabId;
+    const sourcePath = $activeTab?.path;
+    if (!tabId || !sourcePath) return false;
+
+    return lifecycleController.handleSaveWorkspace(handleModify, async () => {
+      if (!destinationPath) return saveCdbTab(tabId);
+      await copyWorkspaceMetadataForSaveAs(sourcePath, destinationPath);
+      return saveCdbTabAs(tabId, destinationPath);
+    });
   }
 
   async function handleEditorKeydown(event: KeyboardEvent) {
@@ -325,11 +325,19 @@
     });
   }
 
-  async function saveDraftCard(targetCode: number, removeOriginal = false) {
-    draftCard.code = targetCode;
+  async function saveDraftCard(
+    tabId: string,
+    draftSnapshot: CardDataEntry,
+    originalCodeSnapshot: number | null,
+    targetCode: number,
+    removeOriginal = false,
+  ) {
+    const card = cloneEditableCard(draftSnapshot);
+    card.code = targetCode;
     return saveDraftCardFlow({
-      draftCard,
-      originalCardCode,
+      tabId,
+      draftCard: card,
+      originalCardCode: originalCodeSnapshot,
       removeOriginal,
       t: (key, options) => $_(key, options as never),
       setDraftCard: (card) => {
@@ -351,23 +359,43 @@
   }
 
   async function handleModify() {
-    if (!$isDbLoaded || isCommittingDraft) return false;
+    const tabId = $activeTabId;
+    if (!$isDbLoaded || !tabId || isCommittingDraft) return false;
+    const draftSnapshot = cloneEditableCard(draftCard);
+    const originalCodeSnapshot = originalCardCode;
     isCommittingDraft = true;
     try {
-      return await modifyDraftCardFlow({ draftCard, originalCardCode, isEditingExisting, t: (key, options) => $_(key, options as never), saveDraftCard });
+      return await modifyDraftCardFlow({
+        tabId,
+        draftCard: draftSnapshot,
+        originalCardCode: originalCodeSnapshot,
+        isEditingExisting,
+        t: (key, options) => $_(key, options as never),
+        saveDraftCard: (targetCode, removeOriginal) => saveDraftCard(tabId, draftSnapshot, originalCodeSnapshot, targetCode, removeOriginal),
+      });
     } finally {
       isCommittingDraft = false;
     }
   }
 
   async function handleSaveAs() {
-    if (!$isDbLoaded) return;
-    await saveAsDraftCardFlow({ draftCard, originalCardCode, t: (key, options) => $_(key, options as never), saveDraftCard });
+    const tabId = $activeTabId;
+    if (!$isDbLoaded || !tabId) return;
+    const draftSnapshot = cloneEditableCard(draftCard);
+    const originalCodeSnapshot = originalCardCode;
+    await saveAsDraftCardFlow({
+      tabId,
+      draftCard: draftSnapshot,
+      originalCardCode: originalCodeSnapshot,
+      t: (key, options) => $_(key, options as never),
+      saveDraftCard: (targetCode, removeOriginal) => saveDraftCard(tabId, draftSnapshot, originalCodeSnapshot, targetCode, removeOriginal),
+    });
   }
 
   async function handleDelete() {
-    if (!$isDbLoaded || originalCardCode === null) return;
-    await deleteDraftCardFlow({ originalCardCode, t: (key, options) => $_(key, options as never), resetDraftCard: lifecycleController.resetDraftCard, clearSelection, handleSearch });
+    const tabId = $activeTabId;
+    if (!$isDbLoaded || !tabId || originalCardCode === null) return;
+    await deleteDraftCardFlow({ tabId, originalCardCode, t: (key, options) => $_(key, options as never), resetDraftCard: lifecycleController.resetDraftCard, clearSelection, handleSearch });
   }
 
   function handleNewCard() {

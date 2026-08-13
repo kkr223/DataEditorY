@@ -77,12 +77,27 @@ export async function getCardsByIds(cardIds: number[]): Promise<CardDataEntry[]>
   return getCardsByIdsInTab(tab.id, cardIds);
 }
 
-export async function modifyCard(card: CardDataEntry): Promise<boolean> {
-  return modifyCards([card]);
+export async function modifyCard(card: CardDataEntry, refreshCachedSearch = true): Promise<boolean> {
+  return modifyCards([card], refreshCachedSearch);
 }
 
-export async function replaceCardId(card: CardDataEntry, originalCardId: number): Promise<boolean> {
+export async function replaceCardId(
+  card: CardDataEntry,
+  originalCardId: number,
+  refreshCachedSearch = true,
+): Promise<boolean> {
   const tab = get(activeTab);
+  if (!tab) return false;
+  return replaceCardIdInTab(tab.id, card, originalCardId, refreshCachedSearch);
+}
+
+export async function replaceCardIdInTab(
+  tabId: string,
+  card: CardDataEntry,
+  originalCardId: number,
+  refreshCachedSearch = true,
+): Promise<boolean> {
+  const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab || card.code === originalCardId) return false;
 
   try {
@@ -96,7 +111,9 @@ export async function replaceCardId(card: CardDataEntry, originalCardId: number)
     );
     recordUndoLabel(tab.id, `Change card ID ${originalCardId} to ${card.code}`);
     clearSourceFilterCacheForTab(tab.id);
-    await refreshCachedSearchForTab(tab.id);
+    if (refreshCachedSearch) {
+      await refreshCachedSearchForTab(tab.id);
+    }
     return true;
   } catch (err) {
     console.error('Failed to change card ID:', err);
@@ -104,7 +121,11 @@ export async function replaceCardId(card: CardDataEntry, originalCardId: number)
   }
 }
 
-export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): Promise<boolean> {
+export async function modifyCardsInTab(
+  tabId: string,
+  cards: CardDataEntry[],
+  refreshCachedSearch = true,
+): Promise<boolean> {
   const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab) return false;
 
@@ -121,8 +142,10 @@ export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): P
       cards.length === 1 ? `Edit card ${cards[0].code}` : `Modify ${cards.length} cards`,
     );
     clearSourceFilterCacheForTab(tab.id);
-    const refreshed = await refreshCachedSearchForTab(tab.id);
-    if (!refreshed) {
+    const refreshed = refreshCachedSearch
+      ? await refreshCachedSearchForTab(tab.id)
+      : false;
+    if (refreshCachedSearch && !refreshed) {
       syncCachedCardsInTab(tab.id, cards);
     }
     return true;
@@ -132,25 +155,26 @@ export async function modifyCardsInTab(tabId: string, cards: CardDataEntry[]): P
   }
 }
 
-export async function modifyCards(cards: CardDataEntry[]): Promise<boolean> {
+export async function modifyCards(cards: CardDataEntry[], refreshCachedSearch = true): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
-  return modifyCardsInTab(tab.id, cards);
+  return modifyCardsInTab(tab.id, cards, refreshCachedSearch);
 }
 
-export async function deleteCard(cardId: number): Promise<boolean> {
-  return deleteCards([cardId]);
+export async function deleteCard(cardId: number, refreshCachedSearch = true): Promise<boolean> {
+  return deleteCards([cardId], refreshCachedSearch);
 }
 
-export async function deleteCards(cardIds: number[]): Promise<boolean> {
+export async function deleteCards(cardIds: number[], refreshCachedSearch = true): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
-  return deleteCardsInTab(tab.id, cardIds);
+  return deleteCardsInTab(tab.id, cardIds, refreshCachedSearch);
 }
 
 export async function deleteCardsInTab(
   tabId: string,
   cardIds: number[],
+  refreshCachedSearch = true,
 ): Promise<boolean> {
   const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab) return false;
@@ -165,7 +189,9 @@ export async function deleteCardsInTab(
       cardIds.length === 1 ? `Delete card ${cardIds[0]}` : `Delete ${cardIds.length} cards`,
     );
     clearSourceFilterCacheForTab(tab.id);
-    await refreshCachedSearchForTab(tab.id);
+    if (refreshCachedSearch) {
+      await refreshCachedSearchForTab(tab.id);
+    }
     return true;
   } catch (err) {
     console.error('Failed to delete cards:', err);

@@ -89,6 +89,9 @@ pub enum CardCollectionQuery {
         page: u32,
         page_size: u32,
     },
+    SearchAll {
+        expression: CardSearchExpression,
+    },
     GetById {
         card_id: u32,
     },
@@ -250,6 +253,13 @@ mod tests {
             search,
             CardCollectionQuery::Search { page_size: 50, .. }
         ));
+
+        let search_all: CardCollectionQuery = serde_json::from_value(json!({
+            "kind": "searchAll",
+            "expression": { "kind": "all" }
+        }))
+        .expect("searchAll query should deserialize");
+        assert!(matches!(search_all, CardCollectionQuery::SearchAll { .. }));
 
         let get_by_id: CardCollectionQuery = serde_json::from_value(json!({
             "kind": "getById",

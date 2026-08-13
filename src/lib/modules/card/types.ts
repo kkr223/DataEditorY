@@ -44,6 +44,7 @@ export type CardCollectionQuery =
       page: number;
       pageSize: number;
     }
+  | { kind: 'searchAll'; expression: CardSearchExpression }
   | { kind: 'getById'; cardId: number }
   | { kind: 'getByIds'; cardIds: number[] }
   | { kind: 'findByNames'; names: string[] }
