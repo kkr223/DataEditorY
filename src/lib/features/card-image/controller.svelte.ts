@@ -678,9 +678,6 @@ export function createCardImageController(source: CardImageControllerSource) {
           image: await inlineWorkspaceCardImageAsset(cdbPath, state.persistedImage),
           foregroundImage: await inlineWorkspaceCardImageAsset(cdbPath, state.persistedForegroundImage),
         }),
-        exportScalePercent: state.exportScalePercent,
-        cardCode: Number(card.code ?? 0),
-        cardName: card.name ?? '',
       });
 
       if (tauriBridge.isTauri()) {

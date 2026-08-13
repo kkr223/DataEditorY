@@ -55,12 +55,34 @@
 
   const exportWidth = $derived(Math.round(FOREGROUND_EDITOR_CARD_WIDTH * exportScalePercent / 100));
   const exportHeight = $derived(Math.round(FOREGROUND_EDITOR_CARD_HEIGHT * exportScalePercent / 100));
+  const isLinkCard = $derived(
+    form.type === 'pendulum'
+      ? form.pendulumType === 'link-pendulum'
+      : form.type === 'monster' && form.cardType === 'link',
+  );
+
+  const LINK_ARROW_OPTIONS = [
+    { value: 8, label: '↖', row: 1, col: 1 },
+    { value: 1, label: '↑', row: 1, col: 2 },
+    { value: 2, label: '↗', row: 1, col: 3 },
+    { value: 7, label: '←', row: 2, col: 1 },
+    { value: 3, label: '→', row: 2, col: 3 },
+    { value: 6, label: '↙', row: 3, col: 1 },
+    { value: 5, label: '↓', row: 3, col: 2 },
+    { value: 4, label: '↘', row: 3, col: 3 },
+  ] as const;
 
   function updateColorField(key: keyof CardImageFormData, value: string) {
     form = normalizeCardImageFormData({
       ...form,
       [key]: value,
     });
+  }
+
+  function toggleLinkArrow(value: number) {
+    form.arrowList = form.arrowList.includes(value)
+      ? form.arrowList.filter((arrow) => arrow !== value)
+      : [...form.arrowList, value];
   }
 </script>
 
@@ -114,6 +136,25 @@
         <label class="field"><span>{$_('editor.atk')}</span><input type="number" bind:value={form.atk} /></label>
         {#if form.type === 'pendulum' ? form.pendulumType !== 'link-pendulum' : form.cardType !== 'link'}
           <label class="field"><span>{$_('editor.def')}</span><input type="number" bind:value={form.def} /></label>
+        {/if}
+        {#if isLinkCard}
+          <div class="field field-span-2">
+            <span>{$_('editor.link_markers')}</span>
+            <div class="link-arrow-grid">
+              {#each LINK_ARROW_OPTIONS as option}
+                <button
+                  class:active={form.arrowList.includes(option.value)}
+                  class="link-arrow"
+                  type="button"
+                  style={`grid-row:${option.row};grid-column:${option.col}`}
+                  aria-label={`${$_('editor.link_markers')} ${option.label}`}
+                  aria-pressed={form.arrowList.includes(option.value)}
+                  onclick={() => toggleLinkArrow(option.value)}
+                >{option.label}</button>
+              {/each}
+              <span class="link-arrow-center" aria-hidden="true">⬡</span>
+            </div>
+          </div>
         {/if}
       {/if}
 
@@ -291,6 +332,11 @@
   .toggle input { width: auto; margin: 0; }
   .gradient-toggle { margin-top: 6px; align-self: flex-start; }
   .field-hint { font-size: 0.84rem; color: var(--text-secondary); }
+  .link-arrow-grid { display: grid; grid-template: repeat(3, 34px) / repeat(3, 34px); gap: 4px; width: max-content; }
+  .link-arrow { padding: 0; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); color: var(--text-secondary); font-size: 1rem; }
+  .link-arrow:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+  .link-arrow.active { border-color: var(--accent-primary); background: var(--accent-primary); color: #fff; }
+  .link-arrow-center { grid-row: 2; grid-column: 2; display: grid; place-items: center; color: var(--text-secondary); opacity: 0.35; }
   .effect-block-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .effect-block-toggle { margin-top: 0; }
   .effect-block-fieldset { margin: 0; padding: 0; border: none; min-width: 0; }

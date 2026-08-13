@@ -338,25 +338,8 @@ export function createCardImageFormData(
 
 export function serializeCardImageConfigDocument(input: {
   form: CardImageFormData;
-  exportScalePercent?: number;
-  cardCode?: number;
-  cardName?: string;
 }) {
-  const document: CardImageConfigDocument = {
-    kind: "dataeditory-card-image-config",
-    version: 1,
-    form: normalizeCardImageFormData(input.form),
-    exportScalePercent: Number.isFinite(Number(input.exportScalePercent))
-      ? Number(input.exportScalePercent)
-      : undefined,
-    meta: {
-      cardCode: Number.isFinite(Number(input.cardCode)) ? Number(input.cardCode) : undefined,
-      cardName: input.cardName?.trim() || undefined,
-      exportedAt: new Date().toISOString(),
-    },
-  };
-
-  return JSON.stringify(document, null, 2);
+  return JSON.stringify(normalizeCardImageFormData(input.form), null, 2);
 }
 
 export function parseCardImageConfigDocument(raw: string) {
