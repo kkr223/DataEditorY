@@ -219,7 +219,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function isOutFrameRarity(value: unknown): boolean {
+  return String(value ?? "").trim().toLowerCase() === "o";
+}
+
 export function normalizeCardImageFormData(data: Partial<CardImageFormData>): CardImageFormData {
+  const rare = String(data.rare ?? DEFAULT_CARD_IMAGE_FORM_DATA.rare);
+  const outFrame = isOutFrameRarity(rare);
   return {
     ...DEFAULT_CARD_IMAGE_FORM_DATA,
     ...data,
@@ -255,7 +261,7 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     password: String(data.password ?? DEFAULT_CARD_IMAGE_FORM_DATA.password),
     copyright: String(data.copyright ?? DEFAULT_CARD_IMAGE_FORM_DATA.copyright),
     laser: String(data.laser ?? DEFAULT_CARD_IMAGE_FORM_DATA.laser),
-    rare: String(data.rare ?? DEFAULT_CARD_IMAGE_FORM_DATA.rare),
+    rare,
     twentieth: Boolean(data.twentieth ?? DEFAULT_CARD_IMAGE_FORM_DATA.twentieth),
     radius: Boolean(data.radius ?? DEFAULT_CARD_IMAGE_FORM_DATA.radius),
     scale: coerceNumber(data.scale, DEFAULT_CARD_IMAGE_FORM_DATA.scale),
@@ -268,7 +274,7 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     foregroundScale: coerceNumber(data.foregroundScale, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundScale),
     foregroundRotation: coerceNumber(data.foregroundRotation, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundRotation),
     foregroundCoverLevel: Boolean(data.foregroundCoverLevel ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundCoverLevel),
-    effectBlockEnabled: Boolean(data.effectBlockEnabled ?? DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockEnabled),
+    effectBlockEnabled: Boolean(data.effectBlockEnabled ?? (outFrame || DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockEnabled)),
     effectBlockX: coerceNumber(data.effectBlockX, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockX),
     effectBlockY: coerceNumber(data.effectBlockY, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockY),
     effectBlockWidth: coerceNumber(data.effectBlockWidth, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockWidth),
@@ -277,13 +283,26 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     effectBlockOpacity: coerceNumber(data.effectBlockOpacity, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockOpacity),
     effectBlockBorderStyle: ["none", "default", "colored"].includes(String(data.effectBlockBorderStyle))
       ? data.effectBlockBorderStyle as CardImageFormData["effectBlockBorderStyle"]
-      : DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockBorderStyle,
+      : outFrame ? "colored" : DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockBorderStyle,
     nameShadowColor: String(data.nameShadowColor ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowColor),
     nameShadowGradient: Boolean(data.nameShadowGradient ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradient),
     nameShadowGradientColor1: String(data.nameShadowGradientColor1 ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradientColor1),
     nameShadowGradientColor2: String(data.nameShadowGradientColor2 ?? DEFAULT_CARD_IMAGE_FORM_DATA.nameShadowGradientColor2),
     mark25th: Boolean(data.mark25th ?? DEFAULT_CARD_IMAGE_FORM_DATA.mark25th),
   };
+}
+
+export function applyCardImageRarityDefaults(
+  data: Partial<CardImageFormData>,
+  rare: string,
+): CardImageFormData {
+  return normalizeCardImageFormData({
+    ...data,
+    rare,
+    ...(isOutFrameRarity(rare)
+      ? { effectBlockEnabled: true, effectBlockBorderStyle: "colored" as const }
+      : {}),
+  });
 }
 
 export function normalizeCardImageConfigDocument(value: unknown): CardImageConfigDocument {

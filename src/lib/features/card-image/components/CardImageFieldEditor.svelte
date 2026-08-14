@@ -12,6 +12,7 @@
     CARD_IMAGE_PENDULUM_TYPE_OPTIONS,
     CARD_IMAGE_RARE_OPTIONS,
     CARD_IMAGE_TYPE_OPTIONS,
+    applyCardImageRarityDefaults,
     normalizeCardImageFormData,
     type CardImageFormData,
   } from '$lib/features/card-image/layout';
@@ -77,6 +78,10 @@
       ...form,
       [key]: value,
     });
+  }
+
+  function updateRarity(value: string) {
+    form = applyCardImageRarityDefaults(form, value);
   }
 
   function toggleLinkArrow(value: number) {
@@ -236,7 +241,7 @@
         {/if}
         <small class="field-hint">{$_('editor.card_image_name_shadow_color_hint')}</small>
       </div>
-      <label class="field"><span>{$_('editor.card_image_rarity')}</span><select bind:value={form.rare}>{#each CARD_IMAGE_RARE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+      <label class="field"><span>{$_('editor.card_image_rarity')}</span><select value={form.rare} onchange={(event) => updateRarity(event.currentTarget.value)}>{#each CARD_IMAGE_RARE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
       <label class="field"><span>{$_('editor.card_image_laser')}</span><select bind:value={form.laser}>{#each CARD_IMAGE_LASER_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
       <label class="field"><span>{$_('editor.card_image_copyright')}</span><select bind:value={form.copyright}>{#each CARD_IMAGE_COPYRIGHT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
       <label class="field"><span>{$_('editor.card_image_package')}</span><input type="text" bind:value={form.package} /></label>

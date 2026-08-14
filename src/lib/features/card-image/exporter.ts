@@ -3,8 +3,8 @@ import { tauriBridge } from '$lib/infrastructure/tauri';
 import { pathExists, writeBinaryFile } from '$lib/native/assetApi';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 import {
+  applyCardImageRarityDefaults,
   createCardImageFormData,
-  normalizeCardImageFormData,
   type CardImageConfigDocument,
   type CardImageFormData,
   type CardImageLanguage,
@@ -230,7 +230,7 @@ export function buildBatchCardImageForm(input: {
     ? input.perCardDocument?.form ?? {}
     : {};
 
-  return applyAutoRarityStyle(normalizeCardImageFormData({
+  return applyAutoRarityStyle(applyCardImageRarityDefaults({
     ...base,
     ...overrideForm,
     image: toMediaProtocolSrc(input.artPath),
@@ -238,7 +238,7 @@ export function buildBatchCardImageForm(input: {
     laser: input.preset.laser,
     copyright: input.preset.copyright || base.copyright,
     scale: Math.max(0.1, input.preset.exportScalePercent / 100),
-  }));
+  }, input.preset.rare));
 }
 
 export async function exportBatchCardImage(input: {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   CARD_IMAGE_RARE_OPTIONS,
+  applyCardImageRarityDefaults,
   createCardImageFormData,
   normalizeCardImageConfigDocument,
   normalizeCardImageFormData,
@@ -39,6 +40,23 @@ describe("card image config document", () => {
 
   test("exposes the upstream out-frame rarity", () => {
     expect(CARD_IMAGE_RARE_OPTIONS.some(({ value }) => value === "o")).toBe(true);
+  });
+
+  test("defaults out-frame rarity to an enabled colored effect box", () => {
+    const imported = normalizeCardImageFormData({ rare: "o" });
+    const selected = applyCardImageRarityDefaults(normalizeCardImageFormData({}), "o");
+    const explicit = normalizeCardImageFormData({
+      rare: "o",
+      effectBlockEnabled: false,
+      effectBlockBorderStyle: "none",
+    });
+
+    expect(imported.effectBlockEnabled).toBe(true);
+    expect(imported.effectBlockBorderStyle).toBe("colored");
+    expect(selected.effectBlockEnabled).toBe(true);
+    expect(selected.effectBlockBorderStyle).toBe("colored");
+    expect(explicit.effectBlockEnabled).toBe(false);
+    expect(explicit.effectBlockBorderStyle).toBe("none");
   });
 
   test("accepts plain form json for compatibility", () => {
