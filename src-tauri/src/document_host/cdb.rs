@@ -74,6 +74,18 @@ pub fn query(
             })
             .map_err(|err| err.to_string())
         }
+        CardCollectionQuery::SearchAll { expression } => {
+            let compiled = compile_search(&expression)?;
+            to_value(cdb_cards::query_cards_raw(
+                sessions,
+                crate::models::cdb::QueryCardsRequest {
+                    tab_id: document_id,
+                    query_clause: format!("{} ORDER BY datas.id", compiled.clause),
+                    params: compiled.params,
+                },
+            )?)
+            .map_err(|err| err.to_string())
+        }
         CardCollectionQuery::GetById { card_id } => {
             to_value(cdb_cards::get_card_by_id(sessions, document_id, card_id)?)
                 .map_err(|err| err.to_string())
@@ -312,9 +324,54 @@ mod tests {
 
     use super::*;
     use crate::{
+        document_host::models::{CardSearchExpression, CompareOperator, NumericField},
         services::cdb_session::open_cdb_tab_in_dir,
         test_helpers::{create_test_cdb, make_temp_dir},
     };
+
+    #[test]
+    fn search_all_returns_every_matching_card_in_id_order() {
+        let root = make_temp_dir("search-all");
+        let source_path = root.join("cards.cdb");
+        let cards = (1..=450)
+            .map(|code| (code, if code % 2 == 0 { 2 } else { 1 }))
+            .collect::<Vec<_>>();
+        create_test_cdb(&source_path, &cards);
+        let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+        open_cdb_tab_in_dir(
+            &sessions,
+            &root.join("sessions"),
+            "search-all-test".to_string(),
+            source_path.to_string_lossy().to_string(),
+        )
+        .expect("open test CDB");
+
+        let value = query(
+            &sessions,
+            "search-all-test".to_string(),
+            CardCollectionQuery::SearchAll {
+                expression: CardSearchExpression::Compare {
+                    field: NumericField::Type,
+                    operator: CompareOperator::Eq,
+                    value: 2,
+                },
+            },
+        )
+        .expect("query every matching card");
+        let result = value.as_array().expect("searchAll returns an array");
+
+        assert_eq!(result.len(), 225);
+        assert_eq!(
+            result.first().and_then(|card| card["code"].as_u64()),
+            Some(2)
+        );
+        assert_eq!(
+            result.last().and_then(|card| card["code"].as_u64()),
+            Some(450)
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
 
     #[test]
     fn replacing_a_card_id_is_one_undoable_operation() {

@@ -1,10 +1,12 @@
 import type { AppSettingsPayload } from '$lib/stores/appSettings.svelte';
+import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
 import { hasShortcutConflicts, normalizeShortcutBindingMap } from '$lib/features/shortcuts/registry';
 
 export type SettingsFormState = {
   apiBaseUrl: string;
   model: string;
   temperature: number;
+  agentMaxSteps: number;
   ygoproPath: string;
   scriptDirectory: string;
   scriptTemplate: string;
@@ -21,6 +23,7 @@ export function createSettingsFormState(): SettingsFormState {
     apiBaseUrl: '',
     model: 'gpt-4o-mini',
     temperature: 1,
+    agentMaxSteps: DEFAULT_AGENT_MAX_STEPS,
     ygoproPath: '',
     scriptDirectory: '',
     scriptTemplate: '',
@@ -41,6 +44,8 @@ export function getNormalizedSettingsTemperature(temperature: number) {
 
   return Math.min(2, Math.max(0, value));
 }
+
+export { normalizeAgentMaxSteps as getNormalizedAgentMaxSteps };
 
 export function parsePackageIncludePatternsText(value: string) {
   const patterns = value
@@ -69,6 +74,7 @@ export function hydrateSettingsForm(
   form.apiBaseUrl = values.apiBaseUrl;
   form.model = values.model;
   form.temperature = values.temperature;
+  form.agentMaxSteps = normalizeAgentMaxSteps(values.agentMaxSteps);
   form.ygoproPath = values.ygoproPath;
   form.scriptDirectory = values.scriptDirectory;
   form.scriptTemplate = values.scriptTemplate;
@@ -94,6 +100,7 @@ export function isSettingsFormDirty(
   return form.apiBaseUrl !== values.apiBaseUrl
     || form.model !== values.model
     || getNormalizedSettingsTemperature(form.temperature) !== getNormalizedSettingsTemperature(values.temperature)
+    || normalizeAgentMaxSteps(form.agentMaxSteps) !== normalizeAgentMaxSteps(values.agentMaxSteps)
     || form.ygoproPath.trim() !== values.ygoproPath.trim()
     || form.scriptDirectory.trim() !== values.scriptDirectory.trim()
     || form.scriptTemplate !== values.scriptTemplate

@@ -1,11 +1,13 @@
 import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
 import { normalizeShortcutBindingMap } from '$lib/features/shortcuts/registry';
+import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 
 export interface AppSettingsPayload {
   apiBaseUrl: string;
   model: string;
   temperature: number;
+  agentMaxSteps: number;
   ygoproPath: string;
   scriptDirectory: string;
   scriptTemplate: string;
@@ -58,6 +60,7 @@ function createDefaultSettings(): AppSettingsPayload {
     apiBaseUrl: '',
     model: 'gpt-4o-mini',
     temperature: 1,
+    agentMaxSteps: DEFAULT_AGENT_MAX_STEPS,
     ygoproPath: '',
     scriptDirectory: '',
     scriptTemplate: DEFAULT_SCRIPT_TEMPLATE,
@@ -165,6 +168,7 @@ function applySettings(payload: AppSettingsPayload) {
     apiBaseUrl: payload.apiBaseUrl ?? '',
     model: payload.model?.trim() || 'gpt-4o-mini',
     temperature: normalizeTemperature(payload.temperature),
+    agentMaxSteps: normalizeAgentMaxSteps(payload.agentMaxSteps),
     ygoproPath: payload.ygoproPath?.trim() ?? '',
     scriptDirectory: payload.scriptDirectory?.trim() ?? '',
     scriptTemplate: normalizeScriptTemplate(payload.scriptTemplate),
@@ -268,6 +272,7 @@ export async function saveAppSettings(input: {
   apiBaseUrl: string;
   model?: string;
   temperature?: number;
+  agentMaxSteps?: number;
   ygoproPath?: string;
   scriptDirectory?: string;
   scriptTemplate: string;
@@ -286,6 +291,7 @@ export async function saveAppSettings(input: {
         apiBaseUrl: input.apiBaseUrl,
         model: input.model,
         temperature: normalizeTemperature(input.temperature ?? appSettingsState.values.temperature),
+        agentMaxSteps: normalizeAgentMaxSteps(input.agentMaxSteps ?? appSettingsState.values.agentMaxSteps),
         ygoproPath: input.ygoproPath ?? appSettingsState.values.ygoproPath,
         scriptDirectory: input.scriptDirectory ?? appSettingsState.values.scriptDirectory,
         scriptTemplate: input.scriptTemplate,
@@ -333,6 +339,7 @@ export async function connectAiProvider(input: {
   apiBaseUrl: string;
   secretKey?: string;
   temperature?: number;
+  agentMaxSteps?: number;
   scriptTemplate: string;
   preferredModel?: string;
   persist?: boolean;
@@ -409,6 +416,7 @@ export async function connectAiProvider(input: {
       apiBaseUrl,
       model: selectedModel,
       temperature: input.temperature ?? appSettingsState.values.temperature,
+      agentMaxSteps: input.agentMaxSteps ?? appSettingsState.values.agentMaxSteps,
       scriptTemplate: input.scriptTemplate,
       secretKey: input.secretKey,
     });

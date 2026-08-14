@@ -193,7 +193,7 @@
     "empty_target": "The selected range contains no cards",
     "generate": "Generate PNG",
     "generating": "Generating…",
-    "done": "Generated {images} showcase images from {cards} cards",
+    "done": "Generated {images} showcase images from {cards} cards and copied the first to the clipboard",
     "failed": "Failed to generate showcase images"
   },
   "lua_replace": {
@@ -391,6 +391,8 @@
     "model": "Model",
     "temperature": "Model Temperature",
     "temperature_hint": "Default is 1. Adjust it between 0 and 2; higher values usually produce more varied output.",
+    "agent_max_steps": "Long-task Rounds",
+    "agent_max_steps_hint": "Maximum model calls per submission. Defaults to 100 and supports 1-200; higher values raise the time and cost ceiling.",
     "model_placeholder": "Connect first to load model options",
     "model_saved": "Selected model saved",
     "connect": "Connect",
@@ -615,7 +617,7 @@
     "card_image_copyright": "Copyright",
     "card_image_scale_factor": "Scale",
     "card_image_export_scale": "Export Scale: {percent}%",
-    "card_image_export_scale_hint": "Reference: 43% is about 399 x 582.",
+    "card_image_export_scale_hint": "Current resolution: {width} x {height}",
     "card_image_description_zoom": "Description Zoom",
     "card_image_description_weight": "Description Weight",
     "card_image_first_line_compress": "Compress First Line",
@@ -657,7 +659,8 @@
         "hr": "HR",
         "ser": "SER",
         "gser": "GSER",
-        "pser": "PSER"
+        "pser": "PSER",
+        "o": "Out-frame"
       },
       "laser": {
         "laser1": "Laser 1",

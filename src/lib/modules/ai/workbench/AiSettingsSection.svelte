@@ -170,6 +170,8 @@
   secretKeyLabel={context.t('settings.secret_key')}
   temperatureLabel={context.t('settings.temperature')}
   temperatureHint={context.t('settings.temperature_hint')}
+  agentMaxStepsLabel={context.t('settings.agent_max_steps')}
+  agentMaxStepsHint={context.t('settings.agent_max_steps_hint')}
   connectHint={connectionHint}
   connectHintError={appSettingsState.connectionError !== ''}
   connectLabel={context.t('settings.connect')}
@@ -178,11 +180,13 @@
   apiBaseUrl={context.form.apiBaseUrl}
   secretKey={context.form.secretKey}
   temperature={context.form.temperature}
+  agentMaxSteps={context.form.agentMaxSteps}
   connecting={appSettingsState.connecting}
   {secretPlaceholder}
   onApiBaseUrlInput={(value) => { context.form.apiBaseUrl = value; }}
   onSecretKeyInput={(value) => { context.form.secretKey = value; }}
   onTemperatureInput={(value) => { context.form.temperature = value; }}
+  onAgentMaxStepsInput={(value) => { context.form.agentMaxSteps = value; }}
   onConnect={connect}
   onClearSecretKey={clearSecret}
 />

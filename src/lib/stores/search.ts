@@ -5,6 +5,7 @@ import { parseDeckTextToCardIds, splitSourceTerms } from '$lib/domain/search/sou
 import { RuleExpressionError } from '$lib/domain/search/ruleExpression';
 import { listImageFolderEntries } from '$lib/native/assetApi';
 import { documentRuntime } from '$lib/platform/appRuntime';
+import { refreshAfterMutation } from '$lib/features/card-editor/mutationRefresh';
 import {
   buildCardSearchExpression,
   type CardCollectionQuery,
@@ -80,7 +81,7 @@ export function parseCachedFiltersJson(serialized: string): SearchFilters {
   }
 }
 
-function updateCachedSearchSnapshot(snapshot: CachedSearchSnapshot) {
+function updateCachedSearchSnapshot(snapshot: CachedSearchSnapshot, notifyListeners = true) {
   const clonedCards = cloneCards(snapshot.cards);
   let tabExists = false;
   tabs.update((currentTabs) => {
@@ -101,7 +102,7 @@ function updateCachedSearchSnapshot(snapshot: CachedSearchSnapshot) {
 
   // If the tab was closed between the search request and this response,
   // do not notify listeners with stale data.
-  if (!tabExists) return;
+  if (!tabExists || !notifyListeners) return;
 
   const listenerSnapshot: CachedSearchSnapshot = {
     ...snapshot,
@@ -271,28 +272,25 @@ export function onCachedSearchRefreshed(listener: (snapshot: CachedSearchSnapsho
 
 export async function queryCardsByFiltersInTab(tabId: string, filters: SearchFilters): Promise<CardDataEntry[]> {
   const resolvedSourceFilterIds = await resolveSourceFilterIds(tabId, filters);
-  const cards: CardDataEntry[] = [];
   const expression = buildCardSearchExpression(
     filters,
     resolvedSourceFilterIds.active ? resolvedSourceFilterIds.ids : undefined,
   );
-  let page = 1;
-  while (true) {
-    const response = await documentRuntime.query<CardSearchPage>(
-      tabId,
-      {
-        kind: 'search',
-        expression,
-        page,
-        pageSize: 200,
-      } satisfies CardCollectionQuery,
-    );
-    cards.push(...response.cards);
-    if (cards.length >= response.total || response.cards.length === 0) {
-      return cloneCards(cards);
-    }
-    page += 1;
-  }
+  const cards = await documentRuntime.query<CardDataEntry[]>(
+    tabId,
+    { kind: 'searchAll', expression } satisfies CardCollectionQuery,
+  );
+  return cloneCards(cards);
+}
+
+export async function refreshSearchAfterMutation(
+  tabId: string,
+  refreshActiveSearch: () => Promise<boolean>,
+): Promise<boolean> {
+  return refreshAfterMutation(
+    get(activeTab)?.id === tabId ? refreshActiveSearch : null,
+    () => refreshCachedSearchForTab(tabId),
+  );
 }
 
 export async function searchCardsPage(
@@ -314,7 +312,7 @@ export async function searchCardsPage(
         total: response.total,
         page: safePage,
         filters,
-      });
+      }, false);
     }
     return response;
   } catch (err) {

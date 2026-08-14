@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+  CARD_IMAGE_RARE_OPTIONS,
+  applyCardImageRarityDefaults,
   createCardImageFormData,
   normalizeCardImageConfigDocument,
   normalizeCardImageFormData,
@@ -9,26 +11,52 @@ import {
 import type { CardDataEntry } from "$lib/types";
 
 describe("card image config document", () => {
-  test("serializes and parses normalized config data", () => {
+  test("exports the flat yugioh-card web format and parses it", () => {
     const raw = serializeCardImageConfigDocument({
       form: normalizeCardImageFormData({
         name: "Blue-Eyes White Dragon",
         password: "89631139",
         image: "data:image/png;base64,AAA",
         foregroundImage: "data:image/png;base64,BBB",
+        rare: "o",
       }),
-      exportScalePercent: 43,
-      cardCode: 89631139,
-      cardName: "Blue-Eyes White Dragon",
     });
+    const exported = JSON.parse(raw);
 
     const parsed = parseCardImageConfigDocument(raw);
 
+    expect(exported.kind).toBe(undefined);
+    expect(exported.form).toBe(undefined);
+    expect(exported.name).toBe("Blue-Eyes White Dragon");
+    expect(exported.arrowList).toEqual([]);
+    expect(exported.rare).toBe("o");
     expect(parsed.form.name).toBe("Blue-Eyes White Dragon");
     expect(parsed.form.password).toBe("89631139");
     expect(parsed.form.image).toBe("data:image/png;base64,AAA");
     expect(parsed.form.foregroundImage).toBe("data:image/png;base64,BBB");
-    expect(parsed.exportScalePercent).toBe(43);
+    expect(parsed.form.rare).toBe("o");
+    expect(parsed.exportScalePercent).toBeNull();
+  });
+
+  test("exposes the upstream out-frame rarity", () => {
+    expect(CARD_IMAGE_RARE_OPTIONS.some(({ value }) => value === "o")).toBe(true);
+  });
+
+  test("defaults out-frame rarity to an enabled colored effect box", () => {
+    const imported = normalizeCardImageFormData({ rare: "o" });
+    const selected = applyCardImageRarityDefaults(normalizeCardImageFormData({}), "o");
+    const explicit = normalizeCardImageFormData({
+      rare: "o",
+      effectBlockEnabled: false,
+      effectBlockBorderStyle: "none",
+    });
+
+    expect(imported.effectBlockEnabled).toBe(true);
+    expect(imported.effectBlockBorderStyle).toBe("colored");
+    expect(selected.effectBlockEnabled).toBe(true);
+    expect(selected.effectBlockBorderStyle).toBe("colored");
+    expect(explicit.effectBlockEnabled).toBe(false);
+    expect(explicit.effectBlockBorderStyle).toBe("none");
   });
 
   test("accepts plain form json for compatibility", () => {
@@ -42,6 +70,19 @@ describe("card image config document", () => {
     expect(parsed.form.password).toBe("46986414");
     expect(parsed.form.descriptionZoom).toBe(1.3);
     expect(parsed.exportScalePercent).toBeNull();
+  });
+
+  test("still imports legacy DataEditorY wrapped configs", () => {
+    const parsed = parseCardImageConfigDocument(JSON.stringify({
+      kind: "dataeditory-card-image-config",
+      version: 1,
+      form: { name: "Decode Talker", arrowList: [1, 3, 5] },
+      exportScalePercent: 52,
+    }));
+
+    expect(parsed.form.name).toBe("Decode Talker");
+    expect(parsed.form.arrowList).toEqual([1, 3, 5]);
+    expect(parsed.exportScalePercent).toBe(52);
   });
 
   test("normalizes shared document metadata", () => {

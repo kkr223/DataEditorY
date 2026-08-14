@@ -11,6 +11,7 @@ import type {
 } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
 import { resolveResourceFile } from '$lib/native/assetApi';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+import { normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
 
 type AiRole = 'system' | 'user' | 'assistant' | 'tool';
 
@@ -47,6 +48,7 @@ export type AiConfig = {
   apiBaseUrl: string;
   model: string;
   temperature: number;
+  maxSteps: number;
   secretKey: string;
 };
 
@@ -123,7 +125,6 @@ export type AiToolName =
   | 'propose_image_config_patch';
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
-const MAX_AGENT_STEPS = 30;
 const MAX_TOOL_SUMMARY = 900;
 const SKILL_MANIFEST_URL = '/resources/ai-skills/manifest.json';
 const PROMPT_MANIFEST_URL = '/resources/ai-prompts/manifest.json';
@@ -158,8 +159,7 @@ const HARDCODED_SYSTEM_PROMPT = `你是 DataEditorY 的数据库级 AI agent，�
 2. 批量修改前先 search_cards 确认目标范围，避免无关卡片被误改。
 3. propose_card_patch 和 propose_batch_card_patch 的 patch 对象只包含需要变更的字段，其余字段不要出现在 patch 中。
 4. 生成 Lua 脚本时：必须先用 read_card_script 读取现有脚本（如果存在），参考相似卡片的脚本结构；脚本必须以 -- 注释说明卡片代码和名称。
-5. 生成脚本时也应生成最小脚本测试计划提案；测试计划是 JSON，放在 .dey/ai-tests，由应用内 runner 执行，不生成 TypeScript 测试文件。
-6. 对不确定的字段值（setcode、type 掩码计算等），在消息中说明不确定性，让用户确认后再写入 patch。`;
+5. 对不确定的字段值（setcode、type 掩码计算等），在消息中说明不确定性，让用户确认后再写入 patch。`;
 
 let cachedSystemPrompt: string | null = null;
 
@@ -192,13 +192,11 @@ export const AI_TOOL_NAMES: AiToolName[] = [
   'get_card',
   'get_selected_cards',
   'read_card_script',
-  'get_script_test_context',
   'readimg',
   'read_image_config',
   'propose_card_patch',
   'propose_batch_card_patch',
   'propose_script_write',
-  'propose_script_test_plan',
   'propose_image_config_patch',
 ];
 
@@ -209,7 +207,6 @@ export const READONLY_PROPOSAL_TOOL_NAMES: AiToolName[] = [
   'get_card',
   'get_selected_cards',
   'read_card_script',
-  'get_script_test_context',
   'readimg',
   'read_image_config',
 ];
@@ -989,6 +986,7 @@ export async function runWorkspaceAgent(input: {
   }
 
   const config = await input.context.getAiConfig();
+  const maxSteps = normalizeAgentMaxSteps(config.maxSteps);
   const toolRuns: WorkspaceAiToolRun[] = [];
   const patches: WorkspaceAiPatch[] = [];
   const tools = [...allowedToolNames].map((name) => TOOL_DEFINITIONS[name]);
@@ -999,8 +997,9 @@ export async function runWorkspaceAgent(input: {
   ];
 
   let finalText = '';
+  let reachedStepLimit = true;
   const tokenUsage: AiTokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
-  for (let step = 0; step < MAX_AGENT_STEPS; step += 1) {
+  for (let step = 0; step < maxSteps; step += 1) {
     input.onStageChange?.('requesting_model');
     const payload = await requestChatCompletion(config, {
       model: config.model,
@@ -1027,6 +1026,7 @@ export async function runWorkspaceAgent(input: {
     });
 
     if (toolCalls.length === 0) {
+      reachedStepLimit = false;
       finalText = content || (patches.length ? '已生成沙盒提案。' : '');
       break;
     }
@@ -1082,7 +1082,13 @@ export async function runWorkspaceAgent(input: {
 
   input.onStageChange?.('finalizing_response');
   if (!finalText) {
-    finalText = patches.length ? '已生成沙盒提案，请在右侧 Review 中确认。' : '模型没有返回可用结果。';
+    if (reachedStepLimit) {
+      finalText = patches.length
+        ? `已达到 ${maxSteps} 轮调用上限；已生成的沙盒提案可在右侧 Review 中确认。`
+        : `已达到 ${maxSteps} 轮调用上限，模型尚未返回最终结果。可在设置中提高长程任务轮次后重试。`;
+    } else {
+      finalText = '模型没有返回可用结果。';
+    }
   }
 
   return {

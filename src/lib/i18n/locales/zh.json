@@ -193,7 +193,7 @@
     "empty_target": "当前范围没有可生成的卡片",
     "generate": "生成 PNG",
     "generating": "正在生成…",
-    "done": "已将 {cards} 张卡生成 {images} 张展示图片",
+    "done": "已将 {cards} 张卡生成 {images} 张展示图片，并复制第一张到剪贴板",
     "failed": "生成展示图片失败"
   },
   "lua_replace": {
@@ -391,6 +391,8 @@
     "model": "模型",
     "temperature": "模型温度",
     "temperature_hint": "默认 1，可在 0 到 2 之间调整；数值越高，输出通常越发散。",
+    "agent_max_steps": "长程任务轮次",
+    "agent_max_steps_hint": "单次提交最多调用模型的次数。默认 100，可在 1 到 200 之间调整；轮次越高，耗时和费用上限越高。",
     "model_placeholder": "请先连接以拉取模型列表",
     "model_saved": "模型选择已保存",
     "connect": "连接",
@@ -615,7 +617,7 @@
     "card_image_copyright": "版权",
     "card_image_scale_factor": "缩放",
     "card_image_export_scale": "导出比例：{percent}%",
-    "card_image_export_scale_hint": "参考：43% 约等于 399 x 582。",
+    "card_image_export_scale_hint": "当前分辨率：{width} x {height}",
     "card_image_description_zoom": "描述缩放",
     "card_image_description_weight": "描述字重",
     "card_image_first_line_compress": "首行压缩",
@@ -657,7 +659,8 @@
         "hr": "HR",
         "ser": "SER",
         "gser": "GSER",
-        "pser": "PSER"
+        "pser": "PSER",
+        "o": "超框"
       },
       "laser": {
         "laser1": "角标 1",

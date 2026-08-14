@@ -67,7 +67,7 @@ pub fn provider_open(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn provider_query(
     sessions: State<'_, OpenCdbSessions>,
     request: ProviderQueryRequest,

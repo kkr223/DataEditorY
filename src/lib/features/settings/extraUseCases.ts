@@ -6,7 +6,7 @@ import {
 } from '$lib/stores/appSettings.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
-import { getNormalizedSettingsTemperature, type SettingsFormState } from '$lib/features/settings/controller';
+import { getNormalizedAgentMaxSteps, getNormalizedSettingsTemperature, type SettingsFormState } from '$lib/features/settings/controller';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -24,6 +24,7 @@ export async function connectSettingsAiFlow(input: {
       apiBaseUrl: input.form.apiBaseUrl,
       secretKey: input.form.secretKey,
       temperature: getNormalizedSettingsTemperature(input.form.temperature),
+      agentMaxSteps: getNormalizedAgentMaxSteps(input.form.agentMaxSteps),
       scriptTemplate: input.form.scriptTemplate,
       preferredModel: input.form.model,
     });
@@ -57,6 +58,7 @@ export async function saveSelectedModelFlow(input: {
       apiBaseUrl: input.form.apiBaseUrl,
       model: input.form.model,
       temperature: getNormalizedSettingsTemperature(input.form.temperature),
+      agentMaxSteps: getNormalizedAgentMaxSteps(input.form.agentMaxSteps),
       scriptTemplate: input.form.scriptTemplate,
       useExternalScriptEditor: input.form.useExternalScriptEditor,
       saveScriptImageToLocal: input.form.saveScriptImageToLocal,
@@ -89,6 +91,7 @@ export async function clearSecretKeyFlow(input: {
       apiBaseUrl: input.form.apiBaseUrl,
       model: input.form.model,
       temperature: getNormalizedSettingsTemperature(input.form.temperature),
+      agentMaxSteps: getNormalizedAgentMaxSteps(input.form.agentMaxSteps),
       scriptTemplate: input.form.scriptTemplate,
       useExternalScriptEditor: input.form.useExternalScriptEditor,
       saveScriptImageToLocal: input.form.saveScriptImageToLocal,

@@ -13,8 +13,8 @@ A workspace AI service:
 - **Tool-calling agent loop** — iterates: send messages → receive tool calls → execute tools → send results → repeat until done
 - **Agent stages**: `collecting_references` → `requesting_model` → `running_tools` → `finalizing_response`
 - **Read tools**: inspect/search opened CDB, card, script, and image context
-- **Sandbox proposal tools**: prepare card, batch-card, script, script-test-plan, and image patches; review mode applies after user confirmation, while full access can auto-apply through the same proposal path
-- **Script test runner**: executes JSON test plans against `ygopro-jstest`, loading the current CDB, built-in helper scripts, and the configured script directory when present
+- **Sandbox proposal tools**: prepare card, batch-card, script, and image patches; review mode applies after user confirmation, while full access can auto-apply through the same proposal path
+- **Script test runner**: implementation is retained but currently hidden from the AI workbench and excluded from agent prompts/tools
 
 ### Context (`context.ts`)
 

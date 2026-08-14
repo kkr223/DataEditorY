@@ -43,12 +43,13 @@ import 'monaco-editor/esm/vs/editor/contrib/format/browser/formatActions';
 import 'monaco-editor/esm/vs/editor/contrib/contextmenu/browser/contextmenu';
 import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded } from '../lua/diagnostics';
 import { getCompletionInsertParameters, shouldInsertFunctionArguments } from './completion';
 import { loadExternalLuaCatalog } from '../lua/catalog';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import {
+  clearLuaSemanticDocumentCache,
   getCallInfoAt,
+  getDiagnostics,
   getFunctionSymbols,
   getHoverInfoAt,
   getLuaSemanticDocument,
@@ -1404,7 +1405,6 @@ function registerProviders() {
 
 export async function loadMonaco() {
   await ensureLuaCatalogLoaded();
-  await ensureLuaDiagnosticsCatalogLoaded();
   ensureMonacoEnvironment();
   registerProviders();
   syncMonacoTheme();
@@ -1420,7 +1420,16 @@ export function setModelContext(model: monaco.editor.ITextModel, context: LuaMod
 }
 
 export function clearModelContext(model: monaco.editor.ITextModel) {
-  modelContexts.delete(model.uri.toString());
+  const uri = model.uri.toString();
+  modelContexts.delete(uri);
+  clearLuaSemanticDocumentCache(uri);
+}
+
+export function disposeScriptModel(tabId: string) {
+  const uri = createScriptModelUri(tabId);
+  modelContexts.delete(uri.toString());
+  clearLuaSemanticDocumentCache(uri.toString());
+  monaco.editor.getModel(uri)?.dispose();
 }
 
 export function lookupCompletionDescription(label: string) {
@@ -1496,7 +1505,7 @@ export function insertSnippet(
 }
 
 export function validateLuaModel(model: monaco.editor.ITextModel) {
-  const markers = analyzeLuaScript(model.getValue()).map((diagnostic) => ({
+  const markers = getDiagnostics(getSemanticDocument(model)).map((diagnostic) => ({
     severity: diagnostic.severity === 'error'
       ? monaco.MarkerSeverity.Error
       : monaco.MarkerSeverity.Warning,

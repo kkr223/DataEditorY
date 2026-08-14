@@ -22,6 +22,8 @@ import {
 } from '$lib/domain/script/tabIdentity';
 import { documentRuntime } from '$lib/platform/appRuntime';
 import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
+import { createScriptDocumentSync } from '$lib/features/script-editor/documentSync';
+import { createLatestActivation } from '$lib/features/script-editor/activation';
 import {
   LUA_MEMORY_PROVIDER_ID,
   LUA_SCRIPT_TYPE,
@@ -47,6 +49,23 @@ type ScriptTabContext = Pick<
 >;
 
 const inflightOpenRequests = new Map<string, Promise<OpenScriptTabResult>>();
+const scriptEditGenerations = new Map<string, number>();
+let disposeScriptModelHook: ((tabId: string) => void) | null = null;
+const scriptActivation = createLatestActivation();
+const scriptDocumentSync = createScriptDocumentSync(
+  async (tabId, content) => {
+    await documentRuntime.execute(tabId, {
+      kind: 'replace',
+      value: { content, language: 'lua' },
+    });
+  },
+  {
+    delayMs: 150,
+    onError: (error, tabId) => {
+      console.error(`Failed to sync script tab ${tabId}`, error);
+    },
+  },
+);
 
 documentRuntime.subscribe((snapshot) => {
   const scriptDocuments = snapshot.documents.filter((document) => (
@@ -66,7 +85,7 @@ documentRuntime.subscribe((snapshot) => {
       scriptPath: document.source?.path ?? document.source?.uri ?? current?.scriptPath ?? '',
       content: current?.content ?? '',
       savedContent: current?.savedContent ?? '',
-      isDirty: document.dirty,
+      isDirty: current ? current.content !== current.savedContent : document.dirty,
       viewState: current?.viewState ?? null,
       createdFromTemplate: Boolean(
         metadata.createdFromTemplate ?? current?.createdFromTemplate ?? false,
@@ -118,6 +137,7 @@ const hydrateScriptTab = async (
   const snapshot = await documentRuntime.query<LuaScriptDocument>(documentId, {});
   const content = normalizeScriptContent(snapshot.content);
   const { cdbPath, sourceTabId, cardCode, cardName } = input;
+  scriptEditGenerations.set(documentId, 0);
   addOrUpdateScriptTab({
     id: documentId,
     cdbPath,
@@ -135,38 +155,65 @@ const hydrateScriptTab = async (
 
 export const getActiveScriptTab = () => get(activeScriptTab);
 
+export const registerScriptModelDisposer = (dispose: (tabId: string) => void) => {
+  disposeScriptModelHook = dispose;
+};
+
 export const hasUnsavedScriptChanges = (
   tabId: string | null = get(activeScriptTabId),
 ) => {
   if (!tabId) return false;
-  return documentRuntime.getDocument(tabId)?.dirty ?? false;
+  return get(scriptTabs).find((tab) => tab.id === tabId)?.isDirty ?? false;
 };
 
-export const activateScriptTab = (tabId: string) => {
-  const tab = get(scriptTabs).find((item) => item.id === tabId);
-  if (!tab) return;
+export const activateScriptTab = (
+  tabId: string,
+  isLatestActivation = scriptActivation.begin(),
+) => {
+  if (!isLatestActivation()) return;
+  const activate = () => {
+    if (!isLatestActivation()) return;
+    const tab = get(scriptTabs).find((item) => item.id === tabId);
+    if (!tab) return;
 
-  documentRuntime.activate(tabId);
-  activeScriptTabId.set(tabId);
-  if (tab.sourceTabId) {
-    activeTabId.set(tab.sourceTabId);
-  } else {
-    const matchedDbTab = get(tabs).find((item) => isSameCdbPath(item.path, tab.cdbPath));
-    if (matchedDbTab) activeTabId.set(matchedDbTab.id);
+    documentRuntime.activate(tabId);
+    activeScriptTabId.set(tabId);
+    if (tab.sourceTabId) {
+      activeTabId.set(tab.sourceTabId);
+    } else {
+      const matchedDbTab = get(tabs).find((item) => isSameCdbPath(item.path, tab.cdbPath));
+      if (matchedDbTab) activeTabId.set(matchedDbTab.id);
+    }
+    activateScriptView();
+  };
+
+  const currentTabId = get(activeScriptTabId);
+  if (!currentTabId || currentTabId === tabId || !scriptDocumentSync.hasPending()) {
+    activate();
+    return;
   }
-  activateScriptView();
+  return scriptDocumentSync.flush(currentTabId)
+    .catch((error) => {
+      console.error(`Failed to sync script tab ${currentTabId}`, error);
+    })
+    .then(activate);
 };
 
 export const openOrCreateScriptTab = async (input: ScriptTabContext & {
   templateContent: string;
 }): Promise<OpenScriptTabResult> => {
+  const isLatestActivation = scriptActivation.begin();
   const key = getScriptTabKey(input.cdbPath, input.cardCode);
   const inflight = inflightOpenRequests.get(key);
-  if (inflight) return inflight;
+  if (inflight) {
+    const result = await inflight;
+    await activateScriptTab(result.tabId, isLatestActivation);
+    return result;
+  }
 
   const existing = getOpenScriptTab(input.cdbPath, input.cardCode, input.sourceTabId);
   if (existing) {
-    activateScriptTab(existing.id);
+    await activateScriptTab(existing.id, isLatestActivation);
     return { tabId: existing.id, createdFromTemplate: false };
   }
 
@@ -203,8 +250,7 @@ export const openOrCreateScriptTab = async (input: ScriptTabContext & {
         });
       }
       await hydrateScriptTab(document.id, input, info.path, !info.exists);
-      activeScriptTabId.set(document.id);
-      activateScriptView();
+      await activateScriptTab(document.id, isLatestActivation);
       return {
         tabId: document.id,
         createdFromTemplate: !info.exists,
@@ -221,9 +267,10 @@ export const openOrCreateScriptTab = async (input: ScriptTabContext & {
 export const openExistingScriptTab = async (input: ScriptTabContext & {
   activate?: boolean;
 }): Promise<string | null> => {
+  const isLatestActivation = input.activate ? scriptActivation.begin() : null;
   const existing = getOpenScriptTab(input.cdbPath, input.cardCode, input.sourceTabId);
   if (existing) {
-    if (input.activate) activateScriptTab(existing.id);
+    if (isLatestActivation) await activateScriptTab(existing.id, isLatestActivation);
     return existing.id;
   }
 
@@ -236,21 +283,30 @@ export const openExistingScriptTab = async (input: ScriptTabContext & {
     name: buildScriptFileName(input.cardCode),
   });
   await hydrateScriptTab(document.id, input, info.path, false);
-  if (input.activate) activateScriptTab(document.id);
+  if (isLatestActivation) await activateScriptTab(document.id, isLatestActivation);
   return document.id;
 };
 
 export const updateScriptTabContent = (tabId: string, content: string) => {
   const normalized = normalizeScriptContent(content);
-  void documentRuntime.execute(tabId, {
-    kind: 'replace',
-    value: { content: normalized, language: 'lua' },
+  let changed = false;
+  scriptTabs.update((currentTabs) => {
+    const index = currentTabs.findIndex((tab) => tab.id === tabId);
+    if (index === -1 || currentTabs[index].content === normalized) return currentTabs;
+
+    changed = true;
+    const nextTabs = [...currentTabs];
+    nextTabs[index] = {
+      ...currentTabs[index],
+      content: normalized,
+      isDirty: normalized !== currentTabs[index].savedContent,
+    };
+    return nextTabs;
   });
-  scriptTabs.update((currentTabs) => currentTabs.map((tab) => (
-    tab.id === tabId
-      ? { ...tab, content: normalized, isDirty: normalized !== tab.savedContent }
-      : tab
-  )));
+  if (changed) {
+    scriptEditGenerations.set(tabId, (scriptEditGenerations.get(tabId) ?? 0) + 1);
+    scriptDocumentSync.schedule(tabId, normalized);
+  }
 };
 
 export const setScriptTabViewState = (tabId: string, viewState: unknown | null) => {
@@ -260,13 +316,18 @@ export const setScriptTabViewState = (tabId: string, viewState: unknown | null) 
 };
 
 export const saveScriptTab = async (tabId: string) => {
+  await scriptDocumentSync.flush(tabId);
   const tab = get(scriptTabs).find((item) => item.id === tabId);
   if (!tab) return false;
+  const savedContent = normalizeScriptContent(tab.content);
   await documentRuntime.save(tabId);
-  const normalized = normalizeScriptContent(tab.content);
   scriptTabs.update((currentTabs) => currentTabs.map((item) => (
     item.id === tabId
-      ? { ...item, content: normalized, savedContent: normalized, isDirty: false }
+      ? {
+          ...item,
+          savedContent,
+          isDirty: item.content !== savedContent,
+        }
       : item
   )));
   return true;
@@ -280,24 +341,32 @@ export const saveActiveScriptTab = async () => {
 export const reloadScriptTab = async (tabId: string) => {
   const tab = get(scriptTabs).find((item) => item.id === tabId);
   if (!tab) return false;
+  const editGeneration = scriptEditGenerations.get(tabId) ?? 0;
+  await scriptDocumentSync.flush(tabId);
   const content = normalizeScriptContent(await readTextFile(tab.scriptPath));
-  await documentRuntime.execute(tabId, {
-    kind: 'replace',
-    value: { content, language: 'lua' },
-  });
+  if ((scriptEditGenerations.get(tabId) ?? 0) !== editGeneration) {
+    return false;
+  }
+  scriptDocumentSync.schedule(tabId, content);
+  await scriptDocumentSync.flush(tabId);
+  if ((scriptEditGenerations.get(tabId) ?? 0) !== editGeneration) {
+    return false;
+  }
   await documentRuntime.save(tabId);
-  scriptTabs.update((currentTabs) => currentTabs.map((item) => (
-    item.id === tabId
-      ? {
-          ...item,
-          content,
-          savedContent: content,
-          isDirty: false,
-          createdFromTemplate: false,
-        }
-      : item
-  )));
-  return true;
+  let applied = false;
+  scriptTabs.update((currentTabs) => currentTabs.map((item) => {
+    if (item.id !== tabId) return item;
+    const unchanged = (scriptEditGenerations.get(tabId) ?? 0) === editGeneration;
+    applied = unchanged;
+    return {
+      ...item,
+      content: unchanged ? content : item.content,
+      savedContent: content,
+      isDirty: unchanged ? false : item.content !== content,
+      createdFromTemplate: false,
+    };
+  }));
+  return applied;
 };
 
 export const reloadActiveScriptTab = async () => {
@@ -317,17 +386,20 @@ export const closeScriptTab = async (tabId: string) => {
   const cdbTab = closedTab.sourceTabId
     ? get(tabs).find((tab) => tab.id === closedTab.sourceTabId)
     : get(tabs).find((tab) => isSameCdbPath(tab.path, closedTab.cdbPath));
+  await scriptDocumentSync.flush(tabId);
   if (get(activeScriptTabId) === tabId && cdbTab) {
     documentRuntime.activate(cdbTab.id);
   }
   await documentRuntime.close(tabId, true);
+  disposeScriptModelHook?.(tabId);
+  scriptEditGenerations.delete(tabId);
   const nextTabs = get(scriptTabs);
   if (get(activeScriptTabId) !== tabId) return;
   const nextCdbTabs = nextTabs.filter((tab) => isSameCdbPath(tab.cdbPath, closedTab.cdbPath));
   if (nextCdbTabs.length > 0) {
     const nextTab = nextCdbTabs[Math.min(cdbIndex, nextCdbTabs.length - 1)];
     if (wasScriptView) {
-      activateScriptTab(nextTab.id);
+      await activateScriptTab(nextTab.id);
     } else {
       activeScriptTabId.set(nextTab.id);
     }

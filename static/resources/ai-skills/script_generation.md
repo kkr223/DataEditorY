@@ -26,7 +26,6 @@ Generate complete, runnable **official YGOPro** Lua scripts. Do not use Project 
 3. **Check for an existing script** with `read_card_script`. If found, use it as the base; never discard the existing structure without reason.
 4. **Find 1–3 official reference scripts**: use `search_cards` with keywords from `desc` to locate cards with functionally similar effects in the same CDB, then call `read_card_script` for each. Prefer cards with modern numbered effects (`①：`). Use those scripts as style and API references, not copy-paste templates.
 5. **Write the script** in one `propose_script_write` call. The file name must be `c{code}.lua`.
-6. After the script is written, invoke the `@script_test` skill to write a minimal test plan.
 
 ## Script Requirements
 

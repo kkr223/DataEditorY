@@ -1,6 +1,6 @@
 use crate::{
-    DEFAULT_AI_MODEL, DEFAULT_AI_TEMPERATURE, DEFAULT_PACKAGE_INCLUDE_PATTERNS,
-    DEFAULT_SCRIPT_TEMPLATE,
+    DEFAULT_AI_MAX_STEPS, DEFAULT_AI_MODEL, DEFAULT_AI_TEMPERATURE,
+    DEFAULT_PACKAGE_INCLUDE_PATTERNS, DEFAULT_SCRIPT_TEMPLATE,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -11,6 +11,7 @@ pub(crate) struct PersistedAppSettings {
     pub(crate) api_base_url: String,
     pub(crate) model: String,
     pub(crate) temperature: f64,
+    pub(crate) agent_max_steps: u32,
     pub(crate) ygopro_path: String,
     pub(crate) script_directory: String,
     pub(crate) script_template: String,
@@ -28,6 +29,7 @@ impl Default for PersistedAppSettings {
             api_base_url: String::new(),
             model: DEFAULT_AI_MODEL.to_string(),
             temperature: DEFAULT_AI_TEMPERATURE,
+            agent_max_steps: DEFAULT_AI_MAX_STEPS,
             ygopro_path: String::new(),
             script_directory: String::new(),
             script_template: DEFAULT_SCRIPT_TEMPLATE.to_string(),
@@ -50,6 +52,7 @@ pub(crate) struct AppSettingsPayload {
     pub(crate) api_base_url: String,
     pub(crate) model: String,
     pub(crate) temperature: f64,
+    pub(crate) agent_max_steps: u32,
     pub(crate) ygopro_path: String,
     pub(crate) script_directory: String,
     pub(crate) script_template: String,
@@ -69,6 +72,7 @@ pub(crate) struct SaveAppSettingsRequest {
     pub(crate) api_base_url: String,
     pub(crate) model: Option<String>,
     pub(crate) temperature: Option<f64>,
+    pub(crate) agent_max_steps: Option<u32>,
     pub(crate) ygopro_path: Option<String>,
     pub(crate) script_directory: Option<String>,
     pub(crate) script_template: String,
@@ -160,10 +164,12 @@ pub(crate) struct AppendErrorLogRequest {
 #[cfg(test)]
 mod tests {
     use super::PersistedAppSettings;
+    use crate::DEFAULT_AI_MAX_STEPS;
 
     #[test]
     fn legacy_settings_enable_function_parameter_completion_by_default() {
         let settings: PersistedAppSettings = serde_json::from_str("{}").unwrap();
         assert!(settings.auto_complete_function_parameters);
+        assert_eq!(settings.agent_max_steps, DEFAULT_AI_MAX_STEPS);
     }
 }

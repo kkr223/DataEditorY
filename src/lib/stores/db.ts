@@ -15,6 +15,7 @@ export {
   queryCardsByFiltersInTab,
   searchCardsPageInTab,
   searchCardsPage,
+  refreshSearchAfterMutation,
   clearSourceFilterCacheForTab,
   clearAllSourceFilterCaches,
 } from './search';
@@ -56,6 +57,7 @@ export {
   getCardsByIds,
   modifyCard,
   replaceCardId,
+  replaceCardIdInTab,
   modifyCardsInTab,
   modifyCards,
   deleteCard,

@@ -13,6 +13,7 @@
   import { tauriBridge } from '$lib/infrastructure/tauri';
   import { showToast } from '$lib/stores/toast.svelte';
   import { writeErrorLog } from '$lib/utils/errorLog';
+  import { writeImageBlobToClipboard } from '$lib/utils/imageClipboard';
   import {
     appendWorkspaceTaskHistory,
     getCardGroupById,
@@ -132,6 +133,7 @@
       progress = { current: 0, total: pages.length };
       const stamp = new Date().toISOString().replace(/\D/g, '');
       const baseName = `${getOutputBaseName(tab.path)}-showcase-${stamp}`;
+      let firstPageBlob: Blob | null = null;
 
       for (const [index, page] of pages.entries()) {
         const blob = await renderCardShowcasePage(page, {
@@ -139,6 +141,7 @@
           customAttributionMarker,
           headText,
         });
+        firstPageBlob ??= blob;
         const outputPath = await tauriBridge.join(
           outputDir,
           `${baseName}-${String(index + 1).padStart(2, '0')}.png`,
@@ -146,6 +149,7 @@
         await writeBinaryFile(outputPath, Array.from(new Uint8Array(await blob.arrayBuffer())));
         progress = { current: index + 1, total: pages.length };
       }
+      if (firstPageBlob) await writeImageBlobToClipboard(firstPageBlob);
 
       appendWorkspaceTaskHistory({
         kind: 'card.showcase-image',

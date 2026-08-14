@@ -5,6 +5,7 @@ import { reloadActiveScriptTab, saveActiveScriptTab } from '$lib/stores/scriptEd
 import { showToast } from '$lib/stores/toast.svelte';
 import { updateVisibleCards } from '$lib/stores/editor.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
+import { writeImageBlobToClipboard } from '$lib/utils/imageClipboard';
 import { normalizeCardStrings } from '$lib/domain/card/draft';
 import { buildScriptImagePath } from '$lib/domain/script/workspace';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
@@ -204,18 +205,6 @@ export async function openScriptExternallyFlow(input: {
 
 async function blobToUint8Array(blob: Blob) {
   return Array.from(new Uint8Array(await blob.arrayBuffer()));
-}
-
-async function writeImageBlobToClipboard(blob: Blob) {
-  if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
-    throw new Error('Image clipboard API is not available');
-  }
-
-  await navigator.clipboard.write([
-    new ClipboardItem({
-      'image/png': blob,
-    }),
-  ]);
 }
 
 export type ScriptImageRenderInfo = {

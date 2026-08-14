@@ -311,14 +311,14 @@ export function getLastUndoLabel(): string | null {
   return stack[stack.length - 1] ?? null;
 }
 
-export async function undoLastOperation(): Promise<boolean> {
+export async function undoLastOperation(refreshCachedSearch = true): Promise<boolean> {
   const tab = get(activeTab);
   if (!tab) return false;
 
-  return undoLastOperationInTab(tab.id);
+  return undoLastOperationInTab(tab.id, refreshCachedSearch);
 }
 
-export async function undoLastOperationInTab(tabId: string): Promise<boolean> {
+export async function undoLastOperationInTab(tabId: string, refreshCachedSearch = true): Promise<boolean> {
   const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab) return false;
 
@@ -328,7 +328,9 @@ export async function undoLastOperationInTab(tabId: string): Promise<boolean> {
 
     popUndoLabel(tab.id);
     clearSourceFilterCacheForTab(tab.id);
-    await refreshCachedSearchForTab(tab.id);
+    if (refreshCachedSearch) {
+      await refreshCachedSearchForTab(tab.id);
+    }
     return true;
   } catch (err) {
     console.error('Failed to undo operation:', err);

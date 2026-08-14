@@ -28,7 +28,7 @@ Application Shell — manages the app frame, CDB-only top-level tabs, global/CDB
 - `dialogs/LuaReplaceDialog.svelte` — include/exclude/regex/case-sensitive Lua search-replace with preview diff
 - `dialogs/BatchImageExportDialog.svelte` — art directory + preset based batch export
 - `dialogs/AssetCheckDialog.svelte` — CDB resource validation
-- `dialogs/CardShowcaseImageDialog.svelte` — generate card showcase PNG strips from CDB, selection, filters, or card groups
+- `dialogs/CardShowcaseImageDialog.svelte` — generate card showcase PNG strips from CDB, selection, filters, or card groups; save all pages and copy the first to the clipboard
 - `cardShowcaseRenderer.ts` — canvas renderer for showcase rows, card metadata, effect text, attribution trimming, and optional image header text
 
 ## Integration

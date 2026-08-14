@@ -52,7 +52,10 @@ async function runWithVariantModuleEntry(rawVariant, action) {
 
 async function runFrontendBuild(rawVariant) {
   await runWithVariantModuleEntry(rawVariant, async (variant) => {
-    await run('bun', ['run', 'build:web:raw'], { APP_VARIANT: variant.key });
+    await run('bun', ['run', 'build:web:raw'], {
+      APP_VARIANT: variant.key,
+      DATAEDITORY_WEB_BUILD: '1',
+    });
   });
 }
 

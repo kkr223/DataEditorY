@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { luaCatalog } from '$lib/data/lua-intel/catalog.generated';
 import {
+  clearLuaSemanticDocumentCache,
   getCallInfoAt,
   getFunctionSymbols,
   getHoverInfoAt,
@@ -9,12 +10,12 @@ import {
   type LuaSemanticTextModel,
 } from './semantic';
 
-function createModel(source: string, versionId = 1): LuaSemanticTextModel {
+function createModel(source: string, versionId = 1, uri = `inmemory://semantic-test-${versionId}.lua`): LuaSemanticTextModel {
   const lines = source.split('\n');
   return {
     uri: {
       toString() {
-        return `inmemory://semantic-test-${versionId}.lua`;
+        return uri;
       },
     },
     getValue() {
@@ -30,6 +31,20 @@ function createModel(source: string, versionId = 1): LuaSemanticTextModel {
 }
 
 describe('lua semantic document', () => {
+  test('reuses catalog indexes across document versions', () => {
+    const uri = 'inmemory://semantic-cache-test.lua';
+    const first = getLuaSemanticDocument(createModel('local a=1', 1, uri), luaCatalog);
+    const second = getLuaSemanticDocument(createModel('local a=2', 2, uri), luaCatalog);
+
+    expect(second).not.toBe(first);
+    expect(second.catalogIndexes).toBe(first.catalogIndexes);
+
+    clearLuaSemanticDocumentCache(uri);
+    const recreated = getLuaSemanticDocument(createModel('local a=2', 2, uri), luaCatalog);
+    expect(recreated).not.toBe(second);
+    expect(recreated.catalogIndexes).toBe(second.catalogIndexes);
+  });
+
   test('collects function symbols from AST declarations', () => {
     const source = [
       'local function helper(e,tp)',

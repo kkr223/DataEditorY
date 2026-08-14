@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    AppSettingsPayload, PersistedAppSettings, CUSTOM_COVER_FILE_NAME, DEFAULT_AI_MODEL,
-    DEFAULT_AI_TEMPERATURE, DEFAULT_PACKAGE_INCLUDE_PATTERNS, DEFAULT_SCRIPT_TEMPLATE,
-    ERROR_LOG_FILE_NAME, LOGS_DIR_NAME, SETTINGS_FILE_NAME,
+    AppSettingsPayload, PersistedAppSettings, CUSTOM_COVER_FILE_NAME, DEFAULT_AI_MAX_STEPS,
+    DEFAULT_AI_MODEL, DEFAULT_AI_TEMPERATURE, DEFAULT_PACKAGE_INCLUDE_PATTERNS,
+    DEFAULT_SCRIPT_TEMPLATE, ERROR_LOG_FILE_NAME, LOGS_DIR_NAME, SETTINGS_FILE_NAME,
 };
 
 const LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS: &[&str] = &[
@@ -71,6 +71,7 @@ pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSet
         normalize_package_include_patterns(Some(settings.package_include_patterns));
     settings.shortcut_bindings = normalize_shortcut_bindings(Some(settings.shortcut_bindings));
     settings.temperature = normalize_temperature(Some(settings.temperature));
+    settings.agent_max_steps = normalize_agent_max_steps(Some(settings.agent_max_steps));
 
     Ok(settings)
 }
@@ -123,6 +124,10 @@ pub(crate) fn normalize_temperature(value: Option<f64>) -> f64 {
     }
 }
 
+pub(crate) fn normalize_agent_max_steps(value: Option<u32>) -> u32 {
+    value.unwrap_or(DEFAULT_AI_MAX_STEPS).clamp(1, 200)
+}
+
 pub(crate) fn normalize_package_include_patterns(value: Option<Vec<String>>) -> Vec<String> {
     let mut seen = HashSet::new();
     let patterns = value
@@ -172,6 +177,7 @@ pub(crate) fn to_settings_payload(
             settings.model
         },
         temperature: normalize_temperature(Some(settings.temperature)),
+        agent_max_steps: normalize_agent_max_steps(Some(settings.agent_max_steps)),
         ygopro_path: normalize_ygopro_path(settings.ygopro_path),
         script_directory: normalize_script_directory(settings.script_directory),
         script_template: normalize_script_template(settings.script_template),
@@ -209,7 +215,9 @@ pub(crate) fn build_card_script_path(cdb_path: &str, card_id: u32) -> Result<Pat
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DEFAULT_AI_MODEL, DEFAULT_AI_TEMPERATURE, DEFAULT_SCRIPT_TEMPLATE};
+    use crate::{
+        DEFAULT_AI_MAX_STEPS, DEFAULT_AI_MODEL, DEFAULT_AI_TEMPERATURE, DEFAULT_SCRIPT_TEMPLATE,
+    };
 
     #[test]
     fn normalizes_settings_fields() {
@@ -224,6 +232,9 @@ mod tests {
             normalize_temperature(Some(f64::NAN)),
             DEFAULT_AI_TEMPERATURE
         );
+        assert_eq!(normalize_agent_max_steps(None), DEFAULT_AI_MAX_STEPS);
+        assert_eq!(normalize_agent_max_steps(Some(0)), 1);
+        assert_eq!(normalize_agent_max_steps(Some(500)), 200);
         assert_eq!(
             normalize_script_template("line1\r\nline2".to_string()),
             "line1\nline2"

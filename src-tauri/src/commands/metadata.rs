@@ -8,6 +8,10 @@ pub(crate) fn load_workspace_metadata(cdb_path: String) -> Result<Value, String>
 }
 
 #[tauri::command]
-pub(crate) fn save_workspace_metadata(cdb_path: String, metadata: Value) -> Result<Value, String> {
-    services::metadata::save_workspace_metadata(cdb_path, metadata)
+pub(crate) fn save_workspace_metadata(
+    cdb_path: String,
+    metadata: Value,
+    source_cdb_path: Option<String>,
+) -> Result<Value, String> {
+    services::metadata::save_workspace_metadata(cdb_path, metadata, source_cdb_path)
 }

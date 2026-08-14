@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   createSettingsFormState,
+  getNormalizedAgentMaxSteps,
   getNormalizedSettingsTemperature,
   hydrateSettingsForm,
   isSettingsFormDirty,
@@ -16,6 +17,7 @@ describe('settings controller helpers', () => {
     expect(state.apiBaseUrl).toBe('');
     expect(state.model).toBe('gpt-4o-mini');
     expect(state.temperature).toBe(1);
+    expect(state.agentMaxSteps).toBe(100);
     expect(state.ygoproPath).toBe('');
     expect(state.scriptDirectory).toBe('');
     expect(state.scriptTemplate).toBe('');
@@ -34,6 +36,13 @@ describe('settings controller helpers', () => {
     expect(getNormalizedSettingsTemperature(3)).toBe(2);
   });
 
+  test('normalizes long-task rounds into the supported range', () => {
+    expect(getNormalizedAgentMaxSteps(Number.NaN)).toBe(100);
+    expect(getNormalizedAgentMaxSteps(0)).toBe(1);
+    expect(getNormalizedAgentMaxSteps(42.6)).toBe(43);
+    expect(getNormalizedAgentMaxSteps(500)).toBe(200);
+  });
+
   test('hydrates the form from persisted settings and clears secret on first hydration', () => {
     const form = createSettingsFormState();
     form.secretKey = 'temporary-secret';
@@ -44,6 +53,7 @@ describe('settings controller helpers', () => {
         apiBaseUrl: 'https://api.openai.com/v1',
         model: 'gpt-4.1-mini',
         temperature: 1.4,
+        agentMaxSteps: 140,
         ygoproPath: 'D:/ygopro',
         scriptDirectory: 'D:/YGO/script',
         scriptTemplate: '-- template',
@@ -62,6 +72,7 @@ describe('settings controller helpers', () => {
     expect(form.apiBaseUrl).toBe('https://api.openai.com/v1');
     expect(form.model).toBe('gpt-4.1-mini');
     expect(form.temperature).toBe(1.4);
+    expect(form.agentMaxSteps).toBe(140);
     expect(form.ygoproPath).toBe('D:/ygopro');
     expect(form.scriptDirectory).toBe('D:/YGO/script');
     expect(form.scriptTemplate).toBe('-- template');
@@ -83,6 +94,7 @@ describe('settings controller helpers', () => {
         apiBaseUrl: 'https://api.example.com/v1',
         model: 'custom-model',
         temperature: 0.5,
+        agentMaxSteps: 100,
         ygoproPath: '',
         scriptDirectory: '',
         scriptTemplate: '-- updated',
@@ -114,6 +126,7 @@ describe('settings controller helpers', () => {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      agentMaxSteps: 100,
       ygoproPath: '',
       scriptDirectory: '',
       scriptTemplate: '-- template',
@@ -132,6 +145,7 @@ describe('settings controller helpers', () => {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      agentMaxSteps: 100,
       ygoproPath: '',
       scriptDirectory: '',
       scriptTemplate: '-- template',
@@ -146,11 +160,32 @@ describe('settings controller helpers', () => {
     })).toBe(true);
     form.autoCompleteFunctionParameters = true;
 
+    form.agentMaxSteps = 150;
+    expect(isSettingsFormDirty(form, {
+      apiBaseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
+      temperature: 1,
+      agentMaxSteps: 100,
+      ygoproPath: '',
+      scriptDirectory: '',
+      scriptTemplate: '-- template',
+      useExternalScriptEditor: false,
+      saveScriptImageToLocal: false,
+      autoCompleteFunctionParameters: true,
+      packageIncludePatterns: ['pics/{code}.jpg'],
+      shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
+      hasSecretKey: false,
+      coverImagePath: null,
+      errorLogPath: '',
+    })).toBe(true);
+    form.agentMaxSteps = 100;
+
     form.packageIncludePatternsText = 'pics/{code}.jpg\nscript/c{code}.lua';
     expect(isSettingsFormDirty(form, {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      agentMaxSteps: 100,
       ygoproPath: '',
       scriptDirectory: '',
       scriptTemplate: '-- template',
@@ -170,6 +205,7 @@ describe('settings controller helpers', () => {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      agentMaxSteps: 100,
       ygoproPath: '',
       scriptDirectory: '',
       scriptTemplate: '-- template',
@@ -189,6 +225,7 @@ describe('settings controller helpers', () => {
       apiBaseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       temperature: 1,
+      agentMaxSteps: 100,
       ygoproPath: '',
       scriptDirectory: '',
       scriptTemplate: '-- template',

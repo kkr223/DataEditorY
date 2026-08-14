@@ -42,7 +42,6 @@ type CardEditorLifecycleControllerInput = {
   setImageSrc: (src: string) => void;
   getActiveCdbPath: () => string | null | undefined;
   isDbLoaded: () => boolean;
-  saveCdbFile: (destinationPath?: string) => Promise<boolean>;
   t: Translate;
 };
 
@@ -147,23 +146,21 @@ export function createCardEditorLifecycleController(input: CardEditorLifecycleCo
   }
 
   async function handleSaveWorkspace(
-    onDirtyDraft: () => Promise<unknown>,
-    destinationPath?: string,
+    onDirtyDraft: () => Promise<boolean>,
+    saveWorkspace: () => Promise<boolean>,
   ) {
     if (!input.isDbLoaded()) return false;
 
     if (isDraftDirty()) {
-      await onDirtyDraft();
-      if (isDraftDirty()) {
+      if (!await onDirtyDraft()) {
         // Draft could not be committed (validation failure or user cancelled).
         // Severe draft errors block saving so the user does not accidentally
         // persist an older working copy while the visible card has newer edits.
         return false;
       }
-      return input.saveCdbFile(destinationPath);
     }
 
-    return input.saveCdbFile(destinationPath);
+    return saveWorkspace();
   }
 
   return {

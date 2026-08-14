@@ -242,7 +242,7 @@ export async function copyWorkspaceMetadataForSaveAs(sourcePath: string, destina
   await saveWorkspaceMetadata(destination, {
     ...metadata,
     cdbPath: destination,
-  });
+  }, source);
 }
 
 export function updateWorkspaceMetadata(

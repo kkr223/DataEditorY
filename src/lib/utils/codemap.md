@@ -11,6 +11,7 @@ Utility Functions — small shared helpers that do not belong to a feature, doma
 | `shortcuts.ts` | Keyboard shortcut detection and matching |
 | `mediaProtocol.ts` | Custom `media://` protocol URL builder for Tauri asset serving |
 | `errorLog.ts` | Error logging to file via Rust backend |
+| `imageClipboard.ts` | Browser clipboard writer for generated PNG blobs |
 
 ## Integration
 

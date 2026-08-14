@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { tauriBridge } from '$lib/infrastructure/tauri';
   import { activeTab } from '$lib/stores/db';
   import { showToast } from '$lib/stores/toast.svelte';
   import { createAiAppContext } from '$lib/features/ai/context';
-  import { runScriptTestPlan } from '$lib/features/ai/scriptTestRunner';
   import { runWorkspaceAgent, type AgentStage } from '$lib/native/aiApi';
   import { appSettingsState, connectAiProvider, loadAppSettings, saveAppSettings } from '$lib/stores/appSettings.svelte';
   import { refreshCachedSearchForTab } from '$lib/stores/search';
@@ -60,6 +60,7 @@
   import { renderMarkdown } from './markdown';
 
   const FULL_ACCESS_KEY = 'dataeditory:ai-full-access';
+  const MENTION_SEARCH_DEBOUNCE_MS = 150;
 
   const threads = $derived.by(() => {
     workspaceMetadataState.metadata;
@@ -71,7 +72,14 @@
   });
   const proposals = $derived.by(() => {
     workspaceMetadataState.metadata;
-    return activeThread ? getAiProposalsForThread(activeThread.id) : [];
+    return activeThread
+      ? getAiProposalsForThread(activeThread.id)
+          .map((proposal) => ({
+            ...proposal,
+            patches: proposal.patches.filter((patch) => patch.kind !== 'script-test-plan'),
+          }))
+          .filter((proposal) => proposal.patches.length > 0)
+      : [];
   });
 
   let composer = $state('');
@@ -83,14 +91,14 @@
   let modelMenuOpen = $state(false);
   let modelFilterActive = $state(false);
   let lastCompactionKey = $state('');
-  let runningTestPatchId = $state('');
-  let scriptTestResults = $state<Record<string, { ok: boolean; message: string }>>({});
   let composerInput = $state<HTMLTextAreaElement | null>(null);
   let mentionToken = $state<CardMentionToken | null>(null);
   let mentionCandidates = $state<CardDataEntry[]>([]);
   let mentionOpen = $state(false);
   let mentionLoading = $state(false);
   let mentionRequestId = 0;
+  let mentionSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  let mentionTabId = '';
   const stageLabel = $derived(stage ? $_(`surface.ai_stage_${stage}`) : '');
   const accessModeLabel = $derived(fullAccess ? $_('surface.ai_full_access') : $_('surface.ai_review_access'));
 
@@ -103,10 +111,9 @@
   // Estimated context size (for compaction trigger only, not displayed)
   const modelContextLimit = $derived(appSettingsState.modelContextLimits[appSettingsState.values.model] ?? null);
   const modelOutputLimit = $derived(appSettingsState.modelOutputLimits[appSettingsState.values.model] ?? null);
-  const contextTokenEstimate = $derived.by(() => {
+  const threadContextTokenEstimate = $derived.by(() => {
     const thread = activeThread;
     let total = 2500; // system prompt + tools overhead
-    total += estimateTokenCount(composer);
     for (const ref of thread?.contextRefs ?? []) {
       total += estimateTokenCount(`${ref.type}:${ref.label}:${JSON.stringify(ref.value ?? '')}`);
     }
@@ -115,6 +122,7 @@
     }
     return total;
   });
+  const contextTokenEstimate = $derived(threadContextTokenEstimate + estimateTokenCount(composer));
 
   const filteredModelOptions = $derived.by(() => {
     const query = modelFilterActive ? appSettingsState.values.model.trim().toLowerCase() : '';
@@ -176,8 +184,7 @@
     return expressions.length === 1 ? expressions[0] : { kind: 'or', expressions };
   }
 
-  async function refreshMentionCandidates(query: string) {
-    const requestId = ++mentionRequestId;
+  async function refreshMentionCandidates(query: string, requestId: number) {
     const tab = $activeTab;
     if (!tab) {
       mentionCandidates = [];
@@ -193,16 +200,38 @@
         page: 1,
         pageSize: 8,
       });
-      if (requestId !== mentionRequestId) return;
+      if (requestId !== mentionRequestId || $activeTab?.id !== tab.id) return;
       mentionCandidates = page.cards;
       mentionOpen = Boolean(mentionToken);
     } catch {
-      if (requestId !== mentionRequestId) return;
+      if (requestId !== mentionRequestId || $activeTab?.id !== tab.id) return;
       mentionCandidates = [];
       mentionOpen = false;
     } finally {
       if (requestId === mentionRequestId) mentionLoading = false;
     }
+  }
+
+  function cancelMentionSearch() {
+    if (mentionSearchTimer !== null) {
+      clearTimeout(mentionSearchTimer);
+      mentionSearchTimer = null;
+    }
+    mentionRequestId += 1;
+    mentionLoading = false;
+  }
+
+  function scheduleMentionSearch(query: string) {
+    if (mentionSearchTimer !== null) {
+      clearTimeout(mentionSearchTimer);
+    }
+    const requestId = ++mentionRequestId;
+    mentionLoading = true;
+    mentionCandidates = [];
+    mentionSearchTimer = setTimeout(() => {
+      mentionSearchTimer = null;
+      void refreshMentionCandidates(query, requestId);
+    }, MENTION_SEARCH_DEBOUNCE_MS);
   }
 
   function syncComposerCardContextRefs(value: string) {
@@ -230,8 +259,9 @@
     mentionToken = token;
     mentionOpen = Boolean(token);
     if (token) {
-      void refreshMentionCandidates(token.query);
+      scheduleMentionSearch(token.query);
     } else {
+      cancelMentionSearch();
       mentionCandidates = [];
     }
   }
@@ -261,6 +291,7 @@
     const next = replaceCardMention(composer, token, cardMentionLabel(card));
     composer = next.text;
     addCardContext(card);
+    cancelMentionSearch();
     mentionOpen = false;
     mentionToken = null;
     mentionCandidates = [];
@@ -284,6 +315,7 @@
         const next = removeCardMentionRange(composer, range);
         composer = next.text;
         syncComposerCardContextRefs(next.text);
+        cancelMentionSearch();
         mentionOpen = false;
         mentionToken = null;
         mentionCandidates = [];
@@ -296,6 +328,7 @@
     }
 
     if (mentionOpen && event.key === 'Escape') {
+      cancelMentionSearch();
       mentionOpen = false;
       return;
     }
@@ -600,56 +633,6 @@
     await writeTextFile(patch.path, patch.content);
   }
 
-  async function applyScriptTestPlanPatch(patch: Extract<WorkspaceAiPatch, { kind: 'script-test-plan' }>) {
-    await writeTextFile(patch.path, `${JSON.stringify(patch.plan, null, 2)}\n`);
-  }
-
-  function patchFileName(path: string) {
-    return path.replace(/\\/g, '/').split('/').pop() ?? path;
-  }
-
-  function scriptOverridesForProposal(proposal: WorkspaceAiProposal) {
-    const overrides: Record<string, string> = {};
-    for (const patch of proposal.patches) {
-      if (patch.kind === 'script') {
-        overrides[patchFileName(patch.path)] = patch.content;
-      }
-    }
-    return overrides;
-  }
-
-  async function runTestPlanPatch(
-    proposal: WorkspaceAiProposal,
-    patch: Extract<WorkspaceAiPatch, { kind: 'script-test-plan' }>,
-  ) {
-    if (runningTestPatchId) return;
-    runningTestPatchId = patch.id;
-    try {
-      await loadAppSettings();
-      const result = await runScriptTestPlan({
-        plan: patch.plan,
-        cdbPath: patch.cdbPath,
-        cardCode: patch.cardCode,
-        scriptDirectory: appSettingsState.values.scriptDirectory,
-        scriptOverrides: scriptOverridesForProposal(proposal),
-      });
-      scriptTestResults = {
-        ...scriptTestResults,
-        [patch.id]: { ok: true, message: result.summary },
-      };
-      showToast($_('surface.ai_test_passed', { values: { summary: result.summary } }), 'success');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      scriptTestResults = {
-        ...scriptTestResults,
-        [patch.id]: { ok: false, message },
-      };
-      showToast($_('surface.ai_test_failed', { values: { message } }), 'error');
-    } finally {
-      runningTestPatchId = '';
-    }
-  }
-
   async function applyImagePatch(patch: Extract<WorkspaceAiPatch, { kind: 'image' }>) {
     const current = await getCardImageDocumentForPath(patch.cdbPath, patch.cardCode);
     const card = (patch.patch && typeof patch.patch === 'object' && 'card' in patch.patch)
@@ -681,7 +664,7 @@
     if (patch.kind === 'card') return applyCardPatch(patch);
     if (patch.kind === 'batch-card') return applyBatchCardPatch(patch);
     if (patch.kind === 'script') return applyScriptPatch(patch);
-    if (patch.kind === 'script-test-plan') return applyScriptTestPlanPatch(patch);
+    if (patch.kind === 'script-test-plan') throw new Error('Script test plans are disabled');
     return applyImagePatch(patch);
   }
 
@@ -766,6 +749,18 @@
   $effect(() => {
     void loadAppSettings();
   });
+
+  $effect(() => {
+    const tabId = $activeTab?.id ?? '';
+    if (tabId === mentionTabId) return;
+    mentionTabId = tabId;
+    cancelMentionSearch();
+    mentionToken = null;
+    mentionCandidates = [];
+    mentionOpen = false;
+  });
+
+  onDestroy(cancelMentionSearch);
 
   $effect(() => {
     const thread = activeThread;
@@ -892,7 +887,10 @@
           oninput={handleComposerInput}
           onmouseup={() => updateMentionMenu()}
           onkeydown={handleComposerKeydown}
-          onblur={() => { setTimeout(() => { mentionOpen = false; }, 120); }}
+          onblur={() => {
+            cancelMentionSearch();
+            setTimeout(() => { mentionOpen = false; }, 120);
+          }}
         ></textarea>
           {#if mentionOpen}
             <div class="mention-menu">
@@ -1004,22 +1002,7 @@
                   <button class="ghost-button" type="button" onclick={() => void applyProposal(proposal, patch)}>
                     {$_('surface.ai_apply_patch')}
                   </button>
-                  {#if patch.kind === 'script-test-plan'}
-                    <button
-                      class="ghost-button"
-                      type="button"
-                      disabled={Boolean(runningTestPatchId)}
-                      onclick={() => void runTestPlanPatch(proposal, patch)}
-                    >
-                      {runningTestPatchId === patch.id ? $_('surface.ai_test_running') : $_('surface.ai_run_test_plan')}
-                    </button>
-                  {/if}
                 </div>
-                {#if scriptTestResults[patch.id]}
-                  <p class="test-result" class:failed={!scriptTestResults[patch.id].ok}>
-                    {scriptTestResults[patch.id].message}
-                  </p>
-                {/if}
                 <div class="proposal-diff">
                   {#each patchRows(patch) as row}
                     <div class="diff-row">
@@ -1773,18 +1756,6 @@
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 8px;
-  }
-
-  .test-result {
-    margin-top: 8px;
-    color: #2f9b73;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    word-break: break-word;
-  }
-
-  .test-result.failed {
-    color: #cc5964;
   }
 
   .proposal-diff {
