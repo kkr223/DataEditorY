@@ -296,12 +296,18 @@ export function applyCardImageRarityDefaults(
   data: Partial<CardImageFormData>,
   rare: string,
 ): CardImageFormData {
+  const leavingOutFrame = isOutFrameRarity(data.rare) && !isOutFrameRarity(rare);
   return normalizeCardImageFormData({
     ...data,
     rare,
     ...(isOutFrameRarity(rare)
       ? { effectBlockEnabled: true, effectBlockBorderStyle: "colored" as const }
-      : {}),
+      : leavingOutFrame
+        ? {
+            effectBlockEnabled: DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockEnabled,
+            effectBlockBorderStyle: DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockBorderStyle,
+          }
+        : {}),
   });
 }
 

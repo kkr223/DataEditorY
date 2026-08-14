@@ -531,7 +531,7 @@
     "card_image_config_export_success": "卡图配置已导出",
     "card_image_config_export_failed": "导出卡图配置失败",
     "card_image_config_export_conflict": "目标配置文件已在编辑器中修改，请先保存或关闭它",
-    "card_image_foreground_button": "出框卡",
+    "card_image_foreground_button": "超框卡图",
     "card_image_foreground_title": "出框卡编辑器",
     "card_image_foreground_description": "上传并调整前景图。",
     "card_image_foreground_upload": "上传前景图",

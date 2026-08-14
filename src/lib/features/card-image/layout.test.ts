@@ -59,6 +59,14 @@ describe("card image config document", () => {
     expect(explicit.effectBlockBorderStyle).toBe("none");
   });
 
+  test("restores effect box defaults when leaving out-frame rarity", () => {
+    const selected = applyCardImageRarityDefaults(normalizeCardImageFormData({}), "o");
+    const cleared = applyCardImageRarityDefaults(selected, "");
+
+    expect(cleared.effectBlockEnabled).toBe(false);
+    expect(cleared.effectBlockBorderStyle).toBe("default");
+  });
+
   test("accepts plain form json for compatibility", () => {
     const parsed = parseCardImageConfigDocument(JSON.stringify({
       name: "Dark Magician",
