@@ -531,7 +531,7 @@
     "card_image_config_export_success": "Card image config exported",
     "card_image_config_export_failed": "Failed to export the card image config",
     "card_image_config_export_conflict": "The target config file has unsaved editor changes; save or close it first",
-    "card_image_foreground_button": "Edit Foreground",
+    "card_image_foreground_button": "Out-frame Card Image",
     "card_image_foreground_title": "Foreground Editor",
     "card_image_foreground_description": "Upload and adjust a foreground layer.",
     "card_image_foreground_upload": "Upload Foreground",
