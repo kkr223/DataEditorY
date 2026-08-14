@@ -27,5 +27,4 @@
 2. 批量修改前先 search_cards 确认目标范围，避免无关卡片被误改。
 3. propose_card_patch 和 propose_batch_card_patch 的 patch 对象只包含需要变更的字段，其余字段不要出现在 patch 中。
 4. 生成 Lua 脚本时：必须先用 read_card_script 读取现有脚本（如果存在），参考相似卡片的脚本结构；脚本必须以 -- 注释说明卡片代码和名称。
-5. 生成脚本时也应生成最小脚本测试计划提案；测试计划是 JSON，放在 .dey/ai-tests，由应用内 runner 执行，不生成 TypeScript 测试文件。
-6. 对不确定的字段值（setcode、type 掩码计算等），在消息中说明不确定性，让用户确认后再写入 patch。
+5. 对不确定的字段值（setcode、type 掩码计算等），在消息中说明不确定性，让用户确认后再写入 patch。
