@@ -17,7 +17,10 @@ describe("card image config document", () => {
         name: "Blue-Eyes White Dragon",
         password: "89631139",
         image: "data:image/png;base64,AAA",
+        gradientStroke: false,
         foregroundImage: "data:image/png;base64,BBB",
+        foregroundCoverAttribute: false,
+        foregroundClipBelowEffectBox: true,
         rare: "o",
       }),
     });
@@ -33,13 +36,23 @@ describe("card image config document", () => {
     expect(parsed.form.name).toBe("Blue-Eyes White Dragon");
     expect(parsed.form.password).toBe("89631139");
     expect(parsed.form.image).toBe("data:image/png;base64,AAA");
+    expect(parsed.form.gradientStroke).toBe(false);
     expect(parsed.form.foregroundImage).toBe("data:image/png;base64,BBB");
+    expect(parsed.form.foregroundCoverAttribute).toBe(false);
+    expect(parsed.form.foregroundClipBelowEffectBox).toBe(true);
     expect(parsed.form.rare).toBe("o");
     expect(parsed.exportScalePercent).toBeNull();
   });
 
   test("exposes the upstream out-frame rarity", () => {
     expect(CARD_IMAGE_RARE_OPTIONS.some(({ value }) => value === "o")).toBe(true);
+  });
+
+  test("uses upstream rendering defaults", () => {
+    const form = normalizeCardImageFormData({});
+    expect(form.gradientStroke).toBe(true);
+    expect(form.foregroundCoverAttribute).toBe(true);
+    expect(form.foregroundClipBelowEffectBox).toBe(false);
   });
 
   test("defaults out-frame rarity to an enabled colored effect box", () => {

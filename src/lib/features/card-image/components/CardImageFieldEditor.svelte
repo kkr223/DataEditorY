@@ -193,6 +193,7 @@
         {@render colorPresetList(isNameColorPresetActive, onApplyNameColorPreset)}
         <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.gradient} /><span>{$_('editor.card_image_gradient_enable')}</span></label>
         {#if form.gradient}
+          <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.gradientStroke} /><span>{$_('editor.card_image_gradient_stroke')}</span></label>
           <div class="subfield-grid">
             <label class="field">
               <span>{$_('editor.card_image_gradient_color_start')}</span>
@@ -283,6 +284,8 @@
       <label class="field"><span>{$_('editor.card_image_foreground_width')}</span><input type="number" min="1" step="1" bind:value={form.foregroundWidth} /></label>
       <label class="field"><span>{$_('editor.card_image_foreground_height')}</span><input type="number" min="1" step="1" bind:value={form.foregroundHeight} /></label>
       <label class="toggle field-span-2"><input type="checkbox" bind:checked={form.foregroundCoverLevel} /><span>{$_('editor.card_image_foreground_cover_level')}</span></label>
+      <label class="toggle field-span-2"><input type="checkbox" bind:checked={form.foregroundCoverAttribute} /><span>{$_('editor.card_image_foreground_cover_attribute')}</span></label>
+      <label class="toggle field-span-2"><input type="checkbox" bind:checked={form.foregroundClipBelowEffectBox} /><span>{$_('editor.card_image_foreground_clip_below_effect_box')}</span></label>
     </div>
   </div>
 
