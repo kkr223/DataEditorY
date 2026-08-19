@@ -1373,6 +1373,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     void state.form.color;
     void state.form.align;
     void state.form.gradient;
+    void state.form.gradientStroke;
     void state.form.gradientColor1;
     void state.form.gradientColor2;
     void state.form.type;
@@ -1411,6 +1412,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     void state.form.foregroundScale;
     void state.form.foregroundRotation;
     void state.form.foregroundCoverLevel;
+    void state.form.foregroundCoverAttribute;
+    void state.form.foregroundClipBelowEffectBox;
     void state.form.effectBlockEnabled;
     void state.form.effectBlockX;
     void state.form.effectBlockY;

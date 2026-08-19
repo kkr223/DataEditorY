@@ -23,6 +23,7 @@ export interface CardImageBaseData {
   color: string;
   align: string;
   gradient: boolean;
+  gradientStroke: boolean;
   gradientColor1: string;
   gradientColor2: string;
   type: string;

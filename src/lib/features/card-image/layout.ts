@@ -16,6 +16,8 @@ export type CardImageFormData = CardImageBaseData & {
   foregroundScale: number;
   foregroundRotation: number;
   foregroundCoverLevel: boolean;
+  foregroundCoverAttribute: boolean;
+  foregroundClipBelowEffectBox: boolean;
   effectBlockEnabled: boolean;
   effectBlockX: number;
   effectBlockY: number;
@@ -56,6 +58,7 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   color: "",
   align: "left",
   gradient: false,
+  gradientStroke: true,
   gradientColor1: "#999999",
   gradientColor2: "#ffffff",
   type: "monster",
@@ -95,6 +98,8 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   foregroundScale: 1,
   foregroundRotation: 0,
   foregroundCoverLevel: true,
+  foregroundCoverAttribute: true,
+  foregroundClipBelowEffectBox: false,
   effectBlockEnabled: false,
   effectBlockX: 77,
   effectBlockY: 1501,
@@ -235,6 +240,7 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     color: String(data.color ?? DEFAULT_CARD_IMAGE_FORM_DATA.color),
     align: String(data.align ?? DEFAULT_CARD_IMAGE_FORM_DATA.align),
     gradient: Boolean(data.gradient ?? DEFAULT_CARD_IMAGE_FORM_DATA.gradient),
+    gradientStroke: Boolean(data.gradientStroke ?? DEFAULT_CARD_IMAGE_FORM_DATA.gradientStroke),
     gradientColor1: String(data.gradientColor1 ?? DEFAULT_CARD_IMAGE_FORM_DATA.gradientColor1),
     gradientColor2: String(data.gradientColor2 ?? DEFAULT_CARD_IMAGE_FORM_DATA.gradientColor2),
     type: String(data.type ?? DEFAULT_CARD_IMAGE_FORM_DATA.type),
@@ -274,6 +280,8 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     foregroundScale: coerceNumber(data.foregroundScale, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundScale),
     foregroundRotation: coerceNumber(data.foregroundRotation, DEFAULT_CARD_IMAGE_FORM_DATA.foregroundRotation),
     foregroundCoverLevel: Boolean(data.foregroundCoverLevel ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundCoverLevel),
+    foregroundCoverAttribute: Boolean(data.foregroundCoverAttribute ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundCoverAttribute),
+    foregroundClipBelowEffectBox: Boolean(data.foregroundClipBelowEffectBox ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundClipBelowEffectBox),
     effectBlockEnabled: Boolean(data.effectBlockEnabled ?? (outFrame || DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockEnabled)),
     effectBlockX: coerceNumber(data.effectBlockX, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockX),
     effectBlockY: coerceNumber(data.effectBlockY, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockY),
