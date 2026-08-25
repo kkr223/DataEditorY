@@ -11,7 +11,7 @@ import { getAllCardsMap, setSingleSelectedCard } from '$lib/stores/editor.svelte
 import { showToast } from '$lib/stores/toast.svelte';
 import { cloneEditableCard, createEmptyCard } from '$lib/domain/card/draft';
 import { toPersistableCard } from '$lib/domain/card/draft';
-import { importCardImage, resolveCardImageSrc } from '$lib/services/cardImageService';
+import { importCardImage } from '$lib/services/cardImageService';
 import { getValidatedCardCode } from '$lib/features/card-editor/useCases';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -20,7 +20,7 @@ export async function pickCardImageFlow(input: {
   activeCdbPath: string | null;
   draftCard: CardDataEntry;
   t: Translate;
-  setImageSrc: (src: string) => void;
+  refreshDraftImage: (code: number, bustCache?: boolean) => Promise<void>;
 }) {
   if (!input.activeCdbPath) return;
   const targetCode = getValidatedCardCode(input.draftCard, input.t);
@@ -37,7 +37,7 @@ export async function pickCardImageFlow(input: {
         cardCode: targetCode,
         sourcePath: selected,
       });
-      input.setImageSrc(await resolveCardImageSrc(input.activeCdbPath, targetCode, true));
+      await input.refreshDraftImage(targetCode, true);
     } catch (error) {
       console.error('Failed to copy image', error);
     }

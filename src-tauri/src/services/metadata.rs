@@ -82,7 +82,11 @@ fn externalize_workspace_images(cdb_path: &str, metadata: &mut Value) -> Result<
         let Some(form) = document.get_mut("form").and_then(Value::as_object_mut) else {
             continue;
         };
-        for (field, file_stem) in [("image", "art"), ("foregroundImage", "foreground")] {
+        for (field, file_stem) in [
+            ("image", "art"),
+            ("foregroundImage", "foreground"),
+            ("rarityMaskImage", "rarity-mask"),
+        ] {
             let Some(value) = form.get(field).and_then(Value::as_str) else {
                 continue;
             };
@@ -126,6 +130,11 @@ fn workspace_asset_relative_path(value: &str) -> Option<PathBuf> {
                 | "foreground.webp"
                 | "foreground.gif"
                 | "foreground.bmp"
+                | "rarity-mask.png"
+                | "rarity-mask.jpg"
+                | "rarity-mask.webp"
+                | "rarity-mask.gif"
+                | "rarity-mask.bmp"
         )
     {
         return None;
@@ -154,7 +163,7 @@ fn copy_workspace_image_assets(
         let Some(form) = document.get("form").and_then(Value::as_object) else {
             continue;
         };
-        for field in ["image", "foregroundImage"] {
+        for field in ["image", "foregroundImage", "rarityMaskImage"] {
             let Some(relative) = form
                 .get(field)
                 .and_then(Value::as_str)
@@ -366,7 +375,8 @@ mod tests {
                     "perCard": {
                         "123": {
                             "form": {
-                                "image": format!("data:image/png;base64,{}", BASE64.encode([1u8, 2, 3]))
+                                "image": format!("data:image/png;base64,{}", BASE64.encode([1u8, 2, 3])),
+                                "rarityMaskImage": format!("data:image/png;base64,{}", BASE64.encode([4u8, 5, 6]))
                             }
                         }
                     }
@@ -382,6 +392,10 @@ mod tests {
             "workspace-asset:card-image/123/art.png"
         );
         assert_eq!(
+            migrated["image"]["perCard"]["123"]["form"]["rarityMaskImage"],
+            "workspace-asset:card-image/123/rarity-mask.png"
+        );
+        assert_eq!(
             fs::read(
                 source_dir
                     .join(".dey")
@@ -395,6 +409,17 @@ mod tests {
         assert!(!fs::read_to_string(metadata_path)
             .unwrap()
             .contains("data:image"));
+        assert_eq!(
+            fs::read(
+                source_dir
+                    .join(".dey")
+                    .join("card-image")
+                    .join("123")
+                    .join("rarity-mask.png")
+            )
+            .unwrap(),
+            [4u8, 5, 6]
+        );
 
         save_workspace_metadata(destination.clone(), migrated, Some(source))
             .expect("save metadata copy");
@@ -408,6 +433,17 @@ mod tests {
             )
             .unwrap(),
             [1u8, 2, 3]
+        );
+        assert_eq!(
+            fs::read(
+                destination_dir
+                    .join(".dey")
+                    .join("card-image")
+                    .join("123")
+                    .join("rarity-mask.png")
+            )
+            .unwrap(),
+            [4u8, 5, 6]
         );
 
         fs::remove_dir_all(source_dir).expect("cleanup source temp project dir");

@@ -52,6 +52,7 @@ export type YugiohCardConstructor = new (options: {
 export type CropBox = { x: number; y: number; size: number };
 type DragMode = 'move' | 'resize' | null;
 type ForegroundEditorMode = 'move' | 'scale' | 'rotate' | null;
+type RarityMaskEditorMode = 'move' | 'scale' | null;
 type ForegroundInitialState = Pick<
   CardImageFormData,
   'foregroundWidth' | 'foregroundHeight' | 'foregroundX' | 'foregroundY' | 'foregroundScale' | 'foregroundRotation'
@@ -118,14 +119,21 @@ export function createCardImageController(source: CardImageControllerSource) {
     fileInput: null as HTMLInputElement | null,
     configFileInput: null as HTMLInputElement | null,
     foregroundFileInput: null as HTMLInputElement | null,
+    rarityMaskFileInput: null as HTMLInputElement | null,
     foregroundEditorOpen: false,
     foregroundPreviewHost: null as HTMLDivElement | null,
     foregroundPreviewShell: null as HTMLDivElement | null,
     foregroundPreviewCard: null as InstanceType<YugiohCardConstructor> | null,
+    rarityMaskEditorOpen: false,
+    rarityMaskPreviewHost: null as HTMLDivElement | null,
+    rarityMaskPreviewShell: null as HTMLDivElement | null,
+    rarityMaskPreviewCard: null as InstanceType<YugiohCardConstructor> | null,
     foregroundRenderableUrl: '',
+    rarityMaskRenderableUrl: '',
     croppedImageDataUrl: '',
     persistedImage: '',
     persistedForegroundImage: '',
+    persistedRarityMaskImage: '',
     sourceImageUrl: '',
     sourceImageWidth: 0,
     sourceImageHeight: 0,
@@ -149,6 +157,12 @@ export function createCardImageController(source: CardImageControllerSource) {
     foregroundRenderHeight: FOREGROUND_EDITOR_CARD_HEIGHT,
     foregroundRenderOffsetX: 0,
     foregroundRenderOffsetY: 0,
+    rarityMaskPreviewWidth: 420,
+    rarityMaskPreviewHeight: 680,
+    rarityMaskRenderWidth: FOREGROUND_EDITOR_CARD_WIDTH,
+    rarityMaskRenderHeight: FOREGROUND_EDITOR_CARD_HEIGHT,
+    rarityMaskRenderOffsetX: 0,
+    rarityMaskRenderOffsetY: 0,
     previewZoomPercent: DEFAULT_PREVIEW_ZOOM_PERCENT,
     hasManualPreviewZoom: false,
     exportScalePercent: DEFAULT_EXPORT_SCALE_PERCENT,
@@ -172,6 +186,16 @@ export function createCardImageController(source: CardImageControllerSource) {
     foregroundDragCenterClientX: 0,
     foregroundDragCenterClientY: 0,
     initialForegroundState: null as ForegroundInitialState | null,
+    rarityMaskDragMode: null as RarityMaskEditorMode,
+    rarityMaskDragPointerId: null as number | null,
+    rarityMaskDragStartX: 0,
+    rarityMaskDragStartY: 0,
+    rarityMaskDragStartMaskX: 0,
+    rarityMaskDragStartMaskY: 0,
+    rarityMaskDragStartMaskScale: 1,
+    rarityMaskDragStartDistance: 1,
+    rarityMaskDragCenterClientX: 0,
+    rarityMaskDragCenterClientY: 0,
     resolvedResourcePath: '',
   });
 
@@ -184,6 +208,9 @@ export function createCardImageController(source: CardImageControllerSource) {
   let foregroundPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   let foregroundResizeObserver: ResizeObserver | null = null;
   let lastForegroundRendererSignature = '';
+  let rarityMaskPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+  let rarityMaskResizeObserver: ResizeObserver | null = null;
+  let lastRarityMaskRendererSignature = '';
   let yugiohCardConstructorPromise: Promise<YugiohCardConstructor> | null = null;
   let resourcePathPromise: Promise<string> | null = null;
   let previewResizeObserver: ResizeObserver | null = null;
@@ -273,6 +300,15 @@ export function createCardImageController(source: CardImageControllerSource) {
     }
   }
 
+  function destroyRarityMaskPreview() {
+    destroyRenderer(state.rarityMaskPreviewCard);
+    state.rarityMaskPreviewCard = null;
+    lastRarityMaskRendererSignature = '';
+    if (state.rarityMaskPreviewHost) {
+      state.rarityMaskPreviewHost.innerHTML = '';
+    }
+  }
+
   function revokeSourceImageUrl() {
     if (state.sourceImageUrl) {
       URL.revokeObjectURL(state.sourceImageUrl);
@@ -303,6 +339,26 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.foregroundRenderableUrl = nextUrl;
   }
 
+  function revokeRarityMaskRenderableUrl() {
+    if (state.rarityMaskRenderableUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(state.rarityMaskRenderableUrl);
+    }
+    state.rarityMaskRenderableUrl = '';
+  }
+
+  async function syncRarityMaskRenderableUrl(url: string) {
+    revokeRarityMaskRenderableUrl();
+    const nextUrl = url.trim();
+    if (!nextUrl) return;
+
+    if (nextUrl.startsWith('data:')) {
+      state.rarityMaskRenderableUrl = URL.createObjectURL(dataUrlToBlob(nextUrl));
+      return;
+    }
+
+    state.rarityMaskRenderableUrl = nextUrl;
+  }
+
   function closeDrawer() {
     source.onClose();
   }
@@ -316,6 +372,7 @@ export function createCardImageController(source: CardImageControllerSource) {
         ...state.form,
         image: state.persistedImage,
         foregroundImage: state.persistedForegroundImage,
+        rarityMaskImage: state.persistedRarityMaskImage,
       }),
       exportScalePercent: state.exportScalePercent,
       meta: {
@@ -341,6 +398,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       ...persistedForm,
       image: resolveWorkspaceCardImageAssetSrc(source.cdbPath(), persistedForm.image),
       foregroundImage: resolveWorkspaceCardImageAssetSrc(source.cdbPath(), persistedForm.foregroundImage),
+      rarityMaskImage: resolveWorkspaceCardImageAssetSrc(source.cdbPath(), persistedForm.rarityMaskImage),
     });
     revokeSourceImageUrl();
     state.sourceImageWidth = 0;
@@ -352,6 +410,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.dragPointerId = null;
     state.persistedImage = persistedForm.image;
     state.persistedForegroundImage = persistedForm.foregroundImage;
+    state.persistedRarityMaskImage = persistedForm.rarityMaskImage;
     state.croppedImageDataUrl = form.image || '';
     state.hasManualPreviewZoom = false;
     state.previewZoomPercent = DEFAULT_PREVIEW_ZOOM_PERCENT;
@@ -364,8 +423,10 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.shouldRunInitialPostRenderRefresh = false;
     hasRunInitialPostRenderRefresh = false;
     await syncForegroundRenderableUrl(form.foregroundImage || '');
+    await syncRarityMaskRenderableUrl(form.rarityMaskImage || '');
     destroyPreview();
     destroyForegroundPreview();
+    destroyRarityMaskPreview();
     lastDocumentSignature = getDocumentSignature(createConfigDocument());
     await warmupPreviewAfterFontsReady();
   }
@@ -384,6 +445,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   function resetImageState() {
     state.persistedImage = '';
     state.persistedForegroundImage = '';
+    state.persistedRarityMaskImage = '';
     state.croppedImageDataUrl = '';
     state.sourceImageWidth = 0;
     state.sourceImageHeight = 0;
@@ -404,6 +466,12 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.foregroundDragPointerId = null;
   }
 
+  function resetRarityMaskEditorState() {
+    state.rarityMaskEditorOpen = false;
+    state.rarityMaskDragMode = null;
+    state.rarityMaskDragPointerId = null;
+  }
+
   function clearForegroundInitialState() {
     state.initialForegroundState = null;
   }
@@ -420,18 +488,36 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.foregroundFileInput?.click();
   }
 
+  function openRarityMaskFilePicker() {
+    state.rarityMaskFileInput?.click();
+  }
+
   function openForegroundEditor() {
+    closeRarityMaskEditor();
     state.foregroundEditorOpen = true;
   }
 
-  function getForegroundEditorScale() {
-    if (!state.foregroundPreviewWidth || !state.foregroundPreviewHeight) {
-      return 0.32;
-    }
+  function openRarityMaskEditor() {
+    closeForegroundEditor();
+    state.rarityMaskEditorOpen = true;
+  }
 
-    const availableWidth = Math.max(state.foregroundPreviewWidth - FOREGROUND_EDITOR_PADDING * 2, 1);
-    const availableHeight = Math.max(state.foregroundPreviewHeight - FOREGROUND_EDITOR_PADDING * 2, 1);
-    return Math.min(availableWidth / FOREGROUND_EDITOR_CARD_WIDTH, availableHeight / FOREGROUND_EDITOR_CARD_HEIGHT);
+  function getLayerEditorScale(width: number, height: number) {
+    if (!width || !height) return 0.32;
+    const availableWidth = Math.max(width - FOREGROUND_EDITOR_PADDING * 2, 1);
+    const availableHeight = Math.max(height - FOREGROUND_EDITOR_PADDING * 2, 1);
+    return Math.min(
+      availableWidth / FOREGROUND_EDITOR_CARD_WIDTH,
+      availableHeight / FOREGROUND_EDITOR_CARD_HEIGHT,
+    );
+  }
+
+  function getForegroundEditorScale() {
+    return getLayerEditorScale(state.foregroundPreviewWidth, state.foregroundPreviewHeight);
+  }
+
+  function getRarityMaskEditorScale() {
+    return getLayerEditorScale(state.rarityMaskPreviewWidth, state.rarityMaskPreviewHeight);
   }
 
   function clampForegroundScale(scale: number) {
@@ -461,6 +547,23 @@ export function createCardImageController(source: CardImageControllerSource) {
       `width:${width * renderScaleX}px`,
       `height:${height * renderScaleY}px`,
       `transform:rotate(${state.form.foregroundRotation}deg)`,
+    ].join(';');
+  }
+
+  function getRarityMaskSelectionStyle() {
+    const renderScaleX = state.rarityMaskRenderWidth > 0
+      ? state.rarityMaskRenderWidth / FOREGROUND_EDITOR_CARD_WIDTH
+      : 1;
+    const renderScaleY = state.rarityMaskRenderHeight > 0
+      ? state.rarityMaskRenderHeight / FOREGROUND_EDITOR_CARD_HEIGHT
+      : 1;
+    const width = Math.max(0, state.form.rarityMaskWidth * state.form.rarityMaskScale);
+    const height = Math.max(0, state.form.rarityMaskHeight * state.form.rarityMaskScale);
+    return [
+      `left:${state.rarityMaskRenderOffsetX + (state.form.rarityMaskX - width / 2) * renderScaleX}px`,
+      `top:${state.rarityMaskRenderOffsetY + (state.form.rarityMaskY - height / 2) * renderScaleY}px`,
+      `width:${width * renderScaleX}px`,
+      `height:${height * renderScaleY}px`,
     ].join(';');
   }
 
@@ -501,6 +604,47 @@ export function createCardImageController(source: CardImageControllerSource) {
       foregroundRotation: 0,
       foregroundX: FOREGROUND_EDITOR_CARD_WIDTH / 2,
       foregroundY: FOREGROUND_EDITOR_CARD_HEIGHT / 2,
+    });
+  }
+
+  function hasRarityMaskImage() {
+    return Boolean(
+      state.form.rarityMaskImage
+      && state.form.rarityMaskWidth > 0
+      && state.form.rarityMaskHeight > 0,
+    );
+  }
+
+  function getDefaultRarityMaskScale(width: number, height: number) {
+    if (!width || !height) return 1;
+    return clampForegroundScale(Math.max(
+      FOREGROUND_EDITOR_CARD_WIDTH / width,
+      FOREGROUND_EDITOR_CARD_HEIGHT / height,
+    ));
+  }
+
+  function resetRarityMaskTransform() {
+    if (!hasRarityMaskImage()) return;
+    updateForm({
+      rarityMaskX: FOREGROUND_EDITOR_CARD_WIDTH / 2,
+      rarityMaskY: FOREGROUND_EDITOR_CARD_HEIGHT / 2,
+      rarityMaskScale: getDefaultRarityMaskScale(
+        state.form.rarityMaskWidth,
+        state.form.rarityMaskHeight,
+      ),
+    });
+  }
+
+  function clearRarityMaskImage() {
+    revokeRarityMaskRenderableUrl();
+    state.persistedRarityMaskImage = '';
+    updateForm({
+      rarityMaskImage: '',
+      rarityMaskWidth: 0,
+      rarityMaskHeight: 0,
+      rarityMaskX: FOREGROUND_EDITOR_CARD_WIDTH / 2,
+      rarityMaskY: FOREGROUND_EDITOR_CARD_HEIGHT / 2,
+      rarityMaskScale: 1,
     });
   }
 
@@ -596,6 +740,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       state.dragPointerId = null;
       state.persistedImage = importedForm.image || '';
       state.persistedForegroundImage = importedForm.foregroundImage || '';
+      state.persistedRarityMaskImage = importedForm.rarityMaskImage || '';
       state.croppedImageDataUrl = importedForm.image || '';
       state.hasManualPreviewZoom = false;
       state.previewZoomPercent = DEFAULT_PREVIEW_ZOOM_PERCENT;
@@ -607,9 +752,11 @@ export function createCardImageController(source: CardImageControllerSource) {
       state.lastFormLanguage = importedForm.language as CardImageLanguage;
       state.initialForegroundState = createForegroundInitialStateFromForm(importedForm);
       await syncForegroundRenderableUrl(importedForm.foregroundImage || '');
+      await syncRarityMaskRenderableUrl(importedForm.rarityMaskImage || '');
       lastDocumentSignature = '';
       destroyPreview();
       destroyForegroundPreview();
+      destroyRarityMaskPreview();
       await warmupPreviewAfterFontsReady();
       showToast(t('editor.card_image_config_import_success'), 'success');
     } catch (error) {
@@ -677,6 +824,7 @@ export function createCardImageController(source: CardImageControllerSource) {
           ...state.form,
           image: await inlineWorkspaceCardImageAsset(cdbPath, state.persistedImage),
           foregroundImage: await inlineWorkspaceCardImageAsset(cdbPath, state.persistedForegroundImage),
+          rarityMaskImage: await inlineWorkspaceCardImageAsset(cdbPath, state.persistedRarityMaskImage),
         }),
       });
 
@@ -1041,6 +1189,34 @@ export function createCardImageController(source: CardImageControllerSource) {
     }
   }
 
+  async function handleRarityMaskImageUpload(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    try {
+      const uploaded = await readFileAsDataUrl(file);
+      const isReplacing = hasRarityMaskImage();
+      await syncRarityMaskRenderableUrl(uploaded.dataUrl);
+      state.persistedRarityMaskImage = uploaded.dataUrl;
+      updateForm({
+        rarityMaskImage: uploaded.dataUrl,
+        rarityMaskWidth: uploaded.width,
+        rarityMaskHeight: uploaded.height,
+        rarityMaskX: isReplacing ? state.form.rarityMaskX : FOREGROUND_EDITOR_CARD_WIDTH / 2,
+        rarityMaskY: isReplacing ? state.form.rarityMaskY : FOREGROUND_EDITOR_CARD_HEIGHT / 2,
+        rarityMaskScale: isReplacing
+          ? state.form.rarityMaskScale
+          : getDefaultRarityMaskScale(uploaded.width, uploaded.height),
+      });
+    } catch (error) {
+      console.error('Failed to upload rarity mask image', error);
+      showToast(t('editor.card_image_rarity_mask_upload_failed'), 'error');
+    } finally {
+      input.value = '';
+    }
+  }
+
   async function applyCrop() {
     if (!state.sourceImageUrl || !state.sourceImageWidth || !state.sourceImageHeight) return;
 
@@ -1213,6 +1389,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       ser: { color: '#edf2f8', gradient: true, gradientColor1: '#8b95a4', gradientColor2: '#ffffff' },
       gser: { color: '#f1d377', gradient: true, gradientColor1: '#8a6422', gradientColor2: '#fff1be' },
       pser: { color: '#f5d6ef', gradient: true, gradientColor1: '#855f86', gradientColor2: '#fff5fd' },
+      pser2: { color: '#f5d6ef', gradient: true, gradientColor1: '#855f86', gradientColor2: '#fff5fd' },
     };
 
     const style = styleMap[rarity];
@@ -1341,6 +1518,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     return {
       ...data,
       foregroundImage: state.foregroundRenderableUrl.trim() || data.foregroundImage,
+      rarityMaskImage: state.rarityMaskRenderableUrl.trim() || data.rarityMaskImage,
       effectBlockBorderStyle: data.effectBlockEnabled
         ? data.effectBlockBorderStyle
         : 'none',
@@ -1414,6 +1592,17 @@ export function createCardImageController(source: CardImageControllerSource) {
     void state.form.foregroundCoverLevel;
     void state.form.foregroundCoverAttribute;
     void state.form.foregroundClipBelowEffectBox;
+    void state.form.rarityMaskImage;
+    void state.form.rarityMaskWidth;
+    void state.form.rarityMaskHeight;
+    void state.form.rarityMaskX;
+    void state.form.rarityMaskY;
+    void state.form.rarityMaskScale;
+    void state.form.rarityMaskEffectBox;
+    void state.form.rarityMaskArtwork;
+    void state.form.rarityMaskCoverName;
+    void state.form.rarityMaskCoverAttribute;
+    void state.form.rarityMaskCoverLevel;
     void state.form.effectBlockEnabled;
     void state.form.effectBlockX;
     void state.form.effectBlockY;
@@ -1529,6 +1718,22 @@ export function createCardImageController(source: CardImageControllerSource) {
     return state.foregroundPreviewCard;
   }
 
+  async function ensureRarityMaskPreviewCard(initialData: CardImageFormData) {
+    await tick();
+    if (!getOpen() || !state.rarityMaskEditorOpen || !state.rarityMaskPreviewHost) return null;
+
+    const YugiohCard = await getYugiohCardConstructor();
+    if (!state.rarityMaskPreviewCard) {
+      state.rarityMaskPreviewCard = new YugiohCard({
+        view: state.rarityMaskPreviewHost,
+        data: buildYugiohCardData(buildBootstrapPreviewData(initialData)),
+        resourcePath: await ensureResolvedResourcePath(),
+      });
+    }
+
+    return state.rarityMaskPreviewCard;
+  }
+
   async function refreshPreview() {
     if (!getOpen() || !state.previewHost || !state.previewFontsReady) return;
 
@@ -1614,6 +1819,39 @@ export function createCardImageController(source: CardImageControllerSource) {
     }
   }
 
+  async function refreshRarityMaskPreview() {
+    if (!getOpen() || !state.rarityMaskEditorOpen || !state.rarityMaskPreviewHost || !state.previewFontsReady) return;
+
+    try {
+      await ensureResolvedResourcePath();
+      const previewData = buildForegroundPreviewData();
+      const renderData = buildYugiohCardData(previewData);
+      const rendererSignature = getRendererSignature(renderData);
+      if (rendererSignature !== lastRarityMaskRendererSignature) {
+        destroyRarityMaskPreview();
+        lastRarityMaskRendererSignature = rendererSignature;
+      }
+
+      let cardInstance = await ensureRarityMaskPreviewCard(previewData);
+      try {
+        cardInstance?.setData?.(renderData);
+      } catch {
+        destroyRarityMaskPreview();
+        lastRarityMaskRendererSignature = rendererSignature;
+        cardInstance = await ensureRarityMaskPreviewCard(previewData);
+        cardInstance?.setData?.(renderData);
+      }
+
+      await cardInstance?.whenReady?.();
+      await tick();
+      requestAnimationFrame(() => {
+        measureRarityMaskRenderBounds();
+      });
+    } catch (error) {
+      console.error('Failed to refresh rarity mask editor preview', error);
+    }
+  }
+
   async function warmupPreviewAfterFontsReady() {
     state.previewFontsReady = false;
     hasRunInitialPostRenderRefresh = false;
@@ -1654,6 +1892,20 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.foregroundRenderHeight = nextHeight;
     state.foregroundRenderOffsetX = nextOffsetX;
     state.foregroundRenderOffsetY = nextOffsetY;
+  }
+
+  function measureRarityMaskRenderBounds() {
+    if (!state.rarityMaskPreviewHost) return;
+
+    const content = state.rarityMaskPreviewHost.firstElementChild as HTMLElement | null;
+    state.rarityMaskRenderWidth = content?.clientWidth
+      || state.rarityMaskPreviewHost.clientWidth
+      || FOREGROUND_EDITOR_CARD_WIDTH;
+    state.rarityMaskRenderHeight = content?.clientHeight
+      || state.rarityMaskPreviewHost.clientHeight
+      || FOREGROUND_EDITOR_CARD_HEIGHT;
+    state.rarityMaskRenderOffsetX = content?.offsetLeft ?? 0;
+    state.rarityMaskRenderOffsetY = content?.offsetTop ?? 0;
   }
 
   function stopForegroundInteraction() {
@@ -1745,6 +1997,84 @@ export function createCardImageController(source: CardImageControllerSource) {
   function handleForegroundPointerUp(event: PointerEvent) {
     if (state.foregroundDragPointerId !== event.pointerId) return;
     stopForegroundInteraction();
+  }
+
+  function stopRarityMaskInteraction() {
+    state.rarityMaskDragMode = null;
+    state.rarityMaskDragPointerId = null;
+    window.removeEventListener('pointermove', handleRarityMaskPointerMove);
+    window.removeEventListener('pointerup', handleRarityMaskPointerUp);
+    window.removeEventListener('pointercancel', handleRarityMaskPointerUp);
+  }
+
+  function beginRarityMaskInteraction(event: PointerEvent, mode: RarityMaskEditorMode) {
+    if (!hasRarityMaskImage() || !state.rarityMaskPreviewHost) return;
+
+    const selection = state.rarityMaskPreviewHost.parentElement
+      ?.querySelector<HTMLElement>('.foreground-selection') ?? null;
+    const rect = selection?.getBoundingClientRect();
+    const centerX = rect ? rect.left + rect.width / 2 : 0;
+    const centerY = rect ? rect.top + rect.height / 2 : 0;
+
+    event.preventDefault();
+    event.stopPropagation();
+    state.rarityMaskDragMode = mode;
+    state.rarityMaskDragPointerId = event.pointerId;
+    state.rarityMaskDragStartX = event.clientX;
+    state.rarityMaskDragStartY = event.clientY;
+    state.rarityMaskDragStartMaskX = state.form.rarityMaskX;
+    state.rarityMaskDragStartMaskY = state.form.rarityMaskY;
+    state.rarityMaskDragStartMaskScale = state.form.rarityMaskScale;
+    state.rarityMaskDragCenterClientX = centerX;
+    state.rarityMaskDragCenterClientY = centerY;
+    state.rarityMaskDragStartDistance = Math.max(
+      Math.hypot(event.clientX - centerX, event.clientY - centerY),
+      1,
+    );
+
+    window.addEventListener('pointermove', handleRarityMaskPointerMove);
+    window.addEventListener('pointerup', handleRarityMaskPointerUp);
+    window.addEventListener('pointercancel', handleRarityMaskPointerUp);
+  }
+
+  function handleRarityMaskMovePointerDown(event: PointerEvent) {
+    beginRarityMaskInteraction(event, 'move');
+  }
+
+  function handleRarityMaskScalePointerDown(event: PointerEvent) {
+    beginRarityMaskInteraction(event, 'scale');
+  }
+
+  function handleRarityMaskPointerMove(event: PointerEvent) {
+    if (state.rarityMaskDragPointerId !== event.pointerId || !state.rarityMaskDragMode) return;
+
+    if (state.rarityMaskDragMode === 'move') {
+      const editorScale = Math.max(getRarityMaskEditorScale(), 0.01);
+      updateForm({
+        rarityMaskX: state.rarityMaskDragStartMaskX + (event.clientX - state.rarityMaskDragStartX) / editorScale,
+        rarityMaskY: state.rarityMaskDragStartMaskY + (event.clientY - state.rarityMaskDragStartY) / editorScale,
+      });
+      return;
+    }
+
+    const currentDistance = Math.max(
+      Math.hypot(
+        event.clientX - state.rarityMaskDragCenterClientX,
+        event.clientY - state.rarityMaskDragCenterClientY,
+      ),
+      1,
+    );
+    updateForm({
+      rarityMaskScale: clampForegroundScale(
+        state.rarityMaskDragStartMaskScale
+        * (currentDistance / state.rarityMaskDragStartDistance),
+      ),
+    });
+  }
+
+  function handleRarityMaskPointerUp(event: PointerEvent) {
+    if (state.rarityMaskDragPointerId !== event.pointerId) return;
+    stopRarityMaskInteraction();
   }
 
   async function handleDownload() {
@@ -1844,6 +2174,12 @@ export function createCardImageController(source: CardImageControllerSource) {
     destroyForegroundPreview();
   }
 
+  function closeRarityMaskEditor() {
+    resetRarityMaskEditorState();
+    destroyRarityMaskPreview();
+    stopRarityMaskInteraction();
+  }
+
   $effect(() => {
     const open = source.open();
     const initialDocument = source.initialDocument?.() ?? null;
@@ -1886,10 +2222,13 @@ export function createCardImageController(source: CardImageControllerSource) {
       hasRunInitialPostRenderRefresh = false;
       destroyPreview();
       destroyForegroundPreview();
+      destroyRarityMaskPreview();
       resetImageState();
       resetForegroundState();
+      resetRarityMaskEditorState();
       clearForegroundInitialState();
       revokeForegroundRenderableUrl();
+      revokeRarityMaskRenderableUrl();
       return;
     }
 
@@ -1901,10 +2240,13 @@ export function createCardImageController(source: CardImageControllerSource) {
       hasRunInitialPostRenderRefresh = false;
       resetImageState();
       resetForegroundState();
+      resetRarityMaskEditorState();
       clearForegroundInitialState();
       revokeForegroundRenderableUrl();
+      revokeRarityMaskRenderableUrl();
       destroyPreview();
       destroyForegroundPreview();
+      destroyRarityMaskPreview();
       void warmupPreviewAfterFontsReady();
     }
   });
@@ -1913,8 +2255,10 @@ export function createCardImageController(source: CardImageControllerSource) {
     const form = source.initialDocument?.()?.form;
     const image = typeof form?.image === 'string' ? form.image : '';
     const foregroundImage = typeof form?.foregroundImage === 'string' ? form.foregroundImage : '';
+    const rarityMaskImage = typeof form?.rarityMaskImage === 'string' ? form.rarityMaskImage : '';
     if (isWorkspaceCardImageAssetReference(image)) state.persistedImage = image;
     if (isWorkspaceCardImageAssetReference(foregroundImage)) state.persistedForegroundImage = foregroundImage;
+    if (isWorkspaceCardImageAssetReference(rarityMaskImage)) state.persistedRarityMaskImage = rarityMaskImage;
   });
 
   $effect(() => {
@@ -1946,6 +2290,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.exportScalePercent;
     state.persistedImage;
     state.persistedForegroundImage;
+    state.persistedRarityMaskImage;
     const document = createConfigDocument();
     const signature = getDocumentSignature(document);
     if (signature === lastDocumentSignature) return;
@@ -1991,6 +2336,25 @@ export function createCardImageController(source: CardImageControllerSource) {
   });
 
   $effect(() => {
+    if (!state.rarityMaskPreviewShell || !state.rarityMaskEditorOpen) return;
+
+    rarityMaskResizeObserver?.disconnect();
+    rarityMaskResizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      state.rarityMaskPreviewWidth = entry.contentRect.width;
+      state.rarityMaskPreviewHeight = entry.contentRect.height;
+      measureRarityMaskRenderBounds();
+    });
+    rarityMaskResizeObserver.observe(state.rarityMaskPreviewShell);
+
+    return () => {
+      rarityMaskResizeObserver?.disconnect();
+      rarityMaskResizeObserver = null;
+    };
+  });
+
+  $effect(() => {
     if (!source.open() || state.hasManualPreviewZoom) return;
     if (!state.previewWidth || !state.previewHeight) return;
 
@@ -2009,6 +2373,9 @@ export function createCardImageController(source: CardImageControllerSource) {
       void refreshPreview();
       if (state.foregroundEditorOpen) {
         void refreshForegroundPreview();
+      }
+      if (state.rarityMaskEditorOpen) {
+        void refreshRarityMaskPreview();
       }
     }, 40);
 
@@ -2041,18 +2408,45 @@ export function createCardImageController(source: CardImageControllerSource) {
   });
 
   $effect(() => {
+    if (!state.rarityMaskEditorOpen) {
+      clearTimeout(rarityMaskPreviewTimer ?? undefined);
+      rarityMaskPreviewTimer = null;
+      destroyRarityMaskPreview();
+      stopRarityMaskInteraction();
+      return;
+    }
+
+    trackPreviewDependencies();
+
+    clearTimeout(rarityMaskPreviewTimer ?? undefined);
+    rarityMaskPreviewTimer = setTimeout(() => {
+      void refreshRarityMaskPreview();
+    }, 40);
+
+    return () => {
+      clearTimeout(rarityMaskPreviewTimer ?? undefined);
+      rarityMaskPreviewTimer = null;
+    };
+  });
+
+  $effect(() => {
     return () => {
       clearTimeout(previewTimer ?? undefined);
       clearTimeout(previewWarmupTimer ?? undefined);
       clearTimeout(initialPostRenderRefreshTimer ?? undefined);
       clearTimeout(foregroundPreviewTimer ?? undefined);
+      clearTimeout(rarityMaskPreviewTimer ?? undefined);
       destroyPreview();
       destroyForegroundPreview();
+      destroyRarityMaskPreview();
       previewResizeObserver?.disconnect();
       foregroundResizeObserver?.disconnect();
+      rarityMaskResizeObserver?.disconnect();
       revokeSourceImageUrl();
       revokeForegroundRenderableUrl();
+      revokeRarityMaskRenderableUrl();
       stopForegroundInteraction();
+      stopRarityMaskInteraction();
     };
   });
 
@@ -2062,7 +2456,9 @@ export function createCardImageController(source: CardImageControllerSource) {
     openFilePicker,
     openConfigFilePicker,
     openForegroundFilePicker,
+    openRarityMaskFilePicker,
     openForegroundEditor,
+    openRarityMaskEditor,
     handleConfigImport,
     handleConfigFileUpload,
     handleConfigExport,
@@ -2070,6 +2466,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     handleCropViewportResize,
     handleImageUpload,
     handleForegroundImageUpload,
+    handleRarityMaskImageUpload,
     applyCrop,
     cancelCrop,
     handleCropPointerDown,
@@ -2096,13 +2493,21 @@ export function createCardImageController(source: CardImageControllerSource) {
     resetForegroundTransform,
     clearForegroundImage,
     hasForegroundImage,
+    resetRarityMaskTransform,
+    clearRarityMaskImage,
+    hasRarityMaskImage,
     getForegroundEditorScale,
     getForegroundSelectionStyle,
+    getRarityMaskEditorScale,
+    getRarityMaskSelectionStyle,
     handleForegroundMovePointerDown,
     handleForegroundScalePointerDown,
     handleForegroundRotatePointerDown,
+    handleRarityMaskMovePointerDown,
+    handleRarityMaskScalePointerDown,
     handleDownload,
     handleSaveJpg,
     closeForegroundEditor,
+    closeRarityMaskEditor,
   };
 }

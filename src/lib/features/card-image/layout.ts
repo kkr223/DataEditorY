@@ -18,6 +18,17 @@ export type CardImageFormData = CardImageBaseData & {
   foregroundCoverLevel: boolean;
   foregroundCoverAttribute: boolean;
   foregroundClipBelowEffectBox: boolean;
+  rarityMaskImage: string;
+  rarityMaskWidth: number;
+  rarityMaskHeight: number;
+  rarityMaskX: number;
+  rarityMaskY: number;
+  rarityMaskScale: number;
+  rarityMaskEffectBox: boolean;
+  rarityMaskArtwork: boolean;
+  rarityMaskCoverName: boolean;
+  rarityMaskCoverAttribute: boolean;
+  rarityMaskCoverLevel: boolean;
   effectBlockEnabled: boolean;
   effectBlockX: number;
   effectBlockY: number;
@@ -100,6 +111,17 @@ const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
   foregroundCoverLevel: true,
   foregroundCoverAttribute: true,
   foregroundClipBelowEffectBox: false,
+  rarityMaskImage: "",
+  rarityMaskWidth: 0,
+  rarityMaskHeight: 0,
+  rarityMaskX: 697,
+  rarityMaskY: 1015.5,
+  rarityMaskScale: 1,
+  rarityMaskEffectBox: true,
+  rarityMaskArtwork: false,
+  rarityMaskCoverName: false,
+  rarityMaskCoverAttribute: false,
+  rarityMaskCoverLevel: false,
   effectBlockEnabled: false,
   effectBlockX: 77,
   effectBlockY: 1501,
@@ -191,6 +213,7 @@ export const CARD_IMAGE_RARE_OPTIONS: StringOption[] = [
   { value: "ser", labelKey: "editor.card_image_option.rare.ser" },
   { value: "gser", labelKey: "editor.card_image_option.rare.gser" },
   { value: "pser", labelKey: "editor.card_image_option.rare.pser" },
+  { value: "pser2", labelKey: "editor.card_image_option.rare.pser2" },
   { value: "o", labelKey: "editor.card_image_option.rare.o" },
 ];
 
@@ -282,6 +305,17 @@ export function normalizeCardImageFormData(data: Partial<CardImageFormData>): Ca
     foregroundCoverLevel: Boolean(data.foregroundCoverLevel ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundCoverLevel),
     foregroundCoverAttribute: Boolean(data.foregroundCoverAttribute ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundCoverAttribute),
     foregroundClipBelowEffectBox: Boolean(data.foregroundClipBelowEffectBox ?? DEFAULT_CARD_IMAGE_FORM_DATA.foregroundClipBelowEffectBox),
+    rarityMaskImage: String(data.rarityMaskImage ?? DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskImage),
+    rarityMaskWidth: coerceNumber(data.rarityMaskWidth, DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskWidth),
+    rarityMaskHeight: coerceNumber(data.rarityMaskHeight, DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskHeight),
+    rarityMaskX: coerceNumber(data.rarityMaskX, DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskX),
+    rarityMaskY: coerceNumber(data.rarityMaskY, DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskY),
+    rarityMaskScale: coerceNumber(data.rarityMaskScale, DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskScale),
+    rarityMaskEffectBox: Boolean(data.rarityMaskEffectBox ?? DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskEffectBox),
+    rarityMaskArtwork: Boolean(data.rarityMaskArtwork ?? DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskArtwork),
+    rarityMaskCoverName: Boolean(data.rarityMaskCoverName ?? DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskCoverName),
+    rarityMaskCoverAttribute: Boolean(data.rarityMaskCoverAttribute ?? DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskCoverAttribute),
+    rarityMaskCoverLevel: Boolean(data.rarityMaskCoverLevel ?? DEFAULT_CARD_IMAGE_FORM_DATA.rarityMaskCoverLevel),
     effectBlockEnabled: Boolean(data.effectBlockEnabled ?? (outFrame || DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockEnabled)),
     effectBlockX: coerceNumber(data.effectBlockX, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockX),
     effectBlockY: coerceNumber(data.effectBlockY, DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockY),

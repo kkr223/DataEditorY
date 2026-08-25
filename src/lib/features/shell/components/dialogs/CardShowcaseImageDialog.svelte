@@ -16,8 +16,11 @@
   import { writeImageBlobToClipboard } from '$lib/utils/imageClipboard';
   import {
     appendWorkspaceTaskHistory,
+    getCardShowcaseOutputDir,
     getCardGroupById,
     getCardGroups,
+    setCardShowcaseOutputDir,
+    workspaceMetadataState,
   } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
   import {
     chunkShowcaseCards,
@@ -47,6 +50,18 @@
   let headText = $state('');
   let isRunning = $state(false);
   let progress = $state({ current: 0, total: 0 });
+  let restoredOutputDirPath = $state('');
+
+  $effect(() => {
+    const cdbPath = $activeTab?.path ?? '';
+    if (!open
+      || !cdbPath
+      || !workspaceMetadataState.ready
+      || workspaceMetadataState.cdbPath !== cdbPath
+      || restoredOutputDirPath === cdbPath) return;
+    outputDir = getCardShowcaseOutputDir();
+    restoredOutputDirPath = cdbPath;
+  });
 
   function getOptionLabel(options: SelectOption<number>[], value: number) {
     const option = options.find((item) => item.value === value);
@@ -100,7 +115,10 @@
       multiple: false,
       title: $_('showcase_image.pick_output_dir') as string,
     });
-    if (typeof selected === 'string') outputDir = selected;
+    if (typeof selected === 'string') {
+      outputDir = selected;
+      setCardShowcaseOutputDir(selected);
+    }
   }
 
   function getOutputBaseName(cdbPath: string) {
@@ -114,6 +132,7 @@
       showToast($_('showcase_image.output_dir_required'), 'error');
       return;
     }
+    setCardShowcaseOutputDir(outputDir);
 
     isRunning = true;
     progress = { current: 0, total: 0 };
@@ -218,7 +237,7 @@
         <label class="field output-field">
           <span>{$_('showcase_image.output_dir')}</span>
           <div class="path-row">
-            <input type="text" bind:value={outputDir} />
+            <input type="text" bind:value={outputDir} onchange={() => setCardShowcaseOutputDir(outputDir)} />
             <button type="button" class="secondary-action" onclick={() => void pickOutputDir()}>{$_('nav.open')}</button>
           </div>
         </label>

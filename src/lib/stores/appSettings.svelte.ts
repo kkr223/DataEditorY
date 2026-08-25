@@ -30,15 +30,11 @@ export const DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
   'pics/{code}.jpg',
   'pics/field/{code}.jpg',
   'script/c{code}.lua',
-  'strings.conf',
-  'lflist.conf',
 ];
 const LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS = [
   'pics/{code}.jpg',
   'pics/field/{code}.jpg',
   'script/{code}.lua',
-  'strings.conf',
-  'lflist.conf',
 ];
 
 type CachedModelList = {

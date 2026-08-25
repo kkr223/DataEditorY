@@ -444,9 +444,7 @@
       activeCdbPath: $activeTab?.path ?? null,
       draftCard,
       t: (key, options) => $_(key, options as never),
-      setImageSrc: (src) => {
-        imageSrc = src;
-      },
+      refreshDraftImage: lifecycleController.refreshDraftImage,
     });
   }
 

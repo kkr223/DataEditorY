@@ -2,7 +2,7 @@ import { readImageFile } from '$lib/native/assetApi';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 
 const WORKSPACE_ASSET_PREFIX = 'workspace-asset:';
-const WORKSPACE_ASSET_PATTERN = /^workspace-asset:(card-image\/\d+\/(?:art|foreground)\.(png|jpg|webp|gif|bmp))$/;
+const WORKSPACE_ASSET_PATTERN = /^workspace-asset:(card-image\/\d+\/(?:art|foreground|rarity-mask)\.(png|jpg|webp|gif|bmp))$/;
 
 export function parseWorkspaceCardImageAssetReference(value: string) {
   const match = value.match(WORKSPACE_ASSET_PATTERN);

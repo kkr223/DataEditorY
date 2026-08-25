@@ -39,8 +39,10 @@
     onApplyNameShadowColorPreset = (_color: string) => {},
     isNameShadowColorPresetActive = (_color: string) => false,
     hasForegroundImage = false,
+    hasRarityMaskImage = false,
+    onOpenRarityMaskEditor = () => {},
   }: {
-    variant: 'main' | 'foreground';
+    variant: 'main' | 'foreground' | 'rarity-mask';
     form: CardImageFormData;
     exportScalePercent?: number;
     nameColorPresets?: ColorPreset[];
@@ -52,6 +54,8 @@
     onApplyNameShadowColorPreset?: (color: string) => void;
     isNameShadowColorPresetActive?: (color: string) => boolean;
     hasForegroundImage?: boolean;
+    hasRarityMaskImage?: boolean;
+    onOpenRarityMaskEditor?: () => void;
   } = $props();
 
   const exportWidth = $derived(Math.round(FOREGROUND_EDITOR_CARD_WIDTH * exportScalePercent / 100));
@@ -244,6 +248,24 @@
       </div>
       <label class="field"><span>{$_('editor.card_image_rarity')}</span><select value={form.rare} onchange={(event) => updateRarity(event.currentTarget.value)}>{#each CARD_IMAGE_RARE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
       <label class="field"><span>{$_('editor.card_image_laser')}</span><select bind:value={form.laser}>{#each CARD_IMAGE_LASER_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+      <div class="field field-span-2 rarity-mask-panel">
+        <div class="rarity-mask-header">
+          <div>
+            <span class="rarity-mask-title">{$_('editor.card_image_rarity_mask')}</span>
+            <small class="field-hint">{hasRarityMaskImage ? $_('editor.card_image_rarity_mask_ready') : $_('editor.card_image_rarity_mask_empty')}</small>
+          </div>
+          <button class="btn-secondary btn-sm" type="button" onclick={onOpenRarityMaskEditor}>{$_('editor.card_image_rarity_mask_edit')}</button>
+        </div>
+      </div>
+      <div class="field field-span-2 rarity-mask-panel">
+        <span class="rarity-mask-title">{$_('editor.card_image_rarity_effect_coverage')}</span>
+        <div class="subfield-grid">
+          <label class="toggle"><input type="checkbox" bind:checked={form.rarityMaskCoverName} /><span>{$_('editor.card_image_rarity_mask_cover_name')}</span></label>
+          <label class="toggle"><input type="checkbox" bind:checked={form.rarityMaskCoverAttribute} /><span>{$_('editor.card_image_rarity_mask_cover_attribute')}</span></label>
+          <label class="toggle field-span-2"><input type="checkbox" bind:checked={form.rarityMaskCoverLevel} /><span>{$_('editor.card_image_rarity_mask_cover_level')}</span></label>
+        </div>
+        <small class="field-hint">{$_('editor.card_image_rarity_effect_coverage_hint')}</small>
+      </div>
       <label class="field"><span>{$_('editor.card_image_copyright')}</span><select bind:value={form.copyright}>{#each CARD_IMAGE_COPYRIGHT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
       <label class="field"><span>{$_('editor.card_image_package')}</span><input type="text" bind:value={form.package} /></label>
       <label class="field"><span>{$_('editor.card_image_password')}</span><input type="text" bind:value={form.password} /></label>
@@ -265,7 +287,7 @@
       <label class="toggle"><input type="checkbox" bind:checked={form.radius} /><span>{$_('editor.card_image_round_corner')}</span></label>
     </div>
   </section>
-{:else}
+{:else if variant === 'foreground'}
   <p class="field-hint">
     {#if hasForegroundImage}
       {$_('editor.card_image_foreground_ready')}
@@ -309,6 +331,28 @@
     </fieldset>
     <small class="field-hint">{$_('editor.card_image_effect_block_hint')}</small>
   </div>
+{:else}
+  <p class="field-hint">
+    {hasRarityMaskImage ? $_('editor.card_image_rarity_mask_ready') : $_('editor.card_image_rarity_mask_empty')}
+  </p>
+
+  <div class="drawer-section foreground-section">
+    <div class="section-title">{$_('editor.card_image_rarity_mask_transform')}</div>
+    <div class="field-grid">
+      <label class="field"><span>{$_('editor.card_image_rarity_mask_x')}</span><input type="number" step="1" bind:value={form.rarityMaskX} /></label>
+      <label class="field"><span>{$_('editor.card_image_rarity_mask_y')}</span><input type="number" step="1" bind:value={form.rarityMaskY} /></label>
+      <label class="field field-span-2"><span>{$_('editor.card_image_rarity_mask_scale')}</span><input type="number" min={MIN_FOREGROUND_SCALE} max={MAX_FOREGROUND_SCALE} step="0.01" bind:value={form.rarityMaskScale} /></label>
+    </div>
+  </div>
+
+  <div class="drawer-section foreground-section">
+    <div class="section-title">{$_('editor.card_image_rarity_mask_options')}</div>
+    <div class="field-grid">
+      <label class="toggle"><input type="checkbox" bind:checked={form.rarityMaskEffectBox} /><span>{$_('editor.card_image_rarity_mask_effect_box')}</span></label>
+      <label class="toggle"><input type="checkbox" bind:checked={form.rarityMaskArtwork} /><span>{$_('editor.card_image_rarity_mask_artwork')}</span></label>
+    </div>
+    <small class="field-hint">{$_('editor.card_image_rarity_mask_options_hint')}</small>
+  </div>
 {/if}
 
 <style>
@@ -349,6 +393,11 @@
   .effect-block-toggle { margin-top: 0; }
   .effect-block-fieldset { margin: 0; padding: 0; border: none; min-width: 0; }
   .effect-block-fieldset:disabled { opacity: 0.58; }
+  .rarity-mask-panel { padding: 12px; border: 1px solid color-mix(in srgb, var(--accent-primary) 22%, var(--border-color)); border-radius: 10px; background: color-mix(in srgb, var(--accent-primary) 4%, var(--bg-surface)); }
+  .rarity-mask-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .rarity-mask-header > div:first-child { display: flex; flex-direction: column; gap: 4px; }
+  .rarity-mask-title { color: var(--text-primary); font-size: 0.9rem; font-weight: 700; }
+  button:disabled { cursor: not-allowed; opacity: 0.55; }
 
   @media (max-width: 720px) {
     .field-grid,

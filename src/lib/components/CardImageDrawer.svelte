@@ -81,12 +81,14 @@
             bind:fileInput={controller.state.fileInput}
             bind:configFileInput={controller.state.configFileInput}
             bind:foregroundFileInput={controller.state.foregroundFileInput}
+            bind:rarityMaskFileInput={controller.state.rarityMaskFileInput}
             croppedImageDataUrl={controller.state.croppedImageDataUrl}
             isTranslating={controller.state.isTranslating}
             {aiEnabled}
             onImageUpload={controller.handleImageUpload}
             onConfigFileUpload={controller.handleConfigFileUpload}
             onForegroundImageUpload={controller.handleForegroundImageUpload}
+            onRarityMaskImageUpload={controller.handleRarityMaskImageUpload}
             onOpenFilePicker={controller.openFilePicker}
             onConfigImport={controller.handleConfigImport}
             onConfigExport={controller.handleConfigExport}
@@ -106,6 +108,8 @@
             onClearCustomNameShadowColor={controller.clearCustomNameShadowColor}
             onApplyNameShadowColorPreset={controller.applyNameShadowColorPreset}
             isNameShadowColorPresetActive={controller.isNameShadowColorPresetActive}
+            hasRarityMaskImage={controller.hasRarityMaskImage()}
+            onOpenRarityMaskEditor={controller.openRarityMaskEditor}
           />
         </div>
 
@@ -187,6 +191,54 @@
             onForegroundMovePointerDown={controller.handleForegroundMovePointerDown}
             onForegroundRotatePointerDown={controller.handleForegroundRotatePointerDown}
             onForegroundScalePointerDown={controller.handleForegroundScalePointerDown}
+          />
+        </section>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if controller.state.rarityMaskEditorOpen}
+  <div class="foreground-backdrop" role="presentation">
+    <div class="foreground-dialog" role="dialog" aria-modal="true" aria-label={$_('editor.card_image_rarity_mask_title')}>
+      <div class="foreground-header">
+        <div>
+          <h4>{$_('editor.card_image_rarity_mask_title')}</h4>
+          <p>{$_('editor.card_image_rarity_mask_description')}</p>
+        </div>
+        <button class="close-btn" type="button" onclick={controller.closeRarityMaskEditor}>×</button>
+      </div>
+
+      <div class="foreground-body">
+        <section class="foreground-form">
+          <CardImageControls
+            mode="rarity-mask-toolbar"
+            hasRarityMaskImage={controller.hasRarityMaskImage()}
+            onOpenFilePicker={controller.openRarityMaskFilePicker}
+            onResetRarityMaskTransform={controller.resetRarityMaskTransform}
+            onClearRarityMaskImage={controller.clearRarityMaskImage}
+          />
+
+          <CardImageFieldEditor
+            variant="rarity-mask"
+            bind:form={controller.state.form}
+            hasRarityMaskImage={controller.hasRarityMaskImage()}
+          />
+        </section>
+
+        <section class="foreground-preview-pane">
+          <div class="section-title">{$_('editor.card_image_rarity_mask_preview')}</div>
+          <p>{$_('editor.card_image_rarity_mask_preview_hint')}</p>
+          <CardImageCanvas
+            mode="rarity-mask"
+            bind:foregroundPreviewShell={controller.state.rarityMaskPreviewShell}
+            bind:foregroundPreviewHost={controller.state.rarityMaskPreviewHost}
+            foregroundEditorScale={controller.getRarityMaskEditorScale()}
+            foregroundSelectionStyle={controller.getRarityMaskSelectionStyle()}
+            selectionPreviewImageUrl={controller.state.rarityMaskRenderableUrl}
+            hasForegroundImage={controller.hasRarityMaskImage()}
+            onForegroundMovePointerDown={controller.handleRarityMaskMovePointerDown}
+            onForegroundScalePointerDown={controller.handleRarityMaskScalePointerDown}
           />
         </section>
       </div>
