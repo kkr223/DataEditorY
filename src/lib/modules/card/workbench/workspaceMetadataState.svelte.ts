@@ -281,6 +281,25 @@ export function setCardWorkspaceUi(input: {
   }));
 }
 
+export function getCardShowcaseOutputDir() {
+  const ui = workspaceMetadataState.metadata?.ui;
+  const showcase = ui && typeof ui === 'object' ? ui.cardShowcase : null;
+  const outputDir = showcase && typeof showcase === 'object'
+    ? (showcase as { outputDir?: unknown }).outputDir
+    : null;
+  return typeof outputDir === 'string' ? outputDir : '';
+}
+
+export function setCardShowcaseOutputDir(outputDir: string) {
+  updateWorkspaceMetadata((metadata) => ({
+    ...metadata,
+    ui: {
+      ...(metadata.ui ?? {}),
+      cardShowcase: { outputDir: outputDir.trim() },
+    },
+  }));
+}
+
 export function getCardExplorerState() {
   const ui = workspaceMetadataState.metadata?.ui;
   const explorer = ui && typeof ui === 'object'
