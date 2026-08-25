@@ -21,6 +21,14 @@ describe("card image config document", () => {
         foregroundImage: "data:image/png;base64,BBB",
         foregroundCoverAttribute: false,
         foregroundClipBelowEffectBox: true,
+        rarityMaskImage: "data:image/png;base64,CCC",
+        rarityMaskX: 640,
+        rarityMaskScale: 0.8,
+        rarityMaskEffectBox: false,
+        rarityMaskArtwork: true,
+        rarityMaskCoverName: true,
+        rarityMaskCoverAttribute: true,
+        rarityMaskCoverLevel: true,
         rare: "o",
       }),
     });
@@ -40,12 +48,21 @@ describe("card image config document", () => {
     expect(parsed.form.foregroundImage).toBe("data:image/png;base64,BBB");
     expect(parsed.form.foregroundCoverAttribute).toBe(false);
     expect(parsed.form.foregroundClipBelowEffectBox).toBe(true);
+    expect(parsed.form.rarityMaskImage).toBe("data:image/png;base64,CCC");
+    expect(parsed.form.rarityMaskX).toBe(640);
+    expect(parsed.form.rarityMaskScale).toBe(0.8);
+    expect(parsed.form.rarityMaskEffectBox).toBe(false);
+    expect(parsed.form.rarityMaskArtwork).toBe(true);
+    expect(parsed.form.rarityMaskCoverName).toBe(true);
+    expect(parsed.form.rarityMaskCoverAttribute).toBe(true);
+    expect(parsed.form.rarityMaskCoverLevel).toBe(true);
     expect(parsed.form.rare).toBe("o");
     expect(parsed.exportScalePercent).toBeNull();
   });
 
   test("exposes the upstream out-frame rarity", () => {
     expect(CARD_IMAGE_RARE_OPTIONS.some(({ value }) => value === "o")).toBe(true);
+    expect(CARD_IMAGE_RARE_OPTIONS.some(({ value }) => value === "pser2")).toBe(true);
   });
 
   test("uses upstream rendering defaults", () => {
@@ -53,6 +70,11 @@ describe("card image config document", () => {
     expect(form.gradientStroke).toBe(true);
     expect(form.foregroundCoverAttribute).toBe(true);
     expect(form.foregroundClipBelowEffectBox).toBe(false);
+    expect(form.rarityMaskEffectBox).toBe(true);
+    expect(form.rarityMaskArtwork).toBe(false);
+    expect(form.rarityMaskCoverName).toBe(false);
+    expect(form.rarityMaskCoverAttribute).toBe(false);
+    expect(form.rarityMaskCoverLevel).toBe(false);
   });
 
   test("defaults out-frame rarity to an enabled colored effect box", () => {

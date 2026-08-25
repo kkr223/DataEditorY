@@ -12,9 +12,11 @@
     fileInput = $bindable<HTMLInputElement | null>(null),
     configFileInput = $bindable<HTMLInputElement | null>(null),
     foregroundFileInput = $bindable<HTMLInputElement | null>(null),
+    rarityMaskFileInput = $bindable<HTMLInputElement | null>(null),
     onImageUpload = (_event: Event) => {},
     onConfigFileUpload = (_event: Event) => {},
     onForegroundImageUpload = (_event: Event) => {},
+    onRarityMaskImageUpload = (_event: Event) => {},
     onOpenFilePicker = () => {},
     onConfigImport = () => {},
     onConfigExport = () => {},
@@ -22,10 +24,13 @@
     onAiTranslate = () => {},
     onResetForegroundTransform = () => {},
     onClearForegroundImage = () => {},
+    hasRarityMaskImage = false,
+    onResetRarityMaskTransform = () => {},
+    onClearRarityMaskImage = () => {},
     onSaveJpg = () => {},
     onDownload = () => {},
   }: {
-    mode: 'toolbar' | 'preview-actions' | 'foreground-toolbar';
+    mode: 'toolbar' | 'preview-actions' | 'foreground-toolbar' | 'rarity-mask-toolbar';
     croppedImageDataUrl?: string;
     hasForegroundImage?: boolean;
     isTranslating?: boolean;
@@ -35,9 +40,11 @@
     fileInput?: HTMLInputElement | null;
     configFileInput?: HTMLInputElement | null;
     foregroundFileInput?: HTMLInputElement | null;
+    rarityMaskFileInput?: HTMLInputElement | null;
     onImageUpload?: (event: Event) => void | Promise<void>;
     onConfigFileUpload?: (event: Event) => void | Promise<void>;
     onForegroundImageUpload?: (event: Event) => void | Promise<void>;
+    onRarityMaskImageUpload?: (event: Event) => void | Promise<void>;
     onOpenFilePicker?: () => void;
     onConfigImport?: () => void | Promise<void>;
     onConfigExport?: () => void | Promise<void>;
@@ -45,6 +52,9 @@
     onAiTranslate?: () => void | Promise<void>;
     onResetForegroundTransform?: () => void;
     onClearForegroundImage?: () => void;
+    hasRarityMaskImage?: boolean;
+    onResetRarityMaskTransform?: () => void;
+    onClearRarityMaskImage?: () => void;
     onSaveJpg?: () => void | Promise<void>;
     onDownload?: () => void | Promise<void>;
   } = $props();
@@ -55,6 +65,7 @@
     <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" bind:this={fileInput} onchange={onImageUpload} />
     <input class="sr-only" type="file" accept="application/json,.json" bind:this={configFileInput} onchange={onConfigFileUpload} />
     <input class="sr-only" type="file" accept="image/png,image/webp" bind:this={foregroundFileInput} onchange={onForegroundImageUpload} />
+    <input class="sr-only" type="file" accept="image/png,image/jpeg,image/webp" bind:this={rarityMaskFileInput} onchange={onRarityMaskImageUpload} />
     <button class="btn-primary btn-sm upload-btn" type="button" onclick={onOpenFilePicker}>
       {croppedImageDataUrl ? $_('editor.card_image_recrop') : $_('editor.card_image_upload')}
     </button>
@@ -89,7 +100,7 @@
       {isDownloading ? $_('editor.card_image_downloading') : $_('editor.card_image_download')}
     </button>
   </div>
-{:else}
+{:else if mode === 'foreground-toolbar'}
   <div class="foreground-toolbar">
     <button class="btn-primary btn-sm" type="button" onclick={onOpenFilePicker}>
       {hasForegroundImage ? $_('editor.card_image_foreground_replace') : $_('editor.card_image_foreground_upload')}
@@ -99,6 +110,18 @@
     </button>
     <button class="btn-secondary btn-sm" type="button" onclick={onClearForegroundImage} disabled={!hasForegroundImage}>
       {$_('editor.card_image_foreground_clear')}
+    </button>
+  </div>
+{:else}
+  <div class="foreground-toolbar">
+    <button class="btn-primary btn-sm" type="button" onclick={onOpenFilePicker}>
+      {hasRarityMaskImage ? $_('editor.card_image_rarity_mask_replace') : $_('editor.card_image_rarity_mask_upload')}
+    </button>
+    <button class="btn-secondary btn-sm" type="button" onclick={onResetRarityMaskTransform} disabled={!hasRarityMaskImage}>
+      {$_('editor.card_image_rarity_mask_reset')}
+    </button>
+    <button class="btn-secondary btn-sm" type="button" onclick={onClearRarityMaskImage} disabled={!hasRarityMaskImage}>
+      {$_('editor.card_image_rarity_mask_clear')}
     </button>
   </div>
 {/if}
