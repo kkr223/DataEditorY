@@ -6,8 +6,58 @@ on:
       - "v*"
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  prepare-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      release-id: ${{ steps.release.outputs.result }}
+
+    steps:
+      - name: Find or create draft release
+        id: release
+        uses: actions/github-script@v9
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        with:
+          result-encoding: string
+          script: |
+            const { owner, repo } = context.repo;
+            const tag = process.env.RELEASE_TAG;
+            const releases = await github.paginate(
+              github.rest.repos.listReleases,
+              { owner, repo, per_page: 100 },
+            );
+            const matches = releases.filter((release) => release.tag_name === tag);
+
+            if (matches.length > 1) {
+              throw new Error(`Found ${matches.length} releases for ${tag}; remove duplicate releases before retrying.`);
+            }
+
+            if (matches.length === 1) {
+              core.info(`Using existing release ${matches[0].id} for ${tag}.`);
+              return matches[0].id.toString();
+            }
+
+            const { data: release } = await github.rest.repos.createRelease({
+              owner,
+              repo,
+              tag_name: tag,
+              name: `DataEditorY ${tag}`,
+              body: `Automated release for ${tag}.\n\nBuilt from GitHub Actions using Tauri 2.`,
+              draft: true,
+              prerelease: false,
+            });
+            core.info(`Created draft release ${release.id} for ${tag}.`);
+            return release.id.toString();
+
   publish-tauri:
+    needs: prepare-release
     permissions:
       contents: write
     strategy:
@@ -69,14 +119,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_VARIANT: ${{ matrix.variant }}
         with:
+          releaseId: ${{ needs.prepare-release.outputs.release-id }}
           tagName: ${{ github.ref_name }}
-          releaseName: DataEditorY ${{ github.ref_name }}
-          releaseBody: |
-            Automated release for ${{ github.ref_name }}.
-
-            Built from GitHub Actions using Tauri 2.
-          releaseDraft: true
-          prerelease: false
 
       - name: Pack Windows portable bundle
         if: matrix.platform == 'windows-latest'
