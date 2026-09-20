@@ -4,7 +4,8 @@
     CARD_IMAGE_ATTRIBUTE_OPTIONS,
     CARD_IMAGE_CARD_TYPE_OPTIONS,
     CARD_IMAGE_COPYRIGHT_OPTIONS,
-    CARD_IMAGE_EFFECT_BLOCK_BORDER_STYLE_OPTIONS,
+    CARD_IMAGE_FRAME_STYLE_OPTIONS,
+    CARD_IMAGE_RARITY_EFFECT_OPTIONS,
     CARD_IMAGE_FONT_OPTIONS,
     CARD_IMAGE_ICON_OPTIONS,
     CARD_IMAGE_LANGUAGE_OPTIONS,
@@ -248,6 +249,26 @@
       </div>
       <label class="field"><span>{$_('editor.card_image_rarity')}</span><select value={form.rare} onchange={(event) => updateRarity(event.currentTarget.value)}>{#each CARD_IMAGE_RARE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
       <label class="field"><span>{$_('editor.card_image_laser')}</span><select bind:value={form.laser}>{#each CARD_IMAGE_LASER_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+      <label class="field"><span>{$_('editor.card_image_card_border')}</span><select bind:value={form.cardBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+      <label class="field"><span>{$_('editor.card_image_art_border')}</span><select bind:value={form.artBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS.filter(option => option.value !== 'grandmaster' || form.artBorderStyle === 'grandmaster') as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+      <label class="field field-span-2"><span>{$_('editor.card_image_effect_border')}</span><select bind:value={form.effectBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS.filter(option => form.type === 'pendulum' || ['default', 'color', 'grandmaster', form.effectBorderStyle].includes(option.value)) as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+      <div class="field field-span-2">
+        <label class="field"><span>{$_('editor.card_image_rarity_effect')}</span><select bind:value={form.rarityEffect}>{#each CARD_IMAGE_RARITY_EFFECT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+        <label class="toggle"><input type="checkbox" bind:checked={form.effectBlockEnabled} /><span>{$_('editor.card_image_effect_block_enable')}</span></label>
+        <fieldset class="effect-block-fieldset" disabled={!form.effectBlockEnabled}>
+          <div class="subfield-grid">
+            <label class="field"><span>{$_('editor.card_image_effect_block_opacity')}</span><input type="number" min="0" max="1" step="0.05" bind:value={form.effectBlockOpacity} /></label>
+            <label class="toggle"><input type="checkbox" checked={form.effectBlockBorderStyle !== 'none'} onchange={(event) => form.effectBlockBorderStyle = event.currentTarget.checked ? 'default' : 'none'} /><span>{$_('editor.card_image_effect_block_border_visible')}</span></label>
+            <label class="field field-span-2">
+              <span>{$_('editor.card_image_effect_block_color')}</span>
+              <div class="color-input-row color-input-row-compact">
+                <input class="color-swatch" type="color" value={form.effectBlockColor || '#f6f2e8'} onchange={(event) => updateColorField('effectBlockColor', (event.currentTarget as HTMLInputElement).value)} />
+                <input type="text" bind:value={form.effectBlockColor} />
+              </div>
+            </label>
+          </div>
+        </fieldset>
+      </div>
       <div class="field field-span-2 rarity-mask-panel">
         <div class="rarity-mask-header">
           <div>
@@ -311,26 +332,6 @@
     </div>
   </div>
 
-  <div class="drawer-section foreground-section">
-    <div class="effect-block-header">
-      <div class="section-title">{$_('editor.card_image_effect_block')}</div>
-      <label class="toggle effect-block-toggle"><input type="checkbox" bind:checked={form.effectBlockEnabled} /><span>{$_('editor.card_image_effect_block_enable')}</span></label>
-    </div>
-    <fieldset class="effect-block-fieldset" disabled={!form.effectBlockEnabled}>
-      <div class="field-grid">
-        <label class="field"><span>{$_('editor.card_image_effect_block_opacity')}</span><input type="number" min="0" max="1" step="0.05" bind:value={form.effectBlockOpacity} /></label>
-        <label class="field"><span>{$_('editor.card_image_effect_block_border')}</span><select bind:value={form.effectBlockBorderStyle}>{#each CARD_IMAGE_EFFECT_BLOCK_BORDER_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-        <div class="field">
-          <span>{$_('editor.card_image_effect_block_color')}</span>
-          <div class="color-input-row color-input-row-compact">
-            <input class="color-swatch" type="color" value={form.effectBlockColor || '#f6f2e8'} onchange={(event) => updateColorField('effectBlockColor', (event.currentTarget as HTMLInputElement).value)} />
-            <input type="text" bind:value={form.effectBlockColor} />
-          </div>
-        </div>
-      </div>
-    </fieldset>
-    <small class="field-hint">{$_('editor.card_image_effect_block_hint')}</small>
-  </div>
 {:else}
   <p class="field-hint">
     {hasRarityMaskImage ? $_('editor.card_image_rarity_mask_ready') : $_('editor.card_image_rarity_mask_empty')}
@@ -389,8 +390,6 @@
   .link-arrow:hover { border-color: var(--accent-primary); color: var(--text-primary); }
   .link-arrow.active { border-color: var(--accent-primary); background: var(--accent-primary); color: #fff; }
   .link-arrow-center { grid-row: 2; grid-column: 2; display: grid; place-items: center; color: var(--text-secondary); opacity: 0.35; }
-  .effect-block-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .effect-block-toggle { margin-top: 0; }
   .effect-block-fieldset { margin: 0; padding: 0; border: none; min-width: 0; }
   .effect-block-fieldset:disabled { opacity: 0.58; }
   .rarity-mask-panel { padding: 12px; border: 1px solid color-mix(in srgb, var(--accent-primary) 22%, var(--border-color)); border-radius: 10px; background: color-mix(in srgb, var(--accent-primary) 4%, var(--bg-surface)); }
