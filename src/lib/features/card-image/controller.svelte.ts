@@ -1578,6 +1578,10 @@ export function createCardImageController(source: CardImageControllerSource) {
     void state.form.copyright;
     void state.form.laser;
     void state.form.rare;
+    void state.form.cardBorderStyle;
+    void state.form.artBorderStyle;
+    void state.form.effectBorderStyle;
+    void state.form.rarityEffect;
     void state.form.twentieth;
     void state.form.mark25th;
     void state.form.radius;

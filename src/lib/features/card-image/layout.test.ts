@@ -102,6 +102,45 @@ describe("card image config document", () => {
     expect(cleared.effectBlockBorderStyle).toBe("default");
   });
 
+  test("applies rarity once and preserves independent frames through config round trips", () => {
+    const preset = applyCardImageRarityDefaults({}, "hr");
+    expect([preset.cardBorderStyle, preset.artBorderStyle, preset.effectBorderStyle])
+      .toEqual(["silver", "silver", "color"]);
+    const custom = normalizeCardImageFormData({ ...preset, cardBorderStyle: "gold", effectBorderStyle: "default" });
+    const parsed = parseCardImageConfigDocument(serializeCardImageConfigDocument({ form: custom }));
+    expect(parsed.form.cardBorderStyle).toBe("gold");
+    expect(parsed.form.artBorderStyle).toBe("silver");
+    expect(parsed.form.effectBorderStyle).toBe("default");
+    const reapplied = applyCardImageRarityDefaults(custom, "gser");
+    expect([reapplied.cardBorderStyle, reapplied.artBorderStyle, reapplied.effectBorderStyle])
+      .toEqual(["gold", "gold", "default"]);
+    const pendulum = applyCardImageRarityDefaults({ type: "pendulum" }, "gser");
+    expect([pendulum.artBorderStyle, pendulum.effectBorderStyle]).toEqual(["gold", "gold"]);
+  });
+
+  test("syncs out-frame, pser and grandmaster presets", () => {
+    expect(CARD_IMAGE_RARE_OPTIONS.some(({ value }) => value === "grandmaster")).toBe(true);
+    expect(applyCardImageRarityDefaults({}, "o").effectBorderStyle).toBe("color");
+    expect(applyCardImageRarityDefaults({}, "pser").effectBorderStyle).toBe("default");
+    const master = applyCardImageRarityDefaults({}, "grandmaster");
+    expect([master.cardBorderStyle, master.artBorderStyle, master.effectBorderStyle, master.rarityEffect])
+      .toEqual(["grandmaster", "color", "grandmaster", "none"]);
+    const pendulum = applyCardImageRarityDefaults({ type: "pendulum" }, "o");
+    expect([pendulum.artBorderStyle, pendulum.effectBorderStyle]).toEqual(["color", "color"]);
+  });
+
+  test("preserves independent effects and reapplies them only with a preset", () => {
+    const preset = applyCardImageRarityDefaults({ type: "pendulum" }, "gser");
+    expect(preset.rarityEffect).toBe("ser-pendulum");
+    const custom = normalizeCardImageFormData({ ...preset, rarityEffect: "pser2" });
+    const parsed = parseCardImageConfigDocument(serializeCardImageConfigDocument({ form: custom }));
+    expect(parsed.form.rarityEffect).toBe("pser2");
+    expect(parsed.form.cardBorderStyle).toBe(preset.cardBorderStyle);
+    expect(normalizeCardImageFormData({ ...custom, rarityEffect: "none" }).rarityEffect).toBe("none");
+    expect(applyCardImageRarityDefaults(custom, "hr").rarityEffect).toBe("hr");
+    expect(normalizeCardImageFormData({ rare: "ur", type: "pendulum" }).rarityEffect).toBe("ur-pendulum");
+  });
+
   test("accepts plain form json for compatibility", () => {
     const parsed = parseCardImageConfigDocument(JSON.stringify({
       name: "Dark Magician",
