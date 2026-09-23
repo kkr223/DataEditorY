@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { resolveFrameOptions } from "yugioh-card-ts/document";
 import {
   CARD_IMAGE_RARE_OPTIONS,
+  CARD_IMAGE_FORM_KEYS,
   applyCardImageRarityDefaults,
   createCardImageFormData,
   normalizeCardImageConfigDocument,
@@ -11,6 +13,49 @@ import {
 import type { CardDataEntry } from "$lib/types";
 
 describe("card image config document", () => {
+  test("tracks automatic star defaults across model and rarity changes", () => {
+    const normal = normalizeCardImageFormData({});
+    expect(resolveFrameOptions(normal)).toEqual({
+      cardBorderCoverForeground: false, levelAlign: "right", levelStyle: "level", showStars: true,
+    });
+    const master = applyCardImageRarityDefaults(normal, "grandmaster");
+    expect(resolveFrameOptions(master)).toEqual({
+      cardBorderCoverForeground: true, levelAlign: "right", levelStyle: "level-grandmaster", showStars: true,
+    });
+    for (const type of ["monster", "pendulum"]) {
+      const xyz = normalizeCardImageFormData({ ...master, type, cardType: "xyz", pendulumType: "xyz-pendulum" });
+      expect(resolveFrameOptions(xyz).levelAlign).toBe("left");
+      expect(resolveFrameOptions(xyz).levelStyle).toBe("rank");
+      const link = normalizeCardImageFormData({ ...xyz, cardType: "link", pendulumType: "link-pendulum" });
+      expect(resolveFrameOptions(link).showStars).toBe(false);
+    }
+    expect(resolveFrameOptions(applyCardImageRarityDefaults(master, "")).cardBorderCoverForeground).toBe(false);
+  });
+
+  test("preserves explicit frame overrides in saved configs and preset changes", () => {
+    const form = normalizeCardImageFormData({
+      rare: "grandmaster", cardBorderCoverForeground: false, levelAlign: "center", levelStyle: "rank",
+    });
+    const parsed = parseCardImageConfigDocument(serializeCardImageConfigDocument({ form })).form;
+    for (const key of ["cardBorderCoverForeground", "levelAlign", "levelStyle"] as const) {
+      expect(CARD_IMAGE_FORM_KEYS).toContain(key);
+      expect(parsed[key]).toBe(form[key]);
+      expect(applyCardImageRarityDefaults(parsed, "o")[key]).toBe(form[key]);
+    }
+    const automatic = normalizeCardImageFormData({
+      ...parsed, cardBorderCoverForeground: "auto", levelAlign: "auto", levelStyle: "auto",
+    });
+    expect(resolveFrameOptions(automatic).cardBorderCoverForeground).toBe(true);
+    expect(resolveFrameOptions(automatic).levelStyle).toBe("level-grandmaster");
+    const old = parseCardImageConfigDocument('{"rare":"grandmaster"}').form;
+    expect(old.levelAlign).toBe("auto");
+    expect(resolveFrameOptions(old).levelStyle).toBe("level-grandmaster");
+    const invalid = parseCardImageConfigDocument('{"levelAlign":"invalid","levelStyle":"bad","cardBorderCoverForeground":"false"}').form;
+    expect(invalid.levelAlign).toBe("auto");
+    expect(invalid.levelStyle).toBe("auto");
+    expect(invalid.cardBorderCoverForeground).toBe("auto");
+  });
+
   test("exports the flat yugioh-card web format and parses it", () => {
     const raw = serializeCardImageConfigDocument({
       form: normalizeCardImageFormData({
@@ -100,6 +145,45 @@ describe("card image config document", () => {
 
     expect(cleared.effectBlockEnabled).toBe(false);
     expect(cleared.effectBlockBorderStyle).toBe("default");
+  });
+
+  test("applies rarity once and preserves independent frames through config round trips", () => {
+    const preset = applyCardImageRarityDefaults({}, "hr");
+    expect([preset.cardBorderStyle, preset.artBorderStyle, preset.effectBorderStyle])
+      .toEqual(["silver", "silver", "color"]);
+    const custom = normalizeCardImageFormData({ ...preset, cardBorderStyle: "gold", effectBorderStyle: "default" });
+    const parsed = parseCardImageConfigDocument(serializeCardImageConfigDocument({ form: custom }));
+    expect(parsed.form.cardBorderStyle).toBe("gold");
+    expect(parsed.form.artBorderStyle).toBe("silver");
+    expect(parsed.form.effectBorderStyle).toBe("default");
+    const reapplied = applyCardImageRarityDefaults(custom, "gser");
+    expect([reapplied.cardBorderStyle, reapplied.artBorderStyle, reapplied.effectBorderStyle])
+      .toEqual(["gold", "gold", "default"]);
+    const pendulum = applyCardImageRarityDefaults({ type: "pendulum" }, "gser");
+    expect([pendulum.artBorderStyle, pendulum.effectBorderStyle]).toEqual(["gold", "gold"]);
+  });
+
+  test("syncs out-frame, pser and grandmaster presets", () => {
+    expect(CARD_IMAGE_RARE_OPTIONS.some(({ value }) => value === "grandmaster")).toBe(true);
+    expect(applyCardImageRarityDefaults({}, "o").effectBorderStyle).toBe("color");
+    expect(applyCardImageRarityDefaults({}, "pser").effectBorderStyle).toBe("default");
+    const master = applyCardImageRarityDefaults({}, "grandmaster");
+    expect([master.cardBorderStyle, master.artBorderStyle, master.effectBorderStyle, master.rarityEffect])
+      .toEqual(["grandmaster", "color", "grandmaster", "none"]);
+    const pendulum = applyCardImageRarityDefaults({ type: "pendulum" }, "o");
+    expect([pendulum.artBorderStyle, pendulum.effectBorderStyle]).toEqual(["color", "color"]);
+  });
+
+  test("preserves independent effects and reapplies them only with a preset", () => {
+    const preset = applyCardImageRarityDefaults({ type: "pendulum" }, "gser");
+    expect(preset.rarityEffect).toBe("ser-pendulum");
+    const custom = normalizeCardImageFormData({ ...preset, rarityEffect: "pser2" });
+    const parsed = parseCardImageConfigDocument(serializeCardImageConfigDocument({ form: custom }));
+    expect(parsed.form.rarityEffect).toBe("pser2");
+    expect(parsed.form.cardBorderStyle).toBe(preset.cardBorderStyle);
+    expect(normalizeCardImageFormData({ ...custom, rarityEffect: "none" }).rarityEffect).toBe("none");
+    expect(applyCardImageRarityDefaults(custom, "hr").rarityEffect).toBe("hr");
+    expect(normalizeCardImageFormData({ rare: "ur", type: "pendulum" }).rarityEffect).toBe("ur-pendulum");
   });
 
   test("accepts plain form json for compatibility", () => {

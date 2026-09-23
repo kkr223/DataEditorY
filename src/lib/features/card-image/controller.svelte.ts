@@ -1561,6 +1561,9 @@ export function createCardImageController(source: CardImageControllerSource) {
     void state.form.pendulumType;
     void state.form.level;
     void state.form.rank;
+    void state.form.levelAlign;
+    void state.form.levelStyle;
+    void state.form.cardBorderCoverForeground;
     void state.form.pendulumScale;
     void state.form.pendulumDescription;
     void state.form.monsterType;
@@ -1578,6 +1581,10 @@ export function createCardImageController(source: CardImageControllerSource) {
     void state.form.copyright;
     void state.form.laser;
     void state.form.rare;
+    void state.form.cardBorderStyle;
+    void state.form.artBorderStyle;
+    void state.form.effectBorderStyle;
+    void state.form.rarityEffect;
     void state.form.twentieth;
     void state.form.mark25th;
     void state.form.radius;

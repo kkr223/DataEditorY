@@ -1,4 +1,6 @@
 import type { CardDataEntry } from "$lib/types";
+import { getRarityFramePreset, resolveRarityEffect, YUGIOH_FRAME_STYLES, YUGIOH_RARITY_EFFECTS, type YugiohFrameStyle, type YugiohRarityEffect } from "yugioh-card-ts/document";
+import { YUGIOH_LEVEL_ALIGNS, YUGIOH_LEVEL_STYLES, type YugiohLevelAlign, type YugiohLevelStyle } from "yugioh-card-ts/document";
 import {
   convertCardDataToCardImageData,
   type CardImageBaseData,
@@ -7,6 +9,13 @@ import {
 export type { CardImageLanguage } from "./adapter";
 
 export type CardImageFormData = CardImageBaseData & {
+  cardBorderCoverForeground: boolean | "auto";
+  levelAlign: YugiohLevelAlign;
+  levelStyle: YugiohLevelStyle;
+  cardBorderStyle: YugiohFrameStyle;
+  artBorderStyle: YugiohFrameStyle;
+  effectBorderStyle: YugiohFrameStyle;
+  rarityEffect: YugiohRarityEffect;
   nameBlock: boolean;
   foregroundImage: string;
   foregroundWidth: number;
@@ -63,6 +72,13 @@ type StringOption = {
 };
 
 const DEFAULT_CARD_IMAGE_FORM_DATA: CardImageFormData = {
+  cardBorderCoverForeground: "auto",
+  levelAlign: "auto",
+  levelStyle: "auto",
+  cardBorderStyle: "auto",
+  artBorderStyle: "auto",
+  effectBorderStyle: "auto",
+  rarityEffect: "auto",
   language: "sc",
   font: "",
   name: "",
@@ -215,7 +231,28 @@ export const CARD_IMAGE_RARE_OPTIONS: StringOption[] = [
   { value: "pser", labelKey: "editor.card_image_option.rare.pser" },
   { value: "pser2", labelKey: "editor.card_image_option.rare.pser2" },
   { value: "o", labelKey: "editor.card_image_option.rare.o" },
+  { value: "grandmaster", labelKey: "editor.card_image_option.rare.grandmaster" },
 ];
+
+export const CARD_IMAGE_FRAME_STYLE_OPTIONS: StringOption[] = [
+  { value: "default", labelKey: "editor.card_image_frame_default" },
+  { value: "silver", labelKey: "editor.card_image_frame_silver" },
+  { value: "gold", labelKey: "editor.card_image_frame_gold" },
+  { value: "color", labelKey: "editor.card_image_frame_color" },
+  { value: "grandmaster", labelKey: "editor.card_image_frame_grandmaster" },
+];
+
+export const CARD_IMAGE_LEVEL_ALIGN_OPTIONS = YUGIOH_LEVEL_ALIGNS
+  .filter(value => value !== "auto")
+  .map(value => ({ value, labelKey: `editor.card_image_level_align_${value}` }));
+
+export const CARD_IMAGE_LEVEL_STYLE_OPTIONS = YUGIOH_LEVEL_STYLES
+  .filter(value => value !== "auto")
+  .map(value => ({ value, labelKey: `editor.card_image_level_style_${value}` }));
+
+export const CARD_IMAGE_RARITY_EFFECT_OPTIONS: StringOption[] = YUGIOH_RARITY_EFFECTS
+  .filter(value => value !== "auto")
+  .map(value => ({ value, labelKey: `editor.card_image_effect_option.${value}` }));
 
 export const CARD_IMAGE_LASER_OPTIONS: StringOption[] = [
   { value: "", labelKey: "search.na" },
@@ -254,9 +291,23 @@ function isOutFrameRarity(value: unknown): boolean {
 export function normalizeCardImageFormData(data: Partial<CardImageFormData>): CardImageFormData {
   const rare = String(data.rare ?? DEFAULT_CARD_IMAGE_FORM_DATA.rare);
   const outFrame = isOutFrameRarity(rare);
+  const frames = getRarityFramePreset(rare, data.type);
+  const frameStyle = (value: unknown, fallback: YugiohFrameStyle): YugiohFrameStyle =>
+    value !== "auto" && YUGIOH_FRAME_STYLES.includes(value as YugiohFrameStyle)
+      ? value as YugiohFrameStyle : fallback;
   return {
     ...DEFAULT_CARD_IMAGE_FORM_DATA,
     ...data,
+    cardBorderCoverForeground: typeof data.cardBorderCoverForeground === "boolean"
+      ? data.cardBorderCoverForeground : "auto",
+    levelAlign: YUGIOH_LEVEL_ALIGNS.includes(data.levelAlign as YugiohLevelAlign) ? data.levelAlign! : "auto",
+    levelStyle: YUGIOH_LEVEL_STYLES.includes(data.levelStyle as YugiohLevelStyle) ? data.levelStyle! : "auto",
+    cardBorderStyle: frameStyle(data.cardBorderStyle, frames.cardBorderStyle),
+    rarityEffect: resolveRarityEffect(rare, data.type ?? "monster", data.rarityEffect),
+    artBorderStyle: frameStyle(data.artBorderStyle, frames.artBorderStyle),
+    effectBorderStyle: frameStyle(data.effectBorderStyle,
+      data.type !== "pendulum" && (outFrame || data.effectBlockBorderStyle === "colored")
+        ? "color" : frames.effectBorderStyle),
     language: String(data.language ?? DEFAULT_CARD_IMAGE_FORM_DATA.language) as CardImageLanguage,
     font: String(data.font ?? DEFAULT_CARD_IMAGE_FORM_DATA.font),
     name: String(data.name ?? DEFAULT_CARD_IMAGE_FORM_DATA.name),
@@ -350,6 +401,8 @@ export function applyCardImageRarityDefaults(
             effectBlockBorderStyle: DEFAULT_CARD_IMAGE_FORM_DATA.effectBlockBorderStyle,
           }
         : {}),
+    ...getRarityFramePreset(rare, data.type),
+    ...(isOutFrameRarity(rare) && data.type !== "pendulum" ? { effectBorderStyle: "color" as const } : {}),
   });
 }
 
