@@ -1,5 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
+  import { resolveFrameOptions, type YugiohLevelStyle } from 'yugioh-card-ts/document';
   import {
     CARD_IMAGE_ATTRIBUTE_OPTIONS,
     CARD_IMAGE_CARD_TYPE_OPTIONS,
@@ -10,6 +11,8 @@
     CARD_IMAGE_ICON_OPTIONS,
     CARD_IMAGE_LANGUAGE_OPTIONS,
     CARD_IMAGE_LASER_OPTIONS,
+    CARD_IMAGE_LEVEL_ALIGN_OPTIONS,
+    CARD_IMAGE_LEVEL_STYLE_OPTIONS,
     CARD_IMAGE_PENDULUM_TYPE_OPTIONS,
     CARD_IMAGE_RARE_OPTIONS,
     CARD_IMAGE_TYPE_OPTIONS,
@@ -61,6 +64,7 @@
 
   const exportWidth = $derived(Math.round(FOREGROUND_EDITOR_CARD_WIDTH * exportScalePercent / 100));
   const exportHeight = $derived(Math.round(FOREGROUND_EDITOR_CARD_HEIGHT * exportScalePercent / 100));
+  const frameOptions = $derived(resolveFrameOptions(form));
   const isLinkCard = $derived(
     form.type === 'pendulum'
       ? form.pendulumType === 'link-pendulum'
@@ -141,6 +145,20 @@
 
         {#if form.type === 'pendulum'}
           <label class="field"><span>{$_('editor.scale')}</span><input type="number" min="0" max="13" bind:value={form.pendulumScale} /></label>
+        {/if}
+
+        {#if frameOptions.showStars}
+          <div class="field">
+            <span>{$_('editor.card_image_level_align')}</span>
+            <div class="star-alignment" role="group" aria-label={$_('editor.card_image_level_align')}>
+              {#each CARD_IMAGE_LEVEL_ALIGN_OPTIONS as option}
+                <button type="button" class:active={frameOptions.levelAlign === option.value}
+                  aria-pressed={frameOptions.levelAlign === option.value}
+                  onclick={() => form.levelAlign = option.value}>{getOptionLabel(option)}</button>
+              {/each}
+            </div>
+          </div>
+          <label class="field"><span>{$_('editor.card_image_level_style')}</span><select value={frameOptions.levelStyle} onchange={(event) => form.levelStyle = event.currentTarget.value as YugiohLevelStyle}>{#each CARD_IMAGE_LEVEL_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
         {/if}
 
         <label class="field"><span>{$_('editor.atk')}</span><input type="number" bind:value={form.atk} /></label>
@@ -249,7 +267,10 @@
       </div>
       <label class="field"><span>{$_('editor.card_image_rarity')}</span><select value={form.rare} onchange={(event) => updateRarity(event.currentTarget.value)}>{#each CARD_IMAGE_RARE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
       <label class="field"><span>{$_('editor.card_image_laser')}</span><select bind:value={form.laser}>{#each CARD_IMAGE_LASER_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-      <label class="field"><span>{$_('editor.card_image_card_border')}</span><select bind:value={form.cardBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+      <div class="field">
+        <label class="field"><span>{$_('editor.card_image_card_border')}</span><select bind:value={form.cardBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+        <label class="toggle"><input type="checkbox" checked={frameOptions.cardBorderCoverForeground} onchange={(event) => form.cardBorderCoverForeground = event.currentTarget.checked} /><span>{$_('editor.card_image_card_border_cover_foreground')}</span></label>
+      </div>
       <label class="field"><span>{$_('editor.card_image_art_border')}</span><select bind:value={form.artBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS.filter(option => option.value !== 'grandmaster' || form.artBorderStyle === 'grandmaster') as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
       <label class="field field-span-2"><span>{$_('editor.card_image_effect_border')}</span><select bind:value={form.effectBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS.filter(option => form.type === 'pendulum' || ['default', 'color', 'grandmaster', form.effectBorderStyle].includes(option.value)) as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
       <div class="field field-span-2">
@@ -369,6 +390,9 @@
   .field span { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
   .field input, .field select, .field textarea { width: 100%; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 8px; font-size: 0.9rem; }
   .field textarea { resize: vertical; min-height: 110px; }
+  .star-alignment { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .star-alignment button { min-height: 32px; padding: 6px 4px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: 0.85rem; cursor: pointer; }
+  .star-alignment button.active { border-color: var(--accent-primary); background: var(--accent-primary); color: #fff; }
   .field-span-2, .field-color { grid-column: span 2; }
   .color-input-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
   .color-input-row-compact { grid-template-columns: 52px minmax(0, 1fr); }
