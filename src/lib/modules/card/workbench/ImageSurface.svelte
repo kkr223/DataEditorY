@@ -1,8 +1,10 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import CardImageDrawer from '$lib/components/CardImageDrawer.svelte';
+  import { documentRuntime } from '$lib/platform/appRuntime';
   import { activeTab } from '$lib/stores/db';
   import { editorState, getAllCardsMap } from '$lib/stores/editor.svelte';
+  import type { CardDataEntry } from '$lib/types';
   import type { CardImageConfigDocument } from '$lib/features/card-image/layout';
   import {
     getCardImageDocument,
@@ -32,6 +34,13 @@
       },
     });
   }
+
+  async function reloadCardFromCdb(): Promise<CardDataEntry | null> {
+    const documentId = $activeTab?.id;
+    const cardCode = selectedCard?.code;
+    if (!documentId || !cardCode) return null;
+    return documentRuntime.query<CardDataEntry | null>(documentId, { kind: 'getById', cardId: cardCode });
+  }
 </script>
 
 <section class="image-surface">
@@ -46,6 +55,7 @@
         documentKey={`surface-card-image:${$activeTab?.id ?? 'none'}:${selectedCard.code}`}
         initialDocument={imageDocument}
         onDocumentChange={persistImageDocument}
+        onReloadFromCdb={reloadCardFromCdb}
       />
     </div>
   {:else}

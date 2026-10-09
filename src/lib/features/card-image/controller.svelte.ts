@@ -13,6 +13,7 @@ import {
   getCardImageLocaleDefaults,
   normalizeCardImageFormData,
   parseCardImageConfigDocument,
+  reloadCardImageFormFromCdb,
   serializeCardImageConfigDocument,
   type CardImageConfigDocument,
   type CardImageFormData,
@@ -102,6 +103,7 @@ type CardImageControllerSource = {
   documentKey?: () => string;
   initialDocument?: () => CardImageConfigDocument | null;
   onDocumentChange?: (document: CardImageConfigDocument) => void | Promise<void>;
+  onReloadFromCdb?: () => Promise<CardDataEntry | null>;
   onSavedJpg: () => void | Promise<void>;
   onClose: () => void;
 };
@@ -169,6 +171,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     isDownloading: false,
     isSavingJpg: false,
     isTranslating: false,
+    isReloadingFromCdb: false,
     errorMessage: '',
     lastFormLanguage: 'sc' as CardImageLanguage,
     previewFontsReady: false,
@@ -440,6 +443,22 @@ export function createCardImageController(source: CardImageControllerSource) {
       ...state.form,
       ...patch,
     });
+  }
+
+  async function reloadFromCdb() {
+    if (!source.onReloadFromCdb || state.isReloadingFromCdb) return;
+    state.isReloadingFromCdb = true;
+    try {
+      const card = await source.onReloadFromCdb();
+      if (!card) throw new Error('Card not found in the open CDB');
+      state.form = reloadCardImageFormFromCdb(state.form, card);
+      showToast(t('editor.card_image_reload_from_cdb_success'), 'success');
+    } catch (error) {
+      console.error('Failed to reload card image form from CDB', error);
+      showToast(t('editor.card_image_reload_from_cdb_failed'), 'error');
+    } finally {
+      state.isReloadingFromCdb = false;
+    }
   }
 
   function resetImageState() {
@@ -2469,6 +2488,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     handleConfigImport,
     handleConfigFileUpload,
     handleConfigExport,
+    reloadFromCdb,
     handleAiTranslate,
     handleCropViewportResize,
     handleImageUpload,

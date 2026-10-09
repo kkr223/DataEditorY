@@ -20,6 +20,7 @@
     documentKey = '',
     initialDocument = null,
     onDocumentChange = undefined,
+    onReloadFromCdb = undefined,
     onSavedJpg = async () => {},
     onClose = () => {},
   }: {
@@ -31,6 +32,7 @@
     documentKey?: string;
     initialDocument?: CardImageConfigDocument | null;
     onDocumentChange?: (document: CardImageConfigDocument) => void | Promise<void>;
+    onReloadFromCdb?: () => Promise<CardDataEntry | null>;
     onSavedJpg?: () => void | Promise<void>;
     onClose?: () => void;
   } = $props();
@@ -43,6 +45,7 @@
     documentKey: () => documentKey,
     initialDocument: () => initialDocument,
     onDocumentChange: (document) => onDocumentChange?.(document),
+    onReloadFromCdb: () => onReloadFromCdb?.() ?? Promise.resolve(null),
     onSavedJpg: () => onSavedJpg(),
     onClose: () => onClose(),
   });
@@ -92,6 +95,8 @@
             onOpenFilePicker={controller.openFilePicker}
             onConfigImport={controller.handleConfigImport}
             onConfigExport={controller.handleConfigExport}
+            onReloadFromCdb={onReloadFromCdb ? controller.reloadFromCdb : undefined}
+            isReloadingFromCdb={controller.state.isReloadingFromCdb}
             onOpenForegroundEditor={controller.openForegroundEditor}
             onAiTranslate={controller.handleAiTranslate}
           />

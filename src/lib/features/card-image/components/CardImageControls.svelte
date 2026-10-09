@@ -8,6 +8,7 @@
     isTranslating = false,
     isSavingJpg = false,
     isDownloading = false,
+    isReloadingFromCdb = false,
     aiEnabled = false,
     fileInput = $bindable<HTMLInputElement | null>(null),
     configFileInput = $bindable<HTMLInputElement | null>(null),
@@ -20,6 +21,7 @@
     onOpenFilePicker = () => {},
     onConfigImport = () => {},
     onConfigExport = () => {},
+    onReloadFromCdb = undefined,
     onOpenForegroundEditor = () => {},
     onAiTranslate = () => {},
     onResetForegroundTransform = () => {},
@@ -36,6 +38,7 @@
     isTranslating?: boolean;
     isSavingJpg?: boolean;
     isDownloading?: boolean;
+    isReloadingFromCdb?: boolean;
     aiEnabled?: boolean;
     fileInput?: HTMLInputElement | null;
     configFileInput?: HTMLInputElement | null;
@@ -48,6 +51,7 @@
     onOpenFilePicker?: () => void;
     onConfigImport?: () => void | Promise<void>;
     onConfigExport?: () => void | Promise<void>;
+    onReloadFromCdb?: () => void | Promise<void>;
     onOpenForegroundEditor?: () => void;
     onAiTranslate?: () => void | Promise<void>;
     onResetForegroundTransform?: () => void;
@@ -75,6 +79,11 @@
     <button class="btn-secondary btn-sm" type="button" onclick={onConfigExport}>
       {$_('editor.card_image_config_export')}
     </button>
+    {#if onReloadFromCdb}
+      <button class="btn-secondary btn-sm" type="button" onclick={onReloadFromCdb} disabled={isReloadingFromCdb}>
+        {$_('editor.card_image_reload_from_cdb')}
+      </button>
+    {/if}
     <button class="btn-secondary btn-sm" type="button" onclick={onOpenForegroundEditor}>
       {$_('editor.card_image_foreground_button')}
     </button>

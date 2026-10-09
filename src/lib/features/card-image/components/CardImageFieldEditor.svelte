@@ -147,20 +147,6 @@
           <label class="field"><span>{$_('editor.scale')}</span><input type="number" min="0" max="13" bind:value={form.pendulumScale} /></label>
         {/if}
 
-        {#if frameOptions.showStars}
-          <div class="field">
-            <span>{$_('editor.card_image_level_align')}</span>
-            <div class="star-alignment" role="group" aria-label={$_('editor.card_image_level_align')}>
-              {#each CARD_IMAGE_LEVEL_ALIGN_OPTIONS as option}
-                <button type="button" class:active={frameOptions.levelAlign === option.value}
-                  aria-pressed={frameOptions.levelAlign === option.value}
-                  onclick={() => form.levelAlign = option.value}>{getOptionLabel(option)}</button>
-              {/each}
-            </div>
-          </div>
-          <label class="field"><span>{$_('editor.card_image_level_style')}</span><select value={frameOptions.levelStyle} onchange={(event) => form.levelStyle = event.currentTarget.value as YugiohLevelStyle}>{#each CARD_IMAGE_LEVEL_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-        {/if}
-
         <label class="field"><span>{$_('editor.atk')}</span><input type="number" bind:value={form.atk} /></label>
         {#if form.type === 'pendulum' ? form.pendulumType !== 'link-pendulum' : form.cardType !== 'link'}
           <label class="field"><span>{$_('editor.def')}</span><input type="number" bind:value={form.def} /></label>
@@ -202,131 +188,178 @@
     </div>
   </section>
 
-  <section class="drawer-section">
+  <section class="drawer-section style-section">
     <div class="section-title">{$_('editor.card_image_form_style')}</div>
-    <div class="field-grid">
-      <label class="field"><span>{$_('editor.card_image_font')}</span><select bind:value={form.font}>{#each CARD_IMAGE_FONT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-      <div class="field field-color">
-        <span>{$_('editor.card_image_name_color')}</span>
-        <div class="color-input-row">
-          <input class="color-swatch" type="color" value={form.color || '#000000'} onchange={(event) => updateColorField('color', (event.currentTarget as HTMLInputElement).value)} />
-          <input type="text" placeholder={$_('editor.card_image_name_color_placeholder')} bind:value={form.color} />
-          <button class="btn-secondary btn-sm" type="button" onclick={onClearCustomNameColor}>{$_('editor.card_image_name_color_reset')}</button>
-        </div>
-        {@render colorPresetList(isNameColorPresetActive, onApplyNameColorPreset)}
-        <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.gradient} /><span>{$_('editor.card_image_gradient_enable')}</span></label>
-        {#if form.gradient}
-          <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.gradientStroke} /><span>{$_('editor.card_image_gradient_stroke')}</span></label>
-          <div class="subfield-grid">
-            <label class="field">
-              <span>{$_('editor.card_image_gradient_color_start')}</span>
-              <div class="color-input-row color-input-row-compact">
-                <input class="color-swatch" type="color" value={form.gradientColor1 || '#999999'} onchange={(event) => updateColorField('gradientColor1', (event.currentTarget as HTMLInputElement).value)} />
-                <input type="text" bind:value={form.gradientColor1} />
-              </div>
-            </label>
-            <label class="field">
-              <span>{$_('editor.card_image_gradient_color_end')}</span>
-              <div class="color-input-row color-input-row-compact">
-                <input class="color-swatch" type="color" value={form.gradientColor2 || '#ffffff'} onchange={(event) => updateColorField('gradientColor2', (event.currentTarget as HTMLInputElement).value)} />
-                <input type="text" bind:value={form.gradientColor2} />
-              </div>
-            </label>
+    <div class="style-group">
+      <h4 class="style-group-title">{$_('editor.card_image_style_typography')}</h4>
+      <div class="field-grid">
+        <label class="field field-span-2"><span>{$_('editor.card_image_font')}</span><select bind:value={form.font}>{#each CARD_IMAGE_FONT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+        {#if frameOptions.showStars}
+          <div class="field">
+            <span>{$_('editor.card_image_level_align')}</span>
+            <div class="star-alignment" role="group" aria-label={$_('editor.card_image_level_align')}>
+              {#each CARD_IMAGE_LEVEL_ALIGN_OPTIONS as option}
+                <button type="button" class:active={frameOptions.levelAlign === option.value}
+                  aria-pressed={frameOptions.levelAlign === option.value}
+                  onclick={() => form.levelAlign = option.value}>{getOptionLabel(option)}</button>
+              {/each}
+            </div>
           </div>
+          <label class="field"><span>{$_('editor.card_image_level_style')}</span><select value={frameOptions.levelStyle} onchange={(event) => form.levelStyle = event.currentTarget.value as YugiohLevelStyle}>{#each CARD_IMAGE_LEVEL_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
         {/if}
-        <small class="field-hint">{$_('editor.card_image_name_color_hint')}</small>
+        <label class="field"><span>{$_('editor.card_image_description_zoom')}</span><input type="number" min="0.5" step="0.1" bind:value={form.descriptionZoom} /></label>
+        <label class="field"><span>{$_('editor.card_image_description_weight')}</span><input type="number" min="0" step="100" bind:value={form.descriptionWeight} /></label>
       </div>
-      <div class="field field-color">
-        <span>{$_('editor.card_image_name_shadow_color')}</span>
-        <div class="color-input-row">
-          <input class="color-swatch" type="color" value={form.nameShadowColor || '#111827'} onchange={(event) => updateColorField('nameShadowColor', (event.currentTarget as HTMLInputElement).value)} />
-          <input type="text" placeholder={$_('editor.card_image_name_color_placeholder')} bind:value={form.nameShadowColor} />
-          <button class="btn-secondary btn-sm" type="button" onclick={onClearCustomNameShadowColor}>{$_('editor.card_image_name_color_reset')}</button>
-        </div>
-        {@render colorPresetList(isNameShadowColorPresetActive, onApplyNameShadowColorPreset)}
-        <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.nameShadowGradient} /><span>{$_('editor.card_image_gradient_enable')}</span></label>
-        {#if form.nameShadowGradient}
-          <div class="subfield-grid">
-            <label class="field">
-              <span>{$_('editor.card_image_gradient_color_start')}</span>
-              <div class="color-input-row color-input-row-compact">
-                <input class="color-swatch" type="color" value={form.nameShadowGradientColor1 || '#1f2937'} onchange={(event) => updateColorField('nameShadowGradientColor1', (event.currentTarget as HTMLInputElement).value)} />
-                <input type="text" bind:value={form.nameShadowGradientColor1} />
-              </div>
-            </label>
-            <label class="field">
-              <span>{$_('editor.card_image_gradient_color_end')}</span>
-              <div class="color-input-row color-input-row-compact">
-                <input class="color-swatch" type="color" value={form.nameShadowGradientColor2 || '#0f172a'} onchange={(event) => updateColorField('nameShadowGradientColor2', (event.currentTarget as HTMLInputElement).value)} />
-                <input type="text" bind:value={form.nameShadowGradientColor2} />
-              </div>
-            </label>
-          </div>
-        {/if}
-        <small class="field-hint">{$_('editor.card_image_name_shadow_color_hint')}</small>
+      <div class="toggle-grid">
+        <label class="toggle"><input type="checkbox" bind:checked={form.firstLineCompress} /><span>{$_('editor.card_image_first_line_compress')}</span></label>
+        <label class="toggle"><input type="checkbox" bind:checked={form.descriptionAlign} /><span>{$_('editor.card_image_description_center')}</span></label>
       </div>
-      <label class="field"><span>{$_('editor.card_image_rarity')}</span><select value={form.rare} onchange={(event) => updateRarity(event.currentTarget.value)}>{#each CARD_IMAGE_RARE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-      <label class="field"><span>{$_('editor.card_image_laser')}</span><select bind:value={form.laser}>{#each CARD_IMAGE_LASER_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-      <div class="field">
-        <label class="field"><span>{$_('editor.card_image_card_border')}</span><select bind:value={form.cardBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-        <label class="toggle"><input type="checkbox" checked={frameOptions.cardBorderCoverForeground} onchange={(event) => form.cardBorderCoverForeground = event.currentTarget.checked} /><span>{$_('editor.card_image_card_border_cover_foreground')}</span></label>
-      </div>
-      <label class="field"><span>{$_('editor.card_image_art_border')}</span><select bind:value={form.artBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS.filter(option => option.value !== 'grandmaster' || form.artBorderStyle === 'grandmaster') as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-      <label class="field field-span-2"><span>{$_('editor.card_image_effect_border')}</span><select bind:value={form.effectBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS.filter(option => form.type === 'pendulum' || ['default', 'color', 'grandmaster', form.effectBorderStyle].includes(option.value)) as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-      <div class="field field-span-2">
-        <label class="field"><span>{$_('editor.card_image_rarity_effect')}</span><select bind:value={form.rarityEffect}>{#each CARD_IMAGE_RARITY_EFFECT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-        <label class="toggle"><input type="checkbox" bind:checked={form.effectBlockEnabled} /><span>{$_('editor.card_image_effect_block_enable')}</span></label>
-        <fieldset class="effect-block-fieldset" disabled={!form.effectBlockEnabled}>
-          <div class="subfield-grid">
-            <label class="field"><span>{$_('editor.card_image_effect_block_opacity')}</span><input type="number" min="0" max="1" step="0.05" bind:value={form.effectBlockOpacity} /></label>
-            <label class="toggle"><input type="checkbox" checked={form.effectBlockBorderStyle !== 'none'} onchange={(event) => form.effectBlockBorderStyle = event.currentTarget.checked ? 'default' : 'none'} /><span>{$_('editor.card_image_effect_block_border_visible')}</span></label>
-            <label class="field field-span-2">
-              <span>{$_('editor.card_image_effect_block_color')}</span>
-              <div class="color-input-row color-input-row-compact">
-                <input class="color-swatch" type="color" value={form.effectBlockColor || '#f6f2e8'} onchange={(event) => updateColorField('effectBlockColor', (event.currentTarget as HTMLInputElement).value)} />
-                <input type="text" bind:value={form.effectBlockColor} />
-              </div>
-            </label>
-          </div>
-        </fieldset>
-      </div>
-      <div class="field field-span-2 rarity-mask-panel">
-        <div class="rarity-mask-header">
-          <div>
-            <span class="rarity-mask-title">{$_('editor.card_image_rarity_mask')}</span>
-            <small class="field-hint">{hasRarityMaskImage ? $_('editor.card_image_rarity_mask_ready') : $_('editor.card_image_rarity_mask_empty')}</small>
-          </div>
-          <button class="btn-secondary btn-sm" type="button" onclick={onOpenRarityMaskEditor}>{$_('editor.card_image_rarity_mask_edit')}</button>
-        </div>
-      </div>
-      <div class="field field-span-2 rarity-mask-panel">
-        <span class="rarity-mask-title">{$_('editor.card_image_rarity_effect_coverage')}</span>
-        <div class="subfield-grid">
-          <label class="toggle"><input type="checkbox" bind:checked={form.rarityMaskCoverName} /><span>{$_('editor.card_image_rarity_mask_cover_name')}</span></label>
-          <label class="toggle"><input type="checkbox" bind:checked={form.rarityMaskCoverAttribute} /><span>{$_('editor.card_image_rarity_mask_cover_attribute')}</span></label>
-          <label class="toggle field-span-2"><input type="checkbox" bind:checked={form.rarityMaskCoverLevel} /><span>{$_('editor.card_image_rarity_mask_cover_level')}</span></label>
-        </div>
-        <small class="field-hint">{$_('editor.card_image_rarity_effect_coverage_hint')}</small>
-      </div>
-      <label class="field"><span>{$_('editor.card_image_copyright')}</span><select bind:value={form.copyright}>{#each CARD_IMAGE_COPYRIGHT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
-      <label class="field"><span>{$_('editor.card_image_package')}</span><input type="text" bind:value={form.package} /></label>
-      <label class="field"><span>{$_('editor.card_image_password')}</span><input type="text" bind:value={form.password} /></label>
-      <label class="field field-span-2">
-        <span>{$_('editor.card_image_export_scale', { values: { percent: String(exportScalePercent) } })}</span>
-        <input type="range" min={MIN_EXPORT_SCALE_PERCENT} max={MAX_EXPORT_SCALE_PERCENT} step="1" bind:value={exportScalePercent} />
-        <small class="field-hint">{$_('editor.card_image_export_scale_hint', { values: { width: String(exportWidth), height: String(exportHeight) } })}</small>
-      </label>
-      <label class="field"><span>{$_('editor.card_image_description_zoom')}</span><input type="number" min="0.5" step="0.1" bind:value={form.descriptionZoom} /></label>
-      <label class="field"><span>{$_('editor.card_image_description_weight')}</span><input type="number" min="0" step="100" bind:value={form.descriptionWeight} /></label>
     </div>
 
-    <div class="toggle-grid">
-      <label class="toggle"><input type="checkbox" bind:checked={form.firstLineCompress} /><span>{$_('editor.card_image_first_line_compress')}</span></label>
-      <label class="toggle"><input type="checkbox" bind:checked={form.descriptionAlign} /><span>{$_('editor.card_image_description_center')}</span></label>
-      <label class="toggle"><input type="checkbox" bind:checked={form.twentieth} /><span>{$_('editor.card_image_twentieth')}</span></label>
-      <label class="toggle"><input type="checkbox" bind:checked={form.mark25th} /><span>{$_('editor.card_image_mark25th')}</span></label>
-      <label class="toggle"><input type="checkbox" bind:checked={form.nameBlock} /><span>{$_('editor.card_image_name_block')}</span></label>
-      <label class="toggle"><input type="checkbox" bind:checked={form.radius} /><span>{$_('editor.card_image_round_corner')}</span></label>
+    <div class="style-group">
+      <h4 class="style-group-title">{$_('editor.card_image_style_colors')}</h4>
+      <div class="style-colors">
+        <div class="field style-color-panel">
+          <div class="style-color-heading">
+            <span>{$_('editor.card_image_name_color')}</span>
+            <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.gradient} /><span>{$_('editor.card_image_gradient_enable')}</span></label>
+          </div>
+          <div class="color-input-row">
+            <input class="color-swatch" type="color" aria-label={$_('editor.card_image_name_color')} value={form.color || '#000000'} onchange={(event) => updateColorField('color', (event.currentTarget as HTMLInputElement).value)} />
+            <input type="text" aria-label={$_('editor.card_image_name_color')} placeholder={$_('editor.card_image_name_color_placeholder')} bind:value={form.color} />
+            <button class="btn-secondary btn-sm" type="button" onclick={onClearCustomNameColor}>{$_('editor.card_image_name_color_reset')}</button>
+          </div>
+          {@render colorPresetList(isNameColorPresetActive, onApplyNameColorPreset)}
+          {#if form.gradient}
+            <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.gradientStroke} /><span>{$_('editor.card_image_gradient_stroke')}</span></label>
+            <div class="subfield-grid">
+              <label class="field">
+                <span>{$_('editor.card_image_gradient_color_start')}</span>
+                <div class="color-input-row color-input-row-compact">
+                  <input class="color-swatch" type="color" value={form.gradientColor1 || '#999999'} onchange={(event) => updateColorField('gradientColor1', (event.currentTarget as HTMLInputElement).value)} />
+                  <input type="text" bind:value={form.gradientColor1} />
+                </div>
+              </label>
+              <label class="field">
+                <span>{$_('editor.card_image_gradient_color_end')}</span>
+                <div class="color-input-row color-input-row-compact">
+                  <input class="color-swatch" type="color" value={form.gradientColor2 || '#ffffff'} onchange={(event) => updateColorField('gradientColor2', (event.currentTarget as HTMLInputElement).value)} />
+                  <input type="text" bind:value={form.gradientColor2} />
+                </div>
+              </label>
+            </div>
+          {/if}
+          <small class="field-hint">{$_('editor.card_image_name_color_hint')}</small>
+        </div>
+        <div class="field style-color-panel">
+          <div class="style-color-heading">
+            <span>{$_('editor.card_image_name_shadow_color')}</span>
+            <label class="toggle gradient-toggle"><input type="checkbox" bind:checked={form.nameShadowGradient} /><span>{$_('editor.card_image_gradient_enable')}</span></label>
+          </div>
+          <div class="color-input-row">
+            <input class="color-swatch" type="color" aria-label={$_('editor.card_image_name_shadow_color')} value={form.nameShadowColor || '#111827'} onchange={(event) => updateColorField('nameShadowColor', (event.currentTarget as HTMLInputElement).value)} />
+            <input type="text" aria-label={$_('editor.card_image_name_shadow_color')} placeholder={$_('editor.card_image_name_color_placeholder')} bind:value={form.nameShadowColor} />
+            <button class="btn-secondary btn-sm" type="button" onclick={onClearCustomNameShadowColor}>{$_('editor.card_image_name_color_reset')}</button>
+          </div>
+          {@render colorPresetList(isNameShadowColorPresetActive, onApplyNameShadowColorPreset)}
+          {#if form.nameShadowGradient}
+            <div class="subfield-grid">
+              <label class="field">
+                <span>{$_('editor.card_image_gradient_color_start')}</span>
+                <div class="color-input-row color-input-row-compact">
+                  <input class="color-swatch" type="color" value={form.nameShadowGradientColor1 || '#1f2937'} onchange={(event) => updateColorField('nameShadowGradientColor1', (event.currentTarget as HTMLInputElement).value)} />
+                  <input type="text" bind:value={form.nameShadowGradientColor1} />
+                </div>
+              </label>
+              <label class="field">
+                <span>{$_('editor.card_image_gradient_color_end')}</span>
+                <div class="color-input-row color-input-row-compact">
+                  <input class="color-swatch" type="color" value={form.nameShadowGradientColor2 || '#0f172a'} onchange={(event) => updateColorField('nameShadowGradientColor2', (event.currentTarget as HTMLInputElement).value)} />
+                  <input type="text" bind:value={form.nameShadowGradientColor2} />
+                </div>
+              </label>
+            </div>
+          {/if}
+          <small class="field-hint">{$_('editor.card_image_name_shadow_color_hint')}</small>
+        </div>
+      </div>
+      <div class="toggle-grid">
+        <label class="toggle"><input type="checkbox" bind:checked={form.nameBlock} /><span>{$_('editor.card_image_name_block')}</span></label>
+      </div>
+    </div>
+
+    <div class="style-group">
+      <h4 class="style-group-title">{$_('editor.card_image_style_frame')}</h4>
+      <div class="field-grid">
+        <label class="field"><span>{$_('editor.card_image_rarity')}</span><select value={form.rare} onchange={(event) => updateRarity(event.currentTarget.value)}>{#each CARD_IMAGE_RARE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+        <label class="field"><span>{$_('editor.card_image_laser')}</span><select bind:value={form.laser}>{#each CARD_IMAGE_LASER_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+        <label class="field"><span>{$_('editor.card_image_card_border')}</span><select bind:value={form.cardBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+        <label class="field"><span>{$_('editor.card_image_art_border')}</span><select bind:value={form.artBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS.filter(option => option.value !== 'grandmaster' || form.artBorderStyle === 'grandmaster') as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+        <label class="field field-span-2"><span>{$_('editor.card_image_effect_border')}</span><select bind:value={form.effectBorderStyle}>{#each CARD_IMAGE_FRAME_STYLE_OPTIONS.filter(option => form.type === 'pendulum' || ['default', 'color', 'grandmaster', form.effectBorderStyle].includes(option.value)) as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+      </div>
+      <div class="toggle-grid">
+        <label class="toggle"><input type="checkbox" checked={frameOptions.cardBorderCoverForeground} onchange={(event) => form.cardBorderCoverForeground = event.currentTarget.checked} /><span>{$_('editor.card_image_card_border_cover_foreground')}</span></label>
+        <label class="toggle"><input type="checkbox" bind:checked={form.radius} /><span>{$_('editor.card_image_round_corner')}</span></label>
+        <label class="toggle"><input type="checkbox" bind:checked={form.twentieth} /><span>{$_('editor.card_image_twentieth')}</span></label>
+        <label class="toggle"><input type="checkbox" bind:checked={form.mark25th} /><span>{$_('editor.card_image_mark25th')}</span></label>
+      </div>
+    </div>
+
+    <div class="style-group">
+      <h4 class="style-group-title">{$_('editor.card_image_style_layers')}</h4>
+      <div class="field-grid">
+        <label class="field field-span-2"><span>{$_('editor.card_image_rarity_effect')}</span><select bind:value={form.rarityEffect}>{#each CARD_IMAGE_RARITY_EFFECT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+      </div>
+      <div class="field-stack">
+        <div class="field style-layer-panel">
+          <label class="toggle"><input type="checkbox" bind:checked={form.effectBlockEnabled} /><span>{$_('editor.card_image_effect_block_enable')}</span></label>
+          <fieldset class="effect-block-fieldset" disabled={!form.effectBlockEnabled}>
+            <div class="subfield-grid">
+              <label class="field"><span>{$_('editor.card_image_effect_block_opacity')}</span><input type="number" min="0" max="1" step="0.05" bind:value={form.effectBlockOpacity} /></label>
+              <label class="toggle"><input type="checkbox" checked={form.effectBlockBorderStyle !== 'none'} onchange={(event) => form.effectBlockBorderStyle = event.currentTarget.checked ? 'default' : 'none'} /><span>{$_('editor.card_image_effect_block_border_visible')}</span></label>
+              <label class="field field-span-2">
+                <span>{$_('editor.card_image_effect_block_color')}</span>
+                <div class="color-input-row color-input-row-compact">
+                  <input class="color-swatch" type="color" value={form.effectBlockColor || '#f6f2e8'} onchange={(event) => updateColorField('effectBlockColor', (event.currentTarget as HTMLInputElement).value)} />
+                  <input type="text" bind:value={form.effectBlockColor} />
+                </div>
+              </label>
+            </div>
+          </fieldset>
+        </div>
+        <div class="field rarity-mask-panel">
+          <div class="rarity-mask-header">
+            <div>
+              <span class="rarity-mask-title">{$_('editor.card_image_rarity_mask')}</span>
+              <small class="field-hint">{hasRarityMaskImage ? $_('editor.card_image_rarity_mask_ready') : $_('editor.card_image_rarity_mask_empty')}</small>
+            </div>
+            <button class="btn-secondary btn-sm" type="button" onclick={onOpenRarityMaskEditor}>{$_('editor.card_image_rarity_mask_edit')}</button>
+          </div>
+          <div class="field style-mask-coverage">
+            <span class="rarity-mask-title">{$_('editor.card_image_rarity_effect_coverage')}</span>
+            <div class="subfield-grid">
+              <label class="toggle"><input type="checkbox" bind:checked={form.rarityMaskCoverName} /><span>{$_('editor.card_image_rarity_mask_cover_name')}</span></label>
+              <label class="toggle"><input type="checkbox" bind:checked={form.rarityMaskCoverAttribute} /><span>{$_('editor.card_image_rarity_mask_cover_attribute')}</span></label>
+              <label class="toggle field-span-2"><input type="checkbox" bind:checked={form.rarityMaskCoverLevel} /><span>{$_('editor.card_image_rarity_mask_cover_level')}</span></label>
+            </div>
+            <small class="field-hint">{$_('editor.card_image_rarity_effect_coverage_hint')}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="style-group">
+      <h4 class="style-group-title">{$_('editor.card_image_style_output')}</h4>
+      <div class="field-grid">
+        <label class="field field-span-2"><span>{$_('editor.card_image_copyright')}</span><select bind:value={form.copyright}>{#each CARD_IMAGE_COPYRIGHT_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
+        <label class="field"><span>{$_('editor.card_image_package')}</span><input type="text" bind:value={form.package} /></label>
+        <label class="field"><span>{$_('editor.card_image_password')}</span><input type="text" bind:value={form.password} /></label>
+        <label class="field field-span-2">
+          <span>{$_('editor.card_image_export_scale', { values: { percent: String(exportScalePercent) } })}</span>
+          <input type="range" min={MIN_EXPORT_SCALE_PERCENT} max={MAX_EXPORT_SCALE_PERCENT} step="1" bind:value={exportScalePercent} />
+          <small class="field-hint">{$_('editor.card_image_export_scale_hint', { values: { width: String(exportWidth), height: String(exportHeight) } })}</small>
+        </label>
+      </div>
     </div>
   </section>
 {:else if variant === 'foreground'}
@@ -393,7 +426,7 @@
   .star-alignment { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
   .star-alignment button { min-height: 32px; padding: 6px 4px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: 0.85rem; cursor: pointer; }
   .star-alignment button.active { border-color: var(--accent-primary); background: var(--accent-primary); color: #fff; }
-  .field-span-2, .field-color { grid-column: span 2; }
+  .field-span-2 { grid-column: span 2; }
   .color-input-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
   .color-input-row-compact { grid-template-columns: 52px minmax(0, 1fr); }
   .color-swatch { min-height: 38px; padding: 4px; cursor: pointer; }
@@ -420,7 +453,37 @@
   .rarity-mask-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .rarity-mask-header > div:first-child { display: flex; flex-direction: column; gap: 4px; }
   .rarity-mask-title { color: var(--text-primary); font-size: 0.9rem; font-weight: 700; }
+  .style-section { container-type: inline-size; padding: 16px; }
+  .style-group { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border-color); }
+  .style-group-title { margin: 0 0 12px; color: var(--text-primary); font-size: 0.86rem; font-weight: 650; }
+  .style-group > .field-grid { margin-top: 0; }
+  .style-section .field-grid, .style-section .subfield-grid { align-items: end; gap: 12px; }
+  .style-section .field input:not([type='checkbox']):not([type='range']), .style-section .field select { min-height: 36px; }
+  .style-section .star-alignment button { min-height: 36px; }
+  .style-section .toggle { min-height: 38px; }
+  .style-section input[type='checkbox'], .style-section input[type='range'] { accent-color: var(--accent-primary); }
+  .style-colors { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; align-items: start; }
+  .style-color-panel, .style-layer-panel { gap: 10px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); }
+  .style-color-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .style-color-heading .gradient-toggle { margin: 0; padding: 0; min-height: 0; border: none; background: transparent; }
+  .style-color-panel .subfield-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+  .style-section .color-input-row { grid-template-columns: 38px minmax(0, 1fr) auto; }
+  .style-section .color-input-row-compact { grid-template-columns: 38px minmax(0, 1fr); }
+  .style-section .color-preset-group { margin-top: 0; flex-direction: row; align-items: center; gap: 10px; }
+  .style-section .color-preset-label { flex-shrink: 0; }
+  .style-section .color-preset-list { gap: 6px; }
+  .style-section .color-preset-chip { width: 26px; height: 26px; }
+  .style-section .field-hint { color: var(--text-disabled); font-size: 0.76rem; line-height: 1.5; }
+  .style-section .rarity-mask-panel { border-color: var(--border-color); border-radius: 8px; background: var(--bg-surface); }
+  .style-mask-coverage { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--border-color); gap: 8px; }
+  .style-section .rarity-mask-header > button { flex-shrink: 0; }
   button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+  @container (max-width: 360px) {
+    .style-section .field-grid, .style-section .toggle-grid, .style-section .subfield-grid { grid-template-columns: 1fr; }
+    .style-section .field-span-2 { grid-column: 1 / -1; }
+    .style-color-heading, .style-section .rarity-mask-header { flex-wrap: wrap; }
+  }
 
   @media (max-width: 720px) {
     .field-grid,
@@ -429,8 +492,7 @@
       grid-template-columns: 1fr;
     }
 
-    .field-span-2,
-    .field-color {
+    .field-span-2 {
       grid-column: span 1;
     }
 
