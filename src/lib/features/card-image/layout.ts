@@ -457,6 +457,18 @@ export function createCardImageFormData(
   return getCardImageLocaleDefaults(card, language);
 }
 
+const CDB_IMAGE_FORM_FIELDS = [
+  "name", "type", "attribute", "icon", "cardType", "pendulumType", "level", "rank",
+  "pendulumScale", "pendulumDescription", "monsterType", "atkBar", "atk", "def",
+  "arrowList", "description", "firstLineCompress", "password",
+] as const satisfies readonly (keyof CardImageFormData)[];
+
+export function reloadCardImageFormFromCdb(form: CardImageFormData, card: CardDataEntry): CardImageFormData {
+  const defaults = createCardImageFormData(card, form.language as CardImageLanguage);
+  const fields = Object.fromEntries(CDB_IMAGE_FORM_FIELDS.map((key) => [key, defaults[key]]));
+  return normalizeCardImageFormData({ ...form, ...fields });
+}
+
 export function serializeCardImageConfigDocument(input: {
   form: CardImageFormData;
 }) {

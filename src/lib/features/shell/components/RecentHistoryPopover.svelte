@@ -20,28 +20,30 @@
 <div class="open-history-popover" class:visible role="menu" aria-label={$_('nav.open_recent')}>
   <div class="open-history-header">{$_('nav.open_recent')}</div>
   {#if entries.length > 0}
-    {#each entries as entry (entry.path)}
-      <div class="open-history-row">
-        <button
-          class="open-history-item"
-          type="button"
-          onclick={() => { onHideImmediately(); void onOpen(entry.path); }}
-          title={entry.path}
-        >
-          <span class="open-history-name">{entry.name}</span>
-          <span class="open-history-path">{entry.path}</span>
-        </button>
-        <button
-          class="open-history-remove"
-          type="button"
-          aria-label={$_('nav.open_recent_remove')}
-          title={$_('nav.open_recent_remove')}
-          onclick={(event) => { event.stopPropagation(); onRemove(entry.path); }}
-        >
-          ×
-        </button>
-      </div>
-    {/each}
+    <div class="open-history-list">
+      {#each entries as entry (entry.path)}
+        <div class="open-history-row">
+          <button
+            class="open-history-item"
+            type="button"
+            onclick={() => { onHideImmediately(); void onOpen(entry.path); }}
+            title={entry.path}
+          >
+            <span class="open-history-name">{entry.name}</span>
+            <span class="open-history-path">{entry.path}</span>
+          </button>
+          <button
+            class="open-history-remove"
+            type="button"
+            aria-label={$_('nav.open_recent_remove')}
+            title={$_('nav.open_recent_remove')}
+            onclick={(event) => { event.stopPropagation(); onRemove(entry.path); }}
+          >
+            ×
+          </button>
+        </div>
+      {/each}
+    </div>
   {:else}
     <div class="open-history-empty">{$_('nav.open_recent_empty')}</div>
   {/if}
@@ -99,8 +101,18 @@
     letter-spacing: 0.08em;
   }
 
+  .open-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: min(414px, calc(100vh - 5rem));
+    overflow-y: auto;
+  }
+
   .open-history-row {
     position: relative;
+    height: 64px;
+    flex: none;
   }
 
   .open-history-item {
@@ -111,6 +123,7 @@
     gap: 2px;
     width: 100%;
     min-width: 0;
+    height: 100%;
     padding: 10px 42px 10px 12px;
     border: 1px solid transparent;
     border-radius: 10px;
@@ -129,8 +142,8 @@
 
   .open-history-remove {
     position: absolute;
-    top: -4px;
-    right: -4px;
+    top: 4px;
+    right: 4px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -163,12 +176,20 @@
     font-weight: 600;
   }
 
+  .open-history-name,
+  .open-history-path {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .open-history-path,
   .open-history-empty {
     color: var(--text-secondary);
     font-size: 0.78rem;
     line-height: 1.4;
-    word-break: break-all;
   }
 
   .open-history-empty {

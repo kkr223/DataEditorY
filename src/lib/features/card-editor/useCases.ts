@@ -260,6 +260,7 @@ export async function openCardScriptFlow(input: {
       cardCode: code,
       cardName: input.draftCard.name ?? '',
     });
+    if (!opened) return;
 
     activateCardSurface('script');
 

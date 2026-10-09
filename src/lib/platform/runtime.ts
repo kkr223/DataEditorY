@@ -13,6 +13,8 @@ import type {
 
 type RuntimeListener = (snapshot: DocumentRuntimeSnapshot) => void;
 
+type OpenDocumentOptions = { activate?: boolean; signal?: AbortSignal };
+
 export type CreateDocumentRequest = {
   typeId: string;
   providerId: string;
@@ -73,10 +75,11 @@ export class DocumentRuntime {
     this.emit();
   }
 
-  async openSource(source: DocumentSource) {
+  async openSource(source: DocumentSource, options: OpenDocumentOptions = {}) {
+    options.signal?.throwIfAborted();
     const existing = [...this.documents.values()].find((document) => document.source?.uri === source.uri);
     if (existing) {
-      this.activate(existing.id);
+      if (options.activate !== false) this.activate(existing.id);
       return this.cloneRecord(existing);
     }
 
@@ -85,6 +88,7 @@ export class DocumentRuntime {
       throw new Error(`No codec registered for ${source.name}`);
     }
     const opened = await codec.decode(source, this.codecContext);
+    options.signal?.throwIfAborted();
     if (opened.typeId !== codec.typeId) {
       throw new Error(`Codec ${codec.id} returned unexpected data type ${opened.typeId}`);
     }
@@ -97,6 +101,10 @@ export class DocumentRuntime {
       source,
       input: opened.providerInput,
     });
+    if (options.signal?.aborted) {
+      await provider.dispose(id);
+      options.signal.throwIfAborted();
+    }
     const record: DocumentRecord = {
       id,
       typeId: opened.typeId,
@@ -116,12 +124,13 @@ export class DocumentRuntime {
       },
     };
     this.documents.set(id, record);
-    this.activeDocumentId = id;
+    if (options.activate !== false) this.activeDocumentId = id;
     this.emit();
     return this.cloneRecord(record);
   }
 
-  async createDocument(request: CreateDocumentRequest) {
+  async createDocument(request: CreateDocumentRequest, options: OpenDocumentOptions = {}) {
+    options.signal?.throwIfAborted();
     const type = this.registry.dataTypes.get(request.typeId);
     if (!type) {
       throw new Error(`Unknown data type: ${request.typeId}`);
@@ -139,6 +148,10 @@ export class DocumentRuntime {
       typeId: request.typeId,
       initialData: request.initialData,
     });
+    if (options.signal?.aborted) {
+      await provider.dispose(id);
+      options.signal.throwIfAborted();
+    }
     const savePolicy = this.registry.providers.get(request.providerId)?.savePolicy ?? 'manual';
     const record: DocumentRecord = {
       id,
@@ -159,7 +172,7 @@ export class DocumentRuntime {
       },
     };
     this.documents.set(id, record);
-    this.activeDocumentId = id;
+    if (options.activate !== false) this.activeDocumentId = id;
     this.emit();
     return this.cloneRecord(record);
   }
@@ -246,10 +259,15 @@ export class DocumentRuntime {
     await provider.dispose(documentId);
     const ids = [...this.documents.keys()];
     const index = ids.indexOf(documentId);
+    const siblingIds = ids.filter((id) => this.documents.get(id)?.typeId === document.typeId);
+    const siblingIndex = siblingIds.indexOf(documentId);
     this.documents.delete(documentId);
     if (this.activeDocumentId === documentId) {
       const nextIds = [...this.documents.keys()];
-      this.activeDocumentId = nextIds[Math.min(index, nextIds.length - 1)] ?? null;
+      const nextSiblingIds = siblingIds.filter((id) => id !== documentId);
+      // Keep workspace navigation within its type before falling back to tool documents.
+      this.activeDocumentId = nextSiblingIds[Math.min(siblingIndex, nextSiblingIds.length - 1)]
+        ?? nextIds[Math.min(index, nextIds.length - 1)] ?? null;
     }
     this.emit();
   }

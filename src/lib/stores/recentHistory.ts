@@ -6,7 +6,7 @@ export interface RecentCdbEntry {
 }
 
 export const RECENT_CDB_HISTORY_KEY = 'recent-cdb-history';
-export const MAX_RECENT_CDB_HISTORY = 6;
+export const MAX_RECENT_CDB_HISTORY = 20;
 
 export const recentCdbHistory = writable<RecentCdbEntry[]>([]);
 

@@ -32,7 +32,7 @@ For Tauri builds, it also:
 ## CI/CD
 
 `.github/workflows/release.yml` — GitHub Actions matrix build:
-- Platforms: `windows-latest`, `ubuntu-22.04`, `macos-latest`
+- Platforms: `windows-latest`, `ubuntu-22.04`
 - Variants: `base`, `extra`
 - Uses `tauri-action` for building + release asset upload
 - Windows: additionally creates portable ZIP bundle

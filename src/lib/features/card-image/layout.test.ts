@@ -8,11 +8,32 @@ import {
   normalizeCardImageConfigDocument,
   normalizeCardImageFormData,
   parseCardImageConfigDocument,
+  reloadCardImageFormFromCdb,
   serializeCardImageConfigDocument,
 } from "./layout";
 import type { CardDataEntry } from "$lib/types";
 
 describe("card image config document", () => {
+  test("reloads CDB fields while preserving artwork and appearance settings", () => {
+    const card = {
+      code: 12345678, name: "Updated", desc: "New effect", type: 0x1 | 0x20,
+      attack: 2200, defense: 1500, level: 4, race: 0x2000, attribute: 0x10,
+      lscale: 0, rscale: 0, linkMarker: 0,
+    } as CardDataEntry;
+    const original = normalizeCardImageFormData({
+      language: "en", name: "Old", description: "Old effect", atk: 1000,
+      image: "data:image/png;base64,AAA", rare: "grandmaster", color: "#abcdef",
+    });
+    const reloaded = reloadCardImageFormFromCdb(original, card);
+    expect(reloaded.name).toBe("Updated");
+    expect(reloaded.description).toBe("New effect");
+    expect(reloaded.atk).toBe(2200);
+    expect(reloaded.image).toBe(original.image);
+    expect(reloaded.rare).toBe(original.rare);
+    expect(reloaded.color).toBe(original.color);
+    expect(reloaded.language).toBe("en");
+  });
+
   test("tracks automatic star defaults across model and rarity changes", () => {
     const normal = normalizeCardImageFormData({});
     expect(resolveFrameOptions(normal)).toEqual({
