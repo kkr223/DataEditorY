@@ -1,4 +1,4 @@
-import { tick } from 'svelte';
+import { onDestroy, tick } from 'svelte';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import type { CardDataEntry } from '$lib/types';
@@ -23,8 +23,10 @@ import { writeErrorLog } from '$lib/utils/errorLog';
 import {
   inlineWorkspaceCardImageAsset,
   isWorkspaceCardImageAssetReference,
+  matchesWorkspaceCardImageAsset,
   resolveWorkspaceCardImageAssetSrc,
 } from '$lib/features/card-image/workspaceAssets';
+import { createCardImageOperations } from './imageOperations';
 import {
   getOpenTextTab,
   saveTextTab,
@@ -102,7 +104,7 @@ type CardImageControllerSource = {
   aiEnabled: () => boolean;
   documentKey?: () => string;
   initialDocument?: () => CardImageConfigDocument | null;
-  onDocumentChange?: (document: CardImageConfigDocument) => void | Promise<void>;
+  onDocumentChange?: (document: CardImageConfigDocument, documentKey: string) => void | Promise<void>;
   onReloadFromCdb?: () => Promise<CardDataEntry | null>;
   onSavedJpg: () => void | Promise<void>;
   onClose: () => void;
@@ -114,6 +116,7 @@ function t(key: string, options?: Record<string, unknown>) {
 
 export function createCardImageController(source: CardImageControllerSource) {
   const state = $state({
+    hydratedContextKey: '',
     form: normalizeCardImageFormData({}),
     previewHost: null as HTMLDivElement | null,
     previewShell: null as HTMLDivElement | null,
@@ -218,6 +221,9 @@ export function createCardImageController(source: CardImageControllerSource) {
   let resourcePathPromise: Promise<string> | null = null;
   let previewResizeObserver: ResizeObserver | null = null;
   let lastDocumentSignature = '';
+  const getContextKey = () => JSON.stringify([source.open(), source.documentKey?.() ?? '', source.cdbPath(), source.card().code]);
+  const operations = createCardImageOperations(getContextKey);
+  onDestroy(() => operations.dispose());
 
   function getCard() {
     return source.card();
@@ -326,7 +332,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.foregroundRenderableUrl = '';
   }
 
-  async function syncForegroundRenderableUrl(url: string) {
+  function syncForegroundRenderableUrl(url: string) {
     revokeForegroundRenderableUrl();
     const nextUrl = url.trim();
     if (!nextUrl) {
@@ -349,7 +355,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.rarityMaskRenderableUrl = '';
   }
 
-  async function syncRarityMaskRenderableUrl(url: string) {
+  function syncRarityMaskRenderableUrl(url: string) {
     revokeRarityMaskRenderableUrl();
     const nextUrl = url.trim();
     if (!nextUrl) return;
@@ -395,7 +401,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     });
   }
 
-  async function hydrateFromConfigDocument(document: CardImageConfigDocument) {
+  function hydrateFromConfigDocument(document: CardImageConfigDocument) {
     const persistedForm = normalizeCardImageFormData(document.form ?? {});
     const form = normalizeCardImageFormData({
       ...persistedForm,
@@ -425,13 +431,14 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.initialForegroundState = createForegroundInitialStateFromForm(form);
     state.shouldRunInitialPostRenderRefresh = false;
     hasRunInitialPostRenderRefresh = false;
-    await syncForegroundRenderableUrl(form.foregroundImage || '');
-    await syncRarityMaskRenderableUrl(form.rarityMaskImage || '');
+    syncForegroundRenderableUrl(form.foregroundImage || '');
+    syncRarityMaskRenderableUrl(form.rarityMaskImage || '');
     destroyPreview();
     destroyForegroundPreview();
     destroyRarityMaskPreview();
     lastDocumentSignature = getDocumentSignature(createConfigDocument());
-    await warmupPreviewAfterFontsReady();
+    state.hydratedContextKey = getContextKey();
+    void warmupPreviewAfterFontsReady();
   }
 
   function isPositiveCardCode(value: unknown) {
@@ -448,16 +455,19 @@ export function createCardImageController(source: CardImageControllerSource) {
   async function reloadFromCdb() {
     if (!source.onReloadFromCdb || state.isReloadingFromCdb) return;
     state.isReloadingFromCdb = true;
+    const isCurrent = operations.begin('reload');
     try {
       const card = await source.onReloadFromCdb();
+      if (!isCurrent()) return;
       if (!card) throw new Error('Card not found in the open CDB');
       state.form = reloadCardImageFormFromCdb(state.form, card);
       showToast(t('editor.card_image_reload_from_cdb_success'), 'success');
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('Failed to reload card image form from CDB', error);
       showToast(t('editor.card_image_reload_from_cdb_failed'), 'error');
     } finally {
-      state.isReloadingFromCdb = false;
+      if (isCurrent()) state.isReloadingFromCdb = false;
     }
   }
 
@@ -612,6 +622,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function clearForegroundImage() {
+    operations.begin('foreground');
     clearForegroundInitialState();
     revokeForegroundRenderableUrl();
     state.persistedForegroundImage = '';
@@ -655,6 +666,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function clearRarityMaskImage() {
+    operations.begin('rarity-mask');
     revokeRarityMaskRenderableUrl();
     state.persistedRarityMaskImage = '';
     updateForm({
@@ -748,6 +760,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     try {
       const parsed = parseCardImageConfigDocument(content);
       const importedForm = parsed.form;
+      operations.reset();
+      const isCurrent = operations.begin('import-apply');
 
       revokeSourceImageUrl();
       state.sourceImageWidth = 0;
@@ -770,13 +784,14 @@ export function createCardImageController(source: CardImageControllerSource) {
       state.form = importedForm;
       state.lastFormLanguage = importedForm.language as CardImageLanguage;
       state.initialForegroundState = createForegroundInitialStateFromForm(importedForm);
-      await syncForegroundRenderableUrl(importedForm.foregroundImage || '');
-      await syncRarityMaskRenderableUrl(importedForm.rarityMaskImage || '');
+      syncForegroundRenderableUrl(importedForm.foregroundImage || '');
+      syncRarityMaskRenderableUrl(importedForm.rarityMaskImage || '');
       lastDocumentSignature = '';
       destroyPreview();
       destroyForegroundPreview();
       destroyRarityMaskPreview();
       await warmupPreviewAfterFontsReady();
+      if (!isCurrent()) return;
       showToast(t('editor.card_image_config_import_success'), 'success');
     } catch (error) {
       console.error('Failed to import card image config', error);
@@ -793,6 +808,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   async function handleConfigImport() {
+    const isCurrent = operations.begin('import');
     if (!tauriBridge.isTauri()) {
       openConfigFilePicker();
       return;
@@ -803,8 +819,10 @@ export function createCardImageController(source: CardImageControllerSource) {
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });
     if (!selected || typeof selected !== 'string') return;
+    if (!isCurrent()) return;
     try {
       const content = await readTextFile(selected);
+      if (!isCurrent()) return;
       await applyImportedConfigContent(content, selected);
     } catch (error) {
       const card = getCard();
@@ -822,12 +840,14 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   async function handleConfigFileUpload(event: Event) {
+    const isCurrent = operations.begin('import');
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
 
     try {
       const content = await file.text();
+      if (!isCurrent()) return;
       await applyImportedConfigContent(content, file.name);
     } finally {
       input.value = '';
@@ -1048,6 +1068,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    const isCurrent = operations.begin('art');
 
     revokeSourceImageUrl();
     state.sourceImageUrl = URL.createObjectURL(file);
@@ -1055,6 +1076,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     const image = new Image();
     image.src = state.sourceImageUrl;
     await image.decode();
+    if (!isCurrent()) return;
     state.sourceImageWidth = image.naturalWidth;
     state.sourceImageHeight = image.naturalHeight;
     state.cropRotation = 0;
@@ -1062,6 +1084,7 @@ export function createCardImageController(source: CardImageControllerSource) {
 
     await tick();
     requestAnimationFrame(() => {
+      if (!isCurrent()) return;
       initializeCropBox();
     });
 
@@ -1176,9 +1199,11 @@ export function createCardImageController(source: CardImageControllerSource) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    const isCurrent = operations.begin('foreground');
 
     try {
       const uploaded = await trimTransparentImage((await readFileAsDataUrl(file)).dataUrl);
+      if (!isCurrent()) return;
       const isReplacing = hasForegroundImage();
       const nextInitialState: ForegroundInitialState = {
         foregroundWidth: uploaded.width,
@@ -1189,7 +1214,7 @@ export function createCardImageController(source: CardImageControllerSource) {
         foregroundRotation: isReplacing ? state.form.foregroundRotation : 0,
       };
       state.initialForegroundState = nextInitialState;
-      await syncForegroundRenderableUrl(uploaded.dataUrl);
+      syncForegroundRenderableUrl(uploaded.dataUrl);
       state.persistedForegroundImage = uploaded.dataUrl;
       updateForm({
         foregroundImage: uploaded.dataUrl,
@@ -1201,6 +1226,7 @@ export function createCardImageController(source: CardImageControllerSource) {
         foregroundRotation: nextInitialState.foregroundRotation,
       });
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('Failed to upload foreground image', error);
       showToast(t('editor.card_image_foreground_upload_failed'), 'error');
     } finally {
@@ -1212,11 +1238,13 @@ export function createCardImageController(source: CardImageControllerSource) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    const isCurrent = operations.begin('rarity-mask');
 
     try {
       const uploaded = await readFileAsDataUrl(file);
+      if (!isCurrent()) return;
       const isReplacing = hasRarityMaskImage();
-      await syncRarityMaskRenderableUrl(uploaded.dataUrl);
+      syncRarityMaskRenderableUrl(uploaded.dataUrl);
       state.persistedRarityMaskImage = uploaded.dataUrl;
       updateForm({
         rarityMaskImage: uploaded.dataUrl,
@@ -1229,6 +1257,7 @@ export function createCardImageController(source: CardImageControllerSource) {
           : getDefaultRarityMaskScale(uploaded.width, uploaded.height),
       });
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('Failed to upload rarity mask image', error);
       showToast(t('editor.card_image_rarity_mask_upload_failed'), 'error');
     } finally {
@@ -1712,48 +1741,51 @@ export function createCardImageController(source: CardImageControllerSource) {
     return new Uint8Array(arrayBuffer);
   }
 
-  async function ensurePreviewCard(initialData: CardImageFormData) {
+  async function ensurePreviewCard(initialData: CardImageFormData, isCurrent: () => boolean) {
     await tick();
-    if (!getOpen() || !state.previewHost) return null;
+    if (!isCurrent() || !getOpen() || !state.previewHost) return null;
 
-    const YugiohCard = await getYugiohCardConstructor();
+    const [YugiohCard, resourcePath] = await Promise.all([getYugiohCardConstructor(), ensureResolvedResourcePath()]);
+    if (!isCurrent() || !state.previewHost) return null;
     if (!state.previewCard) {
       state.previewCard = new YugiohCard({
         view: state.previewHost,
         data: buildYugiohCardData(buildBootstrapPreviewData(initialData)),
-        resourcePath: await ensureResolvedResourcePath(),
+        resourcePath,
       });
     }
 
     return state.previewCard;
   }
 
-  async function ensureForegroundPreviewCard(initialData: CardImageFormData) {
+  async function ensureForegroundPreviewCard(initialData: CardImageFormData, isCurrent: () => boolean) {
     await tick();
-    if (!getOpen() || !state.foregroundEditorOpen || !state.foregroundPreviewHost) return null;
+    if (!isCurrent() || !getOpen() || !state.foregroundEditorOpen || !state.foregroundPreviewHost) return null;
 
-    const YugiohCard = await getYugiohCardConstructor();
+    const [YugiohCard, resourcePath] = await Promise.all([getYugiohCardConstructor(), ensureResolvedResourcePath()]);
+    if (!isCurrent() || !state.foregroundPreviewHost) return null;
     if (!state.foregroundPreviewCard) {
       state.foregroundPreviewCard = new YugiohCard({
         view: state.foregroundPreviewHost,
         data: buildYugiohCardData(buildBootstrapPreviewData(initialData)),
-        resourcePath: await ensureResolvedResourcePath(),
+        resourcePath,
       });
     }
 
     return state.foregroundPreviewCard;
   }
 
-  async function ensureRarityMaskPreviewCard(initialData: CardImageFormData) {
+  async function ensureRarityMaskPreviewCard(initialData: CardImageFormData, isCurrent: () => boolean) {
     await tick();
-    if (!getOpen() || !state.rarityMaskEditorOpen || !state.rarityMaskPreviewHost) return null;
+    if (!isCurrent() || !getOpen() || !state.rarityMaskEditorOpen || !state.rarityMaskPreviewHost) return null;
 
-    const YugiohCard = await getYugiohCardConstructor();
+    const [YugiohCard, resourcePath] = await Promise.all([getYugiohCardConstructor(), ensureResolvedResourcePath()]);
+    if (!isCurrent() || !state.rarityMaskPreviewHost) return null;
     if (!state.rarityMaskPreviewCard) {
       state.rarityMaskPreviewCard = new YugiohCard({
         view: state.rarityMaskPreviewHost,
         data: buildYugiohCardData(buildBootstrapPreviewData(initialData)),
-        resourcePath: await ensureResolvedResourcePath(),
+        resourcePath,
       });
     }
 
@@ -1762,10 +1794,12 @@ export function createCardImageController(source: CardImageControllerSource) {
 
   async function refreshPreview() {
     if (!getOpen() || !state.previewHost || !state.previewFontsReady) return;
+    const isCurrent = operations.begin('preview');
 
     try {
       state.errorMessage = '';
       await ensureResolvedResourcePath();
+      if (!isCurrent()) return;
       const previewData = buildPreviewData();
       const renderData = buildYugiohCardData(previewData);
       const rendererSignature = getRendererSignature(renderData);
@@ -1774,29 +1808,33 @@ export function createCardImageController(source: CardImageControllerSource) {
         lastPreviewRendererSignature = rendererSignature;
       }
 
-      let cardInstance = await ensurePreviewCard(previewData);
+      let cardInstance = await ensurePreviewCard(previewData, isCurrent);
+      if (!isCurrent()) return;
       try {
         cardInstance?.setData?.(renderData);
       } catch {
         destroyPreview();
         lastPreviewRendererSignature = rendererSignature;
-        cardInstance = await ensurePreviewCard(previewData);
+        cardInstance = await ensurePreviewCard(previewData, isCurrent);
+        if (!isCurrent()) return;
         cardInstance?.setData?.(renderData);
       }
 
       await cardInstance?.whenReady?.();
+      if (!isCurrent()) return;
 
       if (state.shouldRunInitialPostRenderRefresh && !hasRunInitialPostRenderRefresh) {
         state.shouldRunInitialPostRenderRefresh = false;
         hasRunInitialPostRenderRefresh = true;
         clearTimeout(initialPostRenderRefreshTimer ?? undefined);
         initialPostRenderRefreshTimer = setTimeout(() => {
-          if (!getOpen()) return;
+          if (!isCurrent() || !getOpen()) return;
           destroyPreview();
           void refreshPreview();
         }, 180);
       }
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('Failed to refresh card image preview', error);
       void writeErrorLog({
         source: 'card-image.preview',
@@ -1814,9 +1852,11 @@ export function createCardImageController(source: CardImageControllerSource) {
 
   async function refreshForegroundPreview() {
     if (!getOpen() || !state.foregroundEditorOpen || !state.foregroundPreviewHost || !state.previewFontsReady) return;
+    const isCurrent = operations.begin('foreground-preview');
 
     try {
       await ensureResolvedResourcePath();
+      if (!isCurrent()) return;
       const previewData = buildForegroundPreviewData();
       const renderData = buildYugiohCardData(previewData);
       const rendererSignature = getRendererSignature(renderData);
@@ -1825,19 +1865,22 @@ export function createCardImageController(source: CardImageControllerSource) {
         lastForegroundRendererSignature = rendererSignature;
       }
 
-      let cardInstance = await ensureForegroundPreviewCard(previewData);
+      let cardInstance = await ensureForegroundPreviewCard(previewData, isCurrent);
+      if (!isCurrent()) return;
       try {
         cardInstance?.setData?.(renderData);
       } catch {
         destroyForegroundPreview();
         lastForegroundRendererSignature = rendererSignature;
-        cardInstance = await ensureForegroundPreviewCard(previewData);
+        cardInstance = await ensureForegroundPreviewCard(previewData, isCurrent);
+        if (!isCurrent()) return;
         cardInstance?.setData?.(renderData);
       }
 
       await cardInstance?.whenReady?.();
       await tick();
       requestAnimationFrame(() => {
+        if (!isCurrent()) return;
         measureForegroundRenderBounds();
       });
     } catch (error) {
@@ -1847,9 +1890,11 @@ export function createCardImageController(source: CardImageControllerSource) {
 
   async function refreshRarityMaskPreview() {
     if (!getOpen() || !state.rarityMaskEditorOpen || !state.rarityMaskPreviewHost || !state.previewFontsReady) return;
+    const isCurrent = operations.begin('rarity-mask-preview');
 
     try {
       await ensureResolvedResourcePath();
+      if (!isCurrent()) return;
       const previewData = buildForegroundPreviewData();
       const renderData = buildYugiohCardData(previewData);
       const rendererSignature = getRendererSignature(renderData);
@@ -1858,19 +1903,22 @@ export function createCardImageController(source: CardImageControllerSource) {
         lastRarityMaskRendererSignature = rendererSignature;
       }
 
-      let cardInstance = await ensureRarityMaskPreviewCard(previewData);
+      let cardInstance = await ensureRarityMaskPreviewCard(previewData, isCurrent);
+      if (!isCurrent()) return;
       try {
         cardInstance?.setData?.(renderData);
       } catch {
         destroyRarityMaskPreview();
         lastRarityMaskRendererSignature = rendererSignature;
-        cardInstance = await ensureRarityMaskPreviewCard(previewData);
+        cardInstance = await ensureRarityMaskPreviewCard(previewData, isCurrent);
+        if (!isCurrent()) return;
         cardInstance?.setData?.(renderData);
       }
 
       await cardInstance?.whenReady?.();
       await tick();
       requestAnimationFrame(() => {
+        if (!isCurrent()) return;
         measureRarityMaskRenderBounds();
       });
     } catch (error) {
@@ -1879,6 +1927,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   async function warmupPreviewAfterFontsReady() {
+    const isCurrent = operations.begin('warmup');
     state.previewFontsReady = false;
     hasRunInitialPostRenderRefresh = false;
     try {
@@ -1892,8 +1941,10 @@ export function createCardImageController(source: CardImageControllerSource) {
       // Ignore font readiness failures and still do a delayed refresh.
     }
 
+    if (!isCurrent()) return;
     clearTimeout(previewWarmupTimer ?? undefined);
     previewWarmupTimer = setTimeout(() => {
+      if (!isCurrent()) return;
       state.previewFontsReady = true;
       state.shouldRunInitialPostRenderRefresh = true;
       destroyPreview();
@@ -2208,17 +2259,22 @@ export function createCardImageController(source: CardImageControllerSource) {
 
   $effect(() => {
     const open = source.open();
+    const contextKey = getContextKey();
+    if (state.hydratedContextKey !== contextKey) {
+      operations.reset();
+      state.hydratedContextKey = '';
+    }
     const initialDocument = source.initialDocument?.() ?? null;
-    const documentKey = source.documentKey?.() ?? '';
     if (initialDocument) {
-      const hydrationKey = open ? documentKey : '';
+      const hydrationKey = open ? contextKey : '';
       if (!open) {
         lastHydrationKey = '';
         return;
       }
       if (hydrationKey && hydrationKey !== lastHydrationKey) {
+        operations.reset();
         lastHydrationKey = hydrationKey;
-        void hydrateFromConfigDocument(initialDocument);
+        hydrateFromConfigDocument(initialDocument);
       }
       return;
     }
@@ -2226,6 +2282,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     const card = source.card();
     const hydrationKey = open
       ? [
+          contextKey,
           card.code,
           card.alias,
           card.name,
@@ -2259,6 +2316,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     }
 
     if (hydrationKey !== lastHydrationKey) {
+      operations.reset();
       lastHydrationKey = hydrationKey;
       state.form = createCardImageFormData(card);
       state.lastFormLanguage = state.form.language;
@@ -2273,6 +2331,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       destroyPreview();
       destroyForegroundPreview();
       destroyRarityMaskPreview();
+      state.hydratedContextKey = contextKey;
       void warmupPreviewAfterFontsReady();
     }
   });
@@ -2282,9 +2341,14 @@ export function createCardImageController(source: CardImageControllerSource) {
     const image = typeof form?.image === 'string' ? form.image : '';
     const foregroundImage = typeof form?.foregroundImage === 'string' ? form.foregroundImage : '';
     const rarityMaskImage = typeof form?.rarityMaskImage === 'string' ? form.rarityMaskImage : '';
-    if (isWorkspaceCardImageAssetReference(image)) state.persistedImage = image;
-    if (isWorkspaceCardImageAssetReference(foregroundImage)) state.persistedForegroundImage = foregroundImage;
-    if (isWorkspaceCardImageAssetReference(rarityMaskImage)) state.persistedRarityMaskImage = rarityMaskImage;
+    const isCurrent = operations.begin('asset-ack');
+    for (const [field, reference] of [['persistedImage', image], ['persistedForegroundImage', foregroundImage], ['persistedRarityMaskImage', rarityMaskImage]] as const) {
+      const current = state[field];
+      if (reference === current || !isWorkspaceCardImageAssetReference(reference)) continue;
+      void matchesWorkspaceCardImageAsset(reference, current).then((matches) => {
+        if (matches && isCurrent() && state[field] === current) state[field] = reference;
+      }).catch(() => {});
+    }
   });
 
   $effect(() => {
@@ -2311,6 +2375,7 @@ export function createCardImageController(source: CardImageControllerSource) {
 
   $effect(() => {
     if (!source.open() || !source.onDocumentChange) return;
+    if (state.hydratedContextKey !== getContextKey()) return;
 
     state.form;
     state.exportScalePercent;
@@ -2321,7 +2386,7 @@ export function createCardImageController(source: CardImageControllerSource) {
     const signature = getDocumentSignature(document);
     if (signature === lastDocumentSignature) return;
     lastDocumentSignature = signature;
-    void source.onDocumentChange(document);
+    void source.onDocumentChange(document, source.documentKey?.() ?? '');
   });
 
   $effect(() => {

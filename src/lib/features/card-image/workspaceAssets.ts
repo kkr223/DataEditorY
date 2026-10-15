@@ -2,7 +2,7 @@ import { readImageFile } from '$lib/native/assetApi';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
 
 const WORKSPACE_ASSET_PREFIX = 'workspace-asset:';
-const WORKSPACE_ASSET_PATTERN = /^workspace-asset:(card-image\/\d+\/(?:art|foreground|rarity-mask)\.(png|jpg|webp|gif|bmp))$/;
+const WORKSPACE_ASSET_PATTERN = /^workspace-asset:(card-image\/\d+\/(?:art|foreground|rarity-mask)(?:-[a-f0-9]{64})?\.(png|jpg|webp|gif|bmp))$/;
 
 export function parseWorkspaceCardImageAssetReference(value: string) {
   const match = value.match(WORKSPACE_ASSET_PATTERN);
@@ -45,4 +45,17 @@ export async function inlineWorkspaceCardImageAsset(cdbPath: string, value: stri
 export function isWorkspaceCardImageAssetReference(value: string) {
   return value.startsWith(WORKSPACE_ASSET_PREFIX)
     && parseWorkspaceCardImageAssetReference(value) !== null;
+}
+
+// Save responses may replace an inline image with a file reference. Accept the
+// replacement only when it names the same bytes as the image still being edited.
+export async function matchesWorkspaceCardImageAsset(reference: string, current: string) {
+  if (!isWorkspaceCardImageAssetReference(reference)) return false;
+  if (reference === current) return true;
+  const hash = reference.match(/-([a-f0-9]{64})\.[a-z]+$/)?.[1];
+  const data = current.match(/^data:image\/[^;,]+;base64,(.*)$/s)?.[1];
+  if (!hash || !data) return false;
+  const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('') === hash;
 }

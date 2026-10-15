@@ -31,7 +31,7 @@
     aiEnabled?: boolean;
     documentKey?: string;
     initialDocument?: CardImageConfigDocument | null;
-    onDocumentChange?: (document: CardImageConfigDocument) => void | Promise<void>;
+    onDocumentChange?: (document: CardImageConfigDocument, documentKey: string) => void | Promise<void>;
     onReloadFromCdb?: () => Promise<CardDataEntry | null>;
     onSavedJpg?: () => void | Promise<void>;
     onClose?: () => void;
@@ -44,7 +44,7 @@
     aiEnabled: () => aiEnabled,
     documentKey: () => documentKey,
     initialDocument: () => initialDocument,
-    onDocumentChange: (document) => onDocumentChange?.(document),
+    onDocumentChange: (document, key) => onDocumentChange?.(document, key),
     onReloadFromCdb: () => onReloadFromCdb?.() ?? Promise.resolve(null),
     onSavedJpg: () => onSavedJpg(),
     onClose: () => onClose(),

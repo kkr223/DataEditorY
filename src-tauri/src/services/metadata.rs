@@ -1,6 +1,7 @@
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use chrono::Utc;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -93,14 +94,17 @@ fn externalize_workspace_images(cdb_path: &str, metadata: &mut Value) -> Result<
             let Some((extension, bytes)) = decode_image_data_url(value)? else {
                 continue;
             };
-            let relative = PathBuf::from("card-image")
-                .join(card_code)
-                .join(format!("{file_stem}.{extension}"));
+            let relative = PathBuf::from("card-image").join(card_code).join(format!(
+                "{file_stem}-{:x}.{extension}",
+                Sha256::digest(&bytes)
+            ));
             let path = asset_root.join(&relative);
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent).map_err(|err| err.to_string())?;
             }
-            fs::write(path, bytes).map_err(|err| err.to_string())?;
+            if !path.exists() {
+                fs::write(path, bytes).map_err(|err| err.to_string())?;
+            }
             let reference = format!(
                 "{WORKSPACE_ASSET_PREFIX}{}",
                 relative.to_string_lossy().replace('\\', "/")
@@ -112,30 +116,33 @@ fn externalize_workspace_images(cdb_path: &str, metadata: &mut Value) -> Result<
     Ok(changed)
 }
 
+fn valid_workspace_asset_filename(value: &str) -> bool {
+    let Some((stem, extension)) = value.rsplit_once('.') else {
+        return false;
+    };
+    if !matches!(extension, "png" | "jpg" | "webp" | "gif" | "bmp") {
+        return false;
+    }
+    for prefix in ["art", "foreground", "rarity-mask"] {
+        if stem == prefix {
+            return true;
+        }
+        if let Some(hash) = stem.strip_prefix(&format!("{prefix}-")) {
+            if hash.len() == 64 && hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn workspace_asset_relative_path(value: &str) -> Option<PathBuf> {
     let relative = value.strip_prefix(WORKSPACE_ASSET_PREFIX)?;
     let parts = relative.split('/').collect::<Vec<_>>();
     if parts.len() != 3
         || parts[0] != "card-image"
         || parts[1].parse::<u64>().is_err()
-        || !matches!(
-            parts[2],
-            "art.png"
-                | "art.jpg"
-                | "art.webp"
-                | "art.gif"
-                | "art.bmp"
-                | "foreground.png"
-                | "foreground.jpg"
-                | "foreground.webp"
-                | "foreground.gif"
-                | "foreground.bmp"
-                | "rarity-mask.png"
-                | "rarity-mask.jpg"
-                | "rarity-mask.webp"
-                | "rarity-mask.gif"
-                | "rarity-mask.bmp"
-        )
+        || !valid_workspace_asset_filename(parts[2])
     {
         return None;
     }
@@ -387,13 +394,15 @@ mod tests {
         .expect("write legacy metadata");
 
         let migrated = load_workspace_metadata(source.clone()).expect("migrate metadata");
+        let art_file = format!("art-{:x}.png", Sha256::digest([1u8, 2, 3]));
+        let mask_file = format!("rarity-mask-{:x}.png", Sha256::digest([4u8, 5, 6]));
         assert_eq!(
             migrated["image"]["perCard"]["123"]["form"]["image"],
-            "workspace-asset:card-image/123/art.png"
+            format!("workspace-asset:card-image/123/{art_file}")
         );
         assert_eq!(
             migrated["image"]["perCard"]["123"]["form"]["rarityMaskImage"],
-            "workspace-asset:card-image/123/rarity-mask.png"
+            format!("workspace-asset:card-image/123/{mask_file}")
         );
         assert_eq!(
             fs::read(
@@ -401,7 +410,7 @@ mod tests {
                     .join(".dey")
                     .join("card-image")
                     .join("123")
-                    .join("art.png")
+                    .join(&art_file)
             )
             .unwrap(),
             [1u8, 2, 3]
@@ -415,7 +424,7 @@ mod tests {
                     .join(".dey")
                     .join("card-image")
                     .join("123")
-                    .join("rarity-mask.png")
+                    .join(&mask_file)
             )
             .unwrap(),
             [4u8, 5, 6]
@@ -429,7 +438,7 @@ mod tests {
                     .join(".dey")
                     .join("card-image")
                     .join("123")
-                    .join("art.png")
+                    .join(&art_file)
             )
             .unwrap(),
             [1u8, 2, 3]
@@ -440,7 +449,7 @@ mod tests {
                     .join(".dey")
                     .join("card-image")
                     .join("123")
-                    .join("rarity-mask.png")
+                    .join(&mask_file)
             )
             .unwrap(),
             [4u8, 5, 6]
@@ -448,5 +457,53 @@ mod tests {
 
         fs::remove_dir_all(source_dir).expect("cleanup source temp project dir");
         fs::remove_dir_all(destination_dir).expect("cleanup destination temp project dir");
+    }
+
+    #[test]
+    fn replacing_foregrounds_keeps_old_versions_and_sibling_cdb_assets_intact() {
+        let directory = temp_project_dir();
+        let first = directory.join("a.cdb").to_string_lossy().to_string();
+        let second = directory.join("b.cdb").to_string_lossy().to_string();
+        let config = |bytes: &[u8], x: i32| {
+            json!({"image":{"perCard":{"123":{"form":{
+                "foregroundImage":format!("data:image/png;base64,{}", BASE64.encode(bytes)),
+                "foregroundX":x,"foregroundScale":2
+            }}}}})
+        };
+        let old = save_workspace_metadata(first.clone(), config(&[1, 2, 3], 100), None).unwrap();
+        let new = save_workspace_metadata(first.clone(), config(&[4, 5, 6], 200), None).unwrap();
+        let sibling = save_workspace_metadata(second, config(&[7, 8, 9], 300), None).unwrap();
+        let reference = |value: &Value| {
+            value["image"]["perCard"]["123"]["form"]["foregroundImage"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        };
+        assert_ne!(reference(&old), reference(&new));
+        assert_ne!(reference(&new), reference(&sibling));
+        let root = workspace_asset_root(&first).unwrap();
+        assert_eq!(
+            fs::read(root.join(workspace_asset_relative_path(&reference(&old)).unwrap())).unwrap(),
+            [1, 2, 3]
+        );
+        assert_eq!(
+            fs::read(root.join(workspace_asset_relative_path(&reference(&new)).unwrap())).unwrap(),
+            [4, 5, 6]
+        );
+        let loaded = load_workspace_metadata(first).unwrap();
+        assert_eq!(reference(&loaded), reference(&new));
+        assert_eq!(
+            loaded["image"]["perCard"]["123"]["form"]["foregroundX"],
+            200
+        );
+        assert!(
+            workspace_asset_relative_path("workspace-asset:card-image/123/foreground.png")
+                .is_some()
+        );
+        assert!(
+            workspace_asset_relative_path("workspace-asset:card-image/123/../../oops.png")
+                .is_none()
+        );
+        fs::remove_dir_all(directory).unwrap();
     }
 }

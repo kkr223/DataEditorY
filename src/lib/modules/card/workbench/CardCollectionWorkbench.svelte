@@ -270,7 +270,10 @@
       {/await}
     {:else if extensionSurfaceError}
       <div class="surface-error" role="alert">{extensionSurfaceError}</div>
-    {:else if loadedExtensionSurface?.id === cardSurfaceState.activeSurface}
+    {:else if loadedExtensionSurface?.id === cardSurfaceState.activeSurface
+      && (loadedExtensionSurface.id !== 'image' || (appliedMetadataTabId === $activeTab?.id
+        && appliedMetadataPath === $activeTab?.path && workspaceMetadataState.ready
+        && workspaceMetadataState.cdbPath === $activeTab?.path))}
       {@const ExtensionSurface = loadedExtensionSurface.component}
       <ExtensionSurface />
     {/if}

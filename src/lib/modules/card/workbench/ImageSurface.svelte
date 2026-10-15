@@ -11,20 +11,22 @@
     setCardImageDocument,
     workspaceMetadataState,
   } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
-  import { getWorkspaceCardDraftCard } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
+  import { getWorkspaceCardDraft } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
 
-  const selectedCard = $derived.by(() => (
-    getWorkspaceCardDraftCard($activeTab?.id)
-      ?? getAllCardsMap().get(editorState.selectedId ?? -1)
-      ?? null
-  ));
+  const selectedCard = $derived.by(() => {
+    const draft = getWorkspaceCardDraft($activeTab?.id);
+    return (draft?.lastSyncedSelectedId === editorState.selectedId ? draft?.draftCard : null)
+      ?? getAllCardsMap().get(editorState.selectedId ?? -1) ?? null;
+  });
+  const imageDocumentKey = $derived(`surface-card-image:${$activeTab?.id ?? 'none'}:${selectedCard?.code ?? 'none'}`);
   const imageDocument = $derived.by(() => {
     workspaceMetadataState.metadata;
-    return selectedCard ? getCardImageDocument(selectedCard.code) : null;
+    return selectedCard && workspaceMetadataState.ready && workspaceMetadataState.cdbPath === $activeTab?.path
+      ? getCardImageDocument(selectedCard.code) : null;
   });
 
-  function persistImageDocument(document: CardImageConfigDocument) {
-    if (!selectedCard) return;
+  function persistImageDocument(document: CardImageConfigDocument, key: string) {
+    if (!selectedCard || key !== imageDocumentKey || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== $activeTab?.path) return;
     setCardImageDocument(selectedCard.code, {
       ...document,
       meta: {
@@ -46,17 +48,19 @@
 <section class="image-surface">
   {#if selectedCard}
     <div class="image-editor">
+      {#key imageDocumentKey}
       <CardImageDrawer
         open
         mode="workbench"
         card={selectedCard}
         cdbPath={$activeTab?.path ?? ''}
         aiEnabled={false}
-        documentKey={`surface-card-image:${$activeTab?.id ?? 'none'}:${selectedCard.code}`}
+        documentKey={imageDocumentKey}
         initialDocument={imageDocument}
         onDocumentChange={persistImageDocument}
         onReloadFromCdb={reloadCardFromCdb}
       />
+      {/key}
     </div>
   {:else}
     <div class="surface-empty">
