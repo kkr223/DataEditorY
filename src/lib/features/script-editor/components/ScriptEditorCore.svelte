@@ -26,6 +26,7 @@
   import { activeScriptTab, getActiveScriptTab, registerScriptModelDisposer, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
   import { appSettingsState } from '$lib/stores/appSettings.svelte';
+  import { normalizeScriptEditorFontSize } from '$lib/features/script-editor/fontPreferences';
   import { collectLuaInlineHighlights } from '$lib/features/script-editor/lua/calls';
   import type { CardDataEntry } from '$lib/types';
   import type { editor as MonacoEditor } from 'monaco-editor';
@@ -107,6 +108,7 @@
   let savedScriptStrings = $state<string[]>(Array.from({ length: 16 }, () => ''));
   let referenceSelection = $state<ReturnType<MonacoEditor.IStandaloneCodeEditor['getSelection']>>(null);
   let hoverAbove = true;
+  let lastAppliedDefaultFontSize: number | null = null;
   let suggestHintTimer: ReturnType<typeof setTimeout> | null = null;
   let validateTimer: ReturnType<typeof setTimeout> | null = null;
   let lastHighlightSource = '';
@@ -536,6 +538,7 @@
     editorInstance.updateOptions({
       hover: {
         above: hoverAbove,
+        delay: 0,
       },
     });
   }
@@ -618,6 +621,7 @@
 
     const runtime = await createScriptMonacoRuntime({
       host: editorHost,
+      getDefaultFontSize: () => appSettingsState.values.scriptEditorFontSize,
       onDidChangeModelContent: () => {
         if (isApplyingModel || !currentBoundTabId) return;
         const model = editorInstance?.getModel();
@@ -685,6 +689,14 @@
     validateTimer = null;
     monacoRuntime?.dispose();
     monacoRuntime = null;
+  });
+
+  $effect(() => {
+    const fontSize = normalizeScriptEditorFontSize(appSettingsState.values.scriptEditorFontSize);
+    if (!isMonacoReady || !editorInstance) return;
+    if (fontSize === lastAppliedDefaultFontSize) return;
+    lastAppliedDefaultFontSize = fontSize;
+    untrack(() => editorInstance?.updateOptions({ fontSize }));
   });
 
   $effect(() => {

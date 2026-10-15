@@ -1,4 +1,5 @@
 import type { editor as MonacoEditor } from 'monaco-editor';
+import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, normalizeScriptEditorFontSize } from './fontPreferences';
 
 export type ScriptMonacoModule = typeof import('$lib/features/script-editor/monaco/setup');
 export type ScriptMonacoApi = typeof import('monaco-editor');
@@ -12,16 +13,13 @@ export type ScriptMonacoRuntime = {
 };
 
 const FONT_ZOOM_STEP = 1;
-const FONT_ZOOM_MIN = 8;
-const FONT_ZOOM_MAX = 32;
-
-export function attachFontZoomActions(editor: MonacoEditor.IStandaloneCodeEditor, monaco: ScriptMonacoApi) {
+export function attachFontZoomActions(editor: MonacoEditor.IStandaloneCodeEditor, monaco: ScriptMonacoApi, getDefaultFontSize?: () => number) {
   const { KeyMod, KeyCode } = monaco;
   const baseFontSize = editor.getOption(monaco.editor.EditorOption.fontSize) as number;
 
   function setFontZoom(delta: number) {
     const current = editor.getOption(monaco.editor.EditorOption.fontSize) as number;
-    const next = Math.min(FONT_ZOOM_MAX, Math.max(FONT_ZOOM_MIN, current + delta));
+    const next = normalizeScriptEditorFontSize(current + delta);
     editor.updateOptions({ fontSize: next });
   }
 
@@ -42,12 +40,22 @@ export function attachFontZoomActions(editor: MonacoEditor.IStandaloneCodeEditor
       id: 'dataeditory.fontZoomReset',
       label: 'Reset Font Size',
       keybindings: [KeyMod.CtrlCmd | KeyCode.Numpad0, KeyMod.CtrlCmd | KeyCode.Digit0],
-      run: () => editor.updateOptions({ fontSize: baseFontSize }),
+      run: () => editor.updateOptions({ fontSize: normalizeScriptEditorFontSize(getDefaultFontSize?.() ?? baseFontSize) }),
     },
   ];
 
   const disposables = actions.map((action) => editor.addAction(action));
+  const host = editor.getContainerDomNode();
+  const onWheel = (event: WheelEvent) => {
+    if (!(event.ctrlKey || event.metaKey) || event.deltaY === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setFontZoom(event.deltaY < 0 ? FONT_ZOOM_STEP : -FONT_ZOOM_STEP);
+  };
+  // Capture before Monaco scrolls or the webview zooms the entire page.
+  host.addEventListener('wheel', onWheel, { capture: true, passive: false });
   return () => {
+    host.removeEventListener('wheel', onWheel, true);
     for (const d of disposables) d.dispose();
   };
 }
@@ -74,14 +82,15 @@ export function attachSnippetTabNavigation(editor: MonacoEditor.IStandaloneCodeE
   return () => disposables.forEach((disposable) => disposable.dispose());
 }
 
-export function buildScriptEditorMonacoOptions() {
+export function buildScriptEditorMonacoOptions(fontSize = DEFAULT_SCRIPT_EDITOR_FONT_SIZE) {
   return {
     automaticLayout: true,
     contextmenu: false,
     links: false,
     minimap: { enabled: false },
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: normalizeScriptEditorFontSize(fontSize),
+    // Monaco treats values below 8 as a ratio, so spacing follows every font-size change.
+    lineHeight: 22 / DEFAULT_SCRIPT_EDITOR_FONT_SIZE,
     lineNumbersMinChars: 3,
     scrollBeyondLastLine: false,
     wordWrap: 'on' as const,
@@ -101,6 +110,7 @@ export function buildScriptEditorMonacoOptions() {
     },
     hover: {
       above: true,
+      delay: 0,
     },
     padding: {
       top: 0,
@@ -111,6 +121,7 @@ export function buildScriptEditorMonacoOptions() {
 
 export async function createScriptMonacoRuntime(input: {
   host: HTMLDivElement;
+  getDefaultFontSize?: () => number;
   onDidChangeModelContent: () => void;
   onDidChangeCursorPosition: () => void;
   onDidChangeCursorSelection: () => void;
@@ -125,11 +136,14 @@ export async function createScriptMonacoRuntime(input: {
   const loadedModule = await import('$lib/features/script-editor/monaco/setup');
   const loadedMonaco = await loadedModule.loadMonaco();
 
-  const editor = loadedMonaco.editor.create(input.host, buildScriptEditorMonacoOptions());
+  const editor = loadedMonaco.editor.create(input.host, buildScriptEditorMonacoOptions(input.getDefaultFontSize?.()));
   const callHighlightDecorations = editor.createDecorationsCollection();
-  const disposeFontZoom = attachFontZoomActions(editor, loadedMonaco);
+  const disposeFontZoom = attachFontZoomActions(editor, loadedMonaco, input.getDefaultFontSize);
   const disposeSnippetTabNavigation = attachSnippetTabNavigation(editor, loadedMonaco);
   const disposables = [
+    editor.onDidChangeConfiguration((event) => {
+      if (event.hasChanged(loadedMonaco.editor.EditorOption.fontInfo)) input.onDidScrollChange();
+    }),
     editor.onDidChangeModelContent(input.onDidChangeModelContent),
     editor.onDidChangeCursorPosition(input.onDidChangeCursorPosition),
     editor.onDidChangeCursorSelection(input.onDidChangeCursorSelection),

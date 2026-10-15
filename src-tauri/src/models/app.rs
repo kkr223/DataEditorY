@@ -4,6 +4,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+pub(crate) const DEFAULT_SCRIPT_EDITOR_FONT_SIZE: u32 = 14;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -18,6 +19,7 @@ pub(crate) struct PersistedAppSettings {
     pub(crate) use_external_script_editor: bool,
     pub(crate) save_script_image_to_local: bool,
     pub(crate) auto_complete_function_parameters: bool,
+    pub(crate) script_editor_font_size: u32,
     pub(crate) package_include_patterns: Vec<String>,
     pub(crate) shortcut_bindings: HashMap<String, String>,
     pub(crate) encrypted_secret_key: Option<String>,
@@ -36,6 +38,7 @@ impl Default for PersistedAppSettings {
             use_external_script_editor: false,
             save_script_image_to_local: false,
             auto_complete_function_parameters: true,
+            script_editor_font_size: DEFAULT_SCRIPT_EDITOR_FONT_SIZE,
             package_include_patterns: DEFAULT_PACKAGE_INCLUDE_PATTERNS
                 .iter()
                 .map(|item| item.to_string())
@@ -59,6 +62,7 @@ pub(crate) struct AppSettingsPayload {
     pub(crate) use_external_script_editor: bool,
     pub(crate) save_script_image_to_local: bool,
     pub(crate) auto_complete_function_parameters: bool,
+    pub(crate) script_editor_font_size: u32,
     pub(crate) package_include_patterns: Vec<String>,
     pub(crate) shortcut_bindings: HashMap<String, String>,
     pub(crate) has_secret_key: bool,
@@ -79,6 +83,7 @@ pub(crate) struct SaveAppSettingsRequest {
     pub(crate) use_external_script_editor: Option<bool>,
     pub(crate) save_script_image_to_local: Option<bool>,
     pub(crate) auto_complete_function_parameters: Option<bool>,
+    pub(crate) script_editor_font_size: Option<u32>,
     pub(crate) package_include_patterns: Option<Vec<String>>,
     pub(crate) shortcut_bindings: Option<HashMap<String, String>>,
     pub(crate) secret_key: Option<String>,
@@ -171,5 +176,15 @@ mod tests {
         let settings: PersistedAppSettings = serde_json::from_str("{}").unwrap();
         assert!(settings.auto_complete_function_parameters);
         assert_eq!(settings.agent_max_steps, DEFAULT_AI_MAX_STEPS);
+        assert_eq!(settings.script_editor_font_size, 14);
+    }
+
+    #[test]
+    fn editor_font_preference_survives_settings_round_trip() {
+        let settings: PersistedAppSettings =
+            serde_json::from_str(r#"{"scriptEditorFontSize":20}"#).unwrap();
+        let stored = serde_json::to_string(&settings).unwrap();
+        let restored: PersistedAppSettings = serde_json::from_str(&stored).unwrap();
+        assert_eq!(restored.script_editor_font_size, 20);
     }
 }

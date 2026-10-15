@@ -6,7 +6,8 @@ use tauri::{AppHandle, Manager};
 use crate::{
     AppSettingsPayload, PersistedAppSettings, CUSTOM_COVER_FILE_NAME, DEFAULT_AI_MAX_STEPS,
     DEFAULT_AI_MODEL, DEFAULT_AI_TEMPERATURE, DEFAULT_PACKAGE_INCLUDE_PATTERNS,
-    DEFAULT_SCRIPT_TEMPLATE, ERROR_LOG_FILE_NAME, LOGS_DIR_NAME, SETTINGS_FILE_NAME,
+    DEFAULT_SCRIPT_EDITOR_FONT_SIZE, DEFAULT_SCRIPT_TEMPLATE, ERROR_LOG_FILE_NAME, LOGS_DIR_NAME,
+    SETTINGS_FILE_NAME,
 };
 
 const LEGACY_DEFAULT_PACKAGE_INCLUDE_PATTERNS: &[&str] = &[
@@ -72,6 +73,8 @@ pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSet
     settings.shortcut_bindings = normalize_shortcut_bindings(Some(settings.shortcut_bindings));
     settings.temperature = normalize_temperature(Some(settings.temperature));
     settings.agent_max_steps = normalize_agent_max_steps(Some(settings.agent_max_steps));
+    settings.script_editor_font_size =
+        normalize_script_editor_font_size(Some(settings.script_editor_font_size));
 
     Ok(settings)
 }
@@ -126,6 +129,12 @@ pub(crate) fn normalize_temperature(value: Option<f64>) -> f64 {
 
 pub(crate) fn normalize_agent_max_steps(value: Option<u32>) -> u32 {
     value.unwrap_or(DEFAULT_AI_MAX_STEPS).clamp(1, 200)
+}
+
+pub(crate) fn normalize_script_editor_font_size(value: Option<u32>) -> u32 {
+    value
+        .unwrap_or(DEFAULT_SCRIPT_EDITOR_FONT_SIZE)
+        .clamp(8, 32)
 }
 
 pub(crate) fn normalize_package_include_patterns(value: Option<Vec<String>>) -> Vec<String> {
@@ -184,6 +193,9 @@ pub(crate) fn to_settings_payload(
         use_external_script_editor: settings.use_external_script_editor,
         save_script_image_to_local: settings.save_script_image_to_local,
         auto_complete_function_parameters: settings.auto_complete_function_parameters,
+        script_editor_font_size: normalize_script_editor_font_size(Some(
+            settings.script_editor_font_size,
+        )),
         package_include_patterns: normalize_package_include_patterns(Some(
             settings.package_include_patterns,
         )),
@@ -235,6 +247,10 @@ mod tests {
         assert_eq!(normalize_agent_max_steps(None), DEFAULT_AI_MAX_STEPS);
         assert_eq!(normalize_agent_max_steps(Some(0)), 1);
         assert_eq!(normalize_agent_max_steps(Some(500)), 200);
+        assert_eq!(normalize_script_editor_font_size(None), 14);
+        assert_eq!(normalize_script_editor_font_size(Some(0)), 8);
+        assert_eq!(normalize_script_editor_font_size(Some(20)), 20);
+        assert_eq!(normalize_script_editor_font_size(Some(100)), 32);
         assert_eq!(
             normalize_script_template("line1\r\nline2".to_string()),
             "line1\nline2"

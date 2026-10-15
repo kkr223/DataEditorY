@@ -9,7 +9,7 @@ Data Transfer Objects — Rust structs for request/response serialization betwee
 ### `app.rs`
 
 App-level configuration types:
-- `AppSettings` — full settings struct (script template, AI config, package patterns, language, etc.)
+- `PersistedAppSettings` / `AppSettingsPayload` / `SaveAppSettingsRequest` — settings storage and IPC (script template, Lua editor font size, AI config, package patterns, etc.); legacy settings default to 14 px
 - `AiSettings` — AI model, URL, temperature, encrypted key
 - Path resolution helpers
 

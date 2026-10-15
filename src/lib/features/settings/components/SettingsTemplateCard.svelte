@@ -1,5 +1,6 @@
 <script lang="ts">
   import { disableAutofill } from '$lib/actions/disableAutofill';
+  import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, SCRIPT_EDITOR_FONT_SIZE_MIN, SCRIPT_EDITOR_FONT_SIZE_MAX } from '$lib/features/script-editor/fontPreferences';
 
   export let title = '';
   export let description = '';
@@ -10,6 +11,10 @@
   export let saveScriptImageToLocalHint = '';
   export let autoCompleteFunctionParametersLabel = '';
   export let autoCompleteFunctionParametersHint = '';
+  export let fontSizeLabel = '';
+  export let fontSizeHint = '';
+  export let scriptEditorFontSize = DEFAULT_SCRIPT_EDITOR_FONT_SIZE;
+  export let onFontSizeChange: (value: number) => void = () => {};
   export let scriptDirectoryLabel = '';
   export let scriptDirectoryHint = '';
   export let scriptTemplate = '';
@@ -62,6 +67,13 @@
     <span>{autoCompleteFunctionParametersLabel}</span>
   </label>
   <small class="sp-hint sp-switch-hint">{autoCompleteFunctionParametersHint}</small>
+  <label class="sp-field">
+    <span>{fontSizeLabel}</span>
+    <input type="number" min={SCRIPT_EDITOR_FONT_SIZE_MIN} max={SCRIPT_EDITOR_FONT_SIZE_MAX} step="1"
+      value={scriptEditorFontSize}
+      oninput={(event) => onFontSizeChange(event.currentTarget.valueAsNumber)} />
+  </label>
+  <small class="sp-hint">{fontSizeHint}</small>
   <label class="sp-field">
     <span>{scriptDirectoryLabel}</span>
     <input
