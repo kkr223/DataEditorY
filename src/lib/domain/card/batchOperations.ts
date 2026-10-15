@@ -1,4 +1,5 @@
 import type { CardDataEntry } from '$lib/types';
+import { toPersistableCard } from './draft';
 
 export type BatchOperationGroup = {
   id: string;
@@ -34,16 +35,31 @@ export function normalizeBatchFieldValue(
 }
 
 function applyFieldOperation(card: CardDataEntry, operation: BatchFieldOperation) {
-  return {
+  const next = {
     ...card,
-    [operation.field]: normalizeBatchFieldValue(operation.field, operation.value),
     setcode: [...card.setcode],
     strings: [...card.strings],
+    [operation.field]: normalizeBatchFieldValue(operation.field, operation.value),
   } as CardDataEntry;
+  // Alias and rule code share one CDB column; the edited value must take precedence.
+  if (operation.field === 'alias') next.ruleCode = 0;
+  if (operation.field === 'ruleCode') next.alias = 0;
+  return toPersistableCard(next);
 }
 
 function isChanged(left: CardDataEntry, right: CardDataEntry) {
-  return JSON.stringify(left) !== JSON.stringify(right);
+  const storedFields = (card: CardDataEntry) => ({ ...card, alias: card.alias || card.ruleCode, ruleCode: 0 });
+  return JSON.stringify(storedFields(left)) !== JSON.stringify(storedFields(right));
+}
+
+function normalizeBatchCard(card: CardDataEntry) {
+  const next = toPersistableCard(card);
+  return {
+    ...next,
+    setcode: next.setcode.filter(Boolean).slice(0, 4),
+    defense: next.type & 0x4000000 ? 0 : next.defense,
+    linkMarker: next.type & 0x4000000 ? next.linkMarker : 0,
+  };
 }
 
 export function compileBatchOperationChanges(
@@ -51,13 +67,13 @@ export function compileBatchOperationChanges(
   groups: BatchOperationGroup[],
   operations: BatchFieldOperation[],
 ) {
-  const cardsById = new Map(cards.map((card) => [card.code, card]));
+  const cardsById = new Map(cards.map((card) => [card.code, normalizeBatchCard(card)]));
   const groupsById = new Map(groups.map((group) => [group.id, group]));
   const nextById = new Map<number, CardDataEntry>();
 
   for (const operation of operations) {
     const group = groupsById.get(operation.groupId);
-    if (!group) continue;
+    if (!group) throw new Error(`Unknown card group: ${operation.groupId}`);
 
     for (const cardId of group.cardIds) {
       const base = nextById.get(cardId) ?? cardsById.get(cardId);
@@ -66,7 +82,7 @@ export function compileBatchOperationChanges(
     }
   }
 
-  return [...nextById.values()].filter((card) => {
+  return [...nextById.values()].map(normalizeBatchCard).filter((card) => {
     const original = cardsById.get(card.code);
     return original ? isChanged(original, card) : false;
   });
