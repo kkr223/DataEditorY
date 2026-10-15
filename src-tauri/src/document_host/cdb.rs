@@ -7,8 +7,8 @@ use serde_json::{json, to_value, Value};
 
 use crate::{
     models::cdb::CardDto,
-    services::{cdb_cards, cdb_session},
-    session::cdb::OpenCdbSessions,
+    services::{assets::CardAssetIdChange, cdb_cards, cdb_session},
+    session::cdb::{with_session_meta, OpenCdbSessions},
 };
 
 use super::{
@@ -16,10 +16,13 @@ use super::{
     search::compile_search,
 };
 
+#[derive(Clone)]
 enum UndoEntry {
     Upsert {
         affected_ids: Vec<u32>,
         previous_cards: Vec<Option<CardDto>>,
+        asset_change: Option<CardAssetIdChange>,
+        id_change: Option<Value>,
     },
     Delete {
         cards: Vec<CardDto>,
@@ -28,21 +31,55 @@ enum UndoEntry {
 
 pub struct DocumentHostState {
     undo: Mutex<HashMap<String, VecDeque<UndoEntry>>>,
+    pending_assets: Mutex<HashMap<String, Vec<(CardAssetIdChange, bool)>>>,
 }
 
 impl DocumentHostState {
     pub fn new() -> Self {
         Self {
             undo: Mutex::new(HashMap::new()),
+            pending_assets: Mutex::new(HashMap::new()),
         }
     }
 
-    pub fn clear(&self, document_id: &str) {
+    pub fn clear(&self, document_id: &str) -> Result<(), String> {
+        let mut pending = self
+            .pending_assets
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(changes) = pending.get_mut(document_id) {
+            while let Some((assets, applied)) = changes.last() {
+                if *applied {
+                    assets.rollback()?;
+                } else {
+                    assets.reapply()?;
+                }
+                changes.pop();
+            }
+        }
+        pending.remove(document_id);
         let mut undo = self
             .undo
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         undo.remove(document_id);
+        Ok(())
+    }
+
+    fn record_asset_change(&self, document_id: &str, change: CardAssetIdChange, applied: bool) {
+        self.pending_assets
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .entry(document_id.to_string())
+            .or_default()
+            .push((change, applied));
+    }
+
+    fn commit_asset_changes(&self, document_id: &str) {
+        self.pending_assets
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .remove(document_id);
     }
 }
 
@@ -143,6 +180,7 @@ pub fn execute(
     document_id: String,
     command: CardCollectionCommand,
 ) -> Result<ProviderCommandResult, String> {
+    let mut value = None;
     match command {
         CardCollectionCommand::Upsert { cards } => {
             let affected_ids = cards.iter().map(|card| card.code).collect::<Vec<_>>();
@@ -176,6 +214,8 @@ pub fn execute(
                 UndoEntry::Upsert {
                     affected_ids,
                     previous_cards,
+                    asset_change: None,
+                    id_change: None,
                 },
             );
         }
@@ -199,6 +239,7 @@ pub fn execute(
         CardCollectionCommand::ReplaceCardId {
             card,
             original_card_id,
+            remove_original,
         } => {
             if card.code == original_card_id {
                 return Err("Replacement card ID must differ from the original ID".to_string());
@@ -219,27 +260,48 @@ pub fn execute(
                 .iter()
                 .map(|card_id| previous_by_id.get(card_id).cloned())
                 .collect::<Vec<_>>();
-            cdb_cards::undo_modify_operation(
+            let cdb_path =
+                with_session_meta(sessions, &document_id, |session| Ok(session.path.clone()))?;
+            let asset_change =
+                CardAssetIdChange::apply(&cdb_path, original_card_id, card.code, remove_original)?;
+            let id_change = json!({
+                "originalCardId": original_card_id,
+                "newCardId": card.code,
+                "removeOriginal": remove_original,
+                "cdbPath": cdb_path,
+            });
+            if let Err(error) = cdb_cards::undo_modify_operation(
                 sessions,
                 crate::models::cdb::UndoModifyOperationRequest {
                     tab_id: document_id.clone(),
                     cards_to_restore: vec![card],
-                    ids_to_delete: vec![original_card_id],
+                    ids_to_delete: if remove_original {
+                        vec![original_card_id]
+                    } else {
+                        vec![]
+                    },
                 },
-            )?;
+            ) {
+                asset_change.rollback()?;
+                return Err(error);
+            }
+            value = Some(json!({ "cardIdChange": id_change }));
+            state.record_asset_change(&document_id, asset_change.clone(), true);
             push_undo(
                 state,
                 document_id,
                 UndoEntry::Upsert {
                     affected_ids,
                     previous_cards,
+                    asset_change: Some(asset_change),
+                    id_change: Some(id_change),
                 },
             );
         }
     }
     Ok(ProviderCommandResult {
         changed: true,
-        value: None,
+        value,
     })
 }
 
@@ -262,48 +324,76 @@ pub fn undo(
         });
     };
 
-    match entry {
-        UndoEntry::Upsert {
-            affected_ids,
-            previous_cards,
-        } => {
-            let cards_to_restore = previous_cards.iter().flatten().cloned().collect::<Vec<_>>();
-            let ids_to_delete = affected_ids
-                .into_iter()
-                .zip(previous_cards)
-                .filter_map(|(card_id, previous)| previous.is_none().then_some(card_id))
-                .collect::<Vec<_>>();
-            cdb_cards::undo_modify_operation(
-                sessions,
-                crate::models::cdb::UndoModifyOperationRequest {
-                    tab_id: document_id,
-                    cards_to_restore,
-                    ids_to_delete,
-                },
-            )?;
+    let mut value = json!({ "undone": true });
+    let result = (|| -> Result<(), String> {
+        match entry.clone() {
+            UndoEntry::Upsert {
+                affected_ids,
+                previous_cards,
+                asset_change,
+                id_change,
+            } => {
+                let cards_to_restore = previous_cards.iter().flatten().cloned().collect::<Vec<_>>();
+                let ids_to_delete = affected_ids
+                    .into_iter()
+                    .zip(previous_cards)
+                    .filter_map(|(card_id, previous)| previous.is_none().then_some(card_id))
+                    .collect::<Vec<_>>();
+                if let Some(assets) = &asset_change {
+                    assets.rollback()?;
+                }
+                if let Err(error) = cdb_cards::undo_modify_operation(
+                    sessions,
+                    crate::models::cdb::UndoModifyOperationRequest {
+                        tab_id: document_id.clone(),
+                        cards_to_restore,
+                        ids_to_delete,
+                    },
+                ) {
+                    if let Some(assets) = &asset_change {
+                        assets.reapply()?;
+                    }
+                    return Err(error);
+                }
+                if let Some(mut change) = id_change {
+                    change["reversed"] = json!(true);
+                    value["cardIdChange"] = change;
+                }
+                if let Some(assets) = asset_change {
+                    state.record_asset_change(&document_id, assets, false);
+                }
+            }
+            UndoEntry::Delete { cards } => {
+                cdb_cards::modify_cards(
+                    sessions,
+                    crate::models::cdb::ModifyCardsRequest {
+                        tab_id: document_id.clone(),
+                        cards,
+                    },
+                )?;
+            }
         }
-        UndoEntry::Delete { cards } => {
-            cdb_cards::modify_cards(
-                sessions,
-                crate::models::cdb::ModifyCardsRequest {
-                    tab_id: document_id,
-                    cards,
-                },
-            )?;
-        }
+        Ok(())
+    })();
+    if let Err(error) = result {
+        push_undo(state, document_id, entry);
+        return Err(error);
     }
     Ok(ProviderCommandResult {
         changed: true,
-        value: Some(json!({ "undone": true })),
+        value: Some(value),
     })
 }
 
 pub fn save(
+    state: &DocumentHostState,
     sessions: &OpenCdbSessions,
     document_id: String,
     destination_uri: Option<String>,
 ) -> Result<String, String> {
-    cdb_session::save_cdb_tab_to(sessions, document_id, destination_uri)
+    let path = cdb_session::save_cdb_tab_to(sessions, document_id.clone(), destination_uri)?;
+    state.commit_asset_changes(&document_id);
+    Ok(path)
 }
 
 fn push_undo(state: &DocumentHostState, document_id: String, entry: UndoEntry) {
@@ -399,6 +489,7 @@ mod tests {
                     ..Default::default()
                 },
                 original_card_id: 100,
+                remove_original: true,
             },
         )
         .expect("replace card ID");
@@ -437,5 +528,249 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn changing_card_id_moves_or_copies_assets_and_undo_restores_them() {
+        for remove_original in [true, false] {
+            let root = make_temp_dir("card-id-assets");
+            let source_path = root.join("cards.cdb");
+            create_test_cdb(&source_path, &[(100, 1)]);
+            fs::create_dir_all(root.join("pics/field")).unwrap();
+            fs::create_dir_all(root.join("script")).unwrap();
+            fs::write(root.join("pics/100.jpg"), b"main image").unwrap();
+            fs::write(root.join("pics/field/100.png"), b"field image").unwrap();
+            fs::write(root.join("script/c100.lua"), b"-- script").unwrap();
+            let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+            open_cdb_tab_in_dir(
+                &sessions,
+                &root.join("sessions"),
+                "assets".into(),
+                source_path.to_string_lossy().into(),
+            )
+            .unwrap();
+            let state = DocumentHostState::new();
+            let result = execute(
+                &state,
+                &sessions,
+                "assets".into(),
+                CardCollectionCommand::ReplaceCardId {
+                    card: CardDto {
+                        code: 200,
+                        type_: 1,
+                        ..Default::default()
+                    },
+                    original_card_id: 100,
+                    remove_original,
+                },
+            )
+            .unwrap();
+            assert_eq!(
+                result.value.unwrap()["cardIdChange"]["removeOriginal"],
+                remove_original
+            );
+            for (old, new) in [
+                ("pics/100.jpg", "pics/200.jpg"),
+                ("pics/field/100.png", "pics/field/200.png"),
+                ("script/c100.lua", "script/c200.lua"),
+            ] {
+                assert_eq!(root.join(old).exists(), !remove_original);
+                assert!(root.join(new).is_file());
+            }
+            assert_eq!(
+                cdb_cards::get_card_by_id(&sessions, "assets".into(), 100)
+                    .unwrap()
+                    .is_some(),
+                !remove_original
+            );
+            assert!(cdb_cards::get_card_by_id(&sessions, "assets".into(), 200)
+                .unwrap()
+                .is_some());
+            let reversed = undo(&state, &sessions, "assets".into()).unwrap();
+            assert_eq!(reversed.value.unwrap()["cardIdChange"]["reversed"], true);
+            assert_eq!(fs::read(root.join("pics/100.jpg")).unwrap(), b"main image");
+            assert_eq!(
+                fs::read(root.join("pics/field/100.png")).unwrap(),
+                b"field image"
+            );
+            assert_eq!(
+                fs::read(root.join("script/c100.lua")).unwrap(),
+                b"-- script"
+            );
+            assert!(!root.join("pics/200.jpg").exists());
+            assert!(!root.join("pics/field/200.png").exists());
+            assert!(!root.join("script/c200.lua").exists());
+            assert!(cdb_cards::get_card_by_id(&sessions, "assets".into(), 100)
+                .unwrap()
+                .is_some());
+            assert!(cdb_cards::get_card_by_id(&sessions, "assets".into(), 200)
+                .unwrap()
+                .is_none());
+            let _ = fs::remove_dir_all(root);
+        }
+    }
+
+    #[test]
+    fn asset_collision_leaves_cards_and_source_assets_unchanged() {
+        let root = make_temp_dir("card-id-collision");
+        let source_path = root.join("cards.cdb");
+        create_test_cdb(&source_path, &[(100, 1)]);
+        fs::create_dir_all(root.join("pics")).unwrap();
+        fs::create_dir_all(root.join("script")).unwrap();
+        fs::write(root.join("pics/100.jpg"), b"original").unwrap();
+        fs::write(root.join("script/c100.lua"), b"original script").unwrap();
+        fs::write(root.join("script/c200.lua"), b"existing target").unwrap();
+        let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+        open_cdb_tab_in_dir(
+            &sessions,
+            &root.join("sessions"),
+            "collision".into(),
+            source_path.to_string_lossy().into(),
+        )
+        .unwrap();
+        let state = DocumentHostState::new();
+        assert!(execute(
+            &state,
+            &sessions,
+            "collision".into(),
+            CardCollectionCommand::ReplaceCardId {
+                card: CardDto {
+                    code: 200,
+                    ..Default::default()
+                },
+                original_card_id: 100,
+                remove_original: true,
+            }
+        )
+        .is_err());
+        assert_eq!(fs::read(root.join("pics/100.jpg")).unwrap(), b"original");
+        assert!(!root.join("pics/200.jpg").exists());
+        assert_eq!(
+            fs::read(root.join("script/c200.lua")).unwrap(),
+            b"existing target"
+        );
+        assert!(
+            cdb_cards::get_card_by_id(&sessions, "collision".into(), 100)
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            cdb_cards::get_card_by_id(&sessions, "collision".into(), 200)
+                .unwrap()
+                .is_none()
+        );
+        assert!(!undo(&state, &sessions, "collision".into()).unwrap().changed);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn deleting_multiple_cards_is_one_undoable_operation() {
+        let root = make_temp_dir("multi-delete");
+        let source_path = root.join("cards.cdb");
+        create_test_cdb(&source_path, &[(100, 1), (200, 1), (300, 1)]);
+        let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+        open_cdb_tab_in_dir(
+            &sessions,
+            &root.join("sessions"),
+            "delete".into(),
+            source_path.to_string_lossy().into(),
+        )
+        .unwrap();
+        let state = DocumentHostState::new();
+        execute(
+            &state,
+            &sessions,
+            "delete".into(),
+            CardCollectionCommand::Delete {
+                card_ids: vec![100, 200],
+            },
+        )
+        .unwrap();
+        for code in [100, 200] {
+            assert!(cdb_cards::get_card_by_id(&sessions, "delete".into(), code)
+                .unwrap()
+                .is_none());
+        }
+        assert!(cdb_cards::get_card_by_id(&sessions, "delete".into(), 300)
+            .unwrap()
+            .is_some());
+        undo(&state, &sessions, "delete".into()).unwrap();
+        for code in [100, 200, 300] {
+            assert!(cdb_cards::get_card_by_id(&sessions, "delete".into(), code)
+                .unwrap()
+                .is_some());
+        }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn discarding_workspace_restores_asset_names_to_the_last_saved_card_id() {
+        for remove_original in [true, false] {
+            for saved in [true, false] {
+                for undone in [true, false] {
+                    let root = make_temp_dir("card-id-discard");
+                    let source_path = root.join("cards.cdb");
+                    create_test_cdb(&source_path, &[(100, 1)]);
+                    fs::create_dir_all(root.join("pics")).unwrap();
+                    fs::write(root.join("pics/100.jpg"), b"image").unwrap();
+                    let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+                    open_cdb_tab_in_dir(
+                        &sessions,
+                        &root.join("sessions"),
+                        "discard".into(),
+                        source_path.to_string_lossy().into(),
+                    )
+                    .unwrap();
+                    let state = DocumentHostState::new();
+                    execute(
+                        &state,
+                        &sessions,
+                        "discard".into(),
+                        CardCollectionCommand::ReplaceCardId {
+                            card: CardDto {
+                                code: 200,
+                                ..Default::default()
+                            },
+                            original_card_id: 100,
+                            remove_original,
+                        },
+                    )
+                    .unwrap();
+                    if saved {
+                        save(&state, &sessions, "discard".into(), None).unwrap();
+                    }
+                    if undone {
+                        undo(&state, &sessions, "discard".into()).unwrap();
+                    }
+                    state.clear("discard").unwrap();
+                    assert_eq!(
+                        root.join("pics/100.jpg").exists(),
+                        !saved || !remove_original
+                    );
+                    assert_eq!(root.join("pics/200.jpg").exists(), saved);
+                    cdb_session::close_cdb_tab(&sessions, "discard".into()).unwrap();
+                    open_cdb_tab_in_dir(
+                        &sessions,
+                        &root.join("sessions"),
+                        "reload".into(),
+                        source_path.to_string_lossy().into(),
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        cdb_cards::get_card_by_id(&sessions, "reload".into(), 100)
+                            .unwrap()
+                            .is_some(),
+                        !saved || !remove_original
+                    );
+                    assert_eq!(
+                        cdb_cards::get_card_by_id(&sessions, "reload".into(), 200)
+                            .unwrap()
+                            .is_some(),
+                        saved
+                    );
+                    let _ = fs::remove_dir_all(root);
+                }
+            }
+        }
     }
 }

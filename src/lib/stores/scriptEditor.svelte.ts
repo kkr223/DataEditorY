@@ -21,7 +21,7 @@ import {
   isScriptTabOwnedByCdb,
 } from '$lib/domain/script/tabIdentity';
 import { documentRuntime } from '$lib/platform/appRuntime';
-import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
+import { CARD_COLLECTION_TYPE, type CardIdChange } from '$lib/modules/card';
 import { createScriptDocumentSync } from '$lib/features/script-editor/documentSync';
 import { createLatestActivation } from '$lib/features/script-editor/activation';
 import {
@@ -467,6 +467,23 @@ export const closeScriptTab = async (tabId: string) => {
 export const getScriptTabsForCdb = (cdb: { tabId: string; path: string }) => (
   get(scriptTabs).filter((tab) => isScriptTabOwnedByCdb(tab, cdb))
 );
+
+export const syncScriptTabsAfterCardIdChange = (tabId: string, change: CardIdChange) => {
+  if (!change.removeOriginal) return;
+  const oldCode = change.reversed ? change.newCardId : change.originalCardId;
+  const newCode = change.reversed ? change.originalCardId : change.newCardId;
+  const ownedTabs = getScriptTabsForCdb({ tabId, path: change.cdbPath });
+  for (const tab of ownedTabs.filter((tab) => tab.cardCode === oldCode)) {
+    const scriptPath = tab.scriptPath.replace(/c\d+\.lua$/i, buildScriptFileName(newCode));
+    attachScriptMetadata(tab.id, {
+      cdbPath: tab.cdbPath, sourceTabId: tab.sourceTabId, cardCode: newCode,
+      cardName: tab.cardName, createdFromTemplate: tab.createdFromTemplate,
+    });
+    documentRuntime.relocateSource(tab.id, {
+      uri: scriptPath, path: scriptPath, name: buildScriptFileName(newCode),
+    });
+  }
+};
 
 export const closeScriptTabsForCdb = async (cdb: { tabId: string; path: string }) => {
   for (const [controller, ownerId] of pendingScriptOpens) {

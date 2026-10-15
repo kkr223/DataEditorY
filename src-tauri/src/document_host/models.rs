@@ -127,7 +127,13 @@ pub enum CardCollectionCommand {
     ReplaceCardId {
         card: CardDto,
         original_card_id: u32,
+        #[serde(default = "default_remove_original")]
+        remove_original: bool,
     },
+}
+
+fn default_remove_original() -> bool {
+    true
 }
 
 #[derive(Debug, Deserialize)]
@@ -319,8 +325,8 @@ mod tests {
         .expect("replace card id command should deserialize");
         assert!(matches!(
             replace,
-            CardCollectionCommand::ReplaceCardId { card, original_card_id }
-                if card.code == 200 && original_card_id == 100
+            CardCollectionCommand::ReplaceCardId { card, original_card_id, remove_original }
+                if card.code == 200 && original_card_id == 100 && remove_original
         ));
     }
 }

@@ -395,7 +395,7 @@
   async function handleDelete() {
     const tabId = $activeTabId;
     if (!$isDbLoaded || !tabId || originalCardCode === null) return;
-    await deleteDraftCardFlow({ tabId, originalCardCode, t: (key, options) => $_(key, options as never), resetDraftCard: lifecycleController.resetDraftCard, clearSelection, handleSearch });
+    await deleteDraftCardFlow({ tabId, originalCardCode, selectedCardIds: [...editorState.selectedIds], t: (key, options) => $_(key, options as never), resetDraftCard: lifecycleController.resetDraftCard, clearSelection, handleSearch });
   }
 
   function handleNewCard() {

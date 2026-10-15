@@ -1,6 +1,6 @@
 declare module 'bun:test' {
   export function describe(name: string, fn: () => void | Promise<void>): void;
-  export function test(name: string, fn: () => void | Promise<void>): void;
+  export function test(name: string, fn: () => void | Promise<void>, timeout?: number): void;
   export function expect<T = unknown>(value: T): {
     toBe(expected: unknown): void;
     toEqual(expected: unknown): void;

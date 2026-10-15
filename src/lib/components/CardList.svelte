@@ -694,6 +694,7 @@
   .data-table td { padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--border-color); }
   .data-table tbody tr:not(.virtual-spacer) { height: 30px; }
   .data-table tbody tr.virtual-spacer td { padding: 0; border-bottom: none; }
+  .data-table tbody { user-select: none; -webkit-user-select: none; }
   .data-table tbody tr { cursor: pointer; transition: background-color 0.1s; }
   .data-table tbody tr:hover { background-color: var(--bg-surface-hover); }
   .data-table tbody tr.selected { background-color: rgba(59, 130, 246, 0.15); border-left: 2px solid var(--accent-primary); }

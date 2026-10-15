@@ -93,11 +93,13 @@ pub fn provider_execute(
 
 #[tauri::command]
 pub fn provider_save(
+    host: State<'_, DocumentHostState>,
     sessions: State<'_, OpenCdbSessions>,
     request: ProviderSaveRequest,
 ) -> Result<ProviderSaveResponse, String> {
     require_cdb_provider(&request.provider_id)?;
     let source_uri = cdb::save(
+        host.inner(),
         sessions.inner(),
         request.document_id,
         request.destination_uri,
@@ -122,7 +124,7 @@ pub fn provider_close(
     request: ProviderDocumentRequest,
 ) -> Result<(), String> {
     require_cdb_provider(&request.provider_id)?;
-    host.clear(&request.document_id);
+    host.clear(&request.document_id)?;
     cdb_session::close_cdb_tab(sessions.inner(), request.document_id)
 }
 

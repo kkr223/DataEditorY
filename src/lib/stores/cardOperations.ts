@@ -4,6 +4,7 @@ import { documentRuntime } from '$lib/platform/appRuntime';
 import type {
   CardCollectionCommand,
   CardCollectionQuery,
+  CardIdChangeResult,
 } from '$lib/modules/card';
 import { cloneCard } from './cardUtils';
 import { clearSourceFilterCacheForTab, refreshCachedSearchForTab } from './search';
@@ -96,19 +97,25 @@ export async function replaceCardIdInTab(
   card: CardDataEntry,
   originalCardId: number,
   refreshCachedSearch = true,
+  removeOriginal = true,
 ): Promise<boolean> {
   const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab || card.code === originalCardId) return false;
 
   try {
-    await documentRuntime.execute(
+    const result = await documentRuntime.execute<CardIdChangeResult>(
       tab.id,
       {
         kind: 'replaceCardId',
         card: cloneCard(card),
         originalCardId,
+        removeOriginal,
       } satisfies CardCollectionCommand,
     );
+    if (result.value?.cardIdChange) {
+      const { syncScriptTabsAfterCardIdChange } = await import('./scriptEditor.svelte');
+      syncScriptTabsAfterCardIdChange(tab.id, result.value.cardIdChange);
+    }
     recordUndoLabel(tab.id, `Change card ID ${originalCardId} to ${card.code}`);
     clearSourceFilterCacheForTab(tab.id);
     if (refreshCachedSearch) {

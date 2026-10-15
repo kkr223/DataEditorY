@@ -4,7 +4,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { consumePendingOpenCdbPaths } from '$lib/native/cdbApi';
 import {
-  deleteCardsInTab,
   getCardsByIdsInTab,
   getLastUndoLabel,
   hasUndoableAction,
@@ -35,6 +34,7 @@ import {
   setSelectedCards,
 } from '$lib/stores/editor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
+import { deleteDraftCardFlow } from '$lib/features/card-editor/useCases';
 import { dispatchAppShortcut } from '$lib/utils/shortcuts';
 import { isExpectedCancellationError, writeErrorLog } from '$lib/utils/errorLog';
 import {
@@ -304,28 +304,15 @@ export function createShellLayoutController() {
       return;
     }
 
-    const confirmed = await tauriBridge.ask(
-      String(get(_)('editor.delete_selected_confirm', {
-        values: { count: String(selectedIds.length) },
-      } as never)),
-      {
-        title: String(get(_)('editor.delete_selected_title')),
-        kind: 'warning',
-      },
-    );
-
-    if (!confirmed) return;
-
-    const ok = await deleteCardsInTab(mutationTabId, selectedIds, false);
-    if (!ok) {
-      showToast(String(get(_)('editor.delete_failed')), 'error');
-      return;
-    }
-
-    await refreshSearchAfterMutation(mutationTabId, () => handleSearch());
-    showToast(String(get(_)('editor.cards_deleted', {
-      values: { count: String(selectedIds.length) },
-    } as never)), 'success');
+    await deleteDraftCardFlow({
+      tabId: mutationTabId,
+      originalCardCode: null,
+      selectedCardIds: selectedIds,
+      t: (key, options) => String(get(_)(key, options as never)),
+      resetDraftCard: () => dispatchAppShortcut('new-card'),
+      clearSelection,
+      handleSearch,
+    });
   }
 
   async function handleUndoLastOperation() {

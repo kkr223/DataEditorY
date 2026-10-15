@@ -208,7 +208,7 @@ export async function closeWorkspaceDocument(id: string) {
   }
 
   await closeScriptTabsForCdb({ tabId: id, path: dbTab.path });
-  await closeTab(id);
+  if (!(await closeTab(id))) return false;
   await tick();
   clearWorkspaceCardDraft(id);
   clearWorkspaceLifecycleMetadata(id);

@@ -66,12 +66,11 @@ export async function saveDraftCardFlow(input: {
   nextCard.code = targetCode;
   const dbCard = toPersistableDraftCard(nextCard);
 
-  const shouldReplaceId = input.removeOriginal
-    && input.originalCardCode !== null
+  const shouldReplaceId = input.originalCardCode !== null
     && input.originalCardCode !== targetCode;
   const mutationTabId = input.tabId;
   const ok = shouldReplaceId
-    ? await replaceCardIdInTab(mutationTabId, dbCard, input.originalCardCode as number, false)
+    ? await replaceCardIdInTab(mutationTabId, dbCard, input.originalCardCode as number, false, !!input.removeOriginal)
     : await modifyCardsInTab(mutationTabId, [dbCard], false);
   if (!ok) {
     showToast(input.t('editor.save_failed'), 'error');
@@ -174,29 +173,34 @@ export async function saveAsDraftCardFlow(input: {
 export async function deleteDraftCardFlow(input: {
   tabId: string;
   originalCardCode: number | null;
+  selectedCardIds?: number[];
   t: Translate;
   resetDraftCard: () => void;
   clearSelection: () => void;
   handleSearch: (preserveSelection?: boolean) => Promise<boolean>;
 }) {
-  if (input.originalCardCode === null) return;
+  const cardIds = [...new Set(input.selectedCardIds?.length
+    ? input.selectedCardIds
+    : input.originalCardCode === null ? [] : [input.originalCardCode])];
+  if (cardIds.length === 0) return;
+  const multiple = cardIds.length > 1;
 
   const confirmed = await tauriBridge.ask(
-    input.t('editor.delete_confirm', {
-      values: { code: String(input.originalCardCode) },
+    input.t(multiple ? 'editor.delete_selected_confirm' : 'editor.delete_confirm', {
+      values: { code: String(cardIds[0]), count: String(cardIds.length) },
     }),
     {
-      title: input.t('editor.delete_confirm_title'),
+      title: input.t(multiple ? 'editor.delete_selected_title' : 'editor.delete_confirm_title'),
       kind: 'warning',
     },
   );
   if (!confirmed) return;
 
   const mutationTabId = input.tabId;
-  if (await deleteCardsInTab(mutationTabId, [input.originalCardCode], false)) {
+  if (await deleteCardsInTab(mutationTabId, cardIds, false)) {
     showToast(
-      input.t('editor.card_deleted', {
-        values: { code: String(input.originalCardCode) },
+      input.t(multiple ? 'editor.cards_deleted' : 'editor.card_deleted', {
+        values: { code: String(cardIds[0]), count: String(cardIds.length) },
       }),
       'success',
     );
@@ -205,6 +209,8 @@ export async function deleteDraftCardFlow(input: {
       input.clearSelection();
       input.resetDraftCard();
     }
+  } else {
+    showToast(input.t('editor.delete_failed'), 'error');
   }
 }
 

@@ -25,11 +25,12 @@ class ScriptProvider extends MemoryDocumentProvider {
   }
 }
 let getInfo = async (_path: string, code: number) => ({ exists: true, path: `script/c${code}.lua` });
+const writtenPaths: string[] = [];
 const runtime = new DocumentRuntime([
   cardModule, { ...luaModule, providers: luaModule.providers?.map((provider) => ({ ...provider, create: () => new ScriptProvider() })) },
   { id: 'test-cdb', providers: [{ id: 'test-cdb', typeIds: [CARD_COLLECTION_TYPE], create: () => new MemoryDocumentProvider() }] },
 ], {
-  readText: () => readText(), writeText: async () => {},
+  readText: () => readText(), writeText: async (path) => { writtenPaths.push(path); },
   readBinary: async () => new Uint8Array(), writeBinary: async () => {},
 });
 const tabs = writable<CdbTab[]>([]);
@@ -139,4 +140,35 @@ test('an uncancelled template open still saves and activates its script', async 
     expect(get(scripts.scriptTabs)[0].isDirty).toBe(false);
     await closeCdb(input);
   } finally { getInfo = original; }
+});
+
+test('moving a card ID retargets an open script and preserves its unsaved buffer', async () => {
+  const input = await createCdb();
+  const scriptId = await scripts.openExistingScriptTab(input);
+  if (!scriptId) throw new Error('Expected script');
+  scripts.updateScriptTabContent(scriptId, '-- unsaved');
+  const change = { originalCardId: 1, newCardId: 2, removeOriginal: true, cdbPath: input.cdbPath };
+  scripts.syncScriptTabsAfterCardIdChange(input.sourceTabId, change);
+  expect(get(scripts.scriptTabs)[0].cardCode).toBe(2);
+  expect(get(scripts.scriptTabs)[0].content).toBe('-- unsaved');
+  expect(get(scripts.scriptTabs)[0].isDirty).toBe(true);
+  expect(runtime.getDocument(scriptId)?.source?.path).toBe('script/c2.lua');
+  writtenPaths.length = 0;
+  await scripts.saveScriptTab(scriptId);
+  expect(writtenPaths).toEqual(['script/c2.lua']);
+  scripts.syncScriptTabsAfterCardIdChange(input.sourceTabId, { ...change, reversed: true });
+  expect(get(scripts.scriptTabs)[0].cardCode).toBe(1);
+  expect(runtime.getDocument(scriptId)?.source?.path).toBe('script/c1.lua');
+  await closeCdb(input);
+});
+
+test('copying a card ID keeps its original open script at the original path', async () => {
+  const input = await createCdb();
+  const scriptId = await scripts.openExistingScriptTab(input);
+  scripts.syncScriptTabsAfterCardIdChange(input.sourceTabId, {
+    originalCardId: 1, newCardId: 2, removeOriginal: false, cdbPath: input.cdbPath,
+  });
+  expect(get(scripts.scriptTabs)[0].cardCode).toBe(1);
+  expect(runtime.getDocument(scriptId!)?.source?.path).toBe('script/c1.lua');
+  await closeCdb(input);
 });

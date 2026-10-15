@@ -20,7 +20,7 @@ Rust Business Services — service functions implementing CDB sessions, metadata
 | `settings.rs` | App settings: load/save JSON settings, API key encryption/decryption, cover image management |
 | `crypto.rs` | AES-GCM encryption for API keys with machine-specific key derivation |
 | `logging.rs` | Error log file management |
-| `assets.rs` | Resource path resolution for bundled assets |
+| `assets.rs` | CDB resource paths, asset copying, and reversible card-ID image/script migration |
 | `app_config.rs` | App configuration paths and directory resolution |
 
 ## Design Patterns

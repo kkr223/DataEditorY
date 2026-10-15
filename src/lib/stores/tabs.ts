@@ -192,17 +192,18 @@ export async function createCdbFile(path?: string): Promise<string | null> {
 }
 
 export async function closeTab(tabId: string) {
-  if (!get(tabs).some((tab) => tab.id === tabId)) return;
+  if (!get(tabs).some((tab) => tab.id === tabId)) return false;
 
   try {
     await documentRuntime.close(tabId, true);
   } catch (err) {
     console.error('Failed to close CDB tab:', err);
-    return;
+    return false;
   }
 
   clearUndoHistory(tabId);
   clearSourceFilterCacheForTab(tabId);
+  return true;
 }
 
 export async function saveCdbFile(): Promise<boolean> {
@@ -325,6 +326,12 @@ export async function undoLastOperationInTab(tabId: string, refreshCachedSearch 
   try {
     const result = await documentRuntime.undo(tab.id);
     if (!result.changed) return false;
+
+    const change = (result.value as import('$lib/modules/card').CardIdChangeResult | undefined)?.cardIdChange;
+    if (change) {
+      const { syncScriptTabsAfterCardIdChange } = await import('./scriptEditor.svelte');
+      syncScriptTabsAfterCardIdChange(tab.id, change);
+    }
 
     popUndoLabel(tab.id);
     clearSourceFilterCacheForTab(tab.id);

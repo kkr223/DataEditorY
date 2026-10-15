@@ -278,6 +278,13 @@ export class DocumentRuntime {
     this.emit();
   }
 
+  relocateSource(documentId: string, source: DocumentSource) {
+    const document = this.requireDocument(documentId);
+    document.source = { ...source };
+    document.title = source.name;
+    this.emit();
+  }
+
   patchMetadata(documentId: string, metadata: Record<string, unknown>) {
     const document = this.requireDocument(documentId);
     document.metadata = {

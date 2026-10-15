@@ -53,7 +53,17 @@ export type CardCollectionQuery =
 export type CardCollectionCommand =
   | { kind: 'upsert'; cards: CardDataEntry[] }
   | { kind: 'delete'; cardIds: number[] }
-  | { kind: 'replaceCardId'; card: CardDataEntry; originalCardId: number };
+  | { kind: 'replaceCardId'; card: CardDataEntry; originalCardId: number; removeOriginal?: boolean };
+
+export type CardIdChange = {
+  originalCardId: number;
+  newCardId: number;
+  removeOriginal: boolean;
+  cdbPath: string;
+  reversed?: boolean;
+};
+
+export type CardIdChangeResult = { cardIdChange?: CardIdChange };
 
 export type CardSearchPage = {
   cards: CardDataEntry[];
