@@ -176,10 +176,11 @@ export const hasUnsavedScriptChanges = (
 export const activateScriptTab = (
   tabId: string,
   isLatestActivation = scriptActivation.begin(),
+  canActivate: () => boolean = () => true,
 ) => {
-  if (!isLatestActivation()) return;
+  if (!isLatestActivation() || !canActivate()) return;
   const activate = () => {
-    if (!isLatestActivation()) return;
+    if (!isLatestActivation() || !canActivate()) return;
     const tab = get(scriptTabs).find((item) => item.id === tabId);
     if (!tab) return;
     if (tab.sourceTabId && !get(tabs).some((owner) => owner.id === tab.sourceTabId)) return;

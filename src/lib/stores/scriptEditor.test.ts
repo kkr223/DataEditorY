@@ -17,11 +17,17 @@ function deferred<T>() {
 }
 let readText = async () => '-- script';
 let afterQuery = async () => {};
+let afterExecute = async () => {};
 class ScriptProvider extends MemoryDocumentProvider {
   async query(id: string) {
     const value = await super.query(id);
     await afterQuery();
     return value;
+  }
+  async execute(id: string, command: unknown) {
+    const result = await super.execute(id, command);
+    await afterExecute();
+    return result;
   }
 }
 let getInfo = async (_path: string, code: number) => ({ exists: true, path: `script/c${code}.lua` });
@@ -94,6 +100,35 @@ test('background script restoration preserves active workspace', async () => {
   expect(scriptId).not.toBe(null);
   expect(get(scripts.scriptTabs)[0].content).toBe('-- script');
   await closeCdb(input);
+});
+
+test('restoring an active script cannot reactivate a workspace left during buffer synchronization', async () => {
+  const input = await createCdb();
+  const first = await scripts.openExistingScriptTab({ ...input, activate: false });
+  const second = await scripts.openExistingScriptTab({ ...input, cardCode: 2, activate: false });
+  if (!first || !second) throw new Error('Expected two scripts');
+  await scripts.activateScriptTab(first);
+  scripts.updateScriptTabContent(first, '-- pending buffer');
+  const started = deferred<void>();
+  const blocked = deferred<void>();
+  const original = afterExecute;
+  let stillCurrentWorkspace = true;
+  afterExecute = () => { started.resolve(); return blocked.promise; };
+  try {
+    const restoring = scripts.activateScriptTab(second, undefined, () => stillCurrentWorkspace);
+    await started.promise;
+    stillCurrentWorkspace = false;
+    blocked.resolve();
+    await restoring;
+    expect(get(scripts.activeScriptTabId)).toBe(first);
+    expect(get(scripts.scriptTabs).find((tab) => tab.id === first)?.content).toBe('-- pending buffer');
+    await scripts.activateScriptTab(second);
+    expect(get(scripts.activeScriptTabId)).toBe(second);
+  } finally {
+    blocked.resolve();
+    afterExecute = original;
+    await closeCdb(input);
+  }
 });
 
 test('closing during hydration cannot add a script tab back after it was disposed', async () => {

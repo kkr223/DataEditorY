@@ -21,24 +21,26 @@
   } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
   import {
     getScriptTabKey,
-    isSameCdbPath,
     isScriptTabOwnedByCdb,
   } from '$lib/domain/script/tabIdentity';
   import { getWorkspaceDocument } from '$lib/core/workspace/store.svelte';
   import { confirmWorkspaceClose } from '$lib/application/workspace/lifecycle';
   import { showToast } from '$lib/stores/toast.svelte';
 
+  let { selectionReady = false }: { selectionReady?: boolean } = $props();
+
   let isOpening = $state(false);
   let isMissingScript = $state(false);
-  let restoredPath = '';
-  let restorationCompletePath = '';
+  let restoredWorkspaceKey = $state('');
+  let restorationCompleteWorkspaceKey = $state('');
   let lastPersistedScriptKey = '';
   let lastResolvedCardKey = '';
-  let lastRestorationPath = '';
+  let lastRestorationWorkspaceKey = '';
   let restorationSequence = 0;
   let resolveSequence = 0;
   const selectedCard = $derived(getSelectedCard());
   const activeCdb = $derived($activeTab);
+  const workspaceKey = $derived(activeCdb ? JSON.stringify([activeCdb.id, activeCdb.path]) : '');
   const currentCdbScriptTabs = $derived.by(() => (
     activeCdb
       ? $scriptTabs.filter((tab) => isScriptTabOwnedByCdb(tab, { tabId: activeCdb.id, path: activeCdb.path }))
@@ -62,7 +64,7 @@
   }
 
   async function openSelectedScript() {
-    if (!activeCdb || !selectedCard || isOpening) return;
+    if (!selectionReady || !activeCdb || !selectedCard || isOpening) return;
     isOpening = true;
     try {
       await openCardScriptWorkspace({
@@ -80,18 +82,25 @@
   $effect(() => {
     const path = activeCdb?.path ?? '';
     const sourceTabId = activeCdb?.id ?? null;
-    if (path !== lastRestorationPath) {
-      lastRestorationPath = path;
+    const key = workspaceKey;
+    if (key !== lastRestorationWorkspaceKey) {
+      lastRestorationWorkspaceKey = key;
       restorationSequence += 1;
+      resolveSequence += 1;
+      lastResolvedCardKey = '';
+      isOpening = false;
+      isMissingScript = false;
     }
     const sequence = restorationSequence;
     workspaceMetadataState.ready;
     workspaceMetadataState.metadata;
-    if (!path || !sourceTabId || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restoredPath === path) {
+    if (!selectionReady || !path || !sourceTabId || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restoredWorkspaceKey === key) {
       return;
     }
 
-    restoredPath = path;
+    restoredWorkspaceKey = key;
+    const initialCardKey = selectedCard ? getScriptTabKey(path, selectedCard.code) : '';
+    const isCurrentRestoration = () => sequence === restorationSequence && workspaceKey === key && selectionReady;
     const surfaceState = getScriptSurfaceState();
     const openTabs = surfaceState?.openTabs ?? [];
     const activeCode = surfaceState?.activeCardCode ?? openTabs[0]?.cardCode ?? null;
@@ -110,28 +119,34 @@
             cardName: tab.cardName ?? '',
             activate: false,
           });
-          if (sequence !== restorationSequence || !isSameCdbPath(activeCdb?.path ?? '', path)) return;
+          if (sequence !== restorationSequence || workspaceKey !== key) return;
           if (tabId && tab.viewState) {
             setScriptTabViewState(tabId, tab.viewState);
           }
         }
 
-        if (sequence !== restorationSequence || !isSameCdbPath(activeCdb?.path ?? '', path)) return;
+        if (sequence !== restorationSequence || workspaceKey !== key) return;
         const currentActive = $activeScriptTab;
         const alreadyActive = currentActive
           && isScriptTabOwnedByCdb(currentActive, { tabId: sourceTabId, path })
           && currentCdbScriptTabs.some((tab) => tab.id === currentActive.id);
-        if (!alreadyActive && activeCode) {
-          const active = $scriptTabs.find((tab) => (
-            isScriptTabOwnedByCdb(tab, { tabId: sourceTabId, path }) && tab.cardCode === activeCode
-          ));
-          if (active) activateScriptTab(active.id);
+        const active = alreadyActive ? currentActive : $scriptTabs.find((tab) => (
+          isScriptTabOwnedByCdb(tab, { tabId: sourceTabId, path }) && tab.cardCode === activeCode
+        ));
+        if (active) {
+          await activateScriptTab(active.id, undefined, isCurrentRestoration);
+          if (!isCurrentRestoration()) return;
+          // Returning to a workspace restores its active script independently of
+          // Explorer selection. Only a subsequent card change should follow it.
+          if ((selectedCard ? getScriptTabKey(path, selectedCard.code) : '') === initialCardKey) {
+            lastResolvedCardKey = initialCardKey;
+          }
         }
       } catch (error) {
         console.error('Failed to restore script surface tabs', error);
       } finally {
-        if (sequence === restorationSequence && isSameCdbPath(activeCdb?.path ?? '', path)) {
-          restorationCompletePath = path;
+        if (sequence === restorationSequence && workspaceKey === key) {
+          restorationCompleteWorkspaceKey = key;
         }
       }
     })();
@@ -143,7 +158,7 @@
     const cardCode = selectedCard?.code ?? 0;
     const cardName = selectedCard?.name ?? '';
     const cardKey = path && cardCode ? getScriptTabKey(path, cardCode) : '';
-    if (!cardKey || !sourceTabId || restorationCompletePath !== path || lastResolvedCardKey === cardKey) {
+    if (!selectionReady || !cardKey || !sourceTabId || restorationCompleteWorkspaceKey !== workspaceKey || lastResolvedCardKey === cardKey) {
       return;
     }
 
@@ -189,7 +204,7 @@
   $effect(() => {
     const path = activeCdb?.path ?? '';
     const sourceTabId = activeCdb?.id ?? null;
-    if (!path || !sourceTabId || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restoredPath !== path) {
+    if (!selectionReady || !path || !sourceTabId || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restorationCompleteWorkspaceKey !== workspaceKey) {
       return;
     }
 
@@ -251,7 +266,7 @@
         <button
           type="button"
           class="primary-action"
-          disabled={!selectedCard || !activeCdb || isOpening}
+          disabled={!selectionReady || !selectedCard || !activeCdb || isOpening}
           onclick={() => void openSelectedScript()}
         >
           {isOpening ? '...' : $_(isMissingScript ? 'surface.create_script' : 'surface.open_script')}

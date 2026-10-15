@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Component } from 'svelte';
+  import { onDestroy } from 'svelte';
   import CardList from '$lib/components/CardList.svelte';
   import CardEditor from '$lib/components/CardEditor.svelte';
   import { activeTab } from '$lib/stores/db';
@@ -45,7 +46,10 @@
     'script',
     ...extensionSurfaces.map(({ surfaceId }) => surfaceId),
   ]);
-  let appliedMetadataPath = '';
+  let appliedMetadataPath = $state('');
+  let appliedMetadataTabId = $state('');
+  let applyingMetadataTabId = '';
+  let metadataApplySequence = 0;
   let requestedMetadataPath = '';
   let hydratedTabId = '';
   let lastPersistedUiKey = '';
@@ -57,6 +61,8 @@
   let extensionSurfaceError = $state('');
   let extensionLoadSequence = 0;
   let scriptSurfacePromise: Promise<typeof import('./ScriptSurface.svelte')> | null = null;
+
+  onDestroy(() => { metadataApplySequence += 1; });
 
   function loadScriptSurface() {
     return scriptSurfacePromise ??= import('./ScriptSurface.svelte');
@@ -94,6 +100,10 @@
     if (nextTabId === hydratedTabId) return;
 
     hydratedTabId = nextTabId;
+    metadataApplySequence += 1;
+    appliedMetadataPath = '';
+    appliedMetadataTabId = '';
+    applyingMetadataTabId = '';
     clearSearchError();
     if (!tab) {
       setAllCards([]);
@@ -118,7 +128,10 @@
     if (path === requestedMetadataPath) return;
 
     requestedMetadataPath = path;
+    metadataApplySequence += 1;
     appliedMetadataPath = '';
+    appliedMetadataTabId = '';
+    applyingMetadataTabId = '';
     lastPersistedUiKey = '';
     lastPersistedExplorerKey = '';
     loadWorkspaceMetadataForPath(path);
@@ -126,9 +139,18 @@
 
   $effect(() => {
     const path = workspaceMetadataState.cdbPath;
+    const tabId = $activeTab?.id ?? '';
     workspaceMetadataState.ready;
     workspaceMetadataState.metadata;
-    if (!path || !workspaceMetadataState.ready || appliedMetadataPath === path) return;
+    if (!path || !tabId || $activeTab?.path !== path || !workspaceMetadataState.ready
+      || applyingMetadataTabId === tabId || (appliedMetadataPath === path && appliedMetadataTabId === tabId)) return;
+    applyingMetadataTabId = tabId;
+    const sequence = metadataApplySequence;
+    const finishRestoration = () => {
+      if (sequence !== metadataApplySequence || $activeTab?.id !== tabId || workspaceMetadataState.cdbPath !== path) return;
+      appliedMetadataPath = path;
+      appliedMetadataTabId = tabId;
+    };
 
     const cardWorkspace = getCardWorkspaceUi();
     if (cardWorkspace) {
@@ -158,8 +180,9 @@
       editorState.searchFilters = filters;
       editorState.currentPage = page;
       void handleSearch(false, false).then((ok) => {
-        if (!ok || workspaceMetadataState.cdbPath !== path) return;
-        setSelectedCards(selectedIds, selectedId, anchorId);
+        if (sequence !== metadataApplySequence || $activeTab?.id !== tabId || workspaceMetadataState.cdbPath !== path) return;
+        if (ok) setSelectedCards(selectedIds, selectedId, anchorId);
+        finishRestoration();
       });
       lastPersistedExplorerKey = JSON.stringify({
         filters,
@@ -168,9 +191,10 @@
         selectionAnchorId: anchorId,
         page,
       });
+    } else {
+      finishRestoration();
     }
 
-    appliedMetadataPath = path;
     lastPersistedUiKey = JSON.stringify({
       path,
       activeSurface: cardSurfaceState.activeSurface,
@@ -240,7 +264,9 @@
     {#if cardSurfaceState.activeSurface === 'script'}
       {#await loadScriptSurface() then module}
         {@const ScriptSurface = module.default}
-        <ScriptSurface />
+        <ScriptSurface selectionReady={appliedMetadataTabId === $activeTab?.id
+          && appliedMetadataPath === $activeTab?.path
+          && workspaceMetadataState.ready && workspaceMetadataState.cdbPath === $activeTab?.path} />
       {/await}
     {:else if extensionSurfaceError}
       <div class="surface-error" role="alert">{extensionSurfaceError}</div>
