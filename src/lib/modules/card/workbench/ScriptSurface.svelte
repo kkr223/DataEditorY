@@ -2,6 +2,7 @@
   import { onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
   import LuaScriptEditor from '$lib/components/LuaScriptEditor.svelte';
+  import { tabDrag } from '$lib/components/tabDrag';
   import { activeTab } from '$lib/stores/db';
   import { getSelectedCard } from '$lib/stores/editor.svelte';
   import {
@@ -10,6 +11,7 @@
     activeScriptTabId,
     closeScriptTab,
     openExistingScriptTab,
+    moveScriptTab,
     scriptTabs,
     setScriptTabViewState,
   } from '$lib/stores/scriptEditor.svelte';
@@ -231,8 +233,9 @@
 <section class="script-surface">
   {#if currentCdbScriptTabs.length}
     <nav class="script-tab-strip" aria-label={$_('surface.script')}>
-      {#each currentCdbScriptTabs as tab}
+      {#each currentCdbScriptTabs as tab (tab.id)}
         <div
+          use:tabDrag={{ id: tab.id, scope: workspaceKey, onMove: moveScriptTab }}
           class:active={$activeScriptTab?.id === tab.id}
           class="script-tab"
           onauxclick={(event) => { if (event.button === 1) { event.preventDefault(); void closeSurfaceScriptTab(tab.id); } }}
@@ -243,6 +246,7 @@
           <button
             type="button"
             class="script-tab-close"
+            data-tab-close
             aria-label={$_('editor.script_reference_close')}
             title={$_('editor.script_reference_close')}
             onclick={() => void closeSurfaceScriptTab(tab.id)}
@@ -300,6 +304,9 @@
   }
 
   .script-tab {
+    position: relative;
+    user-select: none;
+    touch-action: pan-y;
     flex: 0 0 auto;
     height: 30px;
     display: flex;
@@ -315,6 +322,11 @@
     background: var(--bg-base);
     color: var(--text-primary);
   }
+
+  .script-tab:global([data-tab-dragging]) { opacity: 0.45; }
+  .script-tab:global([data-tab-dragging]) button { cursor: grabbing; }
+  .script-tab:global([data-tab-drop='before']) { box-shadow: inset 3px 0 var(--accent-primary); }
+  .script-tab:global([data-tab-drop='after']) { box-shadow: inset -3px 0 var(--accent-primary); }
 
   .script-tab button {
     height: 100%;

@@ -207,3 +207,35 @@ test('copying a card ID keeps its original open script at the original path', as
   expect(runtime.getDocument(scriptId!)?.source?.path).toBe('script/c1.lua');
   await closeCdb(input);
 });
+
+test('script tab moves keep buffers and activation intact and stay inside their CDB', async () => {
+  const input = await createCdb();
+  const other = await runtime.createDocument({ typeId: CARD_COLLECTION_TYPE, providerId: 'test-cdb', title: 'B' });
+  const otherInput = { ...input, sourceTabId: other.id, cdbPath: 'B.cdb', cardCode: 9 };
+  tabs.update((current) => [...current, { id: other.id, path: 'B.cdb' } as CdbTab]);
+  try {
+    const first = await scripts.openExistingScriptTab({ ...input, activate: false });
+    const second = await scripts.openExistingScriptTab({ ...input, cardCode: 2, activate: false });
+    const third = await scripts.openExistingScriptTab({ ...input, cardCode: 3, activate: false });
+    const unrelated = await scripts.openExistingScriptTab({ ...otherInput, activate: false });
+    if (!first || !second || !third || !unrelated) throw new Error('Expected four scripts');
+    await scripts.activateScriptTab(first);
+    scripts.updateScriptTabContent(third, '-- unsaved after reorder');
+    scripts.moveScriptTab(third, first, 'before');
+    const owned = () => scripts.getScriptTabsForCdb({ tabId: input.sourceTabId, path: input.cdbPath });
+    expect(owned().map((tab) => tab.id)).toEqual([third, first, second]);
+    expect(get(scripts.activeScriptTabId)).toBe(first);
+    expect(owned()[0].content).toBe('-- unsaved after reorder');
+    expect(owned()[0].isDirty).toBe(true);
+    runtime.patchMetadata(first, { cardName: 'renamed' });
+    expect(owned().map((tab) => tab.id)).toEqual([third, first, second]);
+    scripts.moveScriptTab(first, unrelated, 'after');
+    expect(owned().map((tab) => tab.id)).toEqual([third, first, second]);
+    expect(scripts.getScriptTabsForCdb({ tabId: other.id, path: 'B.cdb' }).map((tab) => tab.id)).toEqual([unrelated]);
+    await scripts.closeScriptTab(first);
+    expect(get(scripts.activeScriptTabId)).toBe(second);
+  } finally {
+    await closeCdb(otherInput);
+    await closeCdb(input);
+  }
+});

@@ -1,11 +1,14 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import type { WorkspaceDocument } from '$lib/core/workspace/types';
+  import { tabDrag } from '$lib/components/tabDrag';
+  import type { DocumentPlacement } from '$lib/platform/runtime';
 
   let {
     workspaces = [],
     activeWorkspaceId = null,
     onActivateWorkspace,
+    onMoveWorkspace,
     onSaveWorkspace,
     onSaveWorkspaceAs,
     onCloseWorkspace,
@@ -14,6 +17,7 @@
     workspaces?: WorkspaceDocument[];
     activeWorkspaceId?: string | null;
     onActivateWorkspace: (tabId: string) => void;
+    onMoveWorkspace: (tabId: string, targetId: string, placement: DocumentPlacement) => void;
     onSaveWorkspace: (tabId: string) => unknown | Promise<unknown>;
     onSaveWorkspaceAs: (tabId: string) => unknown | Promise<unknown>;
     onCloseWorkspace: (tabId: string) => void | Promise<void>;
@@ -85,6 +89,7 @@
     {#each workspaces as workspace (workspace.id)}
       <button
         class="tab-item"
+        use:tabDrag={{ id: workspace.id, scope: 'cdb', enabled: workspace.kind === 'db', onMove: onMoveWorkspace }}
         class:active={activeWorkspaceId === workspace.id}
         class:script-tab={workspace.kind === 'script'}
         onclick={() => onActivateWorkspace(workspace.id)}
@@ -110,6 +115,7 @@
         {/if}
         <span
           class="tab-close"
+          data-tab-close
           role="button"
           tabindex="0"
           onclick={(event) => { event.stopPropagation(); void onCloseWorkspace(workspace.id); }}
@@ -223,6 +229,14 @@
     opacity: 0.55;
   }
 
+  .tab-item {
+    flex-shrink: 0;
+    user-select: none;
+    touch-action: pan-y;
+  }
+
+  .tab-item:global([data-tab-dragging]) { opacity: 0.45; cursor: grabbing; }
+
   .tab-item:hover,
   .tab-add:hover {
     color: var(--text-primary);
@@ -249,6 +263,9 @@
     border-radius: var(--control-radius-pill);
     background: color-mix(in srgb, var(--bg-base) 96%, white 4%);
   }
+
+  .tab-item:global([data-tab-drop='before']) { box-shadow: inset 3px 0 var(--accent-primary); }
+  .tab-item:global([data-tab-drop='after']) { box-shadow: inset -3px 0 var(--accent-primary); }
 
   .script-tab.active {
     background: color-mix(in srgb, var(--accent-primary) 10%, var(--tab-surface-active));

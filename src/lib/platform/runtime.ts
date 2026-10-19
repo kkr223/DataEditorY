@@ -14,6 +14,7 @@ import type {
 type RuntimeListener = (snapshot: DocumentRuntimeSnapshot) => void;
 
 type OpenDocumentOptions = { activate?: boolean; signal?: AbortSignal };
+export type DocumentPlacement = 'before' | 'after';
 
 export type CreateDocumentRequest = {
   typeId: string;
@@ -73,6 +74,21 @@ export class DocumentRuntime {
   activate(id: string) {
     this.requireDocument(id);
     this.activeDocumentId = id;
+    this.emit();
+  }
+
+  moveDocument(documentId: string, targetId: string, placement: DocumentPlacement) {
+    const document = this.documents.get(documentId);
+    const target = this.documents.get(targetId);
+    if (!document || !target || documentId === targetId || document.typeId !== target.typeId) return;
+    const current = [...this.documents.values()];
+    const reordered = current.filter((item) => item.id !== documentId);
+    const index = reordered.findIndex((item) => item.id === targetId);
+    reordered.splice(index + (placement === 'after' ? 1 : 0), 0, document);
+    if (reordered.every((item, i) => item === current[i])) return;
+    // Keep the records themselves: pending saves/commands still own these objects.
+    this.documents.clear();
+    for (const item of reordered) this.documents.set(item.id, item);
     this.emit();
   }
 

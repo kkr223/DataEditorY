@@ -153,6 +153,7 @@
       workspaces={topLevelWorkspaces}
       activeWorkspaceId={topLevelActiveWorkspaceId}
       onActivateWorkspace={shellController.activateWorkspaceDocument}
+      onMoveWorkspace={(id, targetId, placement) => documentRuntime.moveDocument(id, targetId, placement)}
       onSaveWorkspace={saveWorkspaceDocument}
       onSaveWorkspaceAs={saveWorkspaceDocumentAs}
       onCloseWorkspace={shellController.handleCloseWorkspace}

@@ -21,6 +21,7 @@ import {
   isScriptTabOwnedByCdb,
 } from '$lib/domain/script/tabIdentity';
 import { documentRuntime } from '$lib/platform/appRuntime';
+import type { DocumentPlacement } from '$lib/platform/runtime';
 import { CARD_COLLECTION_TYPE, type CardIdChange } from '$lib/modules/card';
 import { createScriptDocumentSync } from '$lib/features/script-editor/documentSync';
 import { createLatestActivation } from '$lib/features/script-editor/activation';
@@ -161,6 +162,16 @@ const hydrateScriptTab = async (
 };
 
 export const getActiveScriptTab = () => get(activeScriptTab);
+
+export const moveScriptTab = (tabId: string, targetId: string, placement: DocumentPlacement) => {
+  const current = get(scriptTabs);
+  const tab = current.find((item) => item.id === tabId);
+  const target = current.find((item) => item.id === targetId);
+  if (!tab || !target || !isScriptTabOwnedByCdb(target, {
+    tabId: tab.sourceTabId ?? '', path: tab.cdbPath,
+  })) return;
+  documentRuntime.moveDocument(tabId, targetId, placement);
+};
 
 export const registerScriptModelDisposer = (dispose: (tabId: string) => void) => {
   disposeScriptModelHook = dispose;

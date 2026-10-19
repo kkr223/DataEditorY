@@ -117,6 +117,43 @@ describe('document runtime', () => {
     await runtime.close(doc.id);
   });
 
+  test('moving tabs survives runtime updates and closing follows the displayed order', async () => {
+    const runtime = new DocumentRuntime(modules, codecContext);
+    const create = (title: string) => runtime.createDocument({
+      typeId: 'test.note', providerId: 'memory', title, initialData: {},
+    });
+    const first = await create('First');
+    const second = await create('Second');
+    const third = await create('Third');
+    runtime.activate(first.id);
+    runtime.moveDocument(third.id, first.id, 'before');
+    expect(runtime.snapshot.documents.map((item) => item.id)).toEqual([third.id, first.id, second.id]);
+    expect(runtime.snapshot.activeDocumentId).toBe(first.id);
+    expect(runtime.getDocument(third.id)).toEqual(third);
+    await runtime.execute(first.id, { kind: 'patch', value: { edited: true } });
+    expect(runtime.snapshot.documents.map((item) => item.id)).toEqual([third.id, first.id, second.id]);
+    runtime.moveDocument(third.id, second.id, 'after');
+    expect(runtime.snapshot.documents.map((item) => item.id)).toEqual([first.id, second.id, third.id]);
+    runtime.activate(second.id);
+    await runtime.close(second.id, true);
+    expect(runtime.snapshot.activeDocumentId).toBe(third.id);
+  });
+
+  test('stale or redundant tab moves leave the runtime unchanged', async () => {
+    const runtime = new DocumentRuntime(modules, codecContext);
+    const first = await runtime.createDocument({ typeId: 'test.note', providerId: 'memory', title: 'First' });
+    const second = await runtime.createDocument({ typeId: 'test.note', providerId: 'memory', title: 'Second' });
+    let emissions = 0;
+    const unsubscribe = runtime.subscribe(() => { emissions += 1; });
+    runtime.moveDocument(first.id, first.id, 'after');
+    runtime.moveDocument(first.id, second.id, 'before');
+    runtime.moveDocument('closed', second.id, 'after');
+    runtime.moveDocument(second.id, 'closed', 'before');
+    expect(emissions).toBe(1);
+    expect(runtime.snapshot.documents.map((item) => item.id)).toEqual([first.id, second.id]);
+    unsubscribe();
+  });
+
   test('opens, modifies, saves, and closes a document', async () => {
     const runtime = new DocumentRuntime(modules, codecContext);
     const opened = await runtime.openSource({

@@ -21,7 +21,7 @@ Uses a mix of Svelte `writable` stores and Svelte 5 `$state` runes (files ending
 ### Editor Stores
 
 - **`editor.svelte.ts`** — card editor/Card Explorer state: selected cards, filters, current page, active card, pagination, selection anchoring
-- **`scriptEditor.svelte.ts`** — Lua script editor state: CDB-owned internal script tabs, active tab, content tracking, view state persistence
+- **`scriptEditor.svelte.ts`** — Lua script editor state: CDB-owned internal script tabs, scoped tab sorting through the document runtime, active tab, content tracking, view state persistence
 - **`textEditor.svelte.ts`** — compatibility text tabs: serializes saves, guards reloads with tab/edit/request identity, and releases Monaco models and lifecycle handlers when a tab closes. Only the written content becomes the saved baseline.
 
 ### App-Level Stores
