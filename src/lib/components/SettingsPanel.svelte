@@ -25,7 +25,6 @@
   import SettingsTemplateCard from '$lib/features/settings/components/SettingsTemplateCard.svelte';
   import SettingsSnippetsCard from '$lib/features/settings/components/SettingsSnippetsCard.svelte';
   import SettingsSections from '$lib/platform/components/SettingsSections.svelte';
-  import { documentRuntime } from '$lib/platform/appRuntime';
   import type { SettingsWorkbenchContext } from '$lib/modules/settings/workbench/context';
   import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
   import { showToast } from '$lib/stores/toast.svelte';
@@ -35,10 +34,6 @@
   let isHydrated = $state(false);
   let loadFailed = $state(false);
   let activeTab = $state<'general' | 'snippets' | 'shortcuts' | 'ai'>('general');
-  const hasContributedSettings = documentRuntime.registry.findSettingsSections().length > 0;
-  let settingsDescription = $derived($_(hasContributedSettings
-    ? 'settings.description_extra'
-    : 'settings.description_base'));
   const settingsWorkbenchContext = $derived.by((): SettingsWorkbenchContext => ({
     form,
     t: (key, options) => $_(key, options as never),
@@ -111,7 +106,6 @@
 <section class="sp">
   <SettingsHeader
     title={$_('settings.title')}
-    description={settingsDescription}
     saveLabel={$_('settings.save')}
     savingLabel={$_('settings.saving')}
     saving={appSettingsState.saving}

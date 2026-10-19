@@ -1,6 +1,5 @@
 <script lang="ts">
   export let title = '';
-  export let description = '';
   export let saveLabel = '';
   export let savingLabel = '';
   export let saving = false;
@@ -9,10 +8,7 @@
 </script>
 
 <header class="sp-header">
-  <div>
-    <h2>{title}</h2>
-    <p class="sp-subtitle">{description}</p>
-  </div>
+  <h2>{title}</h2>
   <button class="sp-save" type="button" onclick={onSave} disabled={saving || disabled}>
     {saving ? savingLabel : saveLabel}
   </button>
@@ -27,20 +23,11 @@
     margin-bottom: 12px;
     flex-shrink: 0;
   }
-  .sp-header > div {
-    min-width: 0;
-  }
   .sp-header h2 {
     margin: 0;
     font-size: 1.15rem;
     font-weight: 700;
     color: var(--text-primary);
-  }
-  .sp-subtitle {
-    margin: 1px 0 0;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    overflow-wrap: anywhere;
   }
   .sp-save {
     flex-shrink: 0;

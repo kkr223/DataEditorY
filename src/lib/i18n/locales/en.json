@@ -396,8 +396,6 @@
     "prompt_open_failed": "Failed to open file",
     "skill_name_empty": "Enter a skill name",
     "description": "Default cover image, shortcuts, and script template.",
-    "description_base": "Default cover image, shortcuts, and script template.",
-    "description_extra": "AI access, default cover image, shortcuts, and script template.",
     "save": "Save Settings",
     "saving": "Saving...",
     "save_success": "Settings saved",
