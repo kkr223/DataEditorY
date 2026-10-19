@@ -780,9 +780,9 @@
       repeating-linear-gradient(
         to bottom,
         rgba(0, 0, 0, 0) 0,
-        rgba(0, 0, 0, 0) 21px,
-        rgba(186, 227, 198, 0.08) 21px,
-        rgba(186, 227, 198, 0.08) 22px
+        rgba(0, 0, 0, 0) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(186, 227, 198, 0.08) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(186, 227, 198, 0.08) var(--script-editor-line-height, 22px)
       ),
       #121714 !important;
   }
@@ -890,9 +890,9 @@
       repeating-linear-gradient(
         to bottom,
         rgba(0, 0, 0, 0) 0,
-        rgba(0, 0, 0, 0) 21px,
-        rgba(104, 145, 112, 0.1) 21px,
-        rgba(104, 145, 112, 0.1) 22px
+        rgba(0, 0, 0, 0) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(104, 145, 112, 0.1) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(104, 145, 112, 0.1) var(--script-editor-line-height, 22px)
       ),
       #f1f5ec !important;
   }

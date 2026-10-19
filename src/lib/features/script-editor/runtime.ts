@@ -137,11 +137,16 @@ export async function createScriptMonacoRuntime(input: {
   const loadedMonaco = await loadedModule.loadMonaco();
 
   const editor = loadedMonaco.editor.create(input.host, buildScriptEditorMonacoOptions(input.getDefaultFontSize?.()));
+  const syncLineHeight = () => {
+    input.host.style.setProperty('--script-editor-line-height', `${editor.getOption(loadedMonaco.editor.EditorOption.lineHeight)}px`);
+  };
+  syncLineHeight();
   const callHighlightDecorations = editor.createDecorationsCollection();
   const disposeFontZoom = attachFontZoomActions(editor, loadedMonaco, input.getDefaultFontSize);
   const disposeSnippetTabNavigation = attachSnippetTabNavigation(editor, loadedMonaco);
   const disposables = [
     editor.onDidChangeConfiguration((event) => {
+      if (event.hasChanged(loadedMonaco.editor.EditorOption.lineHeight)) syncLineHeight();
       if (event.hasChanged(loadedMonaco.editor.EditorOption.fontInfo)) input.onDidScrollChange();
     }),
     editor.onDidChangeModelContent(input.onDidChangeModelContent),
