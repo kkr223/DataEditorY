@@ -52,6 +52,10 @@ pub fn save_app_settings(
         settings.package_include_patterns =
             normalize_package_include_patterns(Some(package_include_patterns));
     }
+    if let Some(script_snippets) = request.script_snippets {
+        super::script_snippets::validate_script_snippets(&script_snippets)?;
+        settings.script_snippets = Some(script_snippets);
+    }
     if let Some(shortcut_bindings) = request.shortcut_bindings {
         settings.shortcut_bindings = normalize_shortcut_bindings(Some(shortcut_bindings));
     }

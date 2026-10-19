@@ -54,13 +54,12 @@ pub(crate) fn error_log_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSettings, String> {
     let path = settings_file_path(app)?;
-    if !path.exists() {
-        return Ok(PersistedAppSettings::default());
-    }
-
-    let content = fs::read_to_string(&path).map_err(|err| err.to_string())?;
-    let mut settings =
-        serde_json::from_str::<PersistedAppSettings>(&content).map_err(|err| err.to_string())?;
+    let mut settings = if path.exists() {
+        let content = fs::read_to_string(&path).map_err(|err| err.to_string())?;
+        serde_json::from_str::<PersistedAppSettings>(&content).map_err(|err| err.to_string())?
+    } else {
+        PersistedAppSettings::default()
+    };
 
     if settings.model.trim().is_empty() {
         settings.model = DEFAULT_AI_MODEL.to_string();
@@ -75,6 +74,18 @@ pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSet
     settings.agent_max_steps = normalize_agent_max_steps(Some(settings.agent_max_steps));
     settings.script_editor_font_size =
         normalize_script_editor_font_size(Some(settings.script_editor_font_size));
+    let imported = super::script_snippets::initialize_script_snippets(&mut settings, || {
+        // Preserve an existing installation's customized resource on first migration.
+        let resource = super::media::resolve_resource_file(app, "lua-intel/snippets.json".into())
+            .or_else(|_| super::media::resolve_resource_file(app, "snippets.json".into()));
+        match resource {
+            Ok(path) => fs::read_to_string(path).map_err(|err| err.to_string()),
+            Err(_) => Ok(include_str!("../../../static/resources/snippets.json").to_string()),
+        }
+    })?;
+    if imported {
+        save_persisted_settings(app, &settings)?;
+    }
 
     Ok(settings)
 }
@@ -196,6 +207,7 @@ pub(crate) fn to_settings_payload(
         script_editor_font_size: normalize_script_editor_font_size(Some(
             settings.script_editor_font_size,
         )),
+        script_snippets: settings.script_snippets.unwrap_or_else(|| "{}".into()),
         package_include_patterns: normalize_package_include_patterns(Some(
             settings.package_include_patterns,
         )),

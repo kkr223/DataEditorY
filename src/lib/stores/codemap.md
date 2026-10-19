@@ -27,7 +27,7 @@ Uses a mix of Svelte `writable` stores and Svelte 5 `$state` runes (files ending
 ### App-Level Stores
 
 - **`appShell.svelte.ts`** — shell layout, settings panel visibility, and compatibility view state
-- **`appSettings.svelte.ts`** — user preferences: AI config, script template, Lua editor default font size, package settings, language, cover image
+- **`appSettings.svelte.ts`** — user preferences: AI config, script template, Lua editor default font size, persistent custom Lua snippets/descriptions, package settings, language, cover image
 - **`recentHistory.ts`** — recently opened CDB files (persisted via Rust settings)
 - **`toast.svelte.ts`** — notification toast queue
 

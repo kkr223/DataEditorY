@@ -46,6 +46,7 @@ import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { getCompletionInsertParameters, shouldInsertFunctionArguments } from './completion';
 import { loadExternalLuaCatalog } from '../lua/catalog';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
+import { getConfiguredScriptSnippets } from '../snippetPreferences';
 import {
   clearLuaSemanticDocumentCache,
   getCallInfoAt,
@@ -1127,7 +1128,7 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
     suggestions.push(suggestion);
   };
 
-  for (const snippet of luaCatalog.snippets) {
+  for (const snippet of getConfiguredScriptSnippets(appSettingsState.values.scriptSnippets, luaCatalog.snippets)) {
     if (namespaceContext) break;
     const snippetRange = snippetContext
       ? new monaco.Range(position.lineNumber, snippetContext.startColumn, position.lineNumber, snippetContext.endColumn)
@@ -1435,6 +1436,9 @@ export function disposeScriptModel(tabId: string) {
 export function lookupCompletionDescription(label: string) {
   const trimmed = label.trim();
   if (!trimmed) return null;
+  const snippet = getConfiguredScriptSnippets(appSettingsState.values.scriptSnippets, luaCatalog.snippets)
+    .find((item) => item.prefix === trimmed);
+  if (snippet) return normalizeCompletionHint(snippet.description || snippet.name);
 
   if (functionsByName.has(trimmed)) {
     return normalizeCompletionHint(functionsByName.get(trimmed)?.description ?? '', functionsByName.get(trimmed)?.signature ?? '');
@@ -1475,7 +1479,7 @@ export function getCurrentFunctionHint(
 }
 
 export function getToolbarSnippets() {
-  return luaCatalog.snippets;
+  return getConfiguredScriptSnippets(appSettingsState.values.scriptSnippets, luaCatalog.snippets);
 }
 
 export function insertSnippet(

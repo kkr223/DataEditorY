@@ -16,6 +16,7 @@ Settings UI Feature — manages the settings panel with sections for AI configur
 - `SettingsAiCard.svelte` — AI API URL/key/temperature configuration
 - `SettingsTemplateCard.svelte` — Lua script template and AI script directory editor
 - `SettingsShortcutsCard.svelte` — keyboard shortcut customization
+- `SettingsSnippetsCard.svelte` — custom Lua snippet editing, validation, and user-settings persistence
 - `SettingsPackageCard.svelte` — package export settings
 - `SettingsCoverAndLog.svelte` — cover image and error log management
 

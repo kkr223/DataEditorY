@@ -31,6 +31,7 @@
   import type { CardDataEntry } from '$lib/types';
   import type { editor as MonacoEditor } from 'monaco-editor';
   import { normalizeCardStrings } from '$lib/domain/card/draft';
+  import { normalizeScriptContent } from '$lib/domain/script/workspace';
   import {
     buildCallHighlightDecorations,
     buildScriptEditorContextKey,
@@ -377,7 +378,8 @@
 
     if (!model) {
       model = monacoApi.editor.createModel(tab.content, 'lua', uri);
-    } else if (model.getValue() !== tab.content) {
+      model.setEOL(monacoApi.editor.EndOfLineSequence.LF);
+    } else if (normalizeScriptContent(model.getValue()) !== tab.content) {
       isApplyingModel = true;
       model.setValue(tab.content);
       isApplyingModel = false;

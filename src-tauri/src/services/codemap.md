@@ -18,6 +18,7 @@ Rust Business Services — service functions implementing CDB sessions, metadata
 | `lua_replace.rs` | Lua search/replace preview and apply support for CDB-level migration tasks |
 | `assets_check.rs` | Resource validation for CDB-related pics/scripts/assets |
 | `settings.rs` | App settings: load/save JSON settings, API key encryption/decryption, cover image management |
+| `script_snippets.rs` | Custom Lua snippet validation and one-time migration from installed resources to user settings; existing preferences and intentionally empty lists survive version updates |
 | `crypto.rs` | AES-GCM encryption for API keys with machine-specific key derivation |
 | `logging.rs` | Error log file management |
 | `assets.rs` | CDB resource paths, asset copying, and reversible card-ID image/script migration |

@@ -2,6 +2,7 @@ import type { AppSettingsPayload } from '$lib/stores/appSettings.svelte';
 import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
 import { hasShortcutConflicts, normalizeShortcutBindingMap } from '$lib/features/shortcuts/registry';
 import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, SCRIPT_EDITOR_FONT_SIZE_MIN, SCRIPT_EDITOR_FONT_SIZE_MAX, normalizeScriptEditorFontSize } from '$lib/features/script-editor/fontPreferences';
+import { DEFAULT_SCRIPT_SNIPPETS, getScriptSnippetIssue } from '$lib/features/script-editor/snippetPreferences';
 
 export type SettingsFormState = {
   apiBaseUrl: string;
@@ -15,6 +16,7 @@ export type SettingsFormState = {
   saveScriptImageToLocal: boolean;
   autoCompleteFunctionParameters: boolean;
   scriptEditorFontSize: number;
+  scriptSnippets: string;
   packageIncludePatternsText: string;
   shortcutBindings: Record<string, string>;
   secretKey: string;
@@ -33,6 +35,7 @@ export function createSettingsFormState(): SettingsFormState {
     saveScriptImageToLocal: false,
     autoCompleteFunctionParameters: true,
     scriptEditorFontSize: DEFAULT_SCRIPT_EDITOR_FONT_SIZE,
+    scriptSnippets: DEFAULT_SCRIPT_SNIPPETS,
     packageIncludePatternsText: '',
     shortcutBindings: normalizeShortcutBindingMap(undefined),
     secretKey: '',
@@ -85,6 +88,7 @@ export function hydrateSettingsForm(
   form.saveScriptImageToLocal = values.saveScriptImageToLocal;
   form.autoCompleteFunctionParameters = values.autoCompleteFunctionParameters;
   form.scriptEditorFontSize = normalizeScriptEditorFontSize(values.scriptEditorFontSize);
+  form.scriptSnippets = values.scriptSnippets ?? DEFAULT_SCRIPT_SNIPPETS;
   form.packageIncludePatternsText = formatPackageIncludePatternsText(values.packageIncludePatterns);
   form.shortcutBindings = normalizeShortcutBindingMap(values.shortcutBindings);
 
@@ -112,12 +116,14 @@ export function isSettingsFormDirty(
     || form.saveScriptImageToLocal !== values.saveScriptImageToLocal
     || form.autoCompleteFunctionParameters !== values.autoCompleteFunctionParameters
     || form.scriptEditorFontSize !== normalizeScriptEditorFontSize(values.scriptEditorFontSize)
+    || form.scriptSnippets !== (values.scriptSnippets ?? DEFAULT_SCRIPT_SNIPPETS)
     || formatPackageIncludePatternsText(parsePackageIncludePatternsText(form.packageIncludePatternsText)) !== formatPackageIncludePatternsText(values.packageIncludePatterns)
     || formatShortcutBindings(form.shortcutBindings) !== formatShortcutBindings(values.shortcutBindings)
     || form.secretKey.trim().length > 0;
 }
 
 export function validateSettingsForm(form: SettingsFormState) {
+  if (getScriptSnippetIssue(form.scriptSnippets)) return 'snippets' as const;
   if (!Number.isInteger(form.scriptEditorFontSize) || form.scriptEditorFontSize < SCRIPT_EDITOR_FONT_SIZE_MIN || form.scriptEditorFontSize > SCRIPT_EDITOR_FONT_SIZE_MAX) {
     return 'font-size' as const;
   }

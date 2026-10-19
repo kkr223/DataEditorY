@@ -10,6 +10,7 @@ Data Transfer Objects — Rust structs for request/response serialization betwee
 
 App-level configuration types:
 - `PersistedAppSettings` / `AppSettingsPayload` / `SaveAppSettingsRequest` — settings storage and IPC (script template, Lua editor font size, AI config, package patterns, etc.); legacy settings default to 14 px
+  `scriptSnippets` stores the user's custom snippet JSON and descriptions; a missing persisted field triggers one-time resource import, while `{}` means the user intentionally removed all custom snippets.
 - `AiSettings` — AI model, URL, temperature, encrypted key
 - Path resolution helpers
 

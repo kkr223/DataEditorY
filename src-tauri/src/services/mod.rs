@@ -11,4 +11,5 @@ pub mod merge;
 pub mod metadata;
 pub mod package;
 pub mod scripts;
+pub mod script_snippets;
 pub mod settings;

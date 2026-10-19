@@ -13,6 +13,23 @@ import { createDefaultShortcutBindingMap } from '$lib/features/shortcuts/registr
 const DEFAULT_SHORTCUT_BINDINGS = createDefaultShortcutBindingMap();
 
 describe('settings controller helpers', () => {
+  test('hydrates custom snippets and validates edits without changing the saved configuration', () => {
+    const form = createSettingsFormState();
+    const values = {
+      ...form, packageIncludePatterns: [], hasSecretKey: false, coverImagePath: null, errorLogPath: '',
+      scriptSnippets: '{"mine":{"prefix":"#mine","body":"-- mine","description":"My hint"}}',
+    };
+    hydrateSettingsForm(form, values, { isHydrated: false });
+    expect(form.scriptSnippets).toBe(values.scriptSnippets);
+    expect(isSettingsFormDirty(form, values)).toBe(false);
+    form.scriptSnippets = '{}';
+    expect(isSettingsFormDirty(form, values)).toBe(true);
+    expect(validateSettingsForm(form)).toBeNull();
+    expect(values.scriptSnippets).toContain('#mine');
+    form.scriptSnippets = 'broken';
+    expect(validateSettingsForm(form)).toBe('snippets');
+  });
+
   test('creates the default settings form state', () => {
     const state = createSettingsFormState();
     expect(state.apiBaseUrl).toBe('');

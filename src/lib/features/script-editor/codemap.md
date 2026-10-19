@@ -30,12 +30,14 @@ The script editor is structured in three layers:
 
 - **`runtime.ts`** — Monaco lifecycle, Ctrl/Cmd + wheel and keyboard font zoom; line height scales with font size and Ctrl/Cmd + 0 restores the current saved default
 - **`fontPreferences.ts`** — default font size (14 px), shared 8–32 px bounds, and preference normalization
+- **`snippetPreferences.ts`** — custom snippet parsing/validation, settings editing format, and live merging with built-in snippets; user settings replace bundled custom entries, including an intentionally empty list
 - **`view.ts`** — view state serialization for tab switching
 - **`scriptRenderer.ts`** — code-to-image export: renders Lua code with syntax highlighting as PNG
 
 ### Components
 
 - `ScriptEditorCore.svelte` — Monaco editor wrapper with all providers
+  Script models use LF and compare normalized content before replacement so Windows CRLF differences do not reset snippet tab stops or cursor selections.
 - `ScriptTabBar.svelte` — script tab navigation
 - `ScriptToolbar.svelte` — toolbar with save, export, manual buttons
 - `ScriptSidePanel.svelte` — side panel for function/constant manual

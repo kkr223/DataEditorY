@@ -20,6 +20,7 @@ pub(crate) struct PersistedAppSettings {
     pub(crate) save_script_image_to_local: bool,
     pub(crate) auto_complete_function_parameters: bool,
     pub(crate) script_editor_font_size: u32,
+    pub(crate) script_snippets: Option<String>,
     pub(crate) package_include_patterns: Vec<String>,
     pub(crate) shortcut_bindings: HashMap<String, String>,
     pub(crate) encrypted_secret_key: Option<String>,
@@ -39,6 +40,7 @@ impl Default for PersistedAppSettings {
             save_script_image_to_local: false,
             auto_complete_function_parameters: true,
             script_editor_font_size: DEFAULT_SCRIPT_EDITOR_FONT_SIZE,
+            script_snippets: None,
             package_include_patterns: DEFAULT_PACKAGE_INCLUDE_PATTERNS
                 .iter()
                 .map(|item| item.to_string())
@@ -63,6 +65,7 @@ pub(crate) struct AppSettingsPayload {
     pub(crate) save_script_image_to_local: bool,
     pub(crate) auto_complete_function_parameters: bool,
     pub(crate) script_editor_font_size: u32,
+    pub(crate) script_snippets: String,
     pub(crate) package_include_patterns: Vec<String>,
     pub(crate) shortcut_bindings: HashMap<String, String>,
     pub(crate) has_secret_key: bool,
@@ -84,6 +87,7 @@ pub(crate) struct SaveAppSettingsRequest {
     pub(crate) save_script_image_to_local: Option<bool>,
     pub(crate) auto_complete_function_parameters: Option<bool>,
     pub(crate) script_editor_font_size: Option<u32>,
+    pub(crate) script_snippets: Option<String>,
     pub(crate) package_include_patterns: Option<Vec<String>>,
     pub(crate) shortcut_bindings: Option<HashMap<String, String>>,
     pub(crate) secret_key: Option<String>,

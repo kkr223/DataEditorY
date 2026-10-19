@@ -55,6 +55,10 @@ export async function saveSettingsFlow(input: {
   t: Translate;
 }) {
   const validationError = validateSettingsForm(input.form);
+  if (validationError === 'snippets') {
+    showToast(input.t('settings.snippets_invalid'), 'error');
+    return false;
+  }
   if (validationError === 'font-size') {
     showToast(input.t('settings.script_editor_font_size_invalid'), 'error');
     return false;
@@ -77,6 +81,7 @@ export async function saveSettingsFlow(input: {
       saveScriptImageToLocal: input.form.saveScriptImageToLocal,
       autoCompleteFunctionParameters: input.form.autoCompleteFunctionParameters,
       scriptEditorFontSize: input.form.scriptEditorFontSize,
+      scriptSnippets: input.form.scriptSnippets,
       packageIncludePatterns: parsePackageIncludePatternsText(input.form.packageIncludePatternsText),
       shortcutBindings: input.form.shortcutBindings,
       secretKey: input.form.secretKey,

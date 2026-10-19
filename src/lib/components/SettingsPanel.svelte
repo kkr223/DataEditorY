@@ -23,6 +23,7 @@
   import SettingsPackageCard from '$lib/features/settings/components/SettingsPackageCard.svelte';
   import SettingsShortcutsCard from '$lib/features/settings/components/SettingsShortcutsCard.svelte';
   import SettingsTemplateCard from '$lib/features/settings/components/SettingsTemplateCard.svelte';
+  import SettingsSnippetsCard from '$lib/features/settings/components/SettingsSnippetsCard.svelte';
   import SettingsSections from '$lib/platform/components/SettingsSections.svelte';
   import { documentRuntime } from '$lib/platform/appRuntime';
   import type { SettingsWorkbenchContext } from '$lib/modules/settings/workbench/context';
@@ -33,7 +34,7 @@
   const form = $state(createSettingsFormState());
   let isHydrated = $state(false);
   let loadFailed = $state(false);
-  let activeTab = $state<'general' | 'shortcuts' | 'ai'>('general');
+  let activeTab = $state<'general' | 'snippets' | 'shortcuts' | 'ai'>('general');
   const hasContributedSettings = documentRuntime.registry.findSettingsSections().length > 0;
   let settingsDescription = $derived($_(hasContributedSettings
     ? 'settings.description_extra'
@@ -125,6 +126,8 @@
       class:active={activeTab === 'general'}
       onclick={() => { activeTab = 'general'; }}
     >{$_('settings.tab_general')}</button>
+    <button type="button" class="sp-tab" class:active={activeTab === 'snippets'}
+      onclick={() => { activeTab = 'snippets'; }}>{$_('settings.tab_snippets')}</button>
     <button
       type="button"
       class="sp-tab"
@@ -204,6 +207,8 @@
           form.packageIncludePatternsText = value;
         }}
       />
+    {:else if activeTab === 'snippets'}
+      <SettingsSnippetsCard value={form.scriptSnippets} onChange={(value) => { form.scriptSnippets = value; }} />
     {:else if activeTab === 'shortcuts'}
       <SettingsShortcutsCard
         title={$_('settings.shortcuts_title')}
