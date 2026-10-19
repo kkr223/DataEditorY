@@ -39,6 +39,8 @@ Each feature registers as an `ExtensionModule` (`types.ts:148`) containing:
 4. User edits → `runtime.execute()` → provider forwards command to Rust → revision incremented → dirty flag set
 5. User saves → `runtime.save()` → codec encodes → writes to disk
 
+Saves are serialized per document and acknowledge the revision captured before encoding. Edits made during a save remain dirty; close waits for queued saves before disposing the provider.
+
 ## Files
 
 | File | Purpose |

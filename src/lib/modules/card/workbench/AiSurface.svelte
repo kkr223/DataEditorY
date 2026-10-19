@@ -3,13 +3,15 @@
   import { _ } from 'svelte-i18n';
   import { tauriBridge } from '$lib/infrastructure/tauri';
   import { activeTab } from '$lib/stores/db';
+  import { recordUndoLabel } from '$lib/stores/tabs';
   import { showToast } from '$lib/stores/toast.svelte';
   import { createAiAppContext } from '$lib/features/ai/context';
   import { runWorkspaceAgent, type AgentStage } from '$lib/native/aiApi';
   import { appSettingsState, connectAiProvider, loadAppSettings, saveAppSettings } from '$lib/stores/appSettings.svelte';
   import { refreshCachedSearchForTab } from '$lib/stores/search';
   import { documentRuntime } from '$lib/platform/appRuntime';
-  import { writeTextFile } from '$lib/native/assetApi';
+  import { writeTextFile, readTextFile, pathExists } from '$lib/native/assetApi';
+  import { createScriptBaseline, matchesScriptBaseline } from '$lib/features/ai/scriptBaseline';
   import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
   import {
     getOpenScriptTab,
@@ -34,6 +36,7 @@
   } from './aiMentions';
   import {
     accumulateAiThreadTokenUsage,
+    captureWorkspaceMetadataScope,
     addAiProposal,
     appendAiMessage,
     compactAiThreadMessages,
@@ -86,6 +89,9 @@
   let isRunning = $state(false);
   let stage = $state<AgentStage | ''>('');
   let abortController = $state<AbortController | null>(null);
+  let ownsRunningWorkspace: (() => boolean) | null = null;
+  let isDisposed = false;
+  let isApplyingProposal = false;
   let fullAccess = $state(globalThis.localStorage?.getItem(FULL_ACCESS_KEY) === 'true');
   let accessMenuOpen = $state(false);
   let modelMenuOpen = $state(false);
@@ -447,9 +453,14 @@
 
   async function handleSubmit() {
     const content = composer.trim();
-    if (!content || isRunning) return;
-
+    const ownerId = $activeTab?.id;
+    if (!content || isRunning || !ownerId || !workspaceMetadataState.ready) return;
+    const metadataIsCurrent = captureWorkspaceMetadataScope();
     const thread = ensureThread();
+    const ownsWorkspace = () => !isDisposed && metadataIsCurrent()
+      && $activeTab?.id === ownerId && Boolean(documentRuntime.getDocument(ownerId))
+      && getAiThreads().some(candidate => candidate.id === thread.id);
+
     appendAiMessage({ threadId: thread.id, role: 'user', content });
     const mentionContextPrompt = buildMentionContextPrompt(thread.contextRefs);
     composer = '';
@@ -458,8 +469,10 @@
     const controller = new AbortController();
     const announcedStages = new Set<string>();
     abortController = controller;
+    ownsRunningWorkspace = ownsWorkspace;
 
     const appendRunEvent = (message: string) => {
+      if (!ownsWorkspace() || controller.signal.aborted) return;
       appendAiMessage({ threadId: thread.id, role: 'event', content: message });
     };
 
@@ -468,9 +481,10 @@
         threadId: thread.id,
         instruction: mentionContextPrompt ? `${mentionContextPrompt}\n\n用户指令：\n${content}` : content,
         history: thread.messages,
-        context: createAiAppContext(),
+        context: createAiAppContext(ownerId),
         signal: controller.signal,
         onStageChange: (nextStage) => {
+          if (!ownsWorkspace() || controller.signal.aborted) return;
           stage = nextStage;
           if (!announcedStages.has(nextStage)) {
             announcedStages.add(nextStage);
@@ -478,6 +492,7 @@
           }
         },
         onToolCall: (event) => {
+          if (!ownsWorkspace() || controller.signal.aborted) return;
           upsertAiToolRun({
             threadId: thread.id,
             id: event.id,
@@ -489,6 +504,7 @@
           appendRunEvent($_('surface.ai_tool_started', { values: { name: event.name } }));
         },
         onToolResult: (event) => {
+          if (!ownsWorkspace() || controller.signal.aborted) return;
           upsertAiToolRun({
             threadId: thread.id,
             id: event.id,
@@ -501,6 +517,7 @@
           appendRunEvent($_(event.ok ? 'surface.ai_tool_completed' : 'surface.ai_tool_failed', { values: { name: event.name } }));
         },
       });
+      if (!ownsWorkspace() || controller.signal.aborted) return;
       for (const skill of result.usedSkills) {
         appendAiMessage({
           threadId: thread.id,
@@ -521,6 +538,7 @@
           await applyProposal(result.proposal);
         }
       }
+      if (!ownsWorkspace()) return;
       accumulateAiThreadTokenUsage({
         threadId: thread.id,
         promptTokens: result.tokenUsage.promptTokens,
@@ -528,6 +546,7 @@
         totalTokens: result.tokenUsage.totalTokens,
       });
     } catch (error) {
+      if (!ownsWorkspace()) return;
       appendAiMessage({
         threadId: thread.id,
         role: 'assistant',
@@ -536,9 +555,12 @@
           : error instanceof Error ? error.message : 'AI request failed',
       });
     } finally {
-      isRunning = false;
-      stage = '';
-      abortController = null;
+      if (abortController === controller) {
+        isRunning = false;
+        stage = '';
+        abortController = null;
+        ownsRunningWorkspace = null;
+      }
     }
   }
 
@@ -585,8 +607,10 @@
       kind: 'upsert',
       cards: [cloneEditableCard(patch.after as CardDataEntry)],
     });
+    const revision = documentRuntime.getDocument(patch.documentId)?.revision ?? -1;
     await refreshCachedSearchForTab(patch.documentId);
-    queueAiCardDraftPatch({ id: patch.id, patch: patch.after as Partial<CardDataEntry> });
+    queueAiCardDraftPatch({ id: patch.id, workspaceId: patch.documentId, cardCode: patch.cardCode,
+      revision, patch: patch.after as Partial<CardDataEntry> });
   }
 
   async function applyBatchCardPatch(patch: Extract<WorkspaceAiPatch, { kind: 'batch-card' }>) {
@@ -615,14 +639,29 @@
   async function executeCardCommand(documentId: string, command: CardCollectionCommand) {
     const result = await documentRuntime.execute(documentId, command);
     if (!result.changed) throw new Error('CDB was not changed');
+    recordUndoLabel(documentId, $_('surface.ai_title'));
   }
 
   async function applyScriptPatch(patch: Extract<WorkspaceAiPatch, { kind: 'script' }>) {
-    const openTab = patch.cardCode
+    const findOpenTab = () => patch.cardCode
       ? getOpenScriptTab(patch.cdbPath, patch.cardCode, patch.documentId)
       : getScriptTabsForCdb({ tabId: patch.documentId, path: patch.cdbPath }).find((tab) => (
         getCdbPathIdentity(tab.scriptPath) === getCdbPathIdentity(patch.path)
       ));
+    const readCurrent = async () => {
+      const tab = findOpenTab();
+      if (tab) return tab.content;
+      return await pathExists(patch.path) ? readTextFile(patch.path) : null;
+    };
+    const content = await readCurrent();
+    if (!matchesScriptBaseline(patch.baseline, await createScriptBaseline(content))) {
+      const confirmed = await tauriBridge.ask($_('surface.ai_before_mismatch_confirm'), {
+        title: $_('surface.ai_title'), kind: 'warning',
+      });
+      if (!confirmed) throw new Error('Skipped: script changed since the proposal was created');
+    }
+    if (await readCurrent() !== content) throw new Error('Script changed while confirming the proposal');
+    const openTab = findOpenTab();
     if (openTab) {
       updateScriptTabContent(openTab.id, patch.content);
       if (!(await saveScriptTab(openTab.id))) {
@@ -661,6 +700,10 @@
   }
 
   async function applyPatch(patch: WorkspaceAiPatch) {
+    const owner = documentRuntime.snapshot.documents.find(document => document.typeId === 'ygo.card-collection'
+      && getCdbPathIdentity(document.source?.path ?? document.source?.uri ?? '') === getCdbPathIdentity(patch.cdbPath));
+    if (!owner) throw new Error(`Workspace is no longer open: ${patch.cdbPath}`);
+    patch = { ...patch, documentId: owner.id };
     if (patch.kind === 'card') return applyCardPatch(patch);
     if (patch.kind === 'batch-card') return applyBatchCardPatch(patch);
     if (patch.kind === 'script') return applyScriptPatch(patch);
@@ -669,47 +712,52 @@
   }
 
   async function applyProposal(proposal: WorkspaceAiProposal, singlePatch?: WorkspaceAiPatch) {
-    const patches = singlePatch ? [singlePatch] : proposal.patches;
-    const log: NonNullable<WorkspaceAiProposal['applyLog']> = [...(proposal.applyLog ?? [])];
-    let applied = 0;
+    if (isApplyingProposal || !workspaceMetadataState.ready) return;
+    isApplyingProposal = true;
+    const ownerPath = workspaceMetadataState.cdbPath;
+    try {
+      const patches = singlePatch ? [singlePatch] : proposal.patches;
+      const log: NonNullable<WorkspaceAiProposal['applyLog']> = [...(proposal.applyLog ?? [])];
+      let applied = 0;
 
-    for (const patch of patches) {
-      try {
-        await applyPatch(patch);
-        applied += 1;
-        log.push({
-          patchId: patch.id,
-          ok: true,
-          message: 'applied',
-          usedFullAccess: fullAccess,
-          createdAt: Date.now(),
-        });
-      } catch (error) {
-        log.push({
-          patchId: patch.id,
-          ok: false,
-          message: error instanceof Error ? error.message : String(error),
-          usedFullAccess: fullAccess,
-          createdAt: Date.now(),
-        });
-        updateAiProposalStatus({
-          threadId: proposal.threadId,
-          proposalId: proposal.id,
-          status: applied > 0 ? 'partially_applied' : 'failed',
-          applyLog: log,
-        });
-        showToast(log.at(-1)?.message ?? 'Apply failed', 'error');
-        return;
+      for (const patch of patches) {
+        try {
+          await applyPatch(patch);
+          applied += 1;
+          log.push({
+            patchId: patch.id,
+            ok: true,
+            message: 'applied',
+            usedFullAccess: fullAccess,
+            createdAt: Date.now(),
+          });
+        } catch (error) {
+          log.push({
+            patchId: patch.id,
+            ok: false,
+            message: error instanceof Error ? error.message : String(error),
+            usedFullAccess: fullAccess,
+            createdAt: Date.now(),
+          });
+          await updateAiProposalStatus({
+            threadId: proposal.threadId,
+            proposalId: proposal.id,
+            status: applied > 0 ? 'partially_applied' : 'failed',
+            applyLog: log,
+          }, ownerPath);
+          showToast(log.at(-1)?.message ?? 'Apply failed', 'error');
+          return;
+        }
       }
-    }
 
-    updateAiProposalStatus({
-      threadId: proposal.threadId,
-      proposalId: proposal.id,
-      status: singlePatch || applied < proposal.patches.length ? 'partially_applied' : 'applied',
-      applyLog: log,
-    });
-    showToast($_('surface.ai_apply_success'), 'success');
+      await updateAiProposalStatus({
+        threadId: proposal.threadId,
+        proposalId: proposal.id,
+        status: singlePatch || applied < proposal.patches.length ? 'partially_applied' : 'applied',
+        applyLog: log,
+      }, ownerPath);
+      showToast($_('surface.ai_apply_success'), 'success');
+    } finally { isApplyingProposal = false; }
   }
 
   function patchTitle(patch: WorkspaceAiPatch) {
@@ -760,7 +808,15 @@
     mentionOpen = false;
   });
 
-  onDestroy(cancelMentionSearch);
+  $effect(() => {
+    if (abortController && ownsRunningWorkspace && !ownsRunningWorkspace()) cancelRun();
+  });
+
+  onDestroy(() => {
+    isDisposed = true;
+    cancelRun();
+    cancelMentionSearch();
+  });
 
   $effect(() => {
     const thread = activeThread;

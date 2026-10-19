@@ -22,6 +22,7 @@ Manages workspace document metadata overlays:
 - **`setWorkspaceLifecycleMetadata(id, metadata)`** — sets dirty/status/savePolicy/closeGuard overrides
 - **`resolveWorkspaceLifecycleDocument(document)`** — merges lifecycle metadata into workspace document
 - **Save handlers** — per-workspace custom save functions via `setWorkspaceSaveHandler`
+- **`disposeWorkspaceLifecycle(id)`** — removes both metadata overlays and save callbacks when their owning tab closes
 - **Close confirmation** — `shouldConfirmWorkspaceClose`, `confirmDirtyPrompt` via Tauri dialog
 
 ## Integration

@@ -1,4 +1,8 @@
 import { get, fromStore } from 'svelte/store';
+import { createListenerScope } from './listenerScope';
+import { closeDocumentsForWindowExit } from './workspaceShutdown';
+import { documentRuntime } from '$lib/platform/appRuntime';
+import { flushAllWorkspaceMetadataSaves } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
 import { _, locale } from 'svelte-i18n';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { tauriBridge } from '$lib/infrastructure/tauri';
@@ -78,6 +82,7 @@ export function createShellLayoutController() {
 
   let openHistoryHideTimer: ReturnType<typeof setTimeout> | null = null;
   let isForceClosingWindow = false;
+  let isClosingWindow = false;
 
   function getDirtyWorkspaceDocuments() {
     return workspaceState.documents.filter((document) => document.dirty);
@@ -477,40 +482,36 @@ export function createShellLayoutController() {
       void writeErrorLog({ source: 'shell.load-app-settings', error });
     });
     loadRecentCdbHistory();
-    const unlisteners: Array<() => void> = [];
+    const listeners = createListenerScope();
 
     if (tauriBridge.isTauri()) {
       void consumePendingOpenCdbPaths()
-        .then((paths) => handleExternalOpenPaths(paths))
+        .then((paths) => { if (!listeners.disposed) return handleExternalOpenPaths(paths); })
         .catch((error) => {
           console.error('Failed to consume pending cdb paths:', error);
           void writeErrorLog({ source: 'shell.consume-pending-open-cdb-paths', error });
         });
 
-      void tauriBridge.listen<string[]>('open-cdb-paths', (event) => {
+      listeners.add(tauriBridge.listen<string[]>('open-cdb-paths', (event) => {
+        if (listeners.disposed) return;
         void handleExternalOpenPaths(event.payload);
-      }).then((unlisten) => {
-        unlisteners.push(unlisten);
-      });
+      }));
 
-      void tauriBridge.listen<DragDropPayload>(tauriBridge.TauriEvent.DRAG_DROP, (event) => {
+      listeners.add(tauriBridge.listen<DragDropPayload>(tauriBridge.TauriEvent.DRAG_DROP, (event) => {
+        if (listeners.disposed) return;
         clearFileDragState();
         void handleExternalOpenPaths(event.payload?.paths ?? []);
-      }).then((unlisten) => {
-        unlisteners.push(unlisten);
-      });
+      }));
 
-      void tauriBridge.listen<DragDropPayload>(tauriBridge.TauriEvent.DRAG_ENTER, (event) => {
+      listeners.add(tauriBridge.listen<DragDropPayload>(tauriBridge.TauriEvent.DRAG_ENTER, (event) => {
+        if (listeners.disposed) return;
         updateFileDragState(event.payload?.paths ?? []);
-      }).then((unlisten) => {
-        unlisteners.push(unlisten);
-      });
+      }));
 
-      void tauriBridge.listen(tauriBridge.TauriEvent.DRAG_LEAVE, () => {
+      listeners.add(tauriBridge.listen(tauriBridge.TauriEvent.DRAG_LEAVE, () => {
+        if (listeners.disposed) return;
         clearFileDragState();
-      }).then((unlisten) => {
-        unlisteners.push(unlisten);
-      });
+      }));
     }
 
     const handleWindowError = (event: ErrorEvent) => {
@@ -567,21 +568,28 @@ export function createShellLayoutController() {
       event.returnValue = get(_)('editor.unsaved_close_title') as string;
     };
     const handleWindowCloseRequested = async (event: { preventDefault: () => void }) => {
-      if (isForceClosingWindow || !hasDirtyWorkspaceDocuments(workspaceState.documents)) {
-        return;
-      }
-
+      if (isForceClosingWindow || listeners.disposed) return;
       event.preventDefault();
-      const confirmed = await tauriBridge.ask(buildAppCloseConfirmationMessage(), {
-        title: String(get(_)('editor.unsaved_close_title')),
-        kind: 'warning',
-      });
-      if (!confirmed) {
-        return;
+      if (isClosingWindow) return;
+      isClosingWindow = true;
+      try {
+        if (hasDirtyWorkspaceDocuments(workspaceState.documents)) {
+          const confirmed = await tauriBridge.ask(buildAppCloseConfirmationMessage(), {
+            title: String(get(_)('editor.unsaved_close_title')),
+            kind: 'warning',
+          });
+          if (!confirmed) return;
+        }
+        await closeDocumentsForWindowExit(documentRuntime, flushAllWorkspaceMetadataSaves);
+        isForceClosingWindow = true;
+        await getCurrentWindow().close();
+      } catch (error) {
+        isForceClosingWindow = false;
+        showToast(String(error), 'error');
+        void writeErrorLog({ source: 'shell.close-workspaces', error });
+      } finally {
+        isClosingWindow = false;
       }
-
-      isForceClosingWindow = true;
-      await getCurrentWindow().close();
     };
 
     const preloadRetryResetTimer = window.setTimeout(() => {
@@ -594,12 +602,9 @@ export function createShellLayoutController() {
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('vite:preloadError', handlePreloadError as EventListener);
-    let closeRequestUnlisten: (() => void) | null = null;
     if (tauriBridge.isTauri()) {
       const appWindow = getCurrentWindow();
-      void appWindow.onCloseRequested(handleWindowCloseRequested).then((unlisten) => {
-        closeRequestUnlisten = unlisten;
-      });
+      listeners.add(appWindow.onCloseRequested(handleWindowCloseRequested));
     }
 
     return () => {
@@ -608,16 +613,13 @@ export function createShellLayoutController() {
         clearTimeout(openHistoryHideTimer);
         openHistoryHideTimer = null;
       }
-      for (const unlisten of unlisteners) {
-        unlisten();
-      }
+      listeners.dispose();
       window.removeEventListener('keydown', handleGlobalKeydown);
       window.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('error', handleWindowError);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('vite:preloadError', handlePreloadError as EventListener);
-      closeRequestUnlisten?.();
     };
   }
 

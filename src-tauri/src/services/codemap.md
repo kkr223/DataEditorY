@@ -26,7 +26,7 @@ Rust Business Services — service functions implementing CDB sessions, metadata
 ## Design Patterns
 
 - **Working Copy Pattern** (`cdb_session.rs`): Every opened CDB is copied to a temp directory. All edits happen on the copy. Save writes the copy back to the original path atomically (temp file + rename).
-- **Atomic Save**: Uses `file.cdb.tmp` → `rename(file.cdb)` to prevent corruption on interrupted writes.
+- **Atomic Save**: CDB saves use a unique staging file beside the target, then rename it; only the target session is locked during I/O. Metadata writes use a flushed temporary file and atomic replacement, preserving the old JSON on write failure.
 - **Metadata Separation**: `.dey` files store editor state only; CDB facts, script contents, image binaries, API keys, and large caches stay out.
 - **Background Progress Events**: Merge and package operations emit `background-task-progress` events via Tauri for frontend progress display.
 

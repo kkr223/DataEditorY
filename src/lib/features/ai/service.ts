@@ -12,6 +12,7 @@ import type {
 import { resolveResourceFile } from '$lib/native/assetApi';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 import { normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
+import { createScriptBaseline } from './scriptBaseline';
 
 type AiRole = 'system' | 'user' | 'assistant' | 'tool';
 
@@ -73,6 +74,7 @@ export type AiAppContext = {
   }>;
   readImageConfig: (code: number, dbPath?: string) => unknown | Promise<unknown>;
   resolveScriptPath: (dbPath: string, fileName: string) => Promise<string>;
+  readScriptFile?: (dbPath: string, path: string) => Promise<string | null>;
   resolveScriptTestPath: (dbPath: string, code: number) => Promise<string>;
 };
 
@@ -845,14 +847,19 @@ async function runTool(input: {
     const content = String(args.content ?? '');
     if (!tab || !fileName.endsWith('.lua') || !content.trim()) throw new Error('opened database, lua fileName, and content are required');
     const cardCodeMatch = /^c(\d+)\.lua$/i.exec(fileName);
+    const path = await context.resolveScriptPath(tab.path, fileName);
+    const baseline = context.readScriptFile
+      ? await createScriptBaseline(await context.readScriptFile(tab.path, path))
+      : undefined;
     const patch: WorkspaceAiPatch = {
       id: createId('ai-patch'),
       kind: 'script',
       documentId: tab.id,
       cdbPath: tab.path,
       cardCode: cardCodeMatch ? Number(cardCodeMatch[1]) : undefined,
-      path: await context.resolveScriptPath(tab.path, fileName),
+      path,
       content,
+      baseline,
     };
     patches.push(patch);
     return { patchId: patch.id, kind: patch.kind, path: patch.path, queuedPatches: patches.length, continueIfMoreWorkRemains: true };

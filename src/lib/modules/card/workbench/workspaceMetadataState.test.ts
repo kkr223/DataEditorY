@@ -7,13 +7,14 @@ const mock = (bunTest as unknown as {
 }).mock;
 const disk = new Map<string, WorkspaceMetadata>();
 const writes: string[] = [];
+let load = async (path: string): Promise<WorkspaceMetadata> => structuredClone(disk.get(path) ?? { version: 1, cdbPath: path });
 let save = async (path: string, metadata: WorkspaceMetadata) => {
   disk.set(path, metadata);
   writes.push(path);
   return metadata;
 };
 mock.module('$lib/native/metadataApi', () => ({
-  loadWorkspaceMetadata: async (path: string) => disk.get(path) ?? { version: 1, cdbPath: path },
+  loadWorkspaceMetadata: (path: string) => load(path),
   saveWorkspaceMetadata: (path: string, metadata: WorkspaceMetadata) => save(path, metadata),
 }));
 
@@ -27,6 +28,74 @@ else Reflect.deleteProperty(globalThis, '$state');
 async function settle() {
   for (let index = 0; index < 30; index += 1) await Promise.resolve();
 }
+
+test('an asynchronous AI owner stays invalid after switching away and back', async () => {
+  state.loadWorkspaceMetadataForPath('owner-A.cdb');
+  await settle();
+  const isCurrent = state.captureWorkspaceMetadataScope();
+  expect(isCurrent()).toBe(true);
+  state.loadWorkspaceMetadataForPath('owner-B.cdb');
+  await settle();
+  expect(isCurrent()).toBe(false);
+  state.loadWorkspaceMetadataForPath('owner-A.cdb');
+  await settle();
+  expect(isCurrent()).toBe(false);
+});
+
+test('background image and task mutations preserve concurrent updates', async () => {
+  state.loadWorkspaceMetadataForPath('foreground.cdb');
+  await settle();
+  const image = { kind: 'dataeditory-card-image-config' as const, version: 1 as const, form: {} };
+  await Promise.all([
+    state.setCardImageDocumentForPath('background.cdb', 100, image),
+    state.setCardImageDocumentForPath('background.cdb', 200, image),
+    state.appendWorkspaceTaskHistoryForPath('background.cdb', { kind: 'test', label: 'first' }),
+    state.appendWorkspaceTaskHistoryForPath('background.cdb', { kind: 'test', label: 'second' }),
+  ]);
+  state.loadWorkspaceMetadataForPath('background.cdb');
+  await settle();
+  expect(state.getCardImageDocument(100)).not.toBe(null);
+  expect(state.getCardImageDocument(200)).not.toBe(null);
+  expect((disk.get('background.cdb')?.tasks?.recent as { label: string }[]).map(item => item.label))
+    .toEqual(['second', 'first']);
+});
+
+test('activating a workspace during a background write waits for that transaction', async () => {
+  state.loadWorkspaceMetadataForPath('other.cdb');
+  await settle();
+  const originalSave = save;
+  let finish!: () => void;
+  const blocked = new Promise<void>(resolve => { finish = resolve; });
+  save = async (path, metadata) => { await blocked; return originalSave(path, metadata); };
+  try {
+    const writing = state.appendWorkspaceTaskHistoryForPath('activating.cdb', { kind: 'test', label: 'kept' });
+    await settle();
+    state.loadWorkspaceMetadataForPath('activating.cdb');
+    await settle();
+    expect(state.workspaceMetadataState.ready).toBe(false);
+    finish();
+    await writing;
+    await settle();
+    state.setCardShowcaseOutputDir('new output');
+    state.loadWorkspaceMetadataForPath('activating.cdb');
+    await settle();
+    expect((disk.get('activating.cdb')?.tasks?.recent as { label: string }[])[0].label).toBe('kept');
+    expect(state.getCardShowcaseOutputDir()).toBe('new output');
+  } finally { finish(); save = originalSave; }
+});
+
+test('a failed metadata load never enables an empty autosave', async () => {
+  const originalLoad = load;
+  load = async () => { throw new Error('unreadable metadata'); };
+  try {
+    state.loadWorkspaceMetadataForPath('unreadable.cdb');
+    await settle();
+    state.setCardShowcaseOutputDir('must not save');
+    expect(state.workspaceMetadataState.ready).toBe(false);
+    expect(state.workspaceMetadataState.error).toContain('unreadable metadata');
+    expect(writes.includes('unreadable.cdb')).toBe(false);
+  } finally { load = originalLoad; }
+});
 
 test('each CDB keeps its pending metadata save when switching workspaces', async () => {
   state.loadWorkspaceMetadataForPath('switch-A.cdb');

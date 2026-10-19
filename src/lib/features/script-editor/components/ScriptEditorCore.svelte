@@ -104,6 +104,7 @@
   let isApplyingModel = false;
   let isMonacoReady = $state(false);
   let loadContextToken = 0;
+  let isDisposed = false;
   let lastContextKey = $state('');
   let savedScriptStrings = $state<string[]>(Array.from({ length: 16 }, () => ''));
   let referenceSelection = $state<ReturnType<MonacoEditor.IStandaloneCodeEditor['getSelection']>>(null);
@@ -191,6 +192,8 @@
   }
 
   async function loadCardContext() {
+    if (isDisposed) return;
+    const currentToken = ++loadContextToken;
     const tab = getActiveScriptTab();
     if (!tab) {
       cardContext = null;
@@ -198,13 +201,12 @@
       return;
     }
 
-    const currentToken = ++loadContextToken;
     const result = await loadScriptCardContextFlow({
       tab,
       dbTabs: $tabs,
       loadToken: currentToken,
     });
-    if (result.loadToken !== loadContextToken) return;
+    if (isDisposed || result.loadToken !== loadContextToken || getActiveScriptTab()?.id !== tab.id) return;
 
     cardContext = result.cardContext;
     savedScriptStrings = result.savedScriptStrings;
@@ -353,7 +355,7 @@
   }
 
   async function syncEditorWithActiveTab() {
-    if (!editorInstance || !monacoModule || !monacoApi) return;
+    if (isDisposed || !editorInstance || !monacoModule || !monacoApi) return;
 
     const tab = getActiveScriptTab();
     if (!tab) {
@@ -678,6 +680,9 @@
   });
 
   onDestroy(() => {
+    isDisposed = true;
+    loadContextToken += 1;
+    isMonacoReady = false;
     clearSuggestHint();
     clearCurrentFunctionHint();
     if (editorInstance && currentBoundTabId) {
@@ -689,6 +694,7 @@
     validateTimer = null;
     monacoRuntime?.dispose();
     monacoRuntime = null;
+    editorInstance = null;
   });
 
   $effect(() => {

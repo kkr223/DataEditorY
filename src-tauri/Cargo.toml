@@ -26,6 +26,7 @@ tauri-plugin-dialog = "2"
 aes-gcm = "0.10"
 base64 = "0.22"
 rand = "0.8"
+tempfile = "3.27"
 sha2 = "0.10"
 ygopro-cdb-encode-rs = { path = "../../ygopro-cdb-encode-rs" }
 mime_guess = "2"

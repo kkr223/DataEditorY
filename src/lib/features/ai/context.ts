@@ -2,7 +2,7 @@ import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelt
 import { getSelectedCards } from '$lib/stores/editor.svelte';
 import type { AiAppContext } from '$lib/features/ai/service';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { readTextFile } from '$lib/native/assetApi';
+import { readTextFile, pathExists } from '$lib/native/assetApi';
 import { getCardScriptInfo } from '$lib/native/scriptApi';
 import { loadSecretKey } from '$lib/native/settingsApi';
 import { documentRuntime } from '$lib/platform/appRuntime';
@@ -10,12 +10,13 @@ import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
 import {
   getCardImageDocumentForPath,
 } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
-import { getOpenScriptTab } from '$lib/stores/scriptEditor.svelte';
+import { getOpenScriptTab, getScriptTabsForCdb } from '$lib/stores/scriptEditor.svelte';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 
-export function createAiAppContext(): AiAppContext {
+export function createAiAppContext(ownerDocumentId?: string): AiAppContext {
+  const selection = ownerDocumentId ? structuredClone(getSelectedCards()) : null;
   return {
     async getAiConfig() {
       await loadAppSettings();
@@ -42,10 +43,11 @@ export function createAiAppContext(): AiAppContext {
           id: document.id,
           name: document.title,
           path: document.source?.path ?? document.source?.uri ?? '',
-          isActive: snapshot.activeDocumentId === document.id,
+          isActive: (ownerDocumentId ?? snapshot.activeDocumentId) === document.id,
         }));
     },
     getActiveDatabaseId() {
+      if (ownerDocumentId) return documentRuntime.getDocument(ownerDocumentId) ? ownerDocumentId : null;
       const active = documentRuntime.getActiveDocument();
       return active?.typeId === CARD_COLLECTION_TYPE ? active.id : null;
     },
@@ -53,7 +55,7 @@ export function createAiAppContext(): AiAppContext {
       return documentRuntime.query(documentId, query);
     },
     getSelectedCardsInActiveTab() {
-      return getSelectedCards();
+      return selection ?? getSelectedCards();
     },
     async readCardScript(code: number, dbPath?: string) {
       const target = this.listOpenDatabases().find((database) => (
@@ -90,6 +92,14 @@ export function createAiAppContext(): AiAppContext {
       const cdbDir = await tauriBridge.dirname(dbPath);
       const scriptDir = await tauriBridge.join(cdbDir, 'script');
       return tauriBridge.join(scriptDir, fileName);
+    },
+    async readScriptFile(dbPath: string, path: string) {
+      const tabId = this.listOpenDatabases().find(db => getCdbPathIdentity(db.path) === getCdbPathIdentity(dbPath))?.id ?? '';
+      const open = getScriptTabsForCdb({ tabId, path: dbPath }).find(tab => (
+        getCdbPathIdentity(tab.scriptPath) === getCdbPathIdentity(path)
+      ));
+      if (open) return open.content;
+      return await pathExists(path) ? readTextFile(path) : null;
     },
     async resolveScriptTestPath(dbPath: string, code: number) {
       const cdbDir = await tauriBridge.dirname(dbPath);

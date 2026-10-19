@@ -5,6 +5,7 @@
     activeTextTab,
     getActiveTextTab,
     getTextTabLanguage,
+    reloadTextTab,
     saveTextTab,
     saveTextTabAs,
     setTextTabViewState,
@@ -14,9 +15,8 @@
   import { attachFontZoomActions } from '$lib/features/script-editor/runtime';
   import {
     setWorkspaceLifecycleMetadata,
-    setWorkspaceSaveHandler,
-    clearWorkspaceSaveHandler,
   } from '$lib/application/workspace/lifecycle';
+  import { registerTextTabModel } from '$lib/features/script-editor/monaco/textModels';
   import { buildCallHighlightDecorations } from '$lib/features/script-editor/controller';
   import { collectLuaInlineHighlights } from '$lib/features/script-editor/lua/calls';
   import type { editor as MonacoEditor } from 'monaco-editor';
@@ -114,10 +114,11 @@
 
     if (!model) {
       model = monacoApi.editor.createModel(tab.content, language, uri);
+      registerTextTabModel(tab.id, model, monacoModule.clearModelContext);
     } else if (isSwitchingTab) {
       isApplyingModel = true;
-      model.setValue(tab.content);
-      monacoApi.editor.setModelLanguage(model, language);
+      if (model.getValue() !== tab.content) model.setValue(tab.content);
+      if (model.getLanguageId() !== language) monacoApi.editor.setModelLanguage(model, language);
       isApplyingModel = false;
     }
 
@@ -149,21 +150,12 @@
 
   function syncLifecycleMetadata() {
     const tab = $activeTextTab;
-    if (!tab) {
-      if (currentBoundTabId) {
-        clearWorkspaceSaveHandler(currentBoundTabId);
-      }
-      return;
-    }
+    if (!tab) return;
     setWorkspaceLifecycleMetadata(tab.id, {
       dirty: tab.isDirty,
       status: 'ready',
       savePolicy: 'manual',
       closeGuard: 'confirm-dirty',
-    });
-    setWorkspaceSaveHandler(tab.id, async (destinationPath?: string) => {
-      if (destinationPath) return saveTextTab(tab.id, destinationPath);
-      return saveTextTab(tab.id);
     });
   }
 
@@ -187,17 +179,10 @@
 
   async function handleReload() {
     const tab = getActiveTextTab();
-    if (!tab || !editorInstance || !monacoApi) return;
-    const { readTextFile } = await import('$lib/native/assetApi');
+    if (!tab) return;
     try {
-      const content = (await readTextFile(tab.path)).replaceAll('\r\n', '\n');
-      const model = editorInstance.getModel();
-      if (model) {
-        isApplyingModel = true;
-        model.setValue(content);
-        isApplyingModel = false;
-      }
-      updateTextTabContent(tab.id, content);
+      const reloaded = await reloadTextTab(tab.id);
+      if (!reloaded || !isMonacoReady || getActiveTextTab()?.id !== tab.id) return;
       if (getTextTabLanguage(tab) === 'lua') scheduleLuaValidation();
       showToast('Reloaded', 'success');
     } catch (error) {
@@ -220,6 +205,7 @@
     monacoApi = loadedMonaco;
 
     editorInstance = loadedMonaco.editor.create(editorHost, {
+      model: null,
       automaticLayout: true,
       contextmenu: true,
       minimap: { enabled: true },
@@ -276,11 +262,11 @@
   });
 
   onDestroy(() => {
+    isMonacoReady = false;
     if (editorInstance && currentBoundTabId) {
       const model = editorInstance.getModel();
       if (model) setTextTabViewState(currentBoundTabId, editorInstance.saveViewState());
     }
-    if (currentBoundTabId) clearWorkspaceSaveHandler(currentBoundTabId);
     clearTimeout(validateTimer ?? undefined);
     validateTimer = null;
     themeObserver?.disconnect();

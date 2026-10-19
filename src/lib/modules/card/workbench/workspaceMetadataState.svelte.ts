@@ -13,6 +13,7 @@ export const workspaceMetadataState = $state({
   cdbPath: '',
   metadata: null as WorkspaceMetadata | null,
   ready: false,
+  error: null as string | null,
 });
 
 const isCurrentMetadataPath = (path: string) => (
@@ -76,6 +77,7 @@ export type WorkspaceAiPatch =
       cardCode?: number;
       path: string;
       content: string;
+      baseline?: import('$lib/features/ai/scriptBaseline').ScriptProposalBaseline;
     }
   | {
       id: string;
@@ -168,6 +170,11 @@ export type WorkspaceTaskHistoryRecord = {
 };
 
 let loadSequence = 0;
+export function captureWorkspaceMetadataScope() {
+  const sequence = loadSequence;
+  const path = workspaceMetadataState.cdbPath;
+  return () => sequence === loadSequence && isCurrentMetadataPath(path);
+}
 const pendingSaves = new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => Promise<WorkspaceMetadata> }>();
 const inflightSaves = new Map<string, Promise<WorkspaceMetadata>>();
 
@@ -179,17 +186,43 @@ function cancelScheduledMetadataSave(path: string) {
   pendingSaves.delete(key);
 }
 
-function saveMetadataInOrder(path: string, metadata: WorkspaceMetadata, sourcePath?: string) {
+function queueMetadataOperation(path: string, operation: () => Promise<WorkspaceMetadata>) {
   const key = getCdbPathIdentity(path);
   const previous = inflightSaves.get(key);
   const saving = (previous ? previous.catch(() => undefined) : Promise.resolve())
-    .then(() => saveWorkspaceMetadata(path, metadata, sourcePath));
+    .then(operation);
   inflightSaves.set(key, saving);
   const cleanup = () => {
     if (inflightSaves.get(key) === saving) inflightSaves.delete(key);
   };
   void saving.then(cleanup, cleanup);
   return saving;
+}
+
+function saveMetadataInOrder(path: string, metadata: WorkspaceMetadata, sourcePath?: string) {
+  return queueMetadataOperation(path, () => saveWorkspaceMetadata(path, metadata, sourcePath));
+}
+
+async function updateWorkspaceMetadataForPath(
+  path: string,
+  mutate: (metadata: WorkspaceMetadata) => WorkspaceMetadata,
+) {
+  if (isCurrentMetadataPath(path)) {
+    updateWorkspaceMetadata(mutate);
+    return;
+  }
+  // Enqueue the entire transaction now, after any pending snapshot save.
+  const flushed = flushMetadataSave(path);
+  await queueMetadataOperation(path, async () => {
+    await flushed;
+    // A queued load may have activated this workspace before our turn.
+    if (isCurrentMetadataPath(path)) {
+      updateWorkspaceMetadata(mutate);
+      return workspaceMetadataState.metadata!;
+    }
+    const metadata = await loadWorkspaceMetadata(path);
+    return saveWorkspaceMetadata(path, mutate(metadata));
+  });
 }
 
 async function flushMetadataSave(path: string) {
@@ -200,6 +233,13 @@ async function flushMetadataSave(path: string) {
     await pending.run();
   } else {
     await inflightSaves.get(key);
+  }
+}
+
+export async function flushAllWorkspaceMetadataSaves() {
+  while (pendingSaves.size || inflightSaves.size) {
+    const paths = new Set([...pendingSaves.keys(), ...inflightSaves.keys()]);
+    await Promise.all([...paths].map(flushMetadataSave));
   }
 }
 
@@ -230,21 +270,25 @@ export function loadWorkspaceMetadataForPath(path: string) {
   workspaceMetadataState.cdbPath = normalizedPath;
   workspaceMetadataState.metadata = null;
   workspaceMetadataState.ready = false;
+  workspaceMetadataState.error = null;
 
   if (!normalizedPath) return;
 
-  void flushMetadataSave(normalizedPath)
-    .then(() => loadWorkspaceMetadata(normalizedPath))
-    .then((metadata) => {
-      if (sequence !== loadSequence) return;
-      workspaceMetadataState.metadata = metadata;
-      workspaceMetadataState.ready = true;
+  const flushed = flushMetadataSave(normalizedPath);
+  void queueMetadataOperation(normalizedPath, async () => {
+      await flushed;
+      const metadata = await loadWorkspaceMetadata(normalizedPath);
+      // Publish inside the queue so the next mutation sees the active state.
+      if (sequence === loadSequence) {
+        workspaceMetadataState.metadata = metadata;
+        workspaceMetadataState.ready = true;
+      }
+      return metadata;
     })
     .catch((error) => {
       if (sequence !== loadSequence) return;
       console.error('Failed to load workspace metadata', error);
-      workspaceMetadataState.metadata = { version: 1, cdbPath: normalizedPath };
-      workspaceMetadataState.ready = true;
+      workspaceMetadataState.error = String(error);
     });
 }
 
@@ -446,13 +490,9 @@ export async function setCardImageDocumentForPath(
 ) {
   const path = cdbPath.trim();
   if (!path) return;
-  if (isCurrentMetadataPath(path)) {
-    setCardImageDocument(cardCode, document);
-    return;
-  }
-  await flushMetadataSave(path);
-  const metadata = await loadWorkspaceMetadata(path);
-  await saveMetadataInOrder(path, setCardImageDocumentInMetadata(metadata, cardCode, document));
+  await updateWorkspaceMetadataForPath(path, (metadata) => (
+    setCardImageDocumentInMetadata(metadata, cardCode, document)
+  ));
 }
 
 function createId(prefix: string) {
@@ -811,8 +851,8 @@ export function updateAiProposalStatus(input: {
   proposalId: string;
   status: WorkspaceAiProposal['status'];
   applyLog?: WorkspaceAiProposal['applyLog'];
-}) {
-  updateWorkspaceMetadata((metadata) => {
+}, cdbPath?: string) {
+  const mutate = (metadata: WorkspaceMetadata): WorkspaceMetadata => {
     const { ai, threads, proposals } = readAiState(metadata);
     const now = Date.now();
     return {
@@ -836,7 +876,9 @@ export function updateAiProposalStatus(input: {
           : thread),
       },
     };
-  });
+  };
+  if (cdbPath) return updateWorkspaceMetadataForPath(cdbPath, mutate);
+  updateWorkspaceMetadata(mutate);
 }
 
 export function appendWorkspaceTaskHistory(input: {
@@ -876,19 +918,6 @@ export async function appendWorkspaceTaskHistoryForPath(
 ) {
   const path = cdbPath.trim();
   if (!path) return;
-  if (workspaceMetadataState.ready && workspaceMetadataState.cdbPath === path) {
-    appendWorkspaceTaskHistory(input);
-    return;
-  }
-
-  await flushMetadataSave(path);
-  const metadata = await loadWorkspaceMetadata(path);
-  const tasks = metadata.tasks && typeof metadata.tasks === 'object'
-    ? metadata.tasks
-    : {};
-  const recent = Array.isArray(tasks.recent)
-    ? tasks.recent as WorkspaceTaskHistoryRecord[]
-    : [];
   const record: WorkspaceTaskHistoryRecord = {
     id: createId('task'),
     kind: input.kind,
@@ -897,11 +926,12 @@ export async function appendWorkspaceTaskHistoryForPath(
     createdAt: Date.now(),
   };
 
-  await saveMetadataInOrder(path, {
-    ...metadata,
-    tasks: {
-      ...tasks,
-      recent: [record, ...recent].slice(0, 50),
-    },
+  await updateWorkspaceMetadataForPath(path, (metadata) => {
+    const tasks = metadata.tasks ?? {};
+    const recent = Array.isArray(tasks.recent) ? tasks.recent as WorkspaceTaskHistoryRecord[] : [];
+    return {
+      ...metadata,
+      tasks: { ...tasks, recent: [record, ...recent].slice(0, 50) },
+    };
   });
 }

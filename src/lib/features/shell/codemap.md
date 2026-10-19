@@ -15,6 +15,8 @@ Application Shell — manages the app frame, CDB-only top-level tabs, global/CDB
 - **`mergeController.ts`** — merge workflow: add sources, reorder, analyze, execute merge via `native/taskApi`
 - **`packageController.ts`** — package workflow: ZIP/YPK export via `native/taskApi`
 - **`filterCdbController.ts`** — create filtered CDB from current search results
+- **`listenerScope.ts`** — owns asynchronous native listener registrations; late registrations are immediately removed after controller cleanup
+- **`workspaceShutdown.ts`** — flushes metadata and closes documents through their provider protocol before window exit, allowing pending asset renames to roll back
 
 ### Components
 

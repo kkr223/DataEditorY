@@ -4,6 +4,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
+    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -205,7 +206,12 @@ fn write_workspace_metadata(path: &Path, metadata: &Value) -> Result<(), String>
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
     let content = serde_json::to_string_pretty(metadata).map_err(|err| err.to_string())?;
-    fs::write(path, content).map_err(|err| err.to_string())
+    let parent = path.parent().ok_or("Metadata path has no parent")?;
+    let mut pending = tempfile::NamedTempFile::new_in(parent).map_err(|err| err.to_string())?;
+    pending.write_all(content.as_bytes()).map_err(|err| err.to_string())?;
+    pending.as_file().sync_all().map_err(|err| err.to_string())?;
+    pending.persist(path).map_err(|err| err.to_string())?;
+    Ok(())
 }
 
 fn empty_workspace_metadata(cdb_path: &str) -> Value {
@@ -337,6 +343,22 @@ mod tests {
         assert_eq!(loaded["cardGroups"][0]["id"], "group-1");
 
         fs::remove_dir_all(dir).expect("cleanup temp project dir");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn failed_atomic_metadata_replace_preserves_the_previous_file() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let dir = temp_project_dir();
+        let path = dir.join("workspace.json");
+        write_workspace_metadata(&path, &json!({"kept": true})).unwrap();
+        let locked = fs::OpenOptions::new().read(true).share_mode(0).open(&path).unwrap();
+        assert!(write_workspace_metadata(&path, &json!({"replacement": true})).is_err());
+        drop(locked);
+        let saved: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(saved, json!({"kept": true}));
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

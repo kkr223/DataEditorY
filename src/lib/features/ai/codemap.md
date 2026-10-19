@@ -23,6 +23,8 @@ Builds AI context from current app state:
 - Open database summaries
 - Script and image config readers
 - Configured script directory for script lookup and helper loading
+- Request ownership pins the active CDB and selection; open script buffers take precedence over disk reads
+- `scriptBaseline.ts` stores only file existence and a SHA-256 digest in script proposals. Apply checks this baseline and asks for confirmation if the script changed or an older proposal has no baseline.
 
 ### Skills
 

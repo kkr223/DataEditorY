@@ -261,7 +261,9 @@ pub fn execute(
                 .map(|card_id| previous_by_id.get(card_id).cloned())
                 .collect::<Vec<_>>();
             let cdb_path =
-                with_session_meta(sessions, &document_id, |session| Ok(session.path.clone()))?;
+                with_session_meta(sessions, &document_id, |session| {
+                    Ok(session.path.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone())
+                })?;
             let asset_change =
                 CardAssetIdChange::apply(&cdb_path, original_card_id, card.code, remove_original)?;
             let id_change = json!({

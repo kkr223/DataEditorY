@@ -29,6 +29,7 @@ export class DocumentRuntime {
 
   private readonly providerInstances = new Map<string, DataProvider>();
   private readonly documents = new Map<string, DocumentRecord>();
+  private readonly pendingSaves = new Map<string, Promise<DocumentRecord>>();
   private readonly listeners = new Set<RuntimeListener>();
   private activeDocumentId: string | null = null;
 
@@ -220,7 +221,19 @@ export class DocumentRuntime {
     return result;
   }
 
-  async save(documentId: string, destination?: DocumentSource) {
+  save(documentId: string, destination?: DocumentSource): Promise<DocumentRecord> {
+    const previous = this.pendingSaves.get(documentId);
+    const saving = (previous ? previous.catch(() => undefined) : Promise.resolve())
+      .then(() => this.saveDocument(documentId, destination));
+    this.pendingSaves.set(documentId, saving);
+    const cleanup = () => {
+      if (this.pendingSaves.get(documentId) === saving) this.pendingSaves.delete(documentId);
+    };
+    void saving.then(cleanup, cleanup);
+    return saving;
+  }
+
+  private async saveDocument(documentId: string, destination?: DocumentSource) {
     const document = this.requireDocument(documentId);
     const target = destination ?? document.source;
     if (!target) {
@@ -238,19 +251,21 @@ export class DocumentRuntime {
       throw new Error(`Codec ${codec.id} cannot save data type ${document.typeId}`);
     }
 
+    const savedRevision = document.revision;
     await codec.encode(this.createAccess(document), target, this.codecContext);
     document.source = target;
     if (destination) {
       document.title = target.name;
     }
     document.codecId = codec.id;
-    document.savedRevision = document.revision;
-    document.dirty = false;
+    document.savedRevision = savedRevision;
+    document.dirty = document.revision !== savedRevision;
     this.emit();
     return this.cloneRecord(document);
   }
 
   async close(documentId: string, force = false) {
+    await this.pendingSaves.get(documentId);
     const document = this.requireDocument(documentId);
     if (document.dirty && !force) {
       throw new Error(`Document ${document.title} has unsaved changes`);

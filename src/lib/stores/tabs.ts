@@ -362,6 +362,11 @@ export async function saveCdbTabAs(tabId: string, path: string): Promise<boolean
 
   try {
     const name = targetPath.split(/[\\/]/).pop() || tab.name;
+    // Validate the destination before copying any workspace state or assets.
+    if (tab.path) {
+      const { copyWorkspaceMetadataForSaveAs } = await import('$lib/modules/card/workbench/workspaceMetadataState.svelte');
+      await copyWorkspaceMetadataForSaveAs(tab.path, targetPath);
+    }
     const saved = await documentRuntime.save(tab.id, {
       uri: targetPath,
       path: targetPath,

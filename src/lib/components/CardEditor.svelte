@@ -35,7 +35,6 @@
   import { documentRuntime } from "$lib/platform/appRuntime";
   import type { CardWorkbenchContext } from "$lib/modules/card/workbench/context";
   import { aiProposalApplicationState, consumeAiCardDraftPatch } from "$lib/modules/card/workbench/aiProposalApplication.svelte";
-  import { copyWorkspaceMetadataForSaveAs } from "$lib/modules/card/workbench/workspaceMetadataState.svelte";
   import {
     getWorkspaceCardDraft,
     setWorkspaceCardDraft,
@@ -289,7 +288,6 @@
 
     return lifecycleController.handleSaveWorkspace(handleModify, async () => {
       if (!destinationPath) return saveCdbTab(tabId);
-      await copyWorkspaceMetadataForSaveAs(sourcePath, destinationPath);
       return saveCdbTabAs(tabId, destinationPath);
     });
   }
@@ -565,8 +563,12 @@
     const pending = aiProposalApplicationState.pendingCardDraftPatch;
     if (!pending) return;
 
-    const consumed = consumeAiCardDraftPatch(pending.id);
-    if (!consumed) return;
+    const consumed = consumeAiCardDraftPatch(pending.id, {
+      workspaceId: $activeTabId ?? '',
+      cardCode: Number(editorState.selectedId ?? 0),
+      revision: documentRuntime.getDocument($activeTabId ?? '')?.revision ?? -1,
+    });
+    if (!consumed || isDraftDirty()) return;
 
     const nextCard = cloneEditableCard({
       ...draftCard,

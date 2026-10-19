@@ -42,7 +42,6 @@ import {
   SETTINGS_TYPE,
 } from '$lib/modules/settings';
 import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
-import { copyWorkspaceMetadataForSaveAs } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
 import { clearWorkspaceCardDraft } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
 import {
   activateTextTab,
@@ -266,9 +265,6 @@ export async function saveWorkspaceDocumentAs(id: string) {
   }
 
   try {
-    if (tab.path) {
-      await copyWorkspaceMetadataForSaveAs(tab.path, targetPath);
-    }
     return saveCdbTabAs(id, targetPath);
   } catch (error) {
     console.error('Failed to save CDB workspace as:', error);
