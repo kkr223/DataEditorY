@@ -772,6 +772,7 @@
       }
     },
     "delete": "Delete",
+    "delete_selected": "Delete selected ({count})",
     "reset_editor": "Reset",
     "id": "ID Passcode",
     "alias": "Alias ID",

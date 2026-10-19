@@ -56,6 +56,21 @@ test('cancelled deletion does not delete any selected cards', async () => {
   } finally { confirmed = true; }
 });
 
+test('selected cards can be deleted without an existing single-card draft', async () => {
+  deleted = [];
+  let confirmCount = '';
+  await deleteDraftCardFlow({
+    tabId: 'A', originalCardCode: null, selectedCardIds: [10, 20, 30],
+    t: (key, options) => {
+      if (key === 'editor.delete_selected_confirm') confirmCount = String((options?.values as { count: string }).count);
+      return key;
+    },
+    resetDraftCard() {}, clearSelection() {}, handleSearch: async () => true,
+  });
+  expect(deleted).toEqual([10, 20, 30]);
+  expect(confirmCount).toBe('3');
+});
+
 for (const removeOriginal of [true, false]) {
   test(`changing a password routes through the asset-aware command (removeOriginal=${removeOriginal})`, async () => {
     const card = createEmptyCard();

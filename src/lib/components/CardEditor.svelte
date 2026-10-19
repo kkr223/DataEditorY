@@ -57,6 +57,7 @@
   let lastDefaultCoverSrc = $state("/resources/cover.jpg");
   let isKeyboardNavigating = $state(false);
   let isCommittingDraft = $state(false);
+  let isDeleting = $state(false);
   let draftUndoHistory = $state.raw<DraftUndoEntry[]>(createDraftUndoHistory(initialDraftCard));
   let trackedDraftSnapshot = $state(createCardSnapshot(initialDraftCard));
   let suspendDraftUndoTracking = 0;
@@ -111,6 +112,8 @@
   });
 
   const isEditingExisting = $derived(originalCardCode !== null);
+  const selectedCardCount = $derived(editorState.selectedIds.length);
+  const canDelete = $derived(selectedCardCount > 0 || isEditingExisting);
   const isLink = $derived((draftCard.type & 0x4000000) !== 0);
   const isPend = $derived((draftCard.type & 0x1000000) !== 0);
   const popularSetcodeValues = $derived.by(() => new Set(popularSetcodes.map((option) => option.value)));
@@ -392,8 +395,13 @@
 
   async function handleDelete() {
     const tabId = $activeTabId;
-    if (!$isDbLoaded || !tabId || originalCardCode === null) return;
-    await deleteDraftCardFlow({ tabId, originalCardCode, selectedCardIds: [...editorState.selectedIds], t: (key, options) => $_(key, options as never), resetDraftCard: lifecycleController.resetDraftCard, clearSelection, handleSearch });
+    if (!$isDbLoaded || !tabId || !canDelete || isDeleting) return;
+    isDeleting = true;
+    try {
+      await deleteDraftCardFlow({ tabId, originalCardCode, selectedCardIds: [...editorState.selectedIds], t: (key, options) => $_(key, options as never), resetDraftCard: lifecycleController.resetDraftCard, clearSelection, handleSearch });
+    } finally {
+      isDeleting = false;
+    }
   }
 
   function handleNewCard() {
@@ -646,6 +654,7 @@
 
     <CardEditorFooter
       {isEditingExisting}
+      canDelete={canDelete && !isDeleting}
       editingHint={$_("editor.editing_card", { values: { code: String(originalCardCode) } })}
       newCardHint={$_("editor.new_card_hint")}
       backgroundTaskLabel={backgroundTaskLabel}
@@ -656,7 +665,9 @@
       searchLabel={$_("editor.search_from_draft")}
       saveAsLabel={$_("editor.save_as")}
       modifyLabel={$_("editor.modify")}
-      deleteLabel={$_("editor.delete")}
+      deleteLabel={selectedCardCount > 1
+        ? $_("editor.delete_selected", { values: { count: String(selectedCardCount) } })
+        : $_("editor.delete")}
       {extensionActions}
       onNewCard={handleNewCard}
       onResetSearch={runResetSearch}

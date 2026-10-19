@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   export let isEditingExisting = false;
+  export let canDelete = false;
   export let editingHint = "";
   export let newCardHint = "";
   export let backgroundTaskLabel = "";
@@ -53,7 +54,7 @@
     <button class="btn-secondary btn-sm" onclick={onNewCard}>{newCardLabel}</button>
     <button class="btn-save-as btn-sm" onclick={onSaveAs}>{saveAsLabel}</button>
     <button class="btn-primary btn-sm" onclick={onModify}>{modifyLabel}</button>
-    <button class="btn-danger btn-sm" onclick={onDelete} disabled={!isEditingExisting}>{deleteLabel}</button>
+    <button class="btn-danger btn-sm" onclick={onDelete} disabled={!canDelete}>{deleteLabel}</button>
   </div>
 </div>
 

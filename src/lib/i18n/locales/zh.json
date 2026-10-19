@@ -772,6 +772,7 @@
       }
     },
     "delete": "删除",
+    "delete_selected": "删除所选（{count}）",
     "reset_editor": "重置",
     "id": "卡片密码 (ID)",
     "alias": "同名卡 (Alias)",
