@@ -216,7 +216,7 @@ export async function closeWorkspaceDocument(id: string) {
 
 export async function saveWorkspaceDocument(id: string) {
   if (id === SETTINGS_WORKSPACE_ID) {
-    return true;
+    return (await tryRunWorkspaceSaveHandler(id)) ?? false;
   }
 
   if (isScriptWorkspace(id)) {

@@ -213,7 +213,9 @@ export function createShellLayoutController() {
   }
 
   async function handleSave() {
+    const isSettingsWorkspace = workspaceState.activeWorkspaceId === SETTINGS_WORKSPACE_ID;
     const ok = await saveActiveWorkspaceDocument();
+    if (isSettingsWorkspace) return;
     showToast(
       String(get(_)(ok ? 'editor.save_success' : 'editor.save_failed')),
       ok ? 'success' : 'error',
