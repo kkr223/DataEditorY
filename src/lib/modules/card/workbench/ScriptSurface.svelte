@@ -28,11 +28,21 @@
   import { getWorkspaceDocument } from '$lib/core/workspace/store.svelte';
   import { confirmWorkspaceClose } from '$lib/application/workspace/lifecycle';
   import { showToast } from '$lib/stores/toast.svelte';
+  import { cardSurfaceState } from './surfaceState.svelte';
 
-  let { selectionReady = false }: { selectionReady?: boolean } = $props();
+  let {
+    selectionReady = false,
+    openSelectedRequest = 0,
+    onOpenSelectedRequestHandled,
+  }: {
+    selectionReady?: boolean;
+    openSelectedRequest?: number;
+    onOpenSelectedRequestHandled?: () => void;
+  } = $props();
 
   let isOpening = $state(false);
   let isMissingScript = $state(false);
+  let createSelectedRequested = $state(false);
   let restoredWorkspaceKey = $state('');
   let restorationCompleteWorkspaceKey = $state('');
   let lastPersistedScriptKey = '';
@@ -65,20 +75,8 @@
     await closeScriptTab(tabId);
   }
 
-  async function openSelectedScript() {
-    if (!selectionReady || !activeCdb || !selectedCard || isOpening) return;
-    isOpening = true;
-    try {
-      await openCardScriptWorkspace({
-        cdbPath: activeCdb.path,
-        sourceTabId: activeCdb.id,
-        cardCode: selectedCard.code,
-        cardName: selectedCard.name ?? '',
-      });
-      isMissingScript = false;
-    } finally {
-      isOpening = false;
-    }
+  function openSelectedScript() {
+    createSelectedRequested = true;
   }
 
   $effect(() => {
@@ -92,6 +90,7 @@
       lastResolvedCardKey = '';
       isOpening = false;
       isMissingScript = false;
+      createSelectedRequested = false;
     }
     const sequence = restorationSequence;
     workspaceMetadataState.ready;
@@ -160,12 +159,20 @@
     const cardCode = selectedCard?.code ?? 0;
     const cardName = selectedCard?.name ?? '';
     const cardKey = path && cardCode ? getScriptTabKey(path, cardCode) : '';
-    if (!selectionReady || !cardKey || !sourceTabId || restorationCompleteWorkspaceKey !== workspaceKey || lastResolvedCardKey === cardKey) {
+    const requested = openSelectedRequest > 0 || createSelectedRequested;
+    if (!selectionReady || !cardKey || !sourceTabId || restorationCompleteWorkspaceKey !== workspaceKey
+      || (!requested && lastResolvedCardKey === cardKey)) {
       return;
     }
 
     lastResolvedCardKey = cardKey;
+    if (openSelectedRequest > 0) onOpenSelectedRequestHandled?.();
+    createSelectedRequested = false;
     const sequence = ++resolveSequence;
+    const key = workspaceKey;
+    const canActivate = () => sequence === resolveSequence && workspaceKey === key && selectionReady
+      && cardSurfaceState.activeSurface === 'script'
+      && getScriptTabKey(activeCdb?.path ?? '', selectedCard?.code ?? 0) === cardKey;
     isOpening = true;
     isMissingScript = false;
     if (
@@ -175,24 +182,27 @@
     ) {
       activeScriptTabId.set(null);
     }
-    void openExistingScriptTab({
+    const input = {
       cdbPath: path,
       sourceTabId,
       cardCode,
       cardName,
-      activate: false,
-    })
-      .then((tabId) => {
-        if (sequence !== resolveSequence || getScriptTabKey(activeCdb?.path ?? '', selectedCard?.code ?? 0) !== cardKey) return;
+      activate: false as const,
+    };
+    const opening = requested
+      ? openCardScriptWorkspace(input).then((result) => result?.tabId ?? null)
+      : openExistingScriptTab(input);
+    void opening
+      .then(async (tabId) => {
+        if (!canActivate()) return;
         if (!tabId) {
           isMissingScript = true;
           return;
         }
-        activateScriptTab(tabId);
+        await activateScriptTab(tabId, undefined, canActivate);
       })
       .catch((error) => {
         if (sequence !== resolveSequence) return;
-        lastResolvedCardKey = '';
         showToast(
           `${$_('editor.script_open_failed')}: ${error instanceof Error ? error.message : String(error)}`,
           'error',

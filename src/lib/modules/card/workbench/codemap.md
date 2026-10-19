@@ -7,10 +7,11 @@ Card Collection Workbench — the CDB workspace UI. It composes Card Explorer, t
 ## Components
 
 - `CardCollectionWorkbench.svelte` — main CDB workspace layout; restores Explorer filters and selection before enabling script restoration or persisting workspace state, owns explorer collapse/pin behavior, and routes the active surface. Async restoration is scoped to the active CDB session.
-- `CardSurfaceRail.svelte` — vertical current-card surface tabs.
+- `CardSurfaceRail.svelte` — vertical current-card surface tabs; explicit Lua clicks queue opening the selected card's script, creating it from the configured template when missing.
 - `ScriptSurface.svelte` — current-card Lua editor surface with internal script tabs; waits for Explorer selection restoration, restores saved scripts per CDB session, then enables current-card script opening and script-state persistence.
   Returning to a CDB preserves its last active script independently of Explorer selection; subsequent card changes follow the selected card. Async activation is cancelled when its workspace is left during buffer synchronization.
   Internal Lua tabs support pointer drag sorting within the CDB; their ordered list is persisted through the existing script surface metadata.
+  Explicit script-open requests wait for Explorer and script restoration, then take precedence over the restored active script. Background creation and guarded activation prevent late completions from changing another card or workspace.
 - `ImageSurface.svelte` — current-card image preview/config/export surface backed by `yugioh-card-ts`.
   Uses only the selected card's matching draft, keys editors by CDB session and card, and rejects changes emitted by an old editor or a mismatched metadata workspace.
 - `AiSurface.svelte` — workspace AI surface showing `@card` context, tool calls, results, proposals, and diffs.

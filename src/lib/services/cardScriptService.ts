@@ -24,12 +24,14 @@ export async function openCardScriptWorkspace(input: {
   sourceTabId: string | null;
   cardCode: number;
   cardName: string;
+  activate?: boolean;
 }) {
   return openOrCreateScriptTab({
     cdbPath: input.cdbPath,
     sourceTabId: input.sourceTabId,
     cardCode: input.cardCode,
     cardName: input.cardName,
+    activate: input.activate,
     templateContent: buildTemplateContent(input.cardName, input.cardCode),
   });
 }

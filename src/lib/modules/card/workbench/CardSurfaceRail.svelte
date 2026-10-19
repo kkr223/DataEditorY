@@ -12,6 +12,8 @@
   import { documentRuntime } from '$lib/platform/appRuntime';
   import { isScriptTabOwnedByCdb } from '$lib/domain/script/tabIdentity';
 
+  let { onSelectSurface }: { onSelectSurface?: (surface: CardSurfaceId) => void } = $props();
+
   type SurfaceEntry = {
     id: CardSurfaceId;
     labelKey: string;
@@ -48,6 +50,7 @@
 
   function selectSurface(surface: CardSurfaceId) {
     activateCardSurface(surface);
+    onSelectSurface?.(surface);
     if (surface === 'script' && hasCurrentCdbScriptTab) {
       activateScriptView();
       return;

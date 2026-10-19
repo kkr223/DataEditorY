@@ -237,19 +237,20 @@ const discardCancelledScript = async (documentId: string | null) => {
 
 export const openOrCreateScriptTab = async (input: ScriptTabContext & {
   templateContent: string;
+  activate?: boolean;
 }): Promise<OpenScriptTabResult | null> => {
-  const isLatestActivation = scriptActivation.begin();
+  const isLatestActivation = input.activate === false ? null : scriptActivation.begin();
   const key = `${input.sourceTabId ?? ''}:${getScriptTabKey(input.cdbPath, input.cardCode)}`;
   const inflight = inflightOpenRequests.get(key);
   if (inflight) {
     const result = await inflight;
-    if (result) await activateScriptTab(result.tabId, isLatestActivation);
+    if (result && isLatestActivation) await activateScriptTab(result.tabId, isLatestActivation);
     return result;
   }
 
   const existing = getOpenScriptTab(input.cdbPath, input.cardCode, input.sourceTabId);
   if (existing) {
-    await activateScriptTab(existing.id, isLatestActivation);
+    if (isLatestActivation) await activateScriptTab(existing.id, isLatestActivation);
     return { tabId: existing.id, createdFromTemplate: false };
   }
 
@@ -294,7 +295,7 @@ export const openOrCreateScriptTab = async (input: ScriptTabContext & {
         });
       }
       await hydrateScriptTab(document.id, input, info.path, !info.exists, signal);
-      await activateScriptTab(document.id, () => !signal.aborted && isLatestActivation());
+      if (isLatestActivation) await activateScriptTab(document.id, () => !signal.aborted && isLatestActivation());
       return {
         tabId: document.id,
         createdFromTemplate: !info.exists,

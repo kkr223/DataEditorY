@@ -177,6 +177,56 @@ test('an uncancelled template open still saves and activates its script', async 
   } finally { getInfo = original; }
 });
 
+test('background template creation saves the file without changing the active workspace or script', async () => {
+  const input = await createCdb();
+  const first = await scripts.openExistingScriptTab({ ...input, activate: true });
+  const info = deferred<{ exists: boolean; path: string }>();
+  const original = getInfo;
+  getInfo = () => info.promise;
+  try {
+    const opening = scripts.openOrCreateScriptTab({
+      ...input, cardCode: 2, templateContent: '-- selected card 2', activate: false,
+    });
+    runtime.activate(input.sourceTabId);
+    writtenPaths.length = 0;
+    info.resolve({ exists: false, path: 'script/c2.lua' });
+    const result = await opening;
+    expect(result?.createdFromTemplate).toBe(true);
+    expect(writtenPaths).toEqual(['script/c2.lua']);
+    expect(runtime.snapshot.activeDocumentId).toBe(input.sourceTabId);
+    expect(get(scripts.activeScriptTabId)).toBe(first);
+    const created = get(scripts.scriptTabs).find((tab) => tab.id === result?.tabId);
+    expect(created?.content).toBe('-- selected card 2');
+    expect(created?.isDirty).toBe(false);
+    // Reopening the already open script must also respect background activation.
+    await scripts.openOrCreateScriptTab({ ...input, cardCode: 2, templateContent: '-- do not overwrite', activate: false });
+    expect(get(scripts.activeScriptTabId)).toBe(first);
+    expect(get(scripts.scriptTabs).find((tab) => tab.id === result?.tabId)?.content).toBe('-- selected card 2');
+  } finally {
+    getInfo = original;
+    await closeCdb(input);
+  }
+});
+
+test('an explicit open can activate a script already being created in the background', async () => {
+  const input = await createCdb();
+  const info = deferred<{ exists: boolean; path: string }>();
+  const original = getInfo;
+  getInfo = () => info.promise;
+  try {
+    const background = scripts.openOrCreateScriptTab({ ...input, templateContent: '-- new', activate: false });
+    const explicit = scripts.openOrCreateScriptTab({ ...input, templateContent: '-- new' });
+    info.resolve({ exists: false, path: 'script/c1.lua' });
+    const [first, second] = await Promise.all([background, explicit]);
+    expect(first?.tabId).toBe(second?.tabId);
+    expect(get(scripts.scriptTabs)).toHaveLength(1);
+    expect(get(scripts.activeScriptTabId)).toBe(second?.tabId);
+  } finally {
+    getInfo = original;
+    await closeCdb(input);
+  }
+});
+
 test('moving a card ID retargets an open script and preserves its unsaved buffer', async () => {
   const input = await createCdb();
   const scriptId = await scripts.openExistingScriptTab(input);

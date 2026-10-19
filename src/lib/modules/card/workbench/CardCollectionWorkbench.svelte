@@ -61,6 +61,14 @@
   let extensionSurfaceError = $state('');
   let extensionLoadSequence = 0;
   let scriptSurfacePromise: Promise<typeof import('./ScriptSurface.svelte')> | null = null;
+  let scriptOpenSequence = 0;
+  let scriptOpenRequest = $state<{ tabId: string; sequence: number } | null>(null);
+
+  function handleSurfaceSelected(surface: CardSurfaceId) {
+    scriptOpenRequest = surface === 'script' && $activeTab
+      ? { tabId: $activeTab.id, sequence: ++scriptOpenSequence }
+      : null;
+  }
 
   onDestroy(() => { metadataApplySequence += 1; });
 
@@ -100,6 +108,7 @@
     if (nextTabId === hydratedTabId) return;
 
     hydratedTabId = nextTabId;
+    scriptOpenRequest = null;
     metadataApplySequence += 1;
     appliedMetadataPath = '';
     appliedMetadataTabId = '';
@@ -167,6 +176,7 @@
         cardSurfaceState.explorerPinned = cardWorkspace.explorerPinned;
       }
     }
+    if (scriptOpenRequest?.tabId === tabId) cardSurfaceState.activeSurface = 'script';
 
     const explorer = getCardExplorerState();
     if (explorer) {
@@ -255,7 +265,7 @@
     </div>
   </div>
 
-  <CardSurfaceRail />
+  <CardSurfaceRail onSelectSurface={handleSurfaceSelected} />
 
   <div class="surface-host">
     <div class="card-surface-pane" class:hidden={cardSurfaceState.activeSurface !== 'card'}>
@@ -264,7 +274,10 @@
     {#if cardSurfaceState.activeSurface === 'script'}
       {#await loadScriptSurface() then module}
         {@const ScriptSurface = module.default}
-        <ScriptSurface selectionReady={appliedMetadataTabId === $activeTab?.id
+        <ScriptSurface
+          openSelectedRequest={scriptOpenRequest?.tabId === $activeTab?.id ? scriptOpenRequest?.sequence ?? 0 : 0}
+          onOpenSelectedRequestHandled={() => { scriptOpenRequest = null; }}
+          selectionReady={appliedMetadataTabId === $activeTab?.id
           && appliedMetadataPath === $activeTab?.path
           && workspaceMetadataState.ready && workspaceMetadataState.cdbPath === $activeTab?.path} />
       {/await}
