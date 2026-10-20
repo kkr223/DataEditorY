@@ -405,9 +405,9 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    border: 1px solid var(--border-color);
-    border-radius: var(--control-radius-soft);
-    background: var(--bg-base);
+    border: 0;
+    border-radius: 0;
+    background: #121714;
   }
 
   .text-editor :global(.monaco-editor),
@@ -419,16 +419,16 @@
         to bottom,
         rgba(0, 0, 0, 0) 0,
         rgba(0, 0, 0, 0) 21px,
-        rgba(148, 163, 184, 0.06) 21px,
-        rgba(148, 163, 184, 0.06) 22px
+        rgba(186, 227, 198, 0.08) 21px,
+        rgba(186, 227, 198, 0.08) 22px
       ),
-      var(--bg-base) !important;
+      #121714 !important;
   }
 
   .text-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(59, 130, 246, 0.28) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(59, 130, 246, 0.18) !important;
-    --vscode-editor-lineHighlightBackground: rgba(59, 130, 246, 0.1) !important;
+    --vscode-editor-selectionBackground: rgba(87, 166, 121, 0.28) !important;
+    --vscode-editor-inactiveSelectionBackground: rgba(87, 166, 121, 0.18) !important;
+    --vscode-editor-lineHighlightBackground: rgba(118, 184, 151, 0.12) !important;
     --vscode-editorError-background: rgba(196, 122, 112, 0.12) !important;
     --vscode-editorError-border: rgba(196, 122, 112, 0.28) !important;
     --vscode-editorWarning-background: rgba(196, 168, 102, 0.1) !important;
@@ -439,7 +439,7 @@
 
   .text-editor :global(.monaco-editor .focused .selected-text),
   .text-editor :global(.monaco-editor .selected-text) {
-    background-color: rgba(59, 130, 246, 0.28) !important;
+    background-color: rgba(87, 166, 121, 0.28) !important;
   }
 
   .text-editor :global(.monaco-editor .view-line .lua-call-highlight) {
@@ -464,7 +464,7 @@
 
   .text-editor :global(.monaco-editor .view-overlays .current-line),
   .text-editor :global(.monaco-editor .margin-view-overlays .current-line) {
-    background-color: rgba(59, 130, 246, 0.1) !important;
+    background-color: rgba(118, 184, 151, 0.12) !important;
     border: none !important;
   }
 
@@ -517,7 +517,7 @@
   }
 
   :global([data-theme='light']) .text-editor {
-    background: var(--bg-base);
+    background: #f1f5ec;
   }
 
   :global([data-theme='light']) .text-editor :global(.monaco-editor),
@@ -529,16 +529,16 @@
         to bottom,
         rgba(0, 0, 0, 0) 0,
         rgba(0, 0, 0, 0) 21px,
-        rgba(148, 163, 184, 0.12) 21px,
-        rgba(148, 163, 184, 0.12) 22px
+        rgba(104, 145, 112, 0.1) 21px,
+        rgba(104, 145, 112, 0.1) 22px
       ),
-      var(--bg-base) !important;
+      #f1f5ec !important;
   }
 
   :global([data-theme='light']) .text-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(37, 99, 235, 0.22) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(37, 99, 235, 0.14) !important;
-    --vscode-editor-lineHighlightBackground: rgba(37, 99, 235, 0.08) !important;
+    --vscode-editor-selectionBackground: rgba(79, 142, 98, 0.22) !important;
+    --vscode-editor-inactiveSelectionBackground: rgba(79, 142, 98, 0.14) !important;
+    --vscode-editor-lineHighlightBackground: rgba(74, 133, 91, 0.1) !important;
     --vscode-editorError-background: rgba(198, 128, 117, 0.08) !important;
     --vscode-editorError-border: rgba(198, 128, 117, 0.2) !important;
     --vscode-editorWarning-background: rgba(189, 155, 86, 0.08) !important;

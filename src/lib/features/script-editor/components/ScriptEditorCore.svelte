@@ -761,18 +761,18 @@
   .script-editor-shell {
     min-width: 0;
     min-height: 0;
-    padding: 6px 6px 6px 8px;
+    padding: 0;
     position: relative;
   }
 
   .script-editor {
     height: 100%;
     min-height: 0;
-    border: 1px solid var(--border-color);
-    border-radius: var(--control-radius-soft);
+    border: 0;
+    border-radius: 0;
     overflow: hidden;
-    box-shadow: var(--shadow-card);
-    background: var(--bg-base);
+    box-shadow: none;
+    background: #121714;
   }
 
   .script-editor :global(.monaco-editor),
@@ -784,16 +784,16 @@
         to bottom,
         rgba(0, 0, 0, 0) 0,
         rgba(0, 0, 0, 0) calc(var(--script-editor-line-height, 22px) - 1px),
-        rgba(148, 163, 184, 0.06) calc(var(--script-editor-line-height, 22px) - 1px),
-        rgba(148, 163, 184, 0.06) var(--script-editor-line-height, 22px)
+        rgba(186, 227, 198, 0.08) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(186, 227, 198, 0.08) var(--script-editor-line-height, 22px)
       ),
-      var(--bg-base) !important;
+      #121714 !important;
   }
 
   .script-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(59, 130, 246, 0.28) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(59, 130, 246, 0.18) !important;
-    --vscode-editor-lineHighlightBackground: rgba(59, 130, 246, 0.1) !important;
+    --vscode-editor-selectionBackground: rgba(87, 166, 121, 0.28) !important;
+    --vscode-editor-inactiveSelectionBackground: rgba(87, 166, 121, 0.18) !important;
+    --vscode-editor-lineHighlightBackground: rgba(118, 184, 151, 0.12) !important;
     --vscode-editorError-background: rgba(196, 122, 112, 0.12) !important;
     --vscode-editorError-border: rgba(196, 122, 112, 0.28) !important;
     --vscode-editorWarning-background: rgba(196, 168, 102, 0.1) !important;
@@ -804,7 +804,7 @@
 
   .script-editor :global(.monaco-editor .focused .selected-text),
   .script-editor :global(.monaco-editor .selected-text) {
-    background-color: rgba(59, 130, 246, 0.28) !important;
+    background-color: rgba(87, 166, 121, 0.28) !important;
   }
 
   .script-editor :global(.monaco-editor .view-line .lua-call-highlight) {
@@ -829,7 +829,7 @@
 
   .script-editor :global(.monaco-editor .view-overlays .current-line),
   .script-editor :global(.monaco-editor .margin-view-overlays .current-line) {
-    background-color: rgba(59, 130, 246, 0.1) !important;
+    background-color: rgba(118, 184, 151, 0.12) !important;
     border: none !important;
   }
 
@@ -882,7 +882,7 @@
   }
 
   :global([data-theme='light']) .script-editor {
-    background: var(--bg-base);
+    background: #f1f5ec;
   }
 
   :global([data-theme='light']) .script-editor :global(.monaco-editor),
@@ -894,16 +894,16 @@
         to bottom,
         rgba(0, 0, 0, 0) 0,
         rgba(0, 0, 0, 0) calc(var(--script-editor-line-height, 22px) - 1px),
-        rgba(148, 163, 184, 0.12) calc(var(--script-editor-line-height, 22px) - 1px),
-        rgba(148, 163, 184, 0.12) var(--script-editor-line-height, 22px)
+        rgba(104, 145, 112, 0.1) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(104, 145, 112, 0.1) var(--script-editor-line-height, 22px)
       ),
-      var(--bg-base) !important;
+      #f1f5ec !important;
   }
 
   :global([data-theme='light']) .script-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(37, 99, 235, 0.22) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(37, 99, 235, 0.14) !important;
-    --vscode-editor-lineHighlightBackground: rgba(37, 99, 235, 0.08) !important;
+    --vscode-editor-selectionBackground: rgba(79, 142, 98, 0.22) !important;
+    --vscode-editor-inactiveSelectionBackground: rgba(79, 142, 98, 0.14) !important;
+    --vscode-editor-lineHighlightBackground: rgba(74, 133, 91, 0.1) !important;
     --vscode-editorError-background: rgba(198, 128, 117, 0.08) !important;
     --vscode-editorError-border: rgba(198, 128, 117, 0.2) !important;
     --vscode-editorWarning-background: rgba(189, 155, 86, 0.08) !important;
