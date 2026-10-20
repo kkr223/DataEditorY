@@ -9,7 +9,8 @@ import type {
   WorkspaceAiProposal,
   WorkspaceAiToolRun,
 } from '$lib/features/ai/types';
-import { resolveResourceFile } from '$lib/native/assetApi';
+import { pathExists, readTextFile, resolveResourceFile, writeTextFile } from '$lib/native/assetApi';
+import { tauriBridge } from '$lib/infrastructure/tauri';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 import { normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
 import { createScriptBaseline } from './scriptBaseline';
@@ -132,6 +133,117 @@ const MAX_TOOL_SUMMARY = 900;
 const SKILL_MANIFEST_URL = '/resources/ai-skills/manifest.json';
 const PROMPT_MANIFEST_URL = '/resources/ai-prompts/manifest.json';
 const PROMPT_BASE_DIR = '/resources/ai-prompts/';
+const USER_AI_RESOURCE_DIR = 'ai-resources';
+const USER_AI_MANIFEST_FILE = 'user-manifest.json';
+
+type AiResourceKind = 'ai-skills' | 'ai-prompts';
+
+function normalizeAiResourceFile(file: string) {
+  const normalized = file.trim().replace(/\\/g, '/').split('/').pop() ?? '';
+  if (!normalized || !/\.(md|json)$/i.test(normalized)) {
+    throw new Error(`Invalid AI resource file: ${file}`);
+  }
+  return normalized;
+}
+
+async function userAiResourcePath(kind: AiResourceKind, file: string) {
+  if (!tauriBridge.isTauri()) return null;
+  try {
+    const root = await tauriBridge.appConfigDir();
+    return tauriBridge.join(root, USER_AI_RESOURCE_DIR, kind, normalizeAiResourceFile(file));
+  } catch {
+    return null;
+  }
+}
+
+async function readUserAiResource(kind: AiResourceKind, file: string) {
+  const path = await userAiResourcePath(kind, file);
+  if (!path) return null;
+  try {
+    return await pathExists(path) ? readTextFile(path) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readBundledAiResource(kind: AiResourceKind, file: string) {
+  const safeFile = normalizeAiResourceFile(file);
+  if (tauriBridge.isTauri()) {
+    try {
+      return await readTextFile(await resolveResourceFile(`${kind}/${safeFile}`));
+    } catch {
+      // Fall through to the web-served resource for dev/web builds.
+    }
+  }
+  try {
+    const response = await fetch(`/resources/${kind}/${safeFile}`);
+    if (!response.ok) return null;
+    return await response.text();
+  } catch {
+    return null;
+  }
+}
+
+async function readManifestFiles(url: string) {
+  const manifest = await fetch(url)
+    .then((response) => response.ok ? response.json() : [])
+    .catch(() => []);
+  return Array.isArray(manifest)
+    ? manifest.map(String).filter((file) => file.trim().length > 0)
+    : [];
+}
+
+async function readUserManifest(kind: AiResourceKind) {
+  const path = await userAiResourcePath(kind, USER_AI_MANIFEST_FILE);
+  if (!path) return [];
+  try {
+    const raw = await readTextFile(path);
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return Array.from(new Set(parsed
+      .map(String)
+      .map((file) => {
+        try {
+          return normalizeAiResourceFile(file);
+        } catch {
+          return '';
+        }
+      })
+      .filter((file) => file.toLowerCase().endsWith('.md'))));
+  } catch {
+    return [];
+  }
+}
+
+async function registerUserAiResource(kind: AiResourceKind, file: string) {
+  const path = await userAiResourcePath(kind, USER_AI_MANIFEST_FILE);
+  if (!path) return;
+  const safeFile = normalizeAiResourceFile(file);
+  const files = await readUserManifest(kind);
+  if (!files.includes(safeFile)) files.push(safeFile);
+  await writeTextFile(path, `${JSON.stringify(files, null, 2)}\n`);
+}
+
+async function ensureUserAiResource(kind: AiResourceKind, file: string) {
+  const path = await userAiResourcePath(kind, file);
+  if (!path) throw new Error('Editing bundled AI resources requires the desktop app');
+  if (await pathExists(path)) return path;
+  const content = await readBundledAiResource(kind, file);
+  if (content === null) throw new Error(`Bundled AI resource not found: ${file}`);
+  await writeTextFile(path, content);
+  await registerUserAiResource(kind, file);
+  return path;
+}
+
+export async function createUserAiSkillPath(file: string) {
+  const path = await userAiResourcePath('ai-skills', file);
+  if (!path) throw new Error('Adding AI skills requires the desktop app');
+  return path;
+}
+
+export async function registerUserAiSkillFile(file: string) {
+  await registerUserAiResource('ai-skills', file);
+}
 
 const HARDCODED_SYSTEM_PROMPT = `你是 DataEditorY 的 YGOPro CDB 工作区助手。
 读取数据可用工具；修改必须用 propose_* 生成待审查提案，不能直接写 CDB、Lua 或卡图配置。查询可直接回答。提案未覆盖全部目标时继续处理；全库任务用 search_cards 空 query 分页。信息不足时说明缺口，不猜测。
@@ -143,6 +255,11 @@ let cachedSystemPrompt: string | null = null;
 async function loadSystemPromptBase(): Promise<string> {
   if (cachedSystemPrompt !== null) return cachedSystemPrompt;
   try {
+    const userPrompt = await readUserAiResource('ai-prompts', 'system-prompt.md');
+    if (userPrompt !== null && userPrompt.trim()) {
+      cachedSystemPrompt = userPrompt.trim();
+      return cachedSystemPrompt;
+    }
     const response = await fetch(`${PROMPT_BASE_DIR}system-prompt.md`);
     if (response.ok) {
       cachedSystemPrompt = (await response.text()).trim();
@@ -156,10 +273,9 @@ async function loadSystemPromptBase(): Promise<string> {
 }
 
 export async function loadAiPromptFiles(): Promise<string[]> {
-  const manifest = await fetch(PROMPT_MANIFEST_URL)
-    .then((response) => response.ok ? response.json() : [])
-    .catch(() => []);
-  return Array.isArray(manifest) ? manifest.map(String) : [];
+  const bundled = await readManifestFiles(PROMPT_MANIFEST_URL);
+  const user = await readUserManifest('ai-prompts');
+  return Array.from(new Set([...bundled, ...user]));
 }
 
 export const AI_TOOL_NAMES: AiToolName[] = [
@@ -537,30 +653,32 @@ export function extractRequestedSkillNames(input: string) {
 }
 
 export async function loadAiSkills() {
-  const manifest = await fetch(SKILL_MANIFEST_URL)
-    .then((response) => response.ok ? response.json() : [])
-    .catch(() => []);
-  const files = Array.isArray(manifest) ? manifest.map(String) : [];
+  const files = await loadAiSkillFiles();
   const skills = await Promise.all(files.map(async (file) => {
-    const text = await fetch(`/resources/ai-skills/${file}`).then((response) => response.text());
+    const userText = await readUserAiResource('ai-skills', file);
+    const text = userText?.trim()
+      ? userText
+      : await readBundledAiResource('ai-skills', file) ?? '';
     return parseSkillMarkdown(text);
   }));
   return skills.filter((skill) => skill.name !== 'unnamed');
 }
 
 export async function loadAiSkillFiles(): Promise<string[]> {
-  const manifest = await fetch(SKILL_MANIFEST_URL)
-    .then((response) => response.ok ? response.json() : [])
-    .catch(() => []);
-  return Array.isArray(manifest) ? manifest.map(String) : [];
+  const bundled = await readManifestFiles(SKILL_MANIFEST_URL);
+  const user = await readUserManifest('ai-skills');
+  return Array.from(new Set([...bundled, ...user]));
 }
 
 export async function resolveAiPromptPath(file: string): Promise<string> {
-  return resolveResourceFile(`ai-prompts/${file}`);
+  cachedSystemPrompt = null;
+  if (!tauriBridge.isTauri()) return resolveResourceFile(`ai-prompts/${normalizeAiResourceFile(file)}`);
+  return ensureUserAiResource('ai-prompts', file);
 }
 
 export async function resolveAiSkillPath(file: string): Promise<string> {
-  return resolveResourceFile(`ai-skills/${file}`);
+  if (!tauriBridge.isTauri()) return resolveResourceFile(`ai-skills/${normalizeAiResourceFile(file)}`);
+  return ensureUserAiResource('ai-skills', file);
 }
 
 export function buildSkillTemplate(name: string): string {

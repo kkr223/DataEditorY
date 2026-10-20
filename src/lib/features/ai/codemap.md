@@ -28,7 +28,7 @@ Builds AI context from current app state:
 
 ### Skills
 
-Built-in skills live under `static/resources/ai-skills/` and restrict the tools available for a request.
+Built-in skills live under `static/resources/ai-skills/` and restrict the tools available for a request. Editing or adding a skill copies it into `<app config>/ai-resources/ai-skills/`, tracked by `user-manifest.json`; the user copy overrides the bundled file at runtime. Prompts use the same mechanism under `ai-prompts/`.
 
 ### State and Proposal Application
 

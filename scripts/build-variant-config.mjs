@@ -35,6 +35,8 @@ const REQUIRED_BUNDLE_RESOURCES = {
   '../static/resources/def.lua': 'resources/lua-intel/def.lua',
   '../static/resources/constant.lua': 'resources/lua-intel/constant.lua',
   '../static/resources/snippets.json': 'resources/lua-intel/snippets.json',
+  '../static/resources/ai-prompts': 'resources/ai-prompts',
+  '../static/resources/ai-skills': 'resources/ai-skills',
 };
 
 const CARD_IMAGE_BUNDLE_RESOURCE = {
