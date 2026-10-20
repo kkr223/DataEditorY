@@ -86,14 +86,22 @@ pub fn modify_cards(sessions: &OpenCdbSessions, request: ModifyCardsRequest) -> 
     })
 }
 
-pub fn delete_cards(sessions: &OpenCdbSessions, request: DeleteCardsRequest) -> Result<(), String> {
+pub fn delete_cards(
+    sessions: &OpenCdbSessions,
+    request: DeleteCardsRequest,
+) -> Result<Vec<CardDto>, String> {
     with_session_meta(sessions, &request.tab_id, |session| {
         let mut cdb = session
             .cdb
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
+        // Keep the undo snapshot and the deletion under one session lock.
+        let cards = cdb
+            .find_by_ids(&request.card_ids)
+            .map_err(|err| err.to_string())?;
         cdb.remove_cards(&request.card_ids)
-            .map_err(|err| err.to_string())
+            .map_err(|err| err.to_string())?;
+        Ok(cards)
     })
 }
 

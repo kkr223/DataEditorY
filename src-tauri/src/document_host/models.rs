@@ -111,6 +111,7 @@ pub struct CardSearchPage {
     pub total: u32,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Deserialize)]
 #[serde(
     tag = "kind",

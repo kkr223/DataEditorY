@@ -309,6 +309,9 @@
   }
 
   async function handleEditorKeydown(event: KeyboardEvent) {
+    // The global shortcut listener may already have handled this event (for
+    // example by dispatching undo-draft). Do not handle the same keydown twice.
+    if (event.defaultPrevented) return;
     if (isShortcutEvent('cardEditor.undoDraft', event, appSettingsState.values.shortcutBindings) && !isImagePreviewOpen && isCardEditorShortcutTarget(event.target) && !isNativeTextUndoTarget(event.target)) {
       if (handleDraftUndo()) event.preventDefault();
       return;

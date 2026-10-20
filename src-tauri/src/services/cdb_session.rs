@@ -79,7 +79,7 @@ fn create_unsaved_cdb_tab_in_dir(
     tab_id: String,
     initial_cards: Vec<CardDto>,
 ) -> Result<OpenCdbTabResponse, String> {
-    let temp_path = build_temp_path_in_dir(&session_dir, &tab_id)?;
+    let temp_path = build_temp_path_in_dir(session_dir, &tab_id)?;
     let working_copy = TemporaryCdbFile(temp_path.clone());
     ensure_parent_dir(&temp_path)?;
     let mut cdb = cdb_repository::create_cdb(&temp_path)?;

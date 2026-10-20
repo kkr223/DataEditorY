@@ -230,14 +230,8 @@ pub fn execute(
             );
         }
         CardCollectionCommand::Delete { card_ids } => {
-            let cards = cdb_cards::get_cards_by_ids(
-                sessions,
-                crate::models::cdb::GetCardsByIdsRequest {
-                    tab_id: document_id.clone(),
-                    card_ids: card_ids.clone(),
-                },
-            )?;
-            cdb_cards::delete_cards(
+            // The service reads the undo snapshot and deletes under one session lock.
+            let cards = cdb_cards::delete_cards(
                 sessions,
                 crate::models::cdb::DeleteCardsRequest {
                     tab_id: document_id.clone(),
