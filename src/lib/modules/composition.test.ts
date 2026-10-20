@@ -11,6 +11,7 @@ describe('built-in module composition', () => {
       'card',
       'cdb',
       'lua',
+      'context-menu',
       'package',
       'merge',
       'ai',

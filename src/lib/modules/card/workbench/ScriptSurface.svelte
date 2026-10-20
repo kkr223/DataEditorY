@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import SplitScriptEditor from '$lib/features/script-editor/components/SplitScriptEditor.svelte';
+  import { clearScriptPair, scriptSplitPairs, setScriptPair } from '$lib/features/script-editor/splitState';
+  import { groupScriptTabs, getPairSurvivor } from '$lib/domain/script/splitTabs';
+  import { openScriptTabMenu } from '$lib/features/script-editor/tabMenu';
+  import { onDestroy, tick } from 'svelte';
   import { _ } from 'svelte-i18n';
   import LuaScriptEditor from '$lib/components/LuaScriptEditor.svelte';
   import { tabDrag } from '$lib/components/tabDrag';
@@ -64,15 +68,34 @@
     return isScriptTabOwnedByCdb(tab, { tabId: activeCdb.id, path: activeCdb.path }) ? tab : null;
   });
 
+  const pair = $derived(activeCdb ? $scriptSplitPairs[activeCdb.id] ?? null : null);
+  const tabGroups = $derived(groupScriptTabs(currentCdbScriptTabs, pair));
+  const activePair = $derived(pair && surfaceScriptTab && [pair.leftId, pair.rightId].includes(surfaceScriptTab.id)
+    ? tabGroups.find((group) => group.length === 2) ?? null : null);
+
+  function openSplit(tabId: string) {
+    if (!activeCdb || !surfaceScriptTab || surfaceScriptTab.id === tabId || !currentCdbScriptTabs.some((tab) => tab.id === tabId)) return;
+    setScriptPair(activeCdb.id, { leftId: surfaceScriptTab.id, rightId: tabId });
+  }
+
   onDestroy(() => {
     restorationSequence += 1;
     resolveSequence += 1;
   });
 
   async function closeSurfaceScriptTab(tabId: string) {
+    const ownerId = activeCdb?.id;
     const workspace = getWorkspaceDocument(tabId);
-    if (workspace && !(await confirmWorkspaceClose(workspace))) return;
+    if (workspace && !(await confirmWorkspaceClose(workspace))) return false;
+    if (activeCdb?.id !== ownerId) return false;
+    const survivor = getPairSurvivor(pair, tabId);
+    if (survivor && ownerId) {
+      clearScriptPair(ownerId);
+      await activateScriptTab(survivor);
+      await tick();
+    }
     await closeScriptTab(tabId);
+    return true;
   }
 
   function openSelectedScript() {
@@ -243,30 +266,33 @@
 <section class="script-surface">
   {#if currentCdbScriptTabs.length}
     <nav class="script-tab-strip" aria-label={$_('surface.script')}>
-      {#each currentCdbScriptTabs as tab (tab.id)}
+      {#each tabGroups as group (group.map((tab) => tab.id).join(':'))}
         <div
-          use:tabDrag={{ id: tab.id, scope: workspaceKey, onMove: moveScriptTab }}
-          class:active={$activeScriptTab?.id === tab.id}
+          use:tabDrag={{ id: group[0].id, scope: workspaceKey, enabled: group.length === 1, onMove: moveScriptTab }}
+          class:active={group.some((tab) => $activeScriptTab?.id === tab.id)}
+          class:paired={group.length === 2}
           class="script-tab"
-          onauxclick={(event) => { if (event.button === 1) { event.preventDefault(); void closeSurfaceScriptTab(tab.id); } }}
         >
-          <button type="button" class="script-tab-main" onclick={() => activateScriptTab(tab.id)}>
-            c{tab.cardCode}.lua{tab.isDirty ? ' *' : ''}
-          </button>
-          <button
-            type="button"
-            class="script-tab-close"
-            data-tab-close
-            aria-label={$_('editor.script_reference_close')}
-            title={$_('editor.script_reference_close')}
-            onclick={() => void closeSurfaceScriptTab(tab.id)}
-          >x</button>
+          {#each group as tab (tab.id)}
+            <div role="group" aria-label={`c${tab.cardCode}.lua`} class="script-tab-half" class:focused={$activeScriptTab?.id === tab.id}
+              oncontextmenu={(event) => openScriptTabMenu(event, { tab, tabs: currentCdbScriptTabs, activeId: surfaceScriptTab?.id ?? null, onSplit: openSplit, onClose: closeSurfaceScriptTab })}
+              onauxclick={(event) => { if (event.button === 1) { event.preventDefault(); void closeSurfaceScriptTab(tab.id); } }}>
+              <button type="button" class="script-tab-main" onclick={() => activateScriptTab(tab.id)}>
+                c{tab.cardCode}.lua{tab.isDirty ? ' *' : ''}
+              </button>
+              <button type="button" class="script-tab-close" data-tab-close
+                aria-label={`${$_('editor.script_reference_close')} c${tab.cardCode}.lua`}
+                title={$_('editor.script_reference_close')} onclick={() => void closeSurfaceScriptTab(tab.id)}>×</button>
+            </div>
+          {/each}
         </div>
       {/each}
     </nav>
   {/if}
   <div class="script-content">
-  {#if surfaceScriptTab}
+  {#if activePair}
+    <SplitScriptEditor left={activePair[0]} right={activePair[1]} />
+  {:else if surfaceScriptTab}
     <LuaScriptEditor />
   {:else}
     <div class="surface-empty">
@@ -326,6 +352,10 @@
     border-radius: var(--control-radius) var(--control-radius) 0 0;
     color: var(--text-secondary);
   }
+
+  .script-tab-half { height: 100%; display: flex; align-items: center; }
+  .paired .script-tab-half + .script-tab-half { border-left: 1px solid var(--border-color); }
+  .paired .script-tab-half.focused { box-shadow: inset 0 2px var(--accent-primary); }
 
   .script-tab.active {
     border-color: var(--border-color);

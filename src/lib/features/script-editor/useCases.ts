@@ -1,7 +1,7 @@
 import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { getCardByIdInTab, modifyCardsInTab } from '$lib/stores/db';
-import { reloadActiveScriptTab, saveActiveScriptTab } from '$lib/stores/scriptEditor.svelte';
+import { reloadScriptTab, saveScriptTab } from '$lib/stores/scriptEditor.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { updateVisibleCards } from '$lib/stores/editor.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
@@ -117,7 +117,7 @@ export async function saveScriptEditorFlow(input: {
   }
 
   try {
-    const ok = await saveActiveScriptTab();
+    const ok = await saveScriptTab(input.tab.id);
     showToast(input.t(ok ? 'editor.script_save_success' : 'editor.script_save_failed'), ok ? 'success' : 'error');
     return ok;
   } catch (error) {
@@ -156,7 +156,7 @@ export async function reloadScriptEditorFlow(input: {
   }
 
   try {
-    const ok = await reloadActiveScriptTab();
+    const ok = await reloadScriptTab(tab.id);
     if (ok) {
       showToast(input.t('editor.script_reload_success'), 'success');
     }

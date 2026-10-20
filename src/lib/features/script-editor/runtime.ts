@@ -1,3 +1,4 @@
+import { attachScriptContextMenu } from './contextMenu';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, normalizeScriptEditorFontSize } from './fontPreferences';
 
@@ -85,7 +86,7 @@ export function attachSnippetTabNavigation(editor: MonacoEditor.IStandaloneCodeE
 export function buildScriptEditorMonacoOptions(fontSize = DEFAULT_SCRIPT_EDITOR_FONT_SIZE) {
   return {
     automaticLayout: true,
-    contextmenu: false,
+    contextmenu: true,
     links: false,
     minimap: { enabled: false },
     fontSize: normalizeScriptEditorFontSize(fontSize),
@@ -132,6 +133,7 @@ export async function createScriptMonacoRuntime(input: {
   onWindowKeydown: (event: KeyboardEvent) => void;
   onWindowKeyup: (event: KeyboardEvent) => void;
   onWindowBlur: () => void;
+  onCopySelectionImage?: () => unknown | Promise<unknown>;
 }) {
   const loadedModule = await import('$lib/features/script-editor/monaco/setup');
   const loadedMonaco = await loadedModule.loadMonaco();
@@ -144,6 +146,7 @@ export async function createScriptMonacoRuntime(input: {
   const callHighlightDecorations = editor.createDecorationsCollection();
   const disposeFontZoom = attachFontZoomActions(editor, loadedMonaco, input.getDefaultFontSize);
   const disposeSnippetTabNavigation = attachSnippetTabNavigation(editor, loadedMonaco);
+  const disposeContextMenu = attachScriptContextMenu(editor, () => input.onCopySelectionImage?.());
   const disposables = [
     editor.onDidChangeConfiguration((event) => {
       if (event.hasChanged(loadedMonaco.editor.EditorOption.lineHeight)) syncLineHeight();
@@ -181,6 +184,7 @@ export async function createScriptMonacoRuntime(input: {
       for (const disposable of disposables) {
         disposable.dispose();
       }
+      disposeContextMenu();
       disposeFontZoom();
       disposeSnippetTabNavigation();
       themeObserver.disconnect();

@@ -87,12 +87,14 @@
     hintState = $bindable<ScriptEditorCoreHintState>(createDefaultHintState()),
     referenceState = $bindable<ScriptEditorCoreReferenceState>(createDefaultReferenceState()),
     children,
+    onCopySelectionImage,
   } = $props<{
     cardContext?: CardDataEntry | null;
     hasSelectedCode?: boolean;
     hintState?: ScriptEditorCoreHintState;
     referenceState?: ScriptEditorCoreReferenceState;
     children?: Snippet;
+    onCopySelectionImage?: () => unknown | Promise<unknown>;
   }>();
 
   let editorHost = $state<HTMLDivElement | null>(null);
@@ -625,6 +627,7 @@
 
     const runtime = await createScriptMonacoRuntime({
       host: editorHost,
+      onCopySelectionImage: () => onCopySelectionImage?.(),
       getDefaultFontSize: () => appSettingsState.values.scriptEditorFontSize,
       onDidChangeModelContent: () => {
         if (isApplyingModel || !currentBoundTabId) return;

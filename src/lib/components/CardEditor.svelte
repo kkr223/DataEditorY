@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { registerCardDraftCommitter } from "$lib/modules/card/workbench/cardDraftWorkspaceState.svelte";
   import { onDestroy, onMount, untrack } from "svelte";
   import { _ } from "svelte-i18n";
   import { activeTab, activeTabId, isDbLoaded, saveCdbTab, saveCdbTabAs } from "$lib/stores/db";
@@ -278,6 +279,15 @@
     trackedDraftSnapshot = restored.trackedDraftSnapshot;
     suspendDraftUndoTracking -= 1;
   }
+
+  $effect(() => {
+    const tabId = $activeTabId;
+    if (!tabId) return;
+    return registerCardDraftCommitter(tabId, async () => {
+      if ($activeTabId !== tabId) return false;
+      return !isDraftDirty() || Boolean(await handleModify());
+    });
+  });
 
   async function confirmDiscardDraftForKeyboardNavigation() {
     if (!isDraftDirty()) return true;

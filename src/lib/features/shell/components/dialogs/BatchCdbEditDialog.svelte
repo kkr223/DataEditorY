@@ -39,9 +39,11 @@
 
   let {
     open = false,
+    initialGroupId,
     onClose = () => {},
   }: {
     open?: boolean;
+    initialGroupId?: string;
     onClose?: () => void;
   } = $props();
 
@@ -50,6 +52,7 @@
   let target = $state<BatchTarget>('selection');
   let selectedGroupId = $state('');
   let groupName = $state('');
+  $effect(() => { if (open && initialGroupId) { selectedGroupId = initialGroupId; target = 'group'; } });
   let operations = $state<FieldOperation[]>([
     { id: crypto.randomUUID(), field: 'setcode', value: '', clear: false },
   ]);

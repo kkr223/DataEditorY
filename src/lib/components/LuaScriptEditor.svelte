@@ -216,6 +216,7 @@
     <div class="script-layout">
       <ScriptEditorCore
         bind:this={editorCore}
+        onCopySelectionImage={handleShareImage}
         bind:cardContext
         bind:hasSelectedCode
         bind:hintState

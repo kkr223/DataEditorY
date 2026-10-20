@@ -2,6 +2,7 @@ import type { ExtensionModule } from '$lib/platform';
 import { aiModule } from './ai';
 import { cardModule } from './card';
 import { cdbModule } from './cdb';
+import { contextMenuModule } from './context-menu';
 import { luaModule } from './lua';
 import { mergeModule } from './merge';
 import { packageModule } from './package';
@@ -12,6 +13,7 @@ export const builtInModules: ExtensionModule[] = [
   cardModule,
   cdbModule,
   luaModule,
+  contextMenuModule,
   packageModule,
   mergeModule,
   aiModule,

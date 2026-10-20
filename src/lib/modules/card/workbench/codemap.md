@@ -12,6 +12,7 @@ Card Collection Workbench — the CDB workspace UI. It composes Card Explorer, t
   Returning to a CDB preserves its last active script independently of Explorer selection; subsequent card changes follow the selected card. Async activation is cancelled when its workspace is left during buffer synchronization.
   Internal Lua tabs support pointer drag sorting within the CDB; their ordered list is persisted through the existing script surface metadata.
   Explicit script-open requests wait for Explorer and script restoration, then take precedence over the restored active script. Background creation and guarded activation prevent late completions from changing another card or workspace.
+  Tab context menus can pair the active script with another script. The pair appears as one tab with two close buttons; closing either restores the survivor to the ordinary editor.
 - `ImageSurface.svelte` — current-card image preview/config/export surface backed by `yugioh-card-ts`.
   Uses only the selected card's matching draft, keys editors by CDB session and card, and rejects changes emitted by an old editor or a mismatched metadata workspace.
 - `AiSurface.svelte` — workspace AI surface showing `@card` context, tool calls, results, proposals, and diffs.
@@ -21,7 +22,7 @@ Card Collection Workbench — the CDB workspace UI. It composes Card Explorer, t
 ## State Helpers
 
 - `surfaceState.svelte.ts` — active surface and layout state, persisted through metadata.
-- `cardDraftWorkspaceState.svelte.ts` — per-workspace card draft state.
+- `cardDraftWorkspaceState.svelte.ts` — per-workspace card draft state and registered draft committers used before context-menu navigation/selection changes.
 - `workspaceMetadataState.svelte.ts` — `.dey` metadata load/save bridge; Save As preserves referenced workspace image assets.
   Per-path queues serialize complete background read/modify/write transactions. Failed loads remain unready, preventing empty autosaves; window shutdown flushes all pending queues.
 - `aiMentions.ts` — pure text helpers for AI composer `@card` detection, replacement, deletion, and prompt context.

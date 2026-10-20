@@ -23,6 +23,7 @@ Features follow a consistent pattern:
 | Card Image | `card-image/` | `yugioh-card-ts` model mapping, canvas rendering, export helpers, layout logic (extra only) |
 | AI | `ai/` | Workspace AI service, context building, tool boundary, auditable proposal generation |
 | Settings | `settings/` | Settings UI: AI config, template, shortcuts, package, cover image |
+| Context Menu | `context-menu/` | Shared accessible popup, card/blank-space actions, ordinary text editing, selected-card tool requests |
 | Shortcuts | `shortcuts/` | Keyboard shortcut registry and handler |
 
 ## Integration

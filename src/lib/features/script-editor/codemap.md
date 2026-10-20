@@ -28,6 +28,10 @@ The script editor is structured in three layers:
 
 ### Other
 
+- **`contextMenu.ts`** — localized Monaco editing actions and selected-code image copying
+- **`tabMenu.ts`** — scoped Lua tab save/reload/external-open/card-navigation/split/close actions
+- **`splitRuntime.ts`** — two editable Monaco panes or an editable side-by-side diff; reuses models and view state, tracks focused save targets, and aligns/synchronizes comparison scrolling
+- **`splitState.ts`** — in-memory script pairs owned by CDB session; cleared when either member closes
 - **`runtime.ts`** — Monaco lifecycle, Ctrl/Cmd + wheel and keyboard font zoom; line height scales with font size and Ctrl/Cmd + 0 restores the current saved default
 - **`fontPreferences.ts`** — default font size (14 px), shared 8–32 px bounds, and preference normalization
 - **`snippetPreferences.ts`** — custom snippet parsing/validation, settings editing format, and live merging with built-in snippets; user settings replace bundled custom entries, including an intentionally empty list
@@ -38,6 +42,7 @@ The script editor is structured in three layers:
 
 - `ScriptEditorCore.svelte` — Monaco editor wrapper with all providers
   Script models use LF and compare normalized content before replacement so Windows CRLF differences do not reset snippet tab stops or cursor selections.
+- `SplitScriptEditor.svelte` — dual-pane host with a comparison switch; omits the single-script toolbar and description/hint sidebar
 - `ScriptTabBar.svelte` — script tab navigation
 - `ScriptToolbar.svelte` — toolbar with save, export, manual buttons
 - `ScriptSidePanel.svelte` — side panel for function/constant manual

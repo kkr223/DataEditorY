@@ -77,3 +77,10 @@ pub(crate) fn open_in_system_editor(path: String) -> Result<(), String> {
 pub(crate) fn open_in_default_app(path: String) -> Result<(), String> {
     services::media::open_in_default_app(path)
 }
+
+#[tauri::command]
+pub(crate) async fn reveal_file(path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || services::media::reveal_file(path))
+        .await
+        .map_err(|error| error.to_string())?
+}

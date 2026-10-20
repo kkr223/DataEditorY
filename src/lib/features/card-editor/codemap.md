@@ -12,6 +12,8 @@ Card Editor Feature — manages the single-card editing form, DEX-style draft se
 - **`searchController.ts`** — DEX-style quick search: transfer current draft fields into Card Explorer filters, reset/search workflow
 - **`lifecycle.ts`** — initialization hooks for the card editor workspace
 - **`useCases.ts`** — base use cases: commit draft, save/delete/create/copy/paste, switch-card handling
+- **`selectionActions.ts`** — shared copy/paste/delete flows for shortcuts and context menus; captures the target CDB and uses the document host mutation pipeline
+- **`cardNavigation.ts`** — commits the current draft before selecting a card and opening its card/script/image surface; reveals off-page targets through an ID filter
 - **`extraUseCases.ts`** — extra-only image helper flows
 
 ### Components

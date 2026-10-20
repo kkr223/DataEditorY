@@ -35,13 +35,16 @@
 
   let {
     open = false,
+    initialCardIds,
     onClose = () => {},
   }: {
     open?: boolean;
+    initialCardIds?: number[];
     onClose?: () => void;
   } = $props();
 
   let target = $state<ShowcaseTarget>('cdb');
+  $effect(() => { if (open && initialCardIds) target = 'selection'; });
   let selectedGroupId = $state('');
   let outputDir = $state('');
   let cardsPerImage = $state(10);
@@ -97,7 +100,7 @@
     const tab = get(activeTab);
     if (!tab) return [];
     if (target === 'selection') {
-      return getCardsByIdsInTab(tab.id, getSelectedCardIds());
+      return getCardsByIdsInTab(tab.id, initialCardIds ?? getSelectedCardIds());
     }
     if (target === 'filter') {
       return queryCardsByFiltersInTab(tab.id, parseCachedFiltersJson(tab.cachedFilters));

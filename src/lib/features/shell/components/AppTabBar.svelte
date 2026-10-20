@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { openContextMenu as showMenu, updateContextMenu, type ContextMenuItem } from '$lib/features/context-menu/menu.svelte';
+  import { getTabsToClose } from '$lib/features/context-menu/cardTargets';
+  import { pathExists, revealFile } from '$lib/native/assetApi';
   import { _ } from 'svelte-i18n';
   import type { WorkspaceDocument } from '$lib/core/workspace/types';
   import { tabDrag } from '$lib/components/tabDrag';
@@ -20,15 +23,9 @@
     onMoveWorkspace: (tabId: string, targetId: string, placement: DocumentPlacement) => void;
     onSaveWorkspace: (tabId: string) => unknown | Promise<unknown>;
     onSaveWorkspaceAs: (tabId: string) => unknown | Promise<unknown>;
-    onCloseWorkspace: (tabId: string) => void | Promise<void>;
+    onCloseWorkspace: (tabId: string) => unknown | Promise<unknown>;
     onOpenAnother: () => void | Promise<void>;
   } = $props();
-
-  let contextMenu = $state<{
-    workspaceId: string;
-    x: number;
-    y: number;
-  } | null>(null);
 
   function getWorkspaceIcon(workspace: WorkspaceDocument) {
     if (workspace.kind === 'settings') {
@@ -59,30 +56,35 @@
   }
 
   function openContextMenu(event: MouseEvent, workspace: WorkspaceDocument) {
-    event.preventDefault();
-    contextMenu = {
-      workspaceId: workspace.id,
-      x: event.clientX,
-      y: event.clientY,
+    const t = (key: string) => String($_(`context_menu.${key}`));
+    const path = workspace.source.path;
+    let exists = false;
+    const others = getTabsToClose(workspaces, workspace.id, 'others');
+    const right = getTabsToClose(workspaces, workspace.id, 'right');
+    const closeMany = async (targets: WorkspaceDocument[]) => {
+      for (const target of targets) {
+        if (await onCloseWorkspace(target.id) === false) break;
+      }
     };
+    const items = (): ContextMenuItem[] => [
+      { id: 'save', label: workspace.kind === 'db' ? t('save_database') : $_('nav.save'), disabled: workspace.kind === 'settings', action: () => onSaveWorkspace(workspace.id) },
+      { id: 'save-as', label: t('save_as'), disabled: workspace.kind !== 'db' && workspace.kind !== 'text', action: () => onSaveWorkspaceAs(workspace.id) },
+      ...(workspace.kind === 'db' ? [null,
+        { id: 'copy-path', label: t('copy_path'), disabled: !path, action: () => navigator.clipboard.writeText(path ?? '') },
+        { id: 'reveal', label: t('reveal_database'), disabled: !exists, action: () => path && revealFile(path) },
+      ] : []), null,
+      { id: 'close', label: workspace.kind === 'db' ? t('close_database') : $_('nav.close'), action: () => onCloseWorkspace(workspace.id) },
+      ...(workspace.kind === 'db' ? [
+        { id: 'close-others', label: t('close_other_databases'), disabled: !others.length, action: () => closeMany(others) },
+        { id: 'close-right', label: t('close_right_databases'), disabled: !right.length, action: () => closeMany(right) },
+      ] : []),
+    ];
+    const token = showMenu(event, items());
+    if (path) void pathExists(path).then((value) => { exists = value; updateContextMenu(token, items()); }).catch(() => {});
   }
-
-  function closeContextMenu() {
-    contextMenu = null;
-  }
-
-  function handleWindowKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') closeContextMenu();
-  }
-
-  const contextWorkspace = $derived(
-    contextMenu
-      ? workspaces.find((workspace) => workspace.id === contextMenu?.workspaceId) ?? null
-      : null,
-  );
 </script>
 
-<svelte:window onclick={closeContextMenu} onkeydown={handleWindowKeydown} />
+
 
 {#if workspaces.length > 0}
   <div class="tab-bar">
@@ -127,38 +129,7 @@
       +
     </button>
 
-    {#if contextMenu && contextWorkspace}
-      <div
-        class="tab-context-menu"
-        style={`left: ${contextMenu.x}px; top: ${contextMenu.y}px;`}
-        role="menu"
-        tabindex="0"
-      >
-        <button
-          type="button"
-          role="menuitem"
-          disabled={contextWorkspace.kind === 'settings'}
-          onclick={() => { void onSaveWorkspace(contextWorkspace.id); closeContextMenu(); }}
-        >
-          {$_('nav.save')}
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          disabled={contextWorkspace.kind !== 'db' && contextWorkspace.kind !== 'text'}
-          onclick={() => { void onSaveWorkspaceAs(contextWorkspace.id); closeContextMenu(); }}
-        >
-          {$_('nav.save_as')}
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          onclick={() => { void onCloseWorkspace(contextWorkspace.id); closeContextMenu(); }}
-        >
-          {$_('nav.close')}
-        </button>
-      </div>
-    {/if}
+
   </div>
 {/if}
 
@@ -355,41 +326,5 @@
     box-shadow: var(--focus-ring-strong);
   }
 
-  .tab-context-menu {
-    position: fixed;
-    min-width: 8.5rem;
-    z-index: 90;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 0.35rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--control-radius-soft);
-    background: var(--bg-surface);
-    box-shadow: var(--shadow-popover);
-  }
 
-  .tab-context-menu button {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    padding: 0.48rem 0.62rem;
-    border: none;
-    border-radius: var(--control-radius);
-    background: transparent;
-    color: var(--text-secondary);
-    text-align: left;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .tab-context-menu button:hover:not(:disabled) {
-    background: var(--bg-surface-hover);
-    color: var(--text-primary);
-  }
-
-  .tab-context-menu button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
 </style>

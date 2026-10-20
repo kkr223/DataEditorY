@@ -21,7 +21,7 @@ Application Shell — manages the app frame, CDB-only top-level tabs, global/CDB
 ### Components
 
 - `AppTopBar.svelte` — toolbar with open/create/tools/settings/theme/language entries; save is not a permanent top-level button
-- `AppTabBar.svelte` — CDB workspace tab bar with close/dirty indicators
+- `AppTabBar.svelte` — CDB workspace tab bar with close/dirty indicators and scoped save/path/reveal/bulk-close context actions; cancellation stops sequential batch closing
 - `FileDragOverlay.svelte` — drag-and-drop overlay for `.cdb` files
 - `RecentHistoryPopover.svelte` — recently opened files dropdown
 - `dialogs/MergeCdbDialog.svelte` — multi-source merge dialog with analysis preview

@@ -1,4 +1,6 @@
 import { derived, get, writable } from 'svelte/store';
+import { tick } from 'svelte';
+import { clearScriptPair, scriptSplitPairs } from '$lib/features/script-editor/splitState';
 import type { ScriptWorkspaceState } from '$lib/types';
 import { activeTabId, tabs } from '$lib/stores/db';
 import {
@@ -162,6 +164,18 @@ const hydrateScriptTab = async (
 };
 
 export const getActiveScriptTab = () => get(activeScriptTab);
+
+// Both split panes already have live models. Focus must identify the save target
+// immediately, without waiting for the other pane's debounced document sync.
+export const focusScriptTab = (tabId: string) => {
+  const tab = get(scriptTabs).find((item) => item.id === tabId);
+  const owner = get(tabs).find((item) => item.id === get(activeTabId));
+  if (!tab || !owner || !isScriptTabOwnedByCdb(tab, { tabId: owner.id, path: owner.path })) return;
+  scriptActivation.begin();
+  documentRuntime.activate(tabId);
+  activeScriptTabId.set(tabId);
+  activateScriptView();
+};
 
 export const moveScriptTab = (tabId: string, targetId: string, placement: DocumentPlacement) => {
   const current = get(scriptTabs);
@@ -443,6 +457,12 @@ export const closeScriptTab = async (tabId: string) => {
   const index = currentTabs.findIndex((tab) => tab.id === tabId);
   if (index === -1) return;
   const closedTab = currentTabs[index];
+  const pair = get(scriptSplitPairs)[closedTab.sourceTabId ?? ''];
+  if (pair && (pair.leftId === tabId || pair.rightId === tabId)) {
+    clearScriptPair(closedTab.sourceTabId!);
+    // Detach the diff view before disposing either of its models.
+    await tick();
+  }
   const cdbIndex = currentTabs
     .filter((tab) => isSameCdbPath(tab.cdbPath, closedTab.cdbPath))
     .findIndex((tab) => tab.id === tabId);

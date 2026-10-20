@@ -4,6 +4,8 @@
   import { setupI18n } from '$lib/i18n';
   import { _, isLoading } from 'svelte-i18n';
   import { activeTab } from '$lib/stores/db';
+  import CardMenuTools from '$lib/features/context-menu/CardMenuTools.svelte';
+  import ContextMenu from '$lib/features/context-menu/ContextMenu.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import AppTopBar from '$lib/features/shell/components/AppTopBar.svelte';
   import AppTabBar from '$lib/features/shell/components/AppTabBar.svelte';
@@ -106,6 +108,8 @@
 </script>
 
 <Toast />
+<ContextMenu />
+<CardMenuTools />
 
 {#if $isLoading}
   <div class="loading-shell">

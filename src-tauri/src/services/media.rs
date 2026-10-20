@@ -607,6 +607,73 @@ pub fn open_in_system_editor(path: String) -> Result<(), String> {
     open_with_preferred_editor(Path::new(&path))
 }
 
+pub fn reveal_file(path: String) -> Result<(), String> {
+    let target = fs::canonicalize(&path).map_err(|error| error.to_string())?;
+    if !target.is_file() {
+        return Err("The file does not exist".to_string());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let canonical = target.to_string_lossy();
+        let shell_path = if let Some(unc) = canonical.strip_prefix(r"\\?\UNC\") {
+            format!(r"\\{}", unc)
+        } else {
+            canonical
+                .strip_prefix(r"\\?\")
+                .unwrap_or(&canonical)
+                .to_string()
+        };
+        // Explorer expects /select,"path" as one shell argument. No command shell is used.
+        Command::new("explorer.exe")
+            .raw_arg(format!("/select,\"{}\"", shell_path))
+            .spawn()
+            .map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg("-R")
+            .arg(&target)
+            .spawn()
+            .map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        const URI_PATH: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
+            .remove(b'/')
+            .remove(b'-')
+            .remove(b'_')
+            .remove(b'.')
+            .remove(b'~');
+        let uri = format!(
+            "file://{}",
+            percent_encoding::utf8_percent_encode(&target.to_string_lossy(), URI_PATH)
+        );
+        let status = Command::new("dbus-send")
+            .args([
+                "--session",
+                "--print-reply",
+                "--dest=org.freedesktop.FileManager1",
+                "/org/freedesktop/FileManager1",
+                "org.freedesktop.FileManager1.ShowItems",
+            ])
+            .arg(format!("array:string:{}", uri))
+            .arg("string:")
+            .status()
+            .map_err(|error| error.to_string())?;
+        return if status.success() {
+            Ok(())
+        } else {
+            Err("File manager could not reveal the file".to_string())
+        };
+    }
+    #[allow(unreachable_code)]
+    Err("Unsupported platform".to_string())
+}
+
 pub fn open_in_default_app(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -770,6 +837,14 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(fs::canonicalize(&result[0]).unwrap(), canonical);
 
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn reveal_rejects_missing_files_and_directories() {
+        let root = make_temp_dir("reveal-validation");
+        assert!(reveal_file(root.join("missing.lua").to_string_lossy().into_owned()).is_err());
+        assert!(reveal_file(root.to_string_lossy().into_owned()).is_err());
         let _ = fs::remove_dir_all(&root);
     }
 

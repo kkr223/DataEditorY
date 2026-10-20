@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openCardMenu } from "$lib/features/context-menu/cardMenu";
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
@@ -266,7 +267,7 @@
   });
 </script>
 
-<section class="pane list-pane" use:disableAutofill>
+<section aria-label={$_("results.title")} class="pane list-pane" use:disableAutofill oncontextmenu={(event) => { if (!(event.target as Element).closest("input, textarea, select, button")) openCardMenu(event); }}>
   <div class="list-header-complex">
     <div class="search-row">
       <div class="search-input-wrapper">
@@ -517,9 +518,12 @@
         {/if}
         {#each virtualCards as card (card.code)}
           <tr
+            tabindex="0"
+            onkeydown={(event) => { if (event.key === "Enter") { event.preventDefault(); setSingleSelectedCard(card.code); } }}
             class:selected={selectedIdsSet.has(card.code)}
             class:primary-selected={editorState.selectedId === card.code}
             onclick={(event) => handleRowClick(event, card.code)}
+            oncontextmenu={(event) => openCardMenu(event, card.code)}
           >
             <td class="id-col">{card.code}</td>
             <td class={`name-col ${getCardTypeTone(card.type)}`}>{card.name}</td>
