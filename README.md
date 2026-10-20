@@ -449,10 +449,13 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 **环境要求**：
 
-- Node.js 18+
+- Node.js 20.19+ 或 22.12+
 - Bun（包管理器和运行环境）
 - Rust 工具链
 - Tauri 2 系统依赖（参考 [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)）
+
+Rust 依赖 `ygopro-cdb-encode-rs` 会由 Cargo 自动从
+`https://github.com/kkr223/ygopro-cdb-encode-rs` 获取，不需要手动克隆到仓库同级目录。
 
 桌面构建产物通常位于 `src-tauri/target/release/bundle/`。
 

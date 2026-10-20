@@ -5170,6 +5170,7 @@ dependencies = [
 [[package]]
 name = "ygopro-cdb-encode-rs"
 version = "0.1.0"
+source = "git+https://github.com/kkr223/ygopro-cdb-encode-rs.git?rev=1a622aa6b22f998b2d5863312a2c653b9c8c84b0#1a622aa6b22f998b2d5863312a2c653b9c8c84b0"
 dependencies = [
  "regex",
  "rusqlite",
