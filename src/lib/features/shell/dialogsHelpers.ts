@@ -1,3 +1,5 @@
+import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+
 export function buildMergeAnalysisKey(
   sourcePaths: string[],
   includeImages: boolean,
@@ -14,5 +16,6 @@ export function isNewOutputPath(
   outputPath: string,
   occupiedPaths: string[],
 ) {
-  return !occupiedPaths.includes(outputPath);
+  const target = getCdbPathIdentity(outputPath);
+  return !occupiedPaths.some((path) => getCdbPathIdentity(path) === target);
 }

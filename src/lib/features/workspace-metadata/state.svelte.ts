@@ -173,12 +173,18 @@ export function loadWorkspaceMetadataForPath(path: string) {
 export async function copyWorkspaceMetadataForSaveAs(sourcePath: string, destinationPath: string) {
   const source = sourcePath.trim();
   const destination = destinationPath.trim();
-  if (!source || !destination || source === destination) return;
+  if (!source || !destination) return;
+
+  const sourceIdentity = getCdbPathIdentity(source);
+  const destinationIdentity = getCdbPathIdentity(destination);
+  if (sourceIdentity === destinationIdentity) return;
 
   await flushMetadataSave(source);
 
-  const hasLoadedSource = workspaceMetadataState.ready
-    && workspaceMetadataState.cdbPath === source
+  const currentIdentity = workspaceMetadataState.ready
+    ? getCdbPathIdentity(workspaceMetadataState.cdbPath)
+    : '';
+  const hasLoadedSource = currentIdentity === sourceIdentity
     && workspaceMetadataState.metadata;
   const metadata = hasLoadedSource
     ? workspaceMetadataState.metadata as WorkspaceMetadata
@@ -187,7 +193,8 @@ export async function copyWorkspaceMetadataForSaveAs(sourcePath: string, destina
   if (hasLoadedSource) {
     cancelScheduledMetadataSave(source);
     const savedSource = await saveMetadataInOrder(source, metadata);
-    if (workspaceMetadataState.cdbPath === source && workspaceMetadataState.metadata === metadata) {
+    if (currentIdentity === getCdbPathIdentity(workspaceMetadataState.cdbPath)
+      && workspaceMetadataState.metadata === metadata) {
       workspaceMetadataState.metadata = savedSource;
     }
   }

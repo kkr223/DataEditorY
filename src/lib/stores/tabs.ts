@@ -8,6 +8,7 @@ import { documentRuntime } from '$lib/platform/appRuntime';
 import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
 import { CDB_PROVIDER_ID } from '$lib/modules/cdb';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+import { writeErrorLog } from '$lib/utils/errorLog';
 import {
   popUndoLabel,
   pushUndoLabel,
@@ -362,16 +363,27 @@ export async function saveCdbTabAs(tabId: string, path: string): Promise<boolean
 
   try {
     const name = targetPath.split(/[\\/]/).pop() || tab.name;
-    // Validate the destination before copying any workspace state or assets.
-    if (tab.path) {
-      const { copyWorkspaceMetadataForSaveAs } = await import('$lib/features/workspace-metadata/state.svelte');
-      await copyWorkspaceMetadataForSaveAs(tab.path, targetPath);
-    }
+    const sourcePath = tab.path;
     const saved = await documentRuntime.save(tab.id, {
       uri: targetPath,
       path: targetPath,
       name,
     });
+    // Copy editor metadata only after the CDB itself was written, so a failed
+    // Save As does not leave orphaned .dey files at the destination.
+    if (sourcePath) {
+      try {
+        const { copyWorkspaceMetadataForSaveAs } = await import('$lib/features/workspace-metadata/state.svelte');
+        await copyWorkspaceMetadataForSaveAs(sourcePath, targetPath);
+      } catch (metadataError) {
+        console.error('Failed to copy workspace metadata for Save As:', metadataError);
+        void writeErrorLog({
+          source: 'tabs.save-as.metadata',
+          error: metadataError,
+          extra: { sourcePath, targetPath },
+        });
+      }
+    }
     pushRecentCdbEntry({ path: targetPath, name: saved.title });
     return true;
   } catch (err) {

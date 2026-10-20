@@ -15,6 +15,7 @@ import { writeErrorLog } from '$lib/utils/errorLog';
 import type { CardDataEntry } from '$lib/types';
 import { isNewOutputPath } from '$lib/features/shell/dialogsHelpers';
 import { activateWorkspaceDocument } from '$lib/application/workspace/commandBus';
+import { commitWorkspaceCardDraft } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
 
 const activeTabState = fromStore(activeTab);
 const tabsState = fromStore(tabs);
@@ -39,8 +40,9 @@ export function createFilterCdbController(state: FilterCdbDialogState) {
   }
 
   async function handleCreateFilteredCdb() {
-    const sourceCdbPath = activeTabState.current?.path ?? '';
-    if (!sourceCdbPath) {
+    const active = activeTabState.current;
+    const sourceCdbPath = active?.path ?? '';
+    if (!sourceCdbPath || !active) {
       showToast(t('editor.package_zip_no_cdb'), 'info');
       return;
     }
@@ -48,6 +50,10 @@ export function createFilterCdbController(state: FilterCdbDialogState) {
     state.isCreatingFilteredCdb = true;
 
     try {
+      // Include visible draft edits; otherwise the filtered DB can silently use
+      // the older working-copy version of the active card.
+      if (!(await commitWorkspaceCardDraft(active.id))) return;
+      if (activeTabState.current?.id !== active.id) return;
       const filteredCards = await getCurrentFilteredCards();
       if (filteredCards.length === 0) {
         showToast(t('editor.create_filtered_cdb_empty'), 'info');
