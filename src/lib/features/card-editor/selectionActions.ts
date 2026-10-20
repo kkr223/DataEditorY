@@ -7,7 +7,6 @@ import { showToast } from '$lib/stores/toast.svelte';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { deleteDraftCardFlow } from '$lib/features/card-editor/useCases';
 import { dispatchAppShortcut } from '$lib/utils/shortcuts';
-import type { CardDataEntry } from '$lib/types';
 
 export async function handleCopySelection() {
   const selectedCards = getSelectedCards();
@@ -46,11 +45,8 @@ export async function handlePasteSelection(mutationTabId = get(activeTabId)) {
     if (!shouldOverwrite) return;
   }
 
-  const pastedCards = clipboardCards.map((card) => ({
-    ...card,
-    setcode: Array.isArray(card.setcode) ? [...card.setcode] : [],
-    strings: Array.isArray(card.strings) ? [...card.strings] : [],
-  } satisfies CardDataEntry));
+  // getCardClipboard() already returns isolated copies.
+  const pastedCards = clipboardCards;
   const ok = await modifyCardsInTab(mutationTabId, pastedCards, false);
   if (!ok) {
     showToast(String(get(_)('editor.paste_failed')), 'error');

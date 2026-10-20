@@ -68,7 +68,6 @@ export function createPackageController(
     const targetIdentity = getCdbPathIdentity(targetCdbPath);
     const sourceWorkspace = workspaceState.documents.find(
       (document) => document.kind === 'db'
-        && document.source.path !== null
         && getCdbPathIdentity(document.source.path) === targetIdentity,
     ) ?? null;
 

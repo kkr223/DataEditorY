@@ -160,7 +160,7 @@ async function readUserAiResource(kind: AiResourceKind, file: string) {
   const path = await userAiResourcePath(kind, file);
   if (!path) return null;
   try {
-    return await pathExists(path) ? readTextFile(path) : null;
+    return await readTextFile(path);
   } catch {
     return null;
   }
@@ -670,15 +670,18 @@ export async function loadAiSkillFiles(): Promise<string[]> {
   return Array.from(new Set([...bundled, ...user]));
 }
 
+async function resolveAiResourcePath(kind: AiResourceKind, file: string) {
+  if (!tauriBridge.isTauri()) return resolveResourceFile(`${kind}/${normalizeAiResourceFile(file)}`);
+  return ensureUserAiResource(kind, file);
+}
+
 export async function resolveAiPromptPath(file: string): Promise<string> {
   cachedSystemPrompt = null;
-  if (!tauriBridge.isTauri()) return resolveResourceFile(`ai-prompts/${normalizeAiResourceFile(file)}`);
-  return ensureUserAiResource('ai-prompts', file);
+  return resolveAiResourcePath('ai-prompts', file);
 }
 
 export async function resolveAiSkillPath(file: string): Promise<string> {
-  if (!tauriBridge.isTauri()) return resolveResourceFile(`ai-skills/${normalizeAiResourceFile(file)}`);
-  return ensureUserAiResource('ai-skills', file);
+  return resolveAiResourcePath('ai-skills', file);
 }
 
 export function buildSkillTemplate(name: string): string {

@@ -340,7 +340,7 @@ export function buildSearchFiltersFromDraft(draftCard: CardDataEntry): SearchFil
   if (race) filters.race = race;
 
   // --- Setcodes ---
-  const setcodes = Array.isArray(draftCard.setcode) ? draftCard.setcode : [];
+  const setcodes = draftCard.setcode;
   for (let i = 0; i < 4; i++) {
     const raw = Number(setcodes[i] ?? 0);
     if (!Number.isInteger(raw) || raw <= 0) continue;

@@ -103,7 +103,8 @@ function normalizeExplorerFilters(value: unknown): Partial<SearchFilters> {
 }
 
 function normalizeOptionalCardId(value: unknown): number | null {
-  return Number.isInteger(value) && Number(value) > 0 ? Number(value) : null;
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
 }
 
 export function getCardExplorerState(): WorkspaceCardExplorerState | null {

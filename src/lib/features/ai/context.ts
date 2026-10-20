@@ -2,7 +2,7 @@ import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelt
 import { getSelectedCards } from '$lib/stores/editor.svelte';
 import type { AiAppContext } from '$lib/features/ai/service';
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { readTextFile, pathExists } from '$lib/native/assetApi';
+import { readTextFile } from '$lib/native/assetApi';
 import { getCardScriptInfo } from '$lib/native/scriptApi';
 import { loadSecretKey } from '$lib/native/settingsApi';
 import { documentRuntime } from '$lib/platform/appRuntime';
@@ -99,7 +99,11 @@ export function createAiAppContext(ownerDocumentId?: string): AiAppContext {
         getCdbPathIdentity(tab.scriptPath) === getCdbPathIdentity(path)
       ));
       if (open) return open.content;
-      return await pathExists(path) ? readTextFile(path) : null;
+      try {
+        return await readTextFile(path);
+      } catch {
+        return null;
+      }
     },
     async resolveScriptTestPath(dbPath: string, code: number) {
       const cdbDir = await tauriBridge.dirname(dbPath);

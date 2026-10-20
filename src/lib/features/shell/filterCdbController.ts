@@ -41,11 +41,11 @@ export function createFilterCdbController(state: FilterCdbDialogState) {
 
   async function handleCreateFilteredCdb() {
     const active = activeTabState.current;
-    const sourceCdbPath = active?.path ?? '';
-    if (!sourceCdbPath || !active) {
+    if (!active?.path) {
       showToast(t('editor.package_zip_no_cdb'), 'info');
       return;
     }
+    const sourceCdbPath = active.path;
 
     state.isCreatingFilteredCdb = true;
 

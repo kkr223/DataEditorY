@@ -2,7 +2,7 @@ import { documentRuntime } from '$lib/platform/appRuntime';
 import { recordUndoLabel } from '$lib/stores/tabs';
 import { refreshCachedSearchForTab } from '$lib/stores/search';
 import { getOpenScriptTab, getScriptTabsForCdb, saveScriptTab, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
-import { writeTextFile, readTextFile, pathExists } from '$lib/native/assetApi';
+import { writeTextFile, readTextFile } from '$lib/native/assetApi';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 import { createCardImageFormData, normalizeCardImageFormData } from '$lib/features/card-image/layout';
 import { applyAiScriptChange } from '$lib/features/ai/scriptChanges';
@@ -54,7 +54,11 @@ export function createAiPatchApplier(access: {
     const readCurrent = async () => {
       const tab = findOpenTab();
       if (tab) return tab.content;
-      return await pathExists(patch.path) ? readTextFile(patch.path) : null;
+      try {
+        return await readTextFile(patch.path);
+      } catch {
+        return null;
+      }
     };
     await applyAiScriptChange(patch, {
       readCurrent,

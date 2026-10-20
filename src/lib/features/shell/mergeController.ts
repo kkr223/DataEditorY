@@ -90,9 +90,7 @@ export function createMergeController(
       return;
     }
 
-    const paths = Array.isArray(selected)
-      ? selected.filter((item): item is string => typeof item === 'string')
-      : [selected];
+    const paths = Array.isArray(selected) ? selected : [selected];
 
     upsertMergeSources(paths.map((path) => ({
       path,

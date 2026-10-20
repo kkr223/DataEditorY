@@ -156,9 +156,8 @@ export async function openTextFileDialog(): Promise<string | null> {
     directory: false,
   });
   if (!selected) return null;
-  const path = typeof selected === 'string' ? selected : (selected as { path?: string }).path;
-  if (!path) return null;
-  return openTextFile(path);
+  const path = Array.isArray(selected) ? selected[0] : selected;
+  return path ? openTextFile(path) : null;
 }
 
 export function activateTextTab(tabId: string) {

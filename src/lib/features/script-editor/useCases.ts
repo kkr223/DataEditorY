@@ -88,7 +88,7 @@ export async function saveScriptStringFlow(input: {
   const nextCard: CardDataEntry = {
     ...input.cardContext,
     strings: normalizeCardStrings(input.cardContext.strings),
-    setcode: Array.isArray(input.cardContext.setcode) ? [...input.cardContext.setcode] : [],
+    setcode: [...input.cardContext.setcode],
   };
 
   const ok = await modifyCardsInTab(sourceTabId, [nextCard]);

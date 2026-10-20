@@ -27,8 +27,9 @@ function normalizeRecentCdbHistory(value: unknown): RecentCdbEntry[] {
     if (!item || typeof item !== 'object') continue;
 
     const path = typeof item.path === 'string' ? item.path.trim() : '';
+    if (!path) continue;
     const identity = getCdbPathIdentity(path);
-    if (!path || seenPaths.has(identity)) continue;
+    if (seenPaths.has(identity)) continue;
 
     const name = typeof item.name === 'string' && item.name.trim()
       ? item.name.trim()
