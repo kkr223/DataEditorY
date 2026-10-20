@@ -56,7 +56,7 @@ export function createShellDialogsController() {
     mergeAnalysisKey: '',
   });
 
-  let baseWindowTitle = 'DataEditorY Extra';
+  let baseWindowTitle = 'DataEditorY';
   let nextBackgroundTaskId = 1;
   const pendingBackgroundTasks: PendingBackgroundTask[] = [];
   let isProcessingBackgroundTasks = false;

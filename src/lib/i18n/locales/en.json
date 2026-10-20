@@ -551,6 +551,8 @@
     "card_image_title": "Card Image Editor",
     "card_image_description": "Upload, crop, and preview card art.",
     "card_image_close": "Close",
+    "card_image_zoom_out": "Zoom out",
+    "card_image_zoom_in": "Zoom in",
     "card_image_done": "Done",
     "card_image_generate": "Finish and Generate",
     "card_image_generating": "Generating...",

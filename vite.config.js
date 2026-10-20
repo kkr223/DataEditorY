@@ -16,7 +16,7 @@ export default defineConfig(async () => ({
         const port = config.server?.port ?? DEFAULT_DEV_PORT;
         return {
           cacheDir: `node_modules/.vite/dev-${port}`,
-          server: { hmr: { port: port + 1 } },
+          server: { ws: { port: port + 1 } },
         };
       },
     },
@@ -63,7 +63,7 @@ export default defineConfig(async () => ({
     port: DEFAULT_DEV_PORT,
     strictPort: true,
     host,
-    hmr: {
+    ws: {
       protocol: "ws",
       host,
     },

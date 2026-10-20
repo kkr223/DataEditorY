@@ -50,6 +50,7 @@
   let virtualBottomSpacerHeight = $derived(Math.max(0, (pageCards.length - virtualEndIndex) * VIRTUAL_ROW_HEIGHT));
 
   let hasActiveFilters = $derived(
+    editorState.searchFilters.name !== '' ||
     editorState.searchFilters.id !== '' ||
     editorState.searchFilters.desc !== '' ||
     editorState.searchFilters.nameOrDesc !== '' ||

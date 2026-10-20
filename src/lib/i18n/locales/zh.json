@@ -551,6 +551,8 @@
     "card_image_title": "卡图编辑器",
     "card_image_description": "上传、裁剪并预览卡图。",
     "card_image_close": "关闭",
+    "card_image_zoom_out": "缩小",
+    "card_image_zoom_in": "放大",
     "card_image_done": "完成",
     "card_image_generate": "完成并生成卡图",
     "card_image_generating": "生成中...",
