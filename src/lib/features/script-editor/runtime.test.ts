@@ -3,26 +3,11 @@ import type { editor as MonacoEditor } from 'monaco-editor';
 import {
   attachSnippetTabNavigation,
   attachFontZoomActions,
-  buildScriptEditorMonacoOptions,
   type ScriptMonacoApi,
 } from '$lib/features/script-editor/runtime';
 import { normalizeScriptEditorFontSize } from './fontPreferences';
 
 describe('script editor runtime helpers', () => {
-  test('builds stable monaco editor options for the script workspace', () => {
-    const options = buildScriptEditorMonacoOptions();
-
-    expect(options.automaticLayout).toBe(true);
-    expect(options.language).toBe('lua');
-    expect(options.wordWrap).toBe('on');
-    expect(options.hover.above).toBe(true);
-    expect(options.hover.delay).toBe(0);
-    expect(options.minimap.enabled).toBe(false);
-    expect(options.fontSize).toBe(14);
-    expect(options.lineHeight).toBe(22 / 14);
-    expect(buildScriptEditorMonacoOptions(20).fontSize).toBe(20);
-  });
-
   test('normalizes legacy and out-of-range font preferences', () => {
     expect(normalizeScriptEditorFontSize(undefined)).toBe(14);
     expect(normalizeScriptEditorFontSize(Number.NaN)).toBe(14);

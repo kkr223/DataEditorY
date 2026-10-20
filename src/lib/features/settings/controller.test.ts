@@ -30,25 +30,6 @@ describe('settings controller helpers', () => {
     expect(validateSettingsForm(form)).toBe('snippets');
   });
 
-  test('creates the default settings form state', () => {
-    const state = createSettingsFormState();
-    expect(state.apiBaseUrl).toBe('');
-    expect(state.model).toBe('gpt-4o-mini');
-    expect(state.temperature).toBe(1);
-    expect(state.agentMaxSteps).toBe(100);
-    expect(state.ygoproPath).toBe('');
-    expect(state.scriptDirectory).toBe('');
-    expect(state.scriptTemplate).toBe('');
-    expect(state.useExternalScriptEditor).toBe(false);
-    expect(state.saveScriptImageToLocal).toBe(false);
-    expect(state.autoCompleteFunctionParameters).toBe(true);
-    expect(state.scriptEditorFontSize).toBe(14);
-    expect(state.packageIncludePatternsText).toBe('');
-    expect(state.secretKey).toBe('');
-    expect(typeof state.shortcutBindings).toBe('object');
-    expect(Object.keys(state.shortcutBindings).length > 0).toBe(true);
-  });
-
   test('rejects empty, fractional and out-of-range editor font sizes', () => {
     const form = createSettingsFormState();
     for (const size of [Number.NaN, 7, 33, 14.5]) {

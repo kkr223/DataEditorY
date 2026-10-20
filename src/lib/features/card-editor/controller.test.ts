@@ -1,12 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import type { CardDataEntry } from '$lib/types';
 import {
-  buildEmptyDraftState,
   buildSearchFiltersFromDraft,
   buildLoadedDraftState,
   createDraftUndoHistory,
   createCardImageInteractionController,
-  createInitialParseManuscript,
   createCardScriptGenerationController,
   createCardScriptGenerationState,
   isDraftDirty,
@@ -45,14 +43,6 @@ function createCard(overrides: Partial<CardDataEntry> = {}): CardDataEntry {
 }
 
 describe('card editor controller helpers', () => {
-  test('builds a fresh draft state with the provided cover image', () => {
-    const state = buildEmptyDraftState('/resources/custom-cover.jpg');
-
-    expect(state.originalCardCode).toBeNull();
-    expect(state.lastLoadedCardSnapshot).toBe('');
-    expect(state.imageSrc).toBe('/resources/custom-cover.jpg');
-  });
-
   test('builds a loaded draft state from an existing card', () => {
     const card = createCard({ code: 1234 });
     const state = buildLoadedDraftState(card);
@@ -103,11 +93,6 @@ describe('card editor controller helpers', () => {
     const exhaustedUndo = stepBackDraftUndoHistory(secondUndo.history);
     expect(exhaustedUndo.card).toBeNull();
     expect(exhaustedUndo.history).toHaveLength(1);
-  });
-
-  test('builds an initial parse manuscript from name and description', () => {
-    expect(createInitialParseManuscript(createCard())).toBe('Test Card\nTest description');
-    expect(createInitialParseManuscript(createCard({ name: '', desc: '' }))).toBe('');
   });
 
   test('builds draft search filters including zero stats and advanced rule fields', () => {

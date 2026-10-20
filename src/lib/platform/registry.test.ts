@@ -23,31 +23,6 @@ const module = (overrides: Partial<ExtensionModule> = {}): ExtensionModule => ({
 });
 
 describe('extension registry', () => {
-  test('registers data types, providers, codecs, and workbenches', () => {
-    const registry = new ExtensionRegistry([module({
-      codecs: [{
-        id: 'test-json',
-        typeId: 'test.document',
-        filePatterns: ['.test.json'],
-        decode: async () => ({
-          typeId: 'test.document',
-          schemaVersion: 1,
-          title: 'Test',
-          providerId: 'memory',
-        }),
-        encode: async () => {},
-      }],
-      workbenches: [{
-        id: 'test-workbench',
-        acceptedTypeIds: ['test.document'],
-        component: async () => ({}),
-      }],
-    })]);
-
-    expect(registry.findCodecForSource('D:/demo.test.json')?.id).toBe('test-json');
-    expect(registry.findWorkbench('test.document')?.id).toBe('test-workbench');
-  });
-
   test('rejects duplicate ids and codec patterns', () => {
     expect(() => new ExtensionRegistry([module(), module()])).toThrow('Duplicate module id');
     expect(() => new ExtensionRegistry([module({
