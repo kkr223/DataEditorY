@@ -12,16 +12,16 @@ use crate::{
     BACKGROUND_TASK_PROGRESS_EVENT,
 };
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_cdb_from_cards(request: CreateCdbFromCardsRequest) -> Result<(), String> {
     cdb_cards_service::create_cdb_from_cards(request)
 }
-#[tauri::command]
+#[tauri::command(async)]
 pub fn copy_card_assets(request: CopyCardAssetsRequest) -> Result<(), String> {
     cdb_assets_service::copy_card_assets(request)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn analyze_cdb_merge(
     request: AnalyzeCdbMergeRequest,
 ) -> Result<AnalyzeCdbMergeResponse, String> {
@@ -32,14 +32,14 @@ pub fn analyze_cdb_merge(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn collect_merge_sources_from_folder(
     request: CollectMergeSourcesFromFolderRequest,
 ) -> Result<Vec<MergeSourceItemDto>, String> {
     cdb_merge_service::collect_merge_sources_from_folder(&request.directory_path)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub async fn execute_cdb_merge(
     app: AppHandle,
     request: ExecuteCdbMergeRequest,
