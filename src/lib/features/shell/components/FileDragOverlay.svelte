@@ -38,10 +38,10 @@
     min-width: min(520px, calc(100vw - 48px));
     max-width: 680px;
     padding: 32px 36px;
-    border-radius: 24px;
+    border-radius: var(--radius-dialog);
     border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, var(--border-color));
     background: color-mix(in srgb, var(--bg-surface) 88%, var(--bg-base));
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--dialog-shadow);
     text-align: center;
   }
 
@@ -52,7 +52,7 @@
     width: 72px;
     height: 72px;
     margin-bottom: 14px;
-    border-radius: 18px;
+    border-radius: var(--radius-overlay);
     background: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-base));
     color: var(--accent-primary);
   }

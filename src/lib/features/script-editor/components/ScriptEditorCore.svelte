@@ -769,10 +769,10 @@
     height: 100%;
     min-height: 0;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     overflow: hidden;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1);
-    background: #121714;
+    box-shadow: var(--shadow-card);
+    background: var(--bg-base);
   }
 
   .script-editor :global(.monaco-editor),
@@ -784,16 +784,16 @@
         to bottom,
         rgba(0, 0, 0, 0) 0,
         rgba(0, 0, 0, 0) calc(var(--script-editor-line-height, 22px) - 1px),
-        rgba(186, 227, 198, 0.08) calc(var(--script-editor-line-height, 22px) - 1px),
-        rgba(186, 227, 198, 0.08) var(--script-editor-line-height, 22px)
+        rgba(148, 163, 184, 0.06) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(148, 163, 184, 0.06) var(--script-editor-line-height, 22px)
       ),
-      #121714 !important;
+      var(--bg-base) !important;
   }
 
   .script-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(87, 166, 121, 0.28) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(87, 166, 121, 0.18) !important;
-    --vscode-editor-lineHighlightBackground: rgba(118, 184, 151, 0.12) !important;
+    --vscode-editor-selectionBackground: rgba(59, 130, 246, 0.28) !important;
+    --vscode-editor-inactiveSelectionBackground: rgba(59, 130, 246, 0.18) !important;
+    --vscode-editor-lineHighlightBackground: rgba(59, 130, 246, 0.1) !important;
     --vscode-editorError-background: rgba(196, 122, 112, 0.12) !important;
     --vscode-editorError-border: rgba(196, 122, 112, 0.28) !important;
     --vscode-editorWarning-background: rgba(196, 168, 102, 0.1) !important;
@@ -804,7 +804,7 @@
 
   .script-editor :global(.monaco-editor .focused .selected-text),
   .script-editor :global(.monaco-editor .selected-text) {
-    background-color: rgba(87, 166, 121, 0.28) !important;
+    background-color: rgba(59, 130, 246, 0.28) !important;
   }
 
   .script-editor :global(.monaco-editor .view-line .lua-call-highlight) {
@@ -829,7 +829,7 @@
 
   .script-editor :global(.monaco-editor .view-overlays .current-line),
   .script-editor :global(.monaco-editor .margin-view-overlays .current-line) {
-    background-color: rgba(118, 184, 151, 0.12) !important;
+    background-color: rgba(59, 130, 246, 0.1) !important;
     border: none !important;
   }
 
@@ -858,8 +858,8 @@
   }
 
   .script-editor :global(.suggest-widget .monaco-list-row.focused) {
-    background: #50675b !important;
-    color: #f2fbf5 !important;
+    background: var(--bg-surface-active) !important;
+    color: var(--text-primary) !important;
   }
 
   .script-editor :global(.suggest-widget .monaco-list-row.focused .label-name),
@@ -870,8 +870,8 @@
   }
 
   .script-editor :global(.suggest-widget .monaco-list-row:hover) {
-    background: rgba(80, 103, 91, 0.24) !important;
-    color: #eef7f1 !important;
+    background: rgba(55, 67, 84, 0.24) !important;
+    color: var(--text-primary) !important;
   }
 
   .script-editor :global(.suggest-widget .monaco-list-row:hover .label-name),
@@ -882,7 +882,7 @@
   }
 
   :global([data-theme='light']) .script-editor {
-    background: #f1f5ec;
+    background: var(--bg-base);
   }
 
   :global([data-theme='light']) .script-editor :global(.monaco-editor),
@@ -894,16 +894,16 @@
         to bottom,
         rgba(0, 0, 0, 0) 0,
         rgba(0, 0, 0, 0) calc(var(--script-editor-line-height, 22px) - 1px),
-        rgba(104, 145, 112, 0.1) calc(var(--script-editor-line-height, 22px) - 1px),
-        rgba(104, 145, 112, 0.1) var(--script-editor-line-height, 22px)
+        rgba(148, 163, 184, 0.12) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(148, 163, 184, 0.12) var(--script-editor-line-height, 22px)
       ),
-      #f1f5ec !important;
+      var(--bg-base) !important;
   }
 
   :global([data-theme='light']) .script-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(97, 141, 106, 0.22) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(97, 141, 106, 0.14) !important;
-    --vscode-editor-lineHighlightBackground: rgba(74, 133, 91, 0.1) !important;
+    --vscode-editor-selectionBackground: rgba(37, 99, 235, 0.22) !important;
+    --vscode-editor-inactiveSelectionBackground: rgba(37, 99, 235, 0.14) !important;
+    --vscode-editor-lineHighlightBackground: rgba(37, 99, 235, 0.08) !important;
     --vscode-editorError-background: rgba(198, 128, 117, 0.08) !important;
     --vscode-editorError-border: rgba(198, 128, 117, 0.2) !important;
     --vscode-editorWarning-background: rgba(189, 155, 86, 0.08) !important;
@@ -933,12 +933,12 @@
   }
 
   :global([data-theme='light']) .script-editor :global(.suggest-widget .monaco-list-row.focused) {
-    background: #dbe8dc !important;
-    color: #16311e !important;
+    background: var(--bg-surface-active) !important;
+    color: var(--text-primary) !important;
   }
 
   :global([data-theme='light']) .script-editor :global(.suggest-widget .monaco-list-row:hover) {
-    background: rgba(219, 232, 220, 0.42) !important;
-    color: #16311e !important;
+    background: rgba(238, 243, 250, 0.42) !important;
+    color: var(--text-primary) !important;
   }
 </style>

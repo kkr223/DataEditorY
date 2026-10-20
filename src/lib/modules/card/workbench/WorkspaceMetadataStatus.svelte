@@ -48,10 +48,10 @@
     padding: 0.5rem 1rem;
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-surface);
-    color: var(--danger-text, #f87171);
+    color: var(--state-danger-fg);
   }
   .messages { flex: 1; min-width: 0; max-height: 6rem; overflow: auto; }
-  p { margin: 0; overflow-wrap: anywhere; font-size: 0.85rem; }
+  p { margin: 0; overflow-wrap: anywhere; font-size: var(--text-base); }
   span { opacity: 0.85; }
   button { flex-shrink: 0; padding: 0.3rem 0.7rem; cursor: pointer; }
   button:disabled { cursor: wait; opacity: 0.6; }

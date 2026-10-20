@@ -114,11 +114,11 @@
   button {
     font: inherit;
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--control-radius-soft);
     cursor: pointer;
     color: var(--ai-ink);
     background: var(--bg-surface-active);
-    font-weight: 750;
+    font-weight: 700;
   }
 
   button:disabled {
@@ -137,7 +137,7 @@
   }
   .empty-note, .proposal-card small, .tool-details p {
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
   }
   .empty-note {
     margin: 0;
@@ -149,13 +149,13 @@
     margin: 0;
   }
   h3 {
-    font-size: 0.88rem;
+    font-size: var(--text-base);
     line-height: 1.2;
   }
 
   .apply-button {
     padding: 0.48rem 0.7rem;
-    color: #fff;
+    color: var(--text-on-accent);
     background: var(--ai-accent);
   }
 
@@ -174,7 +174,7 @@
   .context-strip,
   .review-list {
     border: 1px solid var(--ai-line);
-    border-radius: 8px;
+    border-radius: var(--radius-card);
     background: var(--bg-base);
   }
 
@@ -197,7 +197,7 @@
     display: block;
     margin-bottom: 4px;
     color: var(--ai-muted);
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     text-transform: uppercase;
   }
 
@@ -227,7 +227,7 @@
     gap: 10px;
     padding: 11px;
     border: 1px solid var(--ai-line);
-    border-radius: 8px;
+    border-radius: var(--radius-card);
     background: var(--ai-soft);
   }
 
@@ -249,7 +249,7 @@
 
   .proposal-summary {
     color: var(--ai-muted);
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     line-height: 1.45;
   }
 
@@ -262,7 +262,7 @@
   summary {
     cursor: pointer;
     color: var(--ai-ink);
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 760;
   }
 
@@ -286,28 +286,28 @@
     gap: 5px;
     padding: 8px;
     border: 1px solid var(--ai-line);
-    border-radius: 6px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-base);
   }
 
   .diff-row strong {
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
   }
 
   pre {
     margin: 0;
     white-space: pre-wrap;
     word-break: break-word;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     line-height: 1.42;
   }
 
   .before {
-    color: #cc5964;
+    color: var(--state-danger-fg);
   }
 
   .after {
-    color: #2f9b73;
+    color: var(--state-success-fg);
   }
 
   @media (max-width: 1180px) {

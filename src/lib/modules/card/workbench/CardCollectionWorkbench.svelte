@@ -389,7 +389,7 @@
     place-items: center;
     height: 100%;
     padding: 2rem;
-    color: var(--danger-text, #f87171);
+    color: var(--state-danger-fg);
     text-align: center;
   }
 </style>

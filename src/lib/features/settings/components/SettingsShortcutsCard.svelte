@@ -143,7 +143,7 @@
   .sp-card {
     background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--radius-card);
     padding: 12px 14px;
     display: flex;
     flex-direction: column;
@@ -155,13 +155,13 @@
   }
   .sp-card-head h3 {
     margin: 0;
-    font-size: 0.88rem;
+    font-size: var(--text-base);
     font-weight: 700;
     color: var(--text-primary);
   }
   .sp-card-head p {
     margin: 2px 0 0;
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     line-height: 1.4;
   }
@@ -174,7 +174,7 @@
   }
   .shortcut-hint {
     margin: 0;
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     color: var(--text-disabled);
     line-height: 1.35;
   }
@@ -182,10 +182,10 @@
   .shortcut-reset,
   .shortcut-binding {
     border: 1px solid var(--border-color);
-    border-radius: 7px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-base);
     color: var(--text-primary);
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     cursor: pointer;
     transition: border-color 0.15s, background 0.15s, color 0.15s;
   }
@@ -194,7 +194,7 @@
   .shortcut-binding {
     min-width: 92px;
     padding: 6px 10px;
-    font-family: 'Cascadia Code', Consolas, monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     text-align: center;
   }
@@ -219,7 +219,7 @@
   .shortcut-group h4 {
     margin: 0 0 6px;
     color: var(--text-secondary);
-    font-size: 0.74rem;
+    font-size: var(--text-xs);
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
@@ -227,7 +227,7 @@
     display: flex;
     flex-direction: column;
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-    border-radius: 9px;
+    border-radius: var(--control-radius-soft);
     overflow: hidden;
   }
   .shortcut-row {
@@ -241,7 +241,7 @@
   }
   .shortcut-row:first-child { border-top: 0; }
   .shortcut-row.has-conflict {
-    background: color-mix(in srgb, #ef4444 8%, var(--bg-base));
+    background: color-mix(in srgb, var(--state-danger-fg) 8%, var(--bg-base));
   }
   .shortcut-main {
     min-width: 0;
@@ -251,17 +251,17 @@
   }
   .shortcut-name {
     color: var(--text-primary);
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
     font-weight: 650;
   }
   .shortcut-desc {
     color: var(--text-secondary);
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     line-height: 1.35;
   }
   .shortcut-conflict {
-    color: #ef4444;
-    font-size: 0.72rem;
+    color: var(--state-danger-fg);
+    font-size: var(--text-2xs);
     font-weight: 600;
   }
   .shortcut-controls {
@@ -274,7 +274,7 @@
   }
   .shortcut-default {
     color: var(--text-disabled);
-    font-size: 0.7rem;
+    font-size: var(--text-2xs);
   }
 
   @media (max-width: 760px) {

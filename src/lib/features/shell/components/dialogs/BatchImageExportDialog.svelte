@@ -426,7 +426,8 @@
     display: grid;
     place-items: center;
     padding: 24px;
-    background: rgba(0, 0, 0, 0.42);
+    background: var(--dialog-backdrop);
+    backdrop-filter: blur(4px);
   }
 
   .batch-dialog {
@@ -437,9 +438,9 @@
     gap: 14px;
     padding: 18px;
     border: 1px solid var(--border-color);
-    border-radius: var(--control-radius-soft);
+    border-radius: var(--dialog-radius);
     background: var(--bg-surface);
-    box-shadow: var(--shadow-popover);
+    box-shadow: var(--dialog-shadow);
     color: var(--text-primary);
     overflow: auto;
   }
@@ -465,7 +466,7 @@
   }
 
   h2 {
-    font-size: 1.08rem;
+    font-size: var(--text-lg);
   }
 
   p {
@@ -604,7 +605,7 @@
 
   .primary-action {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
   }
 
   .secondary-action {

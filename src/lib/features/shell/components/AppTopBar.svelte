@@ -199,7 +199,7 @@
   }
 
   .logo h1 {
-    font-size: 1.08rem;
+    font-size: var(--text-lg);
     font-weight: 700;
     color: var(--accent-primary);
     letter-spacing: -0.5px;
@@ -237,7 +237,7 @@
     text-decoration: none;
     border-radius: var(--control-radius-soft);
     font-weight: 500;
-    font-size: 0.86rem;
+    font-size: var(--text-base);
     line-height: 1;
     transition: all 0.2s ease;
     cursor: pointer;

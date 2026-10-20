@@ -113,7 +113,7 @@
 
   h2 {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: var(--text-lg);
     color: var(--text-primary);
   }
 

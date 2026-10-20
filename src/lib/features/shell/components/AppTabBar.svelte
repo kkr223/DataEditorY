@@ -264,7 +264,7 @@
 
   .tab-dirty {
     color: color-mix(in srgb, var(--accent-primary) 88%, white 12%);
-    font-size: 0.95rem;
+    font-size: var(--text-base);
     line-height: 1;
     position: relative;
     z-index: 1;
@@ -298,7 +298,7 @@
     margin-right: 0;
     padding: 0;
     justify-content: center;
-    font-size: 1.08rem;
+    font-size: var(--text-lg);
     font-weight: 600;
     line-height: 1;
     border-radius: var(--control-radius-pill);

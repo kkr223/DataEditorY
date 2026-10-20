@@ -31,7 +31,7 @@
   .sp-card {
     background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--radius-card);
     padding: 12px 14px;
     display: flex;
     flex-direction: column;
@@ -39,7 +39,7 @@
   }
   .sp-card-head h3 {
     margin: 0;
-    font-size: 0.88rem;
+    font-size: var(--text-base);
     font-weight: 700;
     color: var(--text-primary);
   }
@@ -58,12 +58,12 @@
     padding: 0;
     background: transparent;
     color: var(--text-secondary);
-    font-size: 0.68rem;
+    font-size: var(--text-2xs);
     cursor: help;
   }
   .sp-card-head p {
     margin: 2px 0 0;
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     line-height: 1.4;
   }
@@ -72,11 +72,11 @@
     min-height: 92px;
     max-height: 220px;
     resize: vertical;
-    font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
-    font-size: 0.82rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
     line-height: 1.5;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     background: var(--bg-base);
     color: var(--text-primary);
     padding: 8px 10px;
@@ -88,7 +88,7 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 16%, transparent);
   }
   .sp-hint {
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     color: var(--text-disabled);
     line-height: 1.35;
   }

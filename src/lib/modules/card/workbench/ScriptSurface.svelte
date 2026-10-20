@@ -384,7 +384,7 @@
   .script-tab-close {
     width: 27px;
     padding: 0;
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
   }
 
   .script-tab-close:hover {
@@ -418,7 +418,7 @@
 
   h2 {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: var(--text-lg);
     color: var(--text-primary);
   }
 
@@ -449,7 +449,7 @@
     border: none;
     border-radius: var(--control-radius);
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
     padding: 0.52rem 0.82rem;
     font-weight: 700;
     cursor: pointer;

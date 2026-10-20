@@ -25,24 +25,24 @@
   }
   .sp-header h2 {
     margin: 0;
-    font-size: 1.15rem;
+    font-size: var(--text-lg);
     font-weight: 700;
     color: var(--text-primary);
   }
   .sp-save {
     flex-shrink: 0;
     padding: 7px 16px;
-    border-radius: 8px;
-    font-size: 0.82rem;
+    border-radius: var(--control-radius-soft);
+    font-size: var(--text-sm);
     font-weight: 700;
-    color: #fff;
-    background: linear-gradient(135deg, #0d9488, #14b8a6);
-    box-shadow: 0 2px 8px rgba(20, 184, 166, 0.25);
-    border: none;
+    color: var(--text-on-accent);
+    background: var(--accent-primary);
+    box-shadow: var(--shadow-soft);
+    border: 1px solid transparent;
     cursor: pointer;
-    transition: filter 0.15s, box-shadow 0.15s;
+    transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
   }
-  .sp-save:hover:not(:disabled) { filter: brightness(1.08); box-shadow: 0 4px 14px rgba(20, 184, 166, 0.35); }
+  .sp-save:hover:not(:disabled) { background: var(--accent-primary-hover); box-shadow: var(--shadow-popover); }
   .sp-save:disabled { opacity: 0.55; cursor: not-allowed; }
 
   @media (max-width: 780px) {

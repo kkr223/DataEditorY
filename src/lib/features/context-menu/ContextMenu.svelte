@@ -65,12 +65,12 @@
 {/if}
 
 <style>
-  .context-menu { position: fixed; z-index: 10000; min-width: 218px; max-width: calc(100vw - 12px); max-height: calc(100vh - 12px); overflow-y: auto; padding: 5px; border: 1px solid var(--border-color); border-radius: var(--control-radius-soft, 8px); background: var(--bg-surface); color: var(--text-primary); box-shadow: var(--shadow-popover, 0 8px 30px #0004); }
-  button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 26px; padding: 7px 10px; border: 0; border-radius: var(--control-radius, 4px); background: transparent; color: inherit; font: inherit; font-size: 0.88rem; text-align: left; cursor: pointer; }
+  .context-menu { position: fixed; z-index: 10000; min-width: 218px; max-width: calc(100vw - 12px); max-height: calc(100vh - 12px); overflow-y: auto; padding: 5px; border: 1px solid var(--border-color); border-radius: var(--control-radius-soft); background: var(--bg-surface); color: var(--text-primary); box-shadow: var(--shadow-popover); }
+  button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 26px; padding: 7px 10px; border: 0; border-radius: var(--control-radius, 4px); background: transparent; color: inherit; font: inherit; font-size: var(--text-base); text-align: left; cursor: pointer; }
   button:hover:not(:disabled), button:focus-visible { background: var(--bg-surface-hover); outline: none; }
   button:focus-visible { box-shadow: inset 0 0 0 1px var(--accent-primary); }
   button:disabled { opacity: .4; cursor: default; }
-  button.danger { color: var(--state-danger-fg, #e66); }
+  button.danger { color: var(--state-danger-fg); }
   kbd { color: var(--text-secondary); font: inherit; font-size: .78rem; }
   .separator { height: 1px; margin: 4px 5px; background: var(--border-color); }
 </style>

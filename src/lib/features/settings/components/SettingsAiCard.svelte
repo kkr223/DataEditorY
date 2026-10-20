@@ -104,7 +104,7 @@
   .sp-card {
     background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--radius-card);
     padding: 12px 14px;
     display: flex;
     flex-direction: column;
@@ -116,13 +116,13 @@
   }
   .sp-card-head h3 {
     margin: 0;
-    font-size: 0.88rem;
+    font-size: var(--text-base);
     font-weight: 700;
     color: var(--text-primary);
   }
   .sp-card-head p {
     margin: 2px 0 0;
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     line-height: 1.4;
   }
@@ -135,18 +135,18 @@
   }
   .sp-badge {
     flex-shrink: 0;
-    font-size: 0.7rem;
+    font-size: var(--text-2xs);
     font-weight: 600;
     padding: 2px 8px;
-    border-radius: 9px;
+    border-radius: var(--control-radius-pill);
     background: color-mix(in srgb, var(--text-disabled) 14%, transparent);
     color: var(--text-disabled);
     white-space: nowrap;
     margin-top: 1px;
   }
   .sp-badge.ok {
-    background: rgba(22, 163, 74, 0.12);
-    color: #22c55e;
+    background: color-mix(in srgb, var(--state-success-fg) 14%, transparent);
+    color: var(--state-success-fg);
   }
   .sp-ai-grid {
     display: grid;
@@ -161,12 +161,12 @@
   }
   .sp-ai-hint {
     margin: 0;
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     line-height: 1.35;
     min-width: 0;
   }
-  .sp-ai-hint.err { color: #ef4444; }
+  .sp-ai-hint.err { color: var(--state-danger-fg); }
   .sp-field {
     display: flex;
     flex-direction: column;
@@ -174,7 +174,7 @@
     min-width: 0;
   }
   .sp-field > span {
-    font-size: 0.74rem;
+    font-size: var(--text-xs);
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -183,11 +183,11 @@
   input {
     width: 100%;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     background: var(--bg-base);
     color: var(--text-primary);
     padding: 6px 9px;
-    font-size: 0.84rem;
+    font-size: var(--text-sm);
     transition: border-color 0.15s;
   }
   input:focus {
@@ -196,7 +196,7 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 16%, transparent);
   }
   .sp-hint {
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     color: var(--text-disabled);
     line-height: 1.35;
   }
@@ -209,9 +209,9 @@
   }
   .sp-btn {
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     padding: 5px 10px;
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     font-weight: 600;
     cursor: pointer;
     background: var(--bg-surface-active);

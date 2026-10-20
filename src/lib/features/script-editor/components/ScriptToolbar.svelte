@@ -73,7 +73,7 @@
 
   .script-toolbar-main h2 {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     line-height: 1.15;
   }
 
@@ -82,7 +82,7 @@
     gap: 6px;
     flex-wrap: wrap;
     color: var(--text-secondary);
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     line-height: 1.2;
   }
 
@@ -105,21 +105,30 @@
 
   .btn-primary,
   .btn-secondary {
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     padding: 0.34rem 0.6rem;
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     font-weight: 700;
     line-height: 1.1;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
   }
 
   .btn-primary {
-    background: linear-gradient(135deg, #2563eb, #0891b2);
-    color: white;
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-primary-hover);
   }
 
   .btn-secondary {
     background: var(--bg-base);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-surface-hover);
   }
 </style>

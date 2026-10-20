@@ -814,17 +814,15 @@
     --ai-soft: color-mix(in srgb, var(--bg-surface) 86%, var(--bg-base));
     --ai-ink: var(--text-primary);
     --ai-muted: var(--text-secondary);
-    --ai-accent: color-mix(in srgb, var(--accent-primary) 82%, #1f7a68);
-    --ai-amber: #b7791f;
+    --ai-accent: var(--feature-ai-accent);
+    --ai-amber: var(--state-warning-fg);
     height: 100%;
     min-width: 0;
     display: grid;
     grid-template-columns: 216px minmax(440px, 1fr) minmax(330px, 400px);
     overflow: hidden;
     color: var(--ai-ink);
-    background:
-      linear-gradient(90deg, color-mix(in srgb, var(--bg-base) 94%, #0f1f1d), var(--bg-base)),
-      var(--bg-base);
+    background: var(--bg-base);
   }
 
   .thread-list,
@@ -837,7 +835,7 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     border-right: 1px solid var(--ai-line);
-    background: color-mix(in srgb, var(--bg-surface) 92%, #101513);
+    background: var(--bg-surface);
   }
 
   .rail-title,
@@ -859,7 +857,7 @@
     padding: 0 10px 0 14px;
     border-bottom: 1px solid var(--ai-line);
     color: var(--ai-muted);
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     font-weight: 800;
     text-transform: uppercase;
   }
@@ -878,11 +876,12 @@
 
   button {
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--control-radius-soft);
     cursor: pointer;
     color: var(--ai-ink);
     background: var(--bg-surface-active);
-    font-weight: 750;
+    font-weight: 700;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
   }
 
   button:disabled {
@@ -894,7 +893,7 @@
     width: 26px;
     height: 26px;
     padding: 0;
-    font-size: 1.05rem;
+    font-size: var(--text-lg);
     line-height: 1;
   }
 
@@ -973,7 +972,7 @@
   .thread-item small,
   .empty-note {
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
   }
 
   .empty-note {
@@ -1009,7 +1008,7 @@
 
   h2 {
     overflow: hidden;
-    font-size: 0.92rem;
+    font-size: var(--text-base);
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1018,7 +1017,7 @@
   .title-block span {
     overflow: hidden;
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1042,7 +1041,7 @@
     min-width: 0;
     border: 1px solid var(--ai-line);
     border-right: 0;
-    border-radius: 6px;
+    border-radius: var(--control-radius-soft);
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
     background: var(--ai-soft);
@@ -1054,7 +1053,7 @@
     height: 28px;
     padding: 0;
     border: 1px solid var(--ai-line);
-    border-radius: 0 6px 6px 0;
+    border-radius: 0 var(--control-radius-soft) var(--control-radius-soft) 0;
     background: var(--ai-soft);
   }
 
@@ -1068,7 +1067,7 @@
     overflow: auto;
     padding: 4px;
     border: 1px solid var(--ai-line);
-    border-radius: 6px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-surface);
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
   }
@@ -1091,7 +1090,7 @@
     display: block;
     padding: 0.42rem 0.48rem;
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
   }
 
   .model-row .ghost-button {
@@ -1114,7 +1113,7 @@
     width: min(780px, 100%);
     padding: 11px 13px;
     border: 1px solid var(--ai-line);
-    border-radius: 8px;
+    border-radius: var(--radius-card);
     background: var(--ai-soft);
   }
 
@@ -1135,7 +1134,7 @@
     gap: 8px;
     align-self: center;
     color: var(--ai-muted);
-    font-size: 0.86rem;
+    font-size: var(--text-base);
   }
 
   .event-line span {
@@ -1153,7 +1152,7 @@
     display: block;
     margin-bottom: 6px;
     color: var(--ai-muted);
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     text-transform: uppercase;
   }
 
@@ -1167,15 +1166,15 @@
     margin: 8px 0;
     padding: 9px 10px;
     overflow: auto;
-    border-radius: 6px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-base);
   }
 
   .message-content :global(code) {
     padding: 1px 4px;
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     background: var(--bg-base);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 0.9em;
   }
 
@@ -1202,9 +1201,9 @@
     margin: 0 auto;
     padding: 12px;
     border: 1px solid var(--ai-line);
-    border-radius: 18px;
+    border-radius: var(--radius-overlay);
     background: var(--bg-surface);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--shadow-card);
   }
 
   .context-chips {
@@ -1218,9 +1217,9 @@
     overflow: hidden;
     padding: 0.22rem 0.48rem;
     border: 1px solid var(--ai-line);
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     color: var(--ai-muted);
-    font-size: 0.76rem;
+    font-size: var(--text-2xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1253,9 +1252,9 @@
     overflow: auto;
     padding: 4px;
     border: 1px solid var(--ai-line);
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-surface);
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--shadow-popover);
   }
 
   .mention-menu button {
@@ -1283,7 +1282,7 @@
   .mention-menu small,
   .mention-menu span {
     color: var(--ai-muted);
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
   }
 
   .composer-input:focus,
@@ -1317,11 +1316,11 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     background: transparent;
     color: var(--ai-muted);
     padding: 0 8px;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 800;
     cursor: pointer;
   }
@@ -1337,7 +1336,7 @@
   }
 
   .chevron {
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
   }
 
   .access-options {
@@ -1349,9 +1348,9 @@
     overflow: hidden;
     padding: 4px;
     border: 1px solid var(--ai-line);
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-surface);
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--shadow-popover);
   }
 
   .access-options button {
@@ -1371,7 +1370,7 @@
     min-width: 0;
     margin-left: auto;
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     font-weight: 760;
     white-space: nowrap;
   }
@@ -1380,13 +1379,13 @@
     max-width: 12rem;
     overflow: hidden;
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .run-button {
-    color: #fff;
+    color: var(--text-on-accent);
     background: var(--ai-accent);
     position: relative;
     width: 38px;

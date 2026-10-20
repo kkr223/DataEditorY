@@ -127,7 +127,8 @@
     display: grid;
     place-items: center;
     padding: 24px;
-    background: rgba(0, 0, 0, 0.42);
+    background: var(--dialog-backdrop);
+    backdrop-filter: blur(4px);
   }
 
   .asset-dialog {
@@ -138,9 +139,9 @@
     gap: 14px;
     padding: 18px;
     border: 1px solid var(--border-color);
-    border-radius: var(--control-radius-soft);
+    border-radius: var(--dialog-radius);
     background: var(--bg-surface);
-    box-shadow: var(--shadow-popover);
+    box-shadow: var(--dialog-shadow);
     color: var(--text-primary);
     overflow: auto;
   }
@@ -199,7 +200,7 @@
 
   .summary span {
     color: var(--text-secondary);
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
   }
 
   .missing-list {
@@ -235,16 +236,18 @@
 
   .primary-action,
   .secondary-action {
-    border: none;
-    border-radius: var(--control-radius);
+    border: 1px solid transparent;
+    border-radius: var(--control-radius-soft);
     padding: 0.48rem 0.72rem;
+    font-size: var(--text-sm);
     font-weight: 700;
     cursor: pointer;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
   }
 
   .primary-action {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
   }
 
   .secondary-action {

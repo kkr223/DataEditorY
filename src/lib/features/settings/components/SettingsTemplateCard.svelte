@@ -96,7 +96,7 @@
   .sp-card {
     background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--radius-card);
     padding: 12px 14px;
     display: flex;
     flex-direction: column;
@@ -108,13 +108,13 @@
   }
   .sp-card-head h3 {
     margin: 0;
-    font-size: 0.88rem;
+    font-size: var(--text-base);
     font-weight: 700;
     color: var(--text-primary);
   }
   .sp-card-head p {
     margin: 2px 0 0;
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     line-height: 1.4;
   }
@@ -141,7 +141,7 @@
     padding: 0;
     background: transparent;
     color: var(--text-secondary);
-    font-size: 0.68rem;
+    font-size: var(--text-2xs);
     cursor: help;
   }
   .sp-switch input {
@@ -157,7 +157,7 @@
     width: 32px;
     height: 18px;
     flex: 0 0 auto;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     background: var(--bg-surface-active);
     box-shadow: inset 0 0 0 1px var(--border-color);
     transition: background 0.15s, box-shadow 0.15s;
@@ -178,14 +178,14 @@
   }
   .sp-switch input:checked + .sp-switch-track::after {
     transform: translateX(14px);
-    background: #fff;
+    background: var(--text-on-accent);
   }
   .sp-switch input:focus-visible + .sp-switch-track {
     outline: 2px solid color-mix(in srgb, var(--accent-primary) 52%, transparent);
     outline-offset: 2px;
   }
   .sp-switch > span:last-child {
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
     font-weight: 500;
     color: var(--text-primary);
   }
@@ -194,11 +194,11 @@
     min-height: 90px;
     max-height: 200px;
     resize: vertical;
-    font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
-    font-size: 0.82rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
     line-height: 1.5;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     background: var(--bg-base);
     color: var(--text-primary);
     padding: 8px 10px;
@@ -216,7 +216,7 @@
     min-width: 0;
   }
   .sp-field > span {
-    font-size: 0.74rem;
+    font-size: var(--text-xs);
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -225,11 +225,11 @@
   input {
     width: 100%;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     background: var(--bg-base);
     color: var(--text-primary);
     padding: 6px 9px;
-    font-size: 0.84rem;
+    font-size: var(--text-sm);
   }
   input:focus {
     outline: none;
@@ -237,7 +237,7 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 16%, transparent);
   }
   .sp-hint {
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     color: var(--text-disabled);
     line-height: 1.35;
   }

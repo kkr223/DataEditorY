@@ -151,10 +151,10 @@
     flex-direction: column;
     min-height: 0;
     max-height: min(72vh, calc(100% - 0.35rem));
-    border: 1px solid rgba(117, 166, 130, 0.2);
-    border-radius: 12px;
-    background: linear-gradient(180deg, rgba(20, 27, 24, 0.74), rgba(15, 20, 18, 0.68));
-    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-panel);
+    background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+    box-shadow: var(--shadow-popover);
     backdrop-filter: blur(7px);
     overflow: hidden;
     pointer-events: auto;
@@ -166,32 +166,32 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.34rem 0.62rem 0.28rem;
-    border-bottom: 1px solid rgba(117, 166, 130, 0.1);
+    border-bottom: 1px solid var(--border-color);
   }
 
   .script-reference-shortcut {
     margin: 0;
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     line-height: 1.3;
-    color: rgba(214, 229, 218, 0.62);
+    color: var(--text-secondary);
   }
 
   .script-reference-close {
     flex: none;
     min-width: 3.6rem;
     padding: 0.28rem 0.62rem;
-    border: 1px solid rgba(117, 166, 130, 0.16);
-    border-radius: 8px;
-    background: rgba(41, 56, 49, 0.42);
-    color: #eff8f1;
+    border: 1px solid var(--border-color);
+    border-radius: var(--control-radius-soft);
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
     cursor: pointer;
     transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
   }
 
   .script-reference-close:hover {
     transform: translateY(-1px);
-    border-color: rgba(141, 192, 155, 0.28);
-    background: rgba(50, 67, 59, 0.58);
+    border-color: var(--accent-primary);
+    background: var(--bg-surface-hover);
   }
 
   .script-reference-search-row {
@@ -199,29 +199,29 @@
     align-items: center;
     gap: 0.65rem;
     padding: 0.4rem 0.62rem 0.44rem;
-    border-bottom: 1px solid rgba(117, 166, 130, 0.08);
+    border-bottom: 1px solid var(--border-color);
   }
 
   .script-reference-search {
     flex: 1;
     min-width: 0;
     padding: 0.46rem 0.7rem;
-    border: 1px solid rgba(117, 166, 130, 0.18);
-    border-radius: 8px;
-    background: rgba(8, 14, 12, 0.4);
-    color: #f2fbf4;
+    border: 1px solid var(--border-color);
+    border-radius: var(--control-radius-soft);
+    background: var(--bg-base);
+    color: var(--text-primary);
     outline: none;
   }
 
   .script-reference-search:focus {
-    border-color: rgba(122, 211, 153, 0.34);
-    box-shadow: 0 0 0 2px rgba(76, 162, 111, 0.14);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 18%, transparent);
   }
 
   .script-reference-count {
     flex: none;
-    font-size: 0.76rem;
-    color: rgba(210, 226, 214, 0.54);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
   }
 
   .script-reference-list {
@@ -246,9 +246,9 @@
     display: grid;
     gap: 0.28rem;
     padding: 0.62rem 0.74rem 0.58rem;
-    border: 1px solid rgba(117, 166, 130, 0.12);
-    border-radius: 10px;
-    background: linear-gradient(180deg, rgba(31, 42, 38, 0.46), rgba(20, 27, 24, 0.38));
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-card);
+    background: var(--bg-surface);
     color: inherit;
     text-align: left;
     cursor: pointer;
@@ -257,8 +257,8 @@
 
   .script-reference-item:hover {
     transform: translateY(-1px);
-    border-color: rgba(136, 198, 154, 0.26);
-    background: linear-gradient(180deg, rgba(37, 50, 44, 0.62), rgba(24, 33, 29, 0.54));
+    border-color: var(--accent-primary);
+    background: var(--bg-surface-hover);
   }
 
   .script-reference-item-top {
@@ -280,40 +280,40 @@
   .script-reference-item-title,
   .script-reference-item-detail,
   .script-reference-item-value {
-    font-family: 'Consolas', 'SFMono-Regular', 'Courier New', monospace;
+    font-family: var(--font-mono);
   }
 
   .script-reference-item-title {
-    font-size: 0.88rem;
+    font-size: var(--text-base);
     line-height: 1.32;
-    color: #edf8ef;
+    color: var(--text-primary);
     word-break: break-word;
   }
 
   .script-reference-item-value {
     flex: none;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     line-height: 1.32;
-    color: rgba(202, 231, 210, 0.84);
+    color: var(--text-secondary);
     white-space: nowrap;
   }
 
   .script-reference-item-category {
     flex: none;
     padding: 0.14rem 0.46rem;
-    border-radius: 999px;
-    background: rgba(110, 195, 137, 0.12);
-    color: rgba(209, 239, 216, 0.72);
-    font-size: 0.72rem;
+    border-radius: var(--control-radius-pill);
+    background: color-mix(in srgb, var(--feature-script-accent) 14%, transparent);
+    color: var(--feature-script-accent);
+    font-size: var(--text-2xs);
     line-height: 1.3;
   }
 
   .script-reference-item-detail {
     min-width: 0;
     flex: 1;
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     line-height: 1.38;
-    color: rgba(196, 219, 202, 0.78);
+    color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -321,9 +321,9 @@
   }
 
   .script-reference-item-description {
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     line-height: 1.42;
-    color: rgba(214, 230, 218, 0.66);
+    color: var(--text-secondary);
     white-space: pre-wrap;
     word-break: break-word;
   }
@@ -356,67 +356,67 @@
   .script-reference-empty {
     grid-column: 1 / -1;
     padding: 1.4rem 1rem;
-    border: 1px dashed rgba(117, 166, 130, 0.14);
-    border-radius: 12px;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-panel);
     text-align: center;
-    color: rgba(214, 230, 218, 0.7);
+    color: var(--text-secondary);
   }
 
   :global([data-theme='light']) .script-reference-overlay {
-    background: rgba(221, 233, 226, 0.12);
+    background: color-mix(in srgb, var(--bg-base) 30%, transparent);
   }
 
   :global([data-theme='light']) .script-reference-panel {
-    border-color: rgba(106, 154, 116, 0.14);
-    background: linear-gradient(180deg, rgba(253, 255, 253, 0.74), rgba(243, 248, 244, 0.68));
-    box-shadow: 0 12px 28px rgba(73, 94, 78, 0.08);
+    border-color: var(--border-color);
+    background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+    box-shadow: var(--shadow-popover);
   }
 
   :global([data-theme='light']) .script-reference-shortcut,
   :global([data-theme='light']) .script-reference-count,
   :global([data-theme='light']) .script-reference-item-description,
   :global([data-theme='light']) .script-reference-empty {
-    color: rgba(58, 87, 67, 0.72);
+    color: var(--text-secondary);
   }
 
   :global([data-theme='light']) .script-reference-close {
-    border-color: rgba(104, 150, 113, 0.16);
-    background: rgba(235, 244, 237, 0.5);
-    color: #1f3f2d;
+    border-color: var(--border-color);
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
   }
 
   :global([data-theme='light']) .script-reference-close:hover {
-    border-color: rgba(104, 150, 113, 0.24);
-    background: rgba(243, 249, 244, 0.76);
+    border-color: var(--accent-primary);
+    background: var(--bg-surface-hover);
   }
 
   :global([data-theme='light']) .script-reference-search {
-    border-color: rgba(104, 150, 113, 0.14);
-    background: rgba(255, 255, 255, 0.54);
-    color: #173023;
+    border-color: var(--border-color);
+    background: var(--bg-base);
+    color: var(--text-primary);
   }
 
   :global([data-theme='light']) .script-reference-item {
-    border-color: rgba(104, 150, 113, 0.1);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(244, 249, 245, 0.46));
+    border-color: var(--border-color);
+    background: var(--bg-surface);
   }
 
   :global([data-theme='light']) .script-reference-item:hover {
-    border-color: rgba(104, 150, 113, 0.18);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(238, 246, 240, 0.68));
+    border-color: var(--accent-primary);
+    background: var(--bg-surface-hover);
   }
 
   :global([data-theme='light']) .script-reference-item-title {
-    color: #173023;
+    color: var(--text-primary);
   }
 
   :global([data-theme='light']) .script-reference-item-category {
-    background: rgba(72, 159, 99, 0.08);
-    color: rgba(34, 88, 47, 0.76);
+    background: color-mix(in srgb, var(--feature-script-accent) 12%, transparent);
+    color: var(--feature-script-accent);
   }
 
   :global([data-theme='light']) .script-reference-item-detail {
-    color: rgba(40, 70, 49, 0.74);
+    color: var(--text-secondary);
   }
 
   @media (max-width: 920px) {

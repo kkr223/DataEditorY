@@ -139,7 +139,7 @@
   }
 
   .surface-icon {
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     line-height: 1;
     letter-spacing: 0;
   }

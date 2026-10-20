@@ -67,12 +67,12 @@
   .setcode-row select {
     flex: 2;
     padding: 2px 4px;
-    font-size: 0.84rem;
+    font-size: var(--text-sm);
     width: 100%;
     background: var(--bg-base);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
   }
 
   .hex-input {
@@ -81,7 +81,7 @@
     align-items: center;
     background: var(--bg-base);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     overflow: hidden;
   }
 
@@ -93,7 +93,7 @@
   .hex-prefix {
     padding: 0 4px;
     color: var(--text-secondary);
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-family: monospace;
     background: var(--bg-surface);
     border-right: 1px solid var(--border-color);
@@ -108,7 +108,7 @@
     border-radius: 0;
     padding: 2px 4px;
     font-family: monospace;
-    font-size: 0.88rem;
+    font-size: var(--text-base);
     background: var(--bg-base);
     color: var(--text-primary);
   }

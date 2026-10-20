@@ -211,7 +211,8 @@
     display: grid;
     place-items: center;
     padding: 24px;
-    background: rgba(0, 0, 0, 0.42);
+    background: var(--dialog-backdrop);
+    backdrop-filter: blur(4px);
   }
 
   .replace-dialog {
@@ -222,9 +223,9 @@
     gap: 14px;
     padding: 18px;
     border: 1px solid var(--border-color);
-    border-radius: var(--control-radius-soft);
+    border-radius: var(--dialog-radius);
     background: var(--bg-surface);
-    box-shadow: var(--shadow-popover);
+    box-shadow: var(--dialog-shadow);
     color: var(--text-primary);
     overflow: auto;
   }
@@ -332,7 +333,7 @@
     white-space: pre-wrap;
     word-break: break-word;
     color: var(--text-primary);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
   }
 
   .diff-pair {
@@ -373,7 +374,7 @@
 
   .primary-action {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
   }
 
   .secondary-action {

@@ -251,13 +251,13 @@
 
   .ai-resource-card h3 {
     margin: 0 0 4px;
-    font-size: 1.02rem;
+    font-size: var(--text-md);
     color: var(--text-primary);
   }
 
   .ai-resource-card p {
     margin: 0;
-    font-size: 0.85rem;
+    font-size: var(--text-base);
     color: var(--text-secondary);
   }
 
@@ -281,7 +281,7 @@
 
   .ai-resource-name {
     color: var(--text-primary);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -329,7 +329,7 @@
     border: 1px solid var(--accent-primary);
     border-radius: var(--control-radius, 6px);
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
     cursor: pointer;
     font: inherit;
   }

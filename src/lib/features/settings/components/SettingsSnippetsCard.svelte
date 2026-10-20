@@ -90,11 +90,11 @@
 </section>
 
 <style>
-  .snippets-card { padding: 16px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-surface); }
+  .snippets-card { padding: 16px; border: 1px solid var(--border-color); border-radius: var(--radius-card); background: var(--bg-surface); }
   header, .field-row { display: flex; align-items: end; gap: 12px; }
   header { align-items: start; justify-content: space-between; }
-  h3 { margin: 0; color: var(--text-primary); font-size: 0.95rem; }
-  p, small { color: var(--text-secondary); font-size: 0.8rem; line-height: 1.5; }
+  h3 { margin: 0; color: var(--text-primary); font-size: var(--text-base); }
+  p, small { color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.5; }
   header p { margin: 4px 0 0; }
   .storage-hint { padding: 8px 10px; border-left: 2px solid var(--accent-primary); background: var(--bg-base); }
   .snippet-workspace { display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); min-height: 420px; gap: 16px; }
@@ -104,16 +104,16 @@
   .snippet-list button { display: flex; flex-direction: column; align-items: start; gap: 3px; border-color: transparent; background: transparent; color: var(--text-secondary); text-align: left; }
   .snippet-list button.active { background: var(--interactive-soft-bg); border-color: var(--interactive-soft-border); color: var(--text-primary); }
   .snippet-list button:hover { background: var(--bg-surface-hover); }
-  .snippet-list span { font-size: 0.73rem; overflow-wrap: anywhere; }
-  code { font-size: 0.85rem; overflow-wrap: anywhere; }
-  label { flex: 1; font-size: 0.78rem; color: var(--text-secondary); }
+  .snippet-list span { font-size: var(--text-xs); overflow-wrap: anywhere; }
+  code { font-size: var(--text-base); overflow-wrap: anywhere; }
+  label { flex: 1; font-size: var(--text-xs); color: var(--text-secondary); }
   input, textarea { width: 100%; min-width: 0; border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 8px 10px; background: var(--bg-base); color: var(--text-primary); font: inherit; }
   input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
   .body-field { flex: 1; }
-  textarea { flex: 1; min-height: 280px; resize: vertical; font-family: 'Cascadia Code', Consolas, monospace; font-size: 0.85rem; line-height: 1.6; tab-size: 4; white-space: pre; }
-  .add-button { background: var(--accent-primary); color: white; flex-shrink: 0; }
+  textarea { flex: 1; min-height: 280px; resize: vertical; font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.6; tab-size: 4; white-space: pre; }
+  .add-button { background: var(--accent-primary); color: var(--text-on-accent); flex-shrink: 0; }
   .remove-button { background: var(--state-danger-bg); color: var(--state-danger-text); flex-shrink: 0; }
-  .error { color: var(--state-danger-text); }
+  .error { color: var(--state-danger-fg); }
   .empty { padding: 10px; }
   .empty-editor { display: grid; place-items: center; color: var(--text-secondary); }
   @media (max-width: 800px) { .snippet-workspace { grid-template-columns: 1fr; } .snippet-list { max-height: 140px; } .field-row { flex-wrap: wrap; } }

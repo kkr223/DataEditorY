@@ -120,7 +120,7 @@
     gap: 0.45rem;
     padding: 0.42rem 0.42rem 0.42rem 0.72rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
-    border-radius: 10px;
+    border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--bg-base) 92%, transparent);
     color: var(--text-secondary);
     transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
@@ -144,7 +144,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     line-height: 1.2;
   }
 
@@ -152,9 +152,9 @@
     flex: none;
     width: 0.45rem;
     height: 0.45rem;
-    border-radius: 999px;
-    background: #f59e0b;
-    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
+    border-radius: var(--control-radius-pill);
+    background: var(--state-warning-fg);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--state-warning-fg) 18%, transparent);
   }
 
   .script-tab-close-wrap {
@@ -168,7 +168,7 @@
     height: 1.5rem;
     display: inline-grid;
     place-items: center;
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     border: 1px solid transparent;
     background: transparent;
     color: inherit;
@@ -187,7 +187,7 @@
     border-color: color-mix(in srgb, var(--border-color) 92%, transparent);
     background: color-mix(in srgb, var(--bg-base) 92%, transparent);
     color: var(--text-primary);
-    font-size: 1rem;
+    font-size: var(--text-md);
     font-weight: 700;
   }
 
