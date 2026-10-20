@@ -34,6 +34,9 @@
     "night_mode": "Night mode"
   },
   "surface": {
+    "metadata_save_failed": "Workspace state has not been saved. Your changes are retained for retry.",
+    "metadata_load_failed": "Workspace state could not be loaded.",
+    "metadata_retry": "Retry",
     "title": "Current Card",
     "card": "Card",
     "script": "Script",

@@ -7,7 +7,7 @@ import {
 import type {
   WorkspaceAiContextRef,
   WorkspaceAiProposal,
-} from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+} from '$lib/features/ai/types';
 
 export type AiProposalPayload = {
   text: string;

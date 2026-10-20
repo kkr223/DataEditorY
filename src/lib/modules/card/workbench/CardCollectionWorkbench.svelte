@@ -3,6 +3,7 @@
   import { onDestroy } from 'svelte';
   import CardList from '$lib/components/CardList.svelte';
   import CardEditor from '$lib/components/CardEditor.svelte';
+  import WorkspaceMetadataStatus from './WorkspaceMetadataStatus.svelte';
   import { activeTab } from '$lib/stores/db';
   import {
     editorState,
@@ -254,49 +255,59 @@
   });
 </script>
 
-<div
-  class="editor-layout"
-  class:focus-mode={focusMode}
-  class:explorer-pinned={cardSurfaceState.explorerPinned}
->
-  <div class="explorer-shell" class:pinned={cardSurfaceState.explorerPinned}>
-    <div class="explorer-panel">
-      <CardList />
+<div class="workbench-shell">
+  <WorkspaceMetadataStatus />
+  <div
+    class="editor-layout"
+    class:focus-mode={focusMode}
+    class:explorer-pinned={cardSurfaceState.explorerPinned}
+  >
+    <div class="explorer-shell" class:pinned={cardSurfaceState.explorerPinned}>
+      <div class="explorer-panel">
+        <CardList />
+      </div>
     </div>
-  </div>
 
-  <CardSurfaceRail onSelectSurface={handleSurfaceSelected} />
+    <CardSurfaceRail onSelectSurface={handleSurfaceSelected} />
 
-  <div class="surface-host">
-    <div class="card-surface-pane" class:hidden={cardSurfaceState.activeSurface !== 'card'}>
-      <CardEditor />
+    <div class="surface-host">
+      <div class="card-surface-pane" class:hidden={cardSurfaceState.activeSurface !== 'card'}>
+        <CardEditor />
+      </div>
+      {#if cardSurfaceState.activeSurface === 'script'}
+        {#await loadScriptSurface() then module}
+          {@const ScriptSurface = module.default}
+          <ScriptSurface
+            openSelectedRequest={scriptOpenRequest?.tabId === $activeTab?.id ? scriptOpenRequest?.sequence ?? 0 : 0}
+            onOpenSelectedRequestHandled={() => { scriptOpenRequest = null; }}
+            selectionReady={appliedMetadataTabId === $activeTab?.id
+            && appliedMetadataPath === $activeTab?.path
+            && workspaceMetadataState.ready && workspaceMetadataState.cdbPath === $activeTab?.path} />
+        {/await}
+      {:else if extensionSurfaceError}
+        <div class="surface-error" role="alert">{extensionSurfaceError}</div>
+      {:else if loadedExtensionSurface?.id === cardSurfaceState.activeSurface
+        && (loadedExtensionSurface.id !== 'image' || (appliedMetadataTabId === $activeTab?.id
+          && appliedMetadataPath === $activeTab?.path && workspaceMetadataState.ready
+          && workspaceMetadataState.cdbPath === $activeTab?.path))}
+        {@const ExtensionSurface = loadedExtensionSurface.component}
+        <ExtensionSurface />
+      {/if}
     </div>
-    {#if cardSurfaceState.activeSurface === 'script'}
-      {#await loadScriptSurface() then module}
-        {@const ScriptSurface = module.default}
-        <ScriptSurface
-          openSelectedRequest={scriptOpenRequest?.tabId === $activeTab?.id ? scriptOpenRequest?.sequence ?? 0 : 0}
-          onOpenSelectedRequestHandled={() => { scriptOpenRequest = null; }}
-          selectionReady={appliedMetadataTabId === $activeTab?.id
-          && appliedMetadataPath === $activeTab?.path
-          && workspaceMetadataState.ready && workspaceMetadataState.cdbPath === $activeTab?.path} />
-      {/await}
-    {:else if extensionSurfaceError}
-      <div class="surface-error" role="alert">{extensionSurfaceError}</div>
-    {:else if loadedExtensionSurface?.id === cardSurfaceState.activeSurface
-      && (loadedExtensionSurface.id !== 'image' || (appliedMetadataTabId === $activeTab?.id
-        && appliedMetadataPath === $activeTab?.path && workspaceMetadataState.ready
-        && workspaceMetadataState.cdbPath === $activeTab?.path))}
-      {@const ExtensionSurface = loadedExtensionSurface.component}
-      <ExtensionSurface />
-    {/if}
   </div>
 </div>
 
 <style>
+  .workbench-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
   .editor-layout {
     display: flex;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
     background: var(--bg-base);
   }

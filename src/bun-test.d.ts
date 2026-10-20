@@ -5,10 +5,14 @@ declare module 'bun:test' {
     toBe(expected: unknown): void;
     toEqual(expected: unknown): void;
     toContain(expected: unknown): void;
+    toContainEqual(expected: unknown): void;
     toHaveLength(expected: number): void;
     toBeInstanceOf(expected: new (...args: any[]) => unknown): void;
     toBeNull(): void;
     toThrow(expected?: unknown): void;
+    rejects: {
+      toThrow(expected?: unknown): Promise<void>;
+    };
     not: {
       toBe(expected: unknown): void;
     };

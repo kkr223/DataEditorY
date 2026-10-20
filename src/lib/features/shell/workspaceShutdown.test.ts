@@ -22,3 +22,15 @@ test('failed rollback prevents the window exit workflow from succeeding', async 
   catch (error) { failure = error; }
   expect(String(failure)).toContain('asset rollback failed');
 });
+
+test('failed metadata persistence prevents closing any workspace', async () => {
+  const closed: string[] = [];
+  const runtime = {
+    snapshot: { documents: [{ id: 'A' }] },
+    close: async (id: string) => { closed.push(id); },
+  } as unknown as Pick<DocumentRuntime, 'snapshot' | 'close'>;
+  await expect(closeDocumentsForWindowExit(runtime, async () => {
+    throw new Error('metadata save failed');
+  })).rejects.toThrow('metadata save failed');
+  expect(closed).toHaveLength(0);
+});

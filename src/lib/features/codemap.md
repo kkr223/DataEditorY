@@ -22,6 +22,7 @@ Features follow a consistent pattern:
 | Script Editor | `script-editor/` | Lua editor with Monaco: completion, diagnostics, semantic tokens, symbol navigation, reference manual, script save flow |
 | Card Image | `card-image/` | `yugioh-card-ts` model mapping, canvas rendering, export helpers, layout logic (extra only) |
 | AI | `ai/` | Workspace AI service, context building, tool boundary, auditable proposal generation |
+| Workspace Metadata | `workspace-metadata/` | Shared `.dey` state, per-path persistence, failure recovery and Save As |
 | Settings | `settings/` | Settings UI: AI config, template, shortcuts, package, cover image |
 | Context Menu | `context-menu/` | Shared accessible popup, card/blank-space actions, ordinary text editing, selected-card tool requests |
 | Shortcuts | `shortcuts/` | Keyboard shortcut registry and handler |

@@ -8,7 +8,7 @@ import type {
   WorkspaceAiPatch,
   WorkspaceAiProposal,
   WorkspaceAiToolRun,
-} from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+} from '$lib/features/ai/types';
 import { resolveResourceFile } from '$lib/native/assetApi';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 import { normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';

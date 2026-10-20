@@ -4,7 +4,7 @@ import { get, fromStore } from 'svelte/store';
 import { createListenerScope } from './listenerScope';
 import { closeDocumentsForWindowExit } from './workspaceShutdown';
 import { documentRuntime } from '$lib/platform/appRuntime';
-import { flushAllWorkspaceMetadataSaves } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+import { flushAllWorkspaceMetadataSaves } from '$lib/features/workspace-metadata/state.svelte';
 import { _, locale } from 'svelte-i18n';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { tauriBridge } from '$lib/infrastructure/tauri';

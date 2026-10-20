@@ -34,6 +34,9 @@
     "night_mode": "夜间模式"
   },
   "surface": {
+    "metadata_save_failed": "工作区状态尚未保存，修改已保留，可重试。",
+    "metadata_load_failed": "无法加载工作区状态。",
+    "metadata_retry": "重试",
     "title": "当前卡",
     "card": "卡片",
     "script": "脚本",

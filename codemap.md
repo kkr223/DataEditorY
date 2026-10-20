@@ -27,7 +27,7 @@ Top-level app tabs represent CDB workspaces only. Lua scripts, card images, and 
 |-------|------------|
 | Frontend Framework | Svelte 5 + SvelteKit SPA |
 | Frontend Language | TypeScript |
-| Build Tool | Vite 6 |
+| Build Tool | Vite 8 |
 | Desktop Runtime | Tauri 2 |
 | Backend Language | Rust 2021 |
 | CDB Encoding | `ygopro-cdb-encode-rs` / `cdb-encoder-rs` through repository/session layers |
@@ -47,6 +47,7 @@ Frontend (Svelte 5 + TypeScript)
   modules/                 base/extra module composition
   modules/card/workbench/  CDB workspace: explorer + Card/Script/Image/AI surfaces
   features/                feature controllers and UI dialogs
+  features/workspace-metadata/ shared .dey persistence and recovery
   domain/                  pure card/search/script logic
   core/workspace/          workspace projection, CDB path identity, snapshots
   native/                  typed Tauri/native API wrappers

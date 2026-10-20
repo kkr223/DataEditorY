@@ -17,14 +17,15 @@ Card Collection Workbench — the CDB workspace UI. It composes Card Explorer, t
   Uses only the selected card's matching draft, keys editors by CDB session and card, and rejects changes emitted by an old editor or a mismatched metadata workspace.
 - `AiSurface.svelte` — workspace AI surface showing `@card` context, tool calls, results, proposals, and diffs.
   Async runs are scoped to the CDB load generation and thread; late results cannot populate another workspace. Proposal apply logs retain their original metadata owner, and persisted targets resolve the live document by CDB path.
+- `WorkspaceMetadataStatus.svelte` — visible metadata load/save failures and explicit retry; failed snapshots remain queued until successfully persisted.
 - `context.ts` — workbench context provider for active CDB/card state.
 
 ## State Helpers
 
 - `surfaceState.svelte.ts` — active surface and layout state, persisted through metadata.
 - `cardDraftWorkspaceState.svelte.ts` — per-workspace card draft state and registered draft committers used before context-menu navigation/selection changes.
-- `workspaceMetadataState.svelte.ts` — `.dey` metadata load/save bridge; Save As preserves referenced workspace image assets.
-  Per-path queues serialize complete background read/modify/write transactions. Failed loads remain unready, preventing empty autosaves; window shutdown flushes all pending queues.
+- `workspaceMetadataState.svelte.ts` — workspace UI, image, card-group and task accessors; compatibility exports for the shared metadata state and AI operations.
+  Persistence lives in `features/workspace-metadata/state.svelte.ts`; AI DTOs and operations live in `features/ai/types.ts` and `workspaceState.ts`. All consumers share one metadata state.
 - `aiMentions.ts` — pure text helpers for AI composer `@card` detection, replacement, deletion, and prompt context.
 - `aiContextRefs.ts`, `aiProposalPayload.ts`, `aiProposalDiff.ts`, `aiProposalApplication.svelte.ts` — AI proposal context, parsing, diff, and explicit apply boundaries.
   Draft application is bound to workspace ID, card ID and revision, and never replaces an already dirty draft.

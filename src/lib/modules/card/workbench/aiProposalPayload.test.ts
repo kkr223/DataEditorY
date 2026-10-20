@@ -6,7 +6,7 @@ import {
   normalizeCardPatch,
   readProposalPayload,
 } from './aiProposalPayload';
-import type { WorkspaceAiProposal } from './workspaceMetadataState.svelte';
+import type { WorkspaceAiProposal } from '$lib/features/ai/types';
 
 describe('AI proposal payload helpers', () => {
   test('extracts a safe card patch from fenced JSON', () => {

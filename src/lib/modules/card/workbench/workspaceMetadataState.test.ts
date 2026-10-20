@@ -162,3 +162,104 @@ test('old save responses cannot roll back edits, and later writes wait for earli
     save = originalSave;
   }
 });
+
+test('autosave failures remain visible and a later flush retries the retained snapshot', async () => {
+  await state.loadWorkspaceMetadataForPath('retry.cdb');
+  const originalSave = save;
+  let attempts = 0;
+  save = async () => { attempts++; throw new Error('disk unavailable'); };
+  try {
+    state.setCardShowcaseOutputDir('retained value');
+    await new Promise(resolve => setTimeout(resolve, 750));
+    expect(attempts).toBe(1);
+    expect(Object.values(state.workspaceMetadataState.saveErrors)).toContainEqual({
+      path: 'retry.cdb', message: 'Error: disk unavailable',
+    });
+    await expect(state.flushAllWorkspaceMetadataSaves()).rejects.toThrow('disk unavailable');
+    expect(attempts).toBe(2);
+    expect(disk.has('retry.cdb')).toBe(false);
+    save = originalSave;
+    await state.flushAllWorkspaceMetadataSaves();
+    expect((disk.get('retry.cdb')?.ui?.cardShowcase as { outputDir: string }).outputDir).toBe('retained value');
+    expect(Object.values(state.workspaceMetadataState.saveErrors)).toHaveLength(0);
+  } finally { save = originalSave; await state.flushAllWorkspaceMetadataSaves(); }
+});
+
+test('new edits supersede a failed snapshot even after leaving the workspace', async () => {
+  await state.loadWorkspaceMetadataForPath('retry-latest.cdb');
+  const originalSave = save;
+  save = async () => { throw new Error('read-only directory'); };
+  try {
+    state.setCardShowcaseOutputDir('old value');
+    await expect(state.flushAllWorkspaceMetadataSaves()).rejects.toThrow('read-only directory');
+    state.setCardShowcaseOutputDir('new value');
+    await state.loadWorkspaceMetadataForPath('retry-other.cdb');
+    save = originalSave;
+    await state.flushAllWorkspaceMetadataSaves();
+    expect((disk.get('retry-latest.cdb')?.ui?.cardShowcase as { outputDir: string }).outputDir).toBe('new value');
+    expect(state.workspaceMetadataState.cdbPath).toBe('retry-other.cdb');
+    expect(Object.values(state.workspaceMetadataState.saveErrors)).toHaveLength(0);
+  } finally { save = originalSave; await state.flushAllWorkspaceMetadataSaves(); }
+});
+
+test('failed snapshots are retried before reloading their workspace', async () => {
+  await state.loadWorkspaceMetadataForPath('retry-return.cdb');
+  const originalSave = save;
+  save = async () => { throw new Error('temporary failure'); };
+  try {
+    state.setCardShowcaseOutputDir('unsaved');
+    await expect(state.flushAllWorkspaceMetadataSaves()).rejects.toThrow('temporary failure');
+    await state.loadWorkspaceMetadataForPath('retry-away.cdb');
+    await state.loadWorkspaceMetadataForPath('retry-return.cdb');
+    expect(state.workspaceMetadataState.ready).toBe(false);
+    expect(Object.values(state.workspaceMetadataState.saveErrors)).toHaveLength(1);
+    save = originalSave;
+    await state.loadWorkspaceMetadataForPath('retry-return.cdb');
+    expect(state.workspaceMetadataState.ready).toBe(true);
+    expect(state.getCardShowcaseOutputDir()).toBe('unsaved');
+    expect(state.workspaceMetadataState.error).toBeNull();
+    expect(Object.values(state.workspaceMetadataState.saveErrors)).toHaveLength(0);
+  } finally { save = originalSave; await state.flushAllWorkspaceMetadataSaves(); }
+});
+
+test('retrying one path does not clear another workspace save error', async () => {
+  const originalSave = save;
+  try {
+    save = async () => { throw new Error('failure'); };
+    for (const path of ['failed-A.cdb', 'failed-B.cdb']) {
+      await state.loadWorkspaceMetadataForPath(path);
+      state.setCardShowcaseOutputDir(path);
+      await expect(state.flushAllWorkspaceMetadataSaves()).rejects.toThrow('failure');
+    }
+    await settle();
+    expect(Object.values(state.workspaceMetadataState.saveErrors)).toHaveLength(2);
+    save = async (path, metadata) => {
+      if (path === 'failed-B.cdb') throw new Error('still unavailable');
+      return originalSave(path, metadata);
+    };
+    await expect(state.flushAllWorkspaceMetadataSaves()).rejects.toThrow('still unavailable');
+    await settle();
+    expect(Object.values(state.workspaceMetadataState.saveErrors).map(error => error.path)).toEqual(['failed-B.cdb']);
+  } finally { save = originalSave; await state.flushAllWorkspaceMetadataSaves(); }
+});
+
+test('switching or updating an AI thread preserves token usage and conversation data', async () => {
+  await state.loadWorkspaceMetadataForPath('ai-thread-update.cdb');
+  const thread = state.upsertAiThread({ title: 'Original' });
+  state.appendAiMessage({ threadId: thread.id, role: 'user', content: 'keep this message' });
+  state.accumulateAiThreadTokenUsage({
+    threadId: thread.id, promptTokens: 120, completionTokens: 30, totalTokens: 150,
+  });
+  const saved = state.getActiveAiThread()!;
+  state.upsertAiThread(saved);
+  expect(state.getActiveAiThread()?.tokenUsage).toEqual({
+    promptTokens: 120, completionTokens: 30, totalTokens: 150,
+  });
+  state.upsertAiThread({ id: thread.id, title: 'Renamed', contextRefs: [{ type: 'card', label: 'New context' }] });
+  expect(state.getActiveAiThread()?.title).toBe('Renamed');
+  expect(state.getActiveAiThread()?.messages[0].content).toBe('keep this message');
+  expect(state.getActiveAiThread()?.tokenUsage?.totalTokens).toBe(150);
+  await state.flushAllWorkspaceMetadataSaves();
+  await state.loadWorkspaceMetadataForPath('ai-thread-update.cdb');
+  expect(state.getActiveAiThread()?.tokenUsage?.totalTokens).toBe(150);
+});
