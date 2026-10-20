@@ -29,7 +29,7 @@ fn require_cdb_provider(provider_id: &str) -> Result<(), String> {
     Err(format!("Unknown provider: {provider_id}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn provider_open(
     app: AppHandle,
     sessions: State<'_, OpenCdbSessions>,
@@ -76,7 +76,7 @@ pub fn provider_query(
     cdb::query(sessions.inner(), request.document_id, request.query)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn provider_execute(
     host: State<'_, DocumentHostState>,
     sessions: State<'_, OpenCdbSessions>,
@@ -91,7 +91,7 @@ pub fn provider_execute(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn provider_save(
     host: State<'_, DocumentHostState>,
     sessions: State<'_, OpenCdbSessions>,
@@ -107,7 +107,7 @@ pub fn provider_save(
     Ok(ProviderSaveResponse { source_uri })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn provider_undo(
     host: State<'_, DocumentHostState>,
     sessions: State<'_, OpenCdbSessions>,
@@ -117,7 +117,7 @@ pub fn provider_undo(
     cdb::undo(host.inner(), sessions.inner(), request.document_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn provider_close(
     host: State<'_, DocumentHostState>,
     sessions: State<'_, OpenCdbSessions>,
@@ -128,7 +128,7 @@ pub fn provider_close(
     cdb_session::close_cdb_tab(sessions.inner(), request.document_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn codec_export(request: CodecExportRequest) -> Result<Value, String> {
     if request.codec_id != CDB_CODEC_ID {
         return Err(format!("Unknown export codec: {}", request.codec_id));
