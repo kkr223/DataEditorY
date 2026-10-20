@@ -208,8 +208,13 @@ fn write_workspace_metadata(path: &Path, metadata: &Value) -> Result<(), String>
     let content = serde_json::to_string_pretty(metadata).map_err(|err| err.to_string())?;
     let parent = path.parent().ok_or("Metadata path has no parent")?;
     let mut pending = tempfile::NamedTempFile::new_in(parent).map_err(|err| err.to_string())?;
-    pending.write_all(content.as_bytes()).map_err(|err| err.to_string())?;
-    pending.as_file().sync_all().map_err(|err| err.to_string())?;
+    pending
+        .write_all(content.as_bytes())
+        .map_err(|err| err.to_string())?;
+    pending
+        .as_file()
+        .sync_all()
+        .map_err(|err| err.to_string())?;
     pending.persist(path).map_err(|err| err.to_string())?;
     Ok(())
 }
@@ -352,7 +357,11 @@ mod tests {
         let dir = temp_project_dir();
         let path = dir.join("workspace.json");
         write_workspace_metadata(&path, &json!({"kept": true})).unwrap();
-        let locked = fs::OpenOptions::new().read(true).share_mode(0).open(&path).unwrap();
+        let locked = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&path)
+            .unwrap();
         assert!(write_workspace_metadata(&path, &json!({"replacement": true})).is_err());
         drop(locked);
         let saved: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();

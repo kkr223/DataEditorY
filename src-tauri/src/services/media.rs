@@ -162,10 +162,7 @@ pub fn read_text_file(path: String) -> Result<String, String> {
 }
 
 pub fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
-    if let Some(parent) = Path::new(&path).parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    fs::write(&path, data).map_err(|err| err.to_string())
+    super::atomic::write_atomic(Path::new(&path), &data)
 }
 
 pub fn path_exists(path: String) -> Result<bool, String> {

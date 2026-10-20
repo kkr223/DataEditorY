@@ -23,6 +23,7 @@ Rust Business Services — service functions implementing CDB sessions, metadata
 | `logging.rs` | Error log file management |
 | `assets.rs` | CDB resource paths, asset copying, and reversible card-ID image/script migration |
 | `app_config.rs` | App configuration paths and directory resolution |
+| `atomic.rs` | Shared atomic file replacement (temporary file + rename) for settings, scripts, and text/binary writes |
 
 ## Design Patterns
 

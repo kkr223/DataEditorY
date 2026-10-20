@@ -56,7 +56,22 @@ pub(crate) fn load_persisted_settings(app: &AppHandle) -> Result<PersistedAppSet
     let path = settings_file_path(app)?;
     let mut settings = if path.exists() {
         let content = fs::read_to_string(&path).map_err(|err| err.to_string())?;
-        serde_json::from_str::<PersistedAppSettings>(&content).map_err(|err| err.to_string())?
+        match serde_json::from_str::<PersistedAppSettings>(&content) {
+            Ok(settings) => settings,
+            Err(error) => {
+                // Keep the damaged file for inspection, then fall back to defaults
+                // so the settings page can still be saved.
+                let backup = path.with_extension("json.corrupt");
+                let _ = fs::remove_file(&backup);
+                let _ = fs::rename(&path, &backup);
+                eprintln!(
+                    "Failed to parse settings file {}, backed it up to {}: {error}",
+                    path.display(),
+                    backup.display()
+                );
+                PersistedAppSettings::default()
+            }
+        }
     } else {
         PersistedAppSettings::default()
     };
@@ -96,7 +111,7 @@ pub(crate) fn save_persisted_settings(
 ) -> Result<(), String> {
     let path = settings_file_path(app)?;
     let content = serde_json::to_string_pretty(settings).map_err(|err| err.to_string())?;
-    fs::write(path, content).map_err(|err| err.to_string())
+    super::atomic::write_atomic(&path, content.as_bytes())
 }
 
 pub(crate) fn normalize_base_url(value: String) -> String {

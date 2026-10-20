@@ -1,6 +1,7 @@
 pub mod app_config;
 pub mod assets;
 pub mod assets_check;
+pub mod atomic;
 pub mod cdb_cards;
 pub mod cdb_session;
 pub mod crypto;
@@ -10,6 +11,6 @@ pub mod media;
 pub mod merge;
 pub mod metadata;
 pub mod package;
-pub mod scripts;
 pub mod script_snippets;
+pub mod scripts;
 pub mod settings;
