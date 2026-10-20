@@ -1,5 +1,5 @@
 import type { CardImageConfigDocument } from '$lib/features/card-image/layout';
-import type { SearchFilters } from '$lib/types';
+import { DEFAULT_SEARCH_FILTERS, type SearchFilters } from '$lib/types';
 import { loadWorkspaceMetadata, type WorkspaceMetadata } from '$lib/native/metadataApi';
 import { isCurrentMetadataPath, workspaceMetadataState, updateWorkspaceMetadata, updateWorkspaceMetadataForPath } from '$lib/features/workspace-metadata/state.svelte';
 
@@ -92,14 +92,39 @@ export function setCardShowcaseOutputDir(outputDir: string) {
   }));
 }
 
-export function getCardExplorerState() {
+function normalizeExplorerFilters(value: unknown): Partial<SearchFilters> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const source = value as Record<string, unknown>;
+  const filters: Partial<SearchFilters> = {};
+  for (const key of Object.keys(DEFAULT_SEARCH_FILTERS) as Array<keyof SearchFilters>) {
+    if (typeof source[key] === 'string') filters[key] = source[key] as string;
+  }
+  return filters;
+}
+
+function normalizeOptionalCardId(value: unknown): number | null {
+  return Number.isInteger(value) && Number(value) > 0 ? Number(value) : null;
+}
+
+export function getCardExplorerState(): WorkspaceCardExplorerState | null {
   const ui = workspaceMetadataState.metadata?.ui;
   const explorer = ui && typeof ui === 'object'
     ? ui.cardExplorer
     : null;
-  return explorer && typeof explorer === 'object'
-    ? explorer as WorkspaceCardExplorerState
-    : null;
+  if (!explorer || typeof explorer !== 'object' || Array.isArray(explorer)) return null;
+
+  const record = explorer as Record<string, unknown>;
+  return {
+    filters: normalizeExplorerFilters(record.filters),
+    selectedIds: normalizeCardIds(
+      Array.isArray(record.selectedIds)
+        ? record.selectedIds.filter((id): id is number => Number.isInteger(id) && id > 0)
+        : [],
+    ),
+    selectedId: normalizeOptionalCardId(record.selectedId),
+    selectionAnchorId: normalizeOptionalCardId(record.selectionAnchorId),
+    page: Number.isInteger(record.page) && Number(record.page) > 0 ? Number(record.page) : 1,
+  };
 }
 
 export function setCardExplorerState(input: WorkspaceCardExplorerState) {

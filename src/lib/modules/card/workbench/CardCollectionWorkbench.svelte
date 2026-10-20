@@ -190,11 +190,19 @@
         : 1;
       editorState.searchFilters = filters;
       editorState.currentPage = page;
-      void handleSearch(false, false).then((ok) => {
-        if (sequence !== metadataApplySequence || $activeTab?.id !== tabId || workspaceMetadataState.cdbPath !== path) return;
-        if (ok) setSelectedCards(selectedIds, selectedId, anchorId);
-        finishRestoration();
-      });
+      void handleSearch(false, false)
+        .then((ok) => {
+          if (sequence !== metadataApplySequence || $activeTab?.id !== tabId || workspaceMetadataState.cdbPath !== path) return;
+          if (ok) setSelectedCards(selectedIds, selectedId, anchorId);
+        })
+        .catch((error) => {
+          console.error('Failed to restore the saved Card Explorer search:', error);
+        })
+        .finally(() => {
+          // Even a rejected search must release the restoration latch; otherwise
+          // script/image surfaces can stay disabled for this workspace.
+          finishRestoration();
+        });
       lastPersistedExplorerKey = JSON.stringify({
         filters,
         selectedIds,

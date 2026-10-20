@@ -243,6 +243,28 @@ test('retrying one path does not clear another workspace save error', async () =
   } finally { save = originalSave; await state.flushAllWorkspaceMetadataSaves(); }
 });
 
+test('malformed explorer metadata is normalized before it reaches search', async () => {
+  disk.set('malformed-explorer.cdb', {
+    version: 1,
+    cdbPath: 'malformed-explorer.cdb',
+    ui: {
+      cardExplorer: {
+        filters: { name: 123, desc: null, type: 'monster' },
+        selectedIds: [1, '2', -3],
+        selectedId: 'bad',
+        page: 'bad',
+      },
+    },
+  });
+  await state.loadWorkspaceMetadataForPath('malformed-explorer.cdb');
+
+  const explorer = state.getCardExplorerState();
+  expect(explorer?.filters).toEqual({ type: 'monster' });
+  expect(explorer?.selectedIds).toEqual([1]);
+  expect(explorer?.selectedId).toBeNull();
+  expect(explorer?.page).toBe(1);
+});
+
 test('switching or updating an AI thread preserves token usage and conversation data', async () => {
   await state.loadWorkspaceMetadataForPath('ai-thread-update.cdb');
   const thread = state.upsertAiThread({ title: 'Original' });
