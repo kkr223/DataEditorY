@@ -22,6 +22,7 @@ Generic document host handlers that dispatch by provider ID:
 Implements document operations for the CDB provider:
 - **Query dispatch** — routes to `cdb_cards::search_cards_page`, `get_card_by_id`, `get_cards_by_ids`, `query_cards_raw`
 - **Command execution** — `Upsert` (with snapshot for undo), `Delete` (with full card backup for undo), and `ReplaceCardId` (move or copy matching pics/field/scripts along with the card)
+- **Write preconditions** — `Upsert.expectedCards` optionally guards the complete batch against reviewed snapshots; `ReplaceCardId.expectedTarget` requires an absent target when null/omitted or an exact reviewed target when supplied. Validation and CDB mutation share the session lock, and target validation precedes asset migration.
 - **Asset lifecycle** — ID changes track resource moves/copies for undo; save commits them and closing without saving restores names to the last saved CDB state. Existing destination assets are never overwritten.
 - **Undo** — `UndoEntry::Upsert` restores previous cards and deletes newly created ones; `UndoEntry::Delete` re-inserts deleted cards
 - **Undo stack** — max 100 entries per document, FIFO eviction

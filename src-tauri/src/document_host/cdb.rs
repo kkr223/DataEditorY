@@ -182,32 +182,42 @@ pub fn execute(
 ) -> Result<ProviderCommandResult, String> {
     let mut value = None;
     match command {
-        CardCollectionCommand::Upsert { cards } => {
+        CardCollectionCommand::Upsert {
+            cards,
+            expected_cards,
+        } => {
             let affected_ids = cards.iter().map(|card| card.code).collect::<Vec<_>>();
-            // Single bulk query for previous state instead of one round-trip
-            // per affected id (was N session locks + N SQL queries).
-            let found_previous = cdb_cards::get_cards_by_ids(
-                sessions,
-                crate::models::cdb::GetCardsByIdsRequest {
-                    tab_id: document_id.clone(),
-                    card_ids: affected_ids.clone(),
-                },
-            )?;
-            let previous_by_id: HashMap<u32, CardDto> = found_previous
-                .into_iter()
-                .map(|card| (card.code, card))
-                .collect();
-            let previous_cards = affected_ids
-                .iter()
-                .map(|card_id| previous_by_id.get(card_id).cloned())
-                .collect::<Vec<_>>();
-            cdb_cards::modify_cards(
-                sessions,
-                crate::models::cdb::ModifyCardsRequest {
-                    tab_id: document_id.clone(),
-                    cards,
-                },
-            )?;
+            let previous_cards = with_session_meta(sessions, &document_id, |session| {
+                let mut cdb = session
+                    .cdb
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                let previous_by_id: HashMap<u32, CardDto> = cdb
+                    .find_by_ids(&affected_ids)
+                    .map_err(|err| err.to_string())?
+                    .into_iter()
+                    .map(|card| (card.code, card))
+                    .collect();
+                let previous = affected_ids
+                    .iter()
+                    .map(|id| previous_by_id.get(id).cloned())
+                    .collect::<Vec<_>>();
+                if let Some(expected) = &expected_cards {
+                    if expected.len() != previous.len() {
+                        return Err(
+                            "Card preconditions do not match the requested cards".to_string()
+                        );
+                    }
+                    for ((id, current), expected) in
+                        affected_ids.iter().zip(&previous).zip(expected)
+                    {
+                        require_matching_card(*id, current.as_ref(), expected.as_ref())?;
+                    }
+                }
+                // Check and write under one session lock, including the complete batch.
+                cdb.add_cards(&cards).map_err(|err| err.to_string())?;
+                Ok(previous)
+            })?;
             push_undo(
                 state,
                 document_id,
@@ -240,53 +250,61 @@ pub fn execute(
             card,
             original_card_id,
             remove_original,
+            expected_target,
         } => {
             if card.code == original_card_id {
                 return Err("Replacement card ID must differ from the original ID".to_string());
             }
             let affected_ids = vec![card.code, original_card_id];
-            let found_previous = cdb_cards::get_cards_by_ids(
-                sessions,
-                crate::models::cdb::GetCardsByIdsRequest {
-                    tab_id: document_id.clone(),
-                    card_ids: affected_ids.clone(),
-                },
-            )?;
-            let previous_by_id = found_previous
-                .into_iter()
-                .map(|previous| (previous.code, previous))
-                .collect::<HashMap<_, _>>();
-            let previous_cards = affected_ids
-                .iter()
-                .map(|card_id| previous_by_id.get(card_id).cloned())
-                .collect::<Vec<_>>();
-            let cdb_path =
+            let (previous_cards, asset_change, id_change) =
                 with_session_meta(sessions, &document_id, |session| {
-                    Ok(session.path.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone())
-                })?;
-            let asset_change =
-                CardAssetIdChange::apply(&cdb_path, original_card_id, card.code, remove_original)?;
-            let id_change = json!({
-                "originalCardId": original_card_id,
-                "newCardId": card.code,
-                "removeOriginal": remove_original,
-                "cdbPath": cdb_path,
-            });
-            if let Err(error) = cdb_cards::undo_modify_operation(
-                sessions,
-                crate::models::cdb::UndoModifyOperationRequest {
-                    tab_id: document_id.clone(),
-                    cards_to_restore: vec![card],
-                    ids_to_delete: if remove_original {
+                    let mut cdb = session
+                        .cdb
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    let previous_by_id = cdb
+                        .find_by_ids(&affected_ids)
+                        .map_err(|err| err.to_string())?
+                        .into_iter()
+                        .map(|previous| (previous.code, previous))
+                        .collect::<HashMap<_, _>>();
+                    require_matching_card(
+                        card.code,
+                        previous_by_id.get(&card.code),
+                        expected_target.as_ref(),
+                    )?;
+                    let previous_cards = affected_ids
+                        .iter()
+                        .map(|id| previous_by_id.get(id).cloned())
+                        .collect::<Vec<_>>();
+                    let cdb_path = session
+                        .path
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .clone();
+                    let asset_change = CardAssetIdChange::apply(
+                        &cdb_path,
+                        original_card_id,
+                        card.code,
+                        remove_original,
+                    )?;
+                    let id_change = json!({
+                        "originalCardId": original_card_id,
+                        "newCardId": card.code,
+                        "removeOriginal": remove_original,
+                        "cdbPath": cdb_path,
+                    });
+                    let ids_to_delete = if remove_original {
                         vec![original_card_id]
                     } else {
                         vec![]
-                    },
-                },
-            ) {
-                asset_change.rollback()?;
-                return Err(error);
-            }
+                    };
+                    if let Err(error) = cdb.undo_modify(&[card], &ids_to_delete) {
+                        asset_change.rollback()?;
+                        return Err(error.to_string());
+                    }
+                    Ok((previous_cards, asset_change, id_change))
+                })?;
             value = Some(json!({ "cardIdChange": id_change }));
             state.record_asset_change(&document_id, asset_change.clone(), true);
             push_undo(
@@ -305,6 +323,22 @@ pub fn execute(
         changed: true,
         value,
     })
+}
+
+fn require_matching_card(
+    id: u32,
+    current: Option<&CardDto>,
+    expected: Option<&CardDto>,
+) -> Result<(), String> {
+    if expected.is_some_and(|card| card.code != id)
+        || to_value(current).map_err(|err| err.to_string())?
+            != to_value(expected).map_err(|err| err.to_string())?
+    {
+        return Err(format!(
+            "Card {id} changed since it was reviewed. Review the current card before applying."
+        ));
+    }
+    Ok(())
 }
 
 pub fn undo(
@@ -492,6 +526,8 @@ mod tests {
                 },
                 original_card_id: 100,
                 remove_original: true,
+                expected_target: cdb_cards::get_card_by_id(&sessions, "replace-test".into(), 200)
+                    .unwrap(),
             },
         )
         .expect("replace card ID");
@@ -564,6 +600,7 @@ mod tests {
                     },
                     original_card_id: 100,
                     remove_original,
+                    expected_target: None,
                 },
             )
             .unwrap();
@@ -613,6 +650,214 @@ mod tests {
     }
 
     #[test]
+    fn unreviewed_or_changed_id_targets_leave_cards_and_assets_untouched() {
+        let root = make_temp_dir("card-id-precondition");
+        let source = root.join("cards.cdb");
+        create_test_cdb(&source, &[(100, 1), (200, 2)]);
+        fs::create_dir_all(root.join("pics")).unwrap();
+        fs::write(root.join("pics/100.jpg"), b"original").unwrap();
+        let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+        open_cdb_tab_in_dir(
+            &sessions,
+            &root.join("sessions"),
+            "guard".into(),
+            source.to_string_lossy().into(),
+        )
+        .unwrap();
+        let state = DocumentHostState::new();
+        let actual = cdb_cards::get_card_by_id(&sessions, "guard".into(), 200)
+            .unwrap()
+            .unwrap();
+        let mut stale = actual.clone();
+        stale.type_ = 9;
+        for expected in [None, Some(stale)] {
+            for remove_original in [true, false] {
+                let result = execute(
+                    &state,
+                    &sessions,
+                    "guard".into(),
+                    CardCollectionCommand::ReplaceCardId {
+                        card: CardDto {
+                            code: 200,
+                            type_: 3,
+                            ..Default::default()
+                        },
+                        original_card_id: 100,
+                        remove_original,
+                        expected_target: expected.clone(),
+                    },
+                );
+                assert!(result.err().unwrap().contains("changed since"));
+                assert_eq!(
+                    cdb_cards::get_card_by_id(&sessions, "guard".into(), 100)
+                        .unwrap()
+                        .unwrap()
+                        .type_,
+                    1
+                );
+                assert_eq!(
+                    cdb_cards::get_card_by_id(&sessions, "guard".into(), 200)
+                        .unwrap()
+                        .unwrap()
+                        .type_,
+                    2
+                );
+                assert_eq!(fs::read(root.join("pics/100.jpg")).unwrap(), b"original");
+                assert!(!root.join("pics/200.jpg").exists());
+                assert!(!undo(&state, &sessions, "guard".into()).unwrap().changed);
+            }
+        }
+        drop(sessions);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn guarded_batch_rejects_all_cards_if_any_reviewed_snapshot_changed() {
+        let root = make_temp_dir("batch-precondition");
+        let source = root.join("cards.cdb");
+        create_test_cdb(&source, &[(100, 1), (200, 2)]);
+        let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+        open_cdb_tab_in_dir(
+            &sessions,
+            &root.join("sessions"),
+            "guard".into(),
+            source.to_string_lossy().into(),
+        )
+        .unwrap();
+        let state = DocumentHostState::new();
+        let originals = [100, 200].map(|code| {
+            cdb_cards::get_card_by_id(&sessions, "guard".into(), code)
+                .unwrap()
+                .unwrap()
+        });
+        let mut changed = originals.to_vec();
+        changed[0].type_ = 3;
+        changed[1].type_ = 4;
+        let mut stale = originals[1].clone();
+        stale.type_ = 9;
+        for expected in [
+            vec![Some(originals[0].clone()), Some(stale)],
+            vec![Some(originals[0].clone()), None],
+            vec![Some(originals[0].clone())],
+        ] {
+            assert!(execute(
+                &state,
+                &sessions,
+                "guard".into(),
+                CardCollectionCommand::Upsert {
+                    cards: changed.clone(),
+                    expected_cards: Some(expected),
+                }
+            )
+            .is_err());
+            for original in &originals {
+                assert_eq!(
+                    cdb_cards::get_card_by_id(&sessions, "guard".into(), original.code)
+                        .unwrap()
+                        .unwrap()
+                        .type_,
+                    original.type_
+                );
+            }
+            assert!(!undo(&state, &sessions, "guard".into()).unwrap().changed);
+        }
+        execute(
+            &state,
+            &sessions,
+            "guard".into(),
+            CardCollectionCommand::Upsert {
+                cards: changed.clone(),
+                expected_cards: Some(originals.iter().cloned().map(Some).collect()),
+            },
+        )
+        .unwrap();
+        for card in &changed {
+            assert_eq!(
+                cdb_cards::get_card_by_id(&sessions, "guard".into(), card.code)
+                    .unwrap()
+                    .unwrap()
+                    .type_,
+                card.type_
+            );
+        }
+        undo(&state, &sessions, "guard".into()).unwrap();
+        for original in &originals {
+            assert_eq!(
+                cdb_cards::get_card_by_id(&sessions, "guard".into(), original.code)
+                    .unwrap()
+                    .unwrap()
+                    .type_,
+                original.type_
+            );
+        }
+        drop(sessions);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn concurrent_guarded_writes_cannot_both_commit_the_same_baseline() {
+        let root = make_temp_dir("concurrent-precondition");
+        let source = root.join("cards.cdb");
+        create_test_cdb(&source, &[(100, 1)]);
+        let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+        open_cdb_tab_in_dir(
+            &sessions,
+            &root.join("sessions"),
+            "guard".into(),
+            source.to_string_lossy().into(),
+        )
+        .unwrap();
+        let state = DocumentHostState::new();
+        let original = cdb_cards::get_card_by_id(&sessions, "guard".into(), 100)
+            .unwrap()
+            .unwrap();
+        let barrier = std::sync::Barrier::new(2);
+        let successes = std::thread::scope(|scope| {
+            let handles: Vec<_> = [3, 4]
+                .into_iter()
+                .map(|type_| {
+                    let state = &state;
+                    let sessions = &sessions;
+                    let original = &original;
+                    let barrier = &barrier;
+                    scope.spawn(move || {
+                        barrier.wait();
+                        execute(
+                            state,
+                            sessions,
+                            "guard".into(),
+                            CardCollectionCommand::Upsert {
+                                cards: vec![CardDto {
+                                    type_,
+                                    ..original.clone()
+                                }],
+                                expected_cards: Some(vec![Some(original.clone())]),
+                            },
+                        )
+                        .is_ok()
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|handle| usize::from(handle.join().unwrap()))
+                .sum::<usize>()
+        });
+        assert_eq!(successes, 1);
+        undo(&state, &sessions, "guard".into()).unwrap();
+        assert_eq!(
+            cdb_cards::get_card_by_id(&sessions, "guard".into(), 100)
+                .unwrap()
+                .unwrap()
+                .type_,
+            1
+        );
+        assert!(!undo(&state, &sessions, "guard".into()).unwrap().changed);
+        drop(sessions);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn asset_collision_leaves_cards_and_source_assets_unchanged() {
         let root = make_temp_dir("card-id-collision");
         let source_path = root.join("cards.cdb");
@@ -642,6 +887,7 @@ mod tests {
                 },
                 original_card_id: 100,
                 remove_original: true,
+                expected_target: None,
             }
         )
         .is_err());
@@ -735,6 +981,7 @@ mod tests {
                             },
                             original_card_id: 100,
                             remove_original,
+                            expected_target: None,
                         },
                     )
                     .unwrap();

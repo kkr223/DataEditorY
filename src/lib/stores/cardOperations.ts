@@ -33,14 +33,19 @@ export async function getCardById(cardId: number): Promise<CardDataEntry | undef
 
 export async function getCardByIdInTab(tabId: string, cardId: number): Promise<CardDataEntry | undefined> {
   try {
-    return await documentRuntime.query<CardDataEntry | null>(
-      tabId,
-      { kind: 'getById', cardId } satisfies CardCollectionQuery,
-    ) ?? undefined;
+    return await queryCardByIdInTab(tabId, cardId);
   } catch (err) {
     console.error('Failed to fetch card by id:', err);
     return undefined;
   }
+}
+
+// Mutation preflight must distinguish a missing card from a failed read.
+export async function queryCardByIdInTab(tabId: string, cardId: number): Promise<CardDataEntry | undefined> {
+  return await documentRuntime.query<CardDataEntry | null>(
+    tabId,
+    { kind: 'getById', cardId } satisfies CardCollectionQuery,
+  ) ?? undefined;
 }
 
 export async function getCardsByIdsInTab(tabId: string, cardIds: number[]): Promise<CardDataEntry[]> {
@@ -98,6 +103,7 @@ export async function replaceCardIdInTab(
   originalCardId: number,
   refreshCachedSearch = true,
   removeOriginal = true,
+  expectedTarget: CardDataEntry | null = null,
 ): Promise<boolean> {
   const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab || card.code === originalCardId) return false;
@@ -110,6 +116,7 @@ export async function replaceCardIdInTab(
         card: cloneCard(card),
         originalCardId,
         removeOriginal,
+        expectedTarget,
       } satisfies CardCollectionCommand,
     );
     if (result.value?.cardIdChange) {
@@ -132,6 +139,7 @@ export async function modifyCardsInTab(
   tabId: string,
   cards: CardDataEntry[],
   refreshCachedSearch = true,
+  expectedCards?: Array<CardDataEntry | null>,
 ): Promise<boolean> {
   const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab) return false;
@@ -142,6 +150,7 @@ export async function modifyCardsInTab(
       {
         kind: 'upsert',
         cards: cards.map((card) => cloneCard(card)),
+        expectedCards,
       } satisfies CardCollectionCommand,
     );
     recordUndoLabel(

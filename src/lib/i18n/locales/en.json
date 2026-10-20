@@ -1041,6 +1041,7 @@
     "navigate_unsaved_confirm": "The current card has unsaved changes. Switching cards or pages will discard them. Continue?",
     "save_success": "Database saved!",
     "save_failed": "Save failed.",
+    "draft_changed_during_save": "The submitted version was applied. Newer draft edits are still unsaved; save again before leaving.",
     "card_warning_empty_name": "Warning: this card has no name; it was committed anyway",
     "card_warning_empty_type": "Warning: this card has no type; it was committed anyway",
     "subtype": {

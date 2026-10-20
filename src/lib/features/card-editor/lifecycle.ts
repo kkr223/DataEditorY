@@ -249,6 +249,7 @@ export function trackDraftUndoEffect(input: {
 }
 
 export function syncLoadedDraftEffect(input: {
+  preserveDraft?: boolean;
   isDbLoaded: boolean;
   selectedId: number | null;
   selectedCard: CardDataEntry | null;
@@ -265,6 +266,7 @@ export function syncLoadedDraftEffect(input: {
   }
 
   if (input.selectedCard) {
+    if (input.preserveDraft && input.lastSyncedSelectedId === input.selectedCard.code) return;
     // Normalize before snapshot so the comparison is stable regardless of whether
     // the DB backend returns cards with un-extracted lscale/rscale fields.  This
     // must mirror the normalization performed in buildLoadedDraftState, which also

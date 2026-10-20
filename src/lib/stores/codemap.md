@@ -14,6 +14,7 @@ Uses a mix of Svelte `writable` stores and Svelte 5 `$state` runes (files ending
 - **`db.ts`** — barrel export aggregating all DB-related stores (tabs, search, undo, cardUtils, cardOperations, recentHistory)
 - **`search.ts`** — Card Explorer search execution: builds queries from filters via `domain/search/query.ts`, executes via document host, caches paginated results
 - **`cardOperations.ts`** — CRUD operations on cards: modify, delete, upsert via document host provider
+  `queryCardByIdInTab` propagates read failures for mutation preflight; guarded upsert/ID replacement forwards reviewed snapshots to the host.
 - **`cardUtils.ts`** — card cloning and utility helpers
 - **`cardClipboard.svelte.ts`** — copy/paste card buffer with multi-select support
 - **`undo.ts`** — undo operation types and labels

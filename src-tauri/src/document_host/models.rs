@@ -120,6 +120,8 @@ pub struct CardSearchPage {
 pub enum CardCollectionCommand {
     Upsert {
         cards: Vec<CardDto>,
+        #[serde(default)]
+        expected_cards: Option<Vec<Option<CardDto>>>,
     },
     Delete {
         card_ids: Vec<u32>,
@@ -129,6 +131,8 @@ pub enum CardCollectionCommand {
         original_card_id: u32,
         #[serde(default = "default_remove_original")]
         remove_original: bool,
+        #[serde(default)]
+        expected_target: Option<CardDto>,
     },
 }
 
@@ -244,6 +248,7 @@ pub enum CompareOperator {
 #[cfg(test)]
 mod tests {
     use super::{CardCollectionCommand, CardCollectionQuery};
+    use crate::models::cdb::CardDto;
     use serde_json::json;
 
     #[test]
@@ -325,8 +330,30 @@ mod tests {
         .expect("replace card id command should deserialize");
         assert!(matches!(
             replace,
-            CardCollectionCommand::ReplaceCardId { card, original_card_id, remove_original }
-                if card.code == 200 && original_card_id == 100 && remove_original
+            CardCollectionCommand::ReplaceCardId { card, original_card_id, remove_original, expected_target }
+                if card.code == 200 && original_card_id == 100 && remove_original && expected_target.is_none()
         ));
+
+        let snapshot = CardDto {
+            code: 200,
+            ..Default::default()
+        };
+        let replace: CardCollectionCommand = serde_json::from_value(json!({
+            "kind": "replaceCardId", "card": snapshot, "originalCardId": 100,
+            "expectedTarget": snapshot,
+        }))
+        .unwrap();
+        assert!(
+            matches!(replace, CardCollectionCommand::ReplaceCardId { expected_target: Some(card), .. }
+            if card.code == 200)
+        );
+        let upsert: CardCollectionCommand = serde_json::from_value(json!({
+            "kind": "upsert", "cards": [snapshot], "expectedCards": [snapshot, null],
+        }))
+        .unwrap();
+        assert!(
+            matches!(upsert, CardCollectionCommand::Upsert { expected_cards: Some(cards), .. }
+            if cards.len() == 2 && cards[0].as_ref().unwrap().code == 200 && cards[1].is_none())
+        );
     }
 }

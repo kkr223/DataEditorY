@@ -1041,6 +1041,7 @@
     "navigate_unsaved_confirm": "当前卡片有未保存修改，切换卡片或翻页会丢失这些内容，仍要继续吗？",
     "save_success": "数据库已保存",
     "save_failed": "保存失败",
+    "draft_changed_during_save": "已应用提交时的内容，期间新增的草稿编辑仍未保存，请再次保存后再离开。",
     "card_warning_empty_name": "警告：卡名为空，仍已提交该卡片",
     "card_warning_empty_type": "警告：卡片种类为空，仍已提交该卡片",
     "subtype": {

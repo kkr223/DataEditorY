@@ -64,11 +64,13 @@
   let suspendDraftUndoTracking = 0;
   let autoCommitSelectionTargetId = $state<number | null>(null);
   let boundWorkspaceId: string | null = null;
+  let draftContextGeneration = 0;
 
   const lifecycleController = createCardEditorLifecycleController({
     getCoverImageSrc: () => appSettingsState.coverImageSrc,
     getDraftCard: () => draftCard,
     setDraftCard: (card) => {
+      draftContextGeneration += 1;
       draftCard = card;
     },
     getOriginalCardCode: () => originalCardCode,
@@ -257,6 +259,7 @@
   }
 
   function restoreWorkspaceDraft(workspaceId: string | null) {
+    draftContextGeneration += 1;
     const restored = getWorkspaceCardDraft(workspaceId);
     autoCommitSelectionTargetId = null;
     if (!restored) {
@@ -340,8 +343,10 @@
     tabId: string,
     draftSnapshot: CardDataEntry,
     originalCodeSnapshot: number | null,
+    contextGeneration: number,
     targetCode: number,
     removeOriginal = false,
+    expectedTarget?: CardDataEntry | null,
   ) {
     const card = cloneEditableCard(draftSnapshot);
     card.code = targetCode;
@@ -350,7 +355,10 @@
       draftCard: card,
       originalCardCode: originalCodeSnapshot,
       removeOriginal,
+      expectedTarget,
       t: (key, options) => $_(key, options as never),
+      getDraftCard: () => draftCard,
+      canUpdateDraft: () => $activeTabId === tabId && draftContextGeneration === contextGeneration,
       setDraftCard: (card) => {
         draftCard = cloneEditableCard(card);
         lifecycleController.syncSetcodesFromCard(draftCard);
@@ -374,6 +382,7 @@
     if (!$isDbLoaded || !tabId || isCommittingDraft) return false;
     const draftSnapshot = cloneEditableCard(draftCard);
     const originalCodeSnapshot = originalCardCode;
+    const contextGeneration = draftContextGeneration;
     isCommittingDraft = true;
     try {
       return await modifyDraftCardFlow({
@@ -382,7 +391,7 @@
         originalCardCode: originalCodeSnapshot,
         isEditingExisting,
         t: (key, options) => $_(key, options as never),
-        saveDraftCard: (targetCode, removeOriginal) => saveDraftCard(tabId, draftSnapshot, originalCodeSnapshot, targetCode, removeOriginal),
+        saveDraftCard: (targetCode, removeOriginal, expectedTarget) => saveDraftCard(tabId, draftSnapshot, originalCodeSnapshot, contextGeneration, targetCode, removeOriginal, expectedTarget),
       });
     } finally {
       isCommittingDraft = false;
@@ -391,21 +400,27 @@
 
   async function handleSaveAs() {
     const tabId = $activeTabId;
-    if (!$isDbLoaded || !tabId) return;
+    if (!$isDbLoaded || !tabId || isCommittingDraft) return;
     const draftSnapshot = cloneEditableCard(draftCard);
     const originalCodeSnapshot = originalCardCode;
-    await saveAsDraftCardFlow({
-      tabId,
-      draftCard: draftSnapshot,
-      originalCardCode: originalCodeSnapshot,
-      t: (key, options) => $_(key, options as never),
-      saveDraftCard: (targetCode, removeOriginal) => saveDraftCard(tabId, draftSnapshot, originalCodeSnapshot, targetCode, removeOriginal),
-    });
+    const contextGeneration = draftContextGeneration;
+    isCommittingDraft = true;
+    try {
+      await saveAsDraftCardFlow({
+        tabId,
+        draftCard: draftSnapshot,
+        originalCardCode: originalCodeSnapshot,
+        t: (key, options) => $_(key, options as never),
+        saveDraftCard: (targetCode, removeOriginal, expectedTarget) => saveDraftCard(tabId, draftSnapshot, originalCodeSnapshot, contextGeneration, targetCode, removeOriginal, expectedTarget),
+      });
+    } finally {
+      isCommittingDraft = false;
+    }
   }
 
   async function handleDelete() {
     const tabId = $activeTabId;
-    if (!$isDbLoaded || !tabId || !canDelete || isDeleting) return;
+    if (!$isDbLoaded || !tabId || !canDelete || isDeleting || isCommittingDraft) return;
     isDeleting = true;
     try {
       await deleteDraftCardFlow({ tabId, originalCardCode, selectedCardIds: [...editorState.selectedIds], t: (key, options) => $_(key, options as never), resetDraftCard: lifecycleController.resetDraftCard, clearSelection, handleSearch });
@@ -451,6 +466,7 @@
   }));
 
   onDestroy(() => {
+    draftContextGeneration += 1;
     flushPersistBoundWorkspaceDraft();
     teardownCardEditorOnDestroy({ handleEditorKeydown });
   });
@@ -511,6 +527,7 @@
   });
 
   $effect(() => {
+    if (isCommittingDraft) return;
     const selectedCard = getAllCardsMap().get(editorState.selectedId ?? -1) ?? null;
     if (shouldAutoCommitDraftForSelectionChange({
       isDbLoaded: $isDbLoaded,
@@ -524,8 +541,11 @@
       const restoreId = lastSyncedSelectedId;
       if (autoCommitSelectionTargetId !== targetId) {
         autoCommitSelectionTargetId = targetId;
+        const workspaceId = $activeTabId;
+        const contextGeneration = draftContextGeneration;
         void (async () => {
           const ok = await handleModify();
+          if ($activeTabId !== workspaceId || draftContextGeneration !== contextGeneration) return;
           autoCommitSelectionTargetId = null;
           if (ok) {
             if (editorState.selectedId !== targetId) {
@@ -549,6 +569,7 @@
       lastSyncedSelectedId,
       lastLoadedCardSnapshot,
       originalCardCode,
+      preserveDraft: isDraftDirty(),
       loadCardIntoDraft: (card) => {
         untrack(() => {
           lifecycleController.loadCardIntoDraft(card);
