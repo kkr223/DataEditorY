@@ -3,25 +3,13 @@
   import { _ } from 'svelte-i18n';
   import { tauriBridge } from '$lib/infrastructure/tauri';
   import { activeTab } from '$lib/stores/db';
-  import { recordUndoLabel } from '$lib/stores/tabs';
   import { showToast } from '$lib/stores/toast.svelte';
   import { createAiAppContext } from '$lib/features/ai/context';
   import { runWorkspaceAgent, type AgentStage } from '$lib/native/aiApi';
   import { appSettingsState, connectAiProvider, loadAppSettings, saveAppSettings } from '$lib/stores/appSettings.svelte';
-  import { refreshCachedSearchForTab } from '$lib/stores/search';
   import { documentRuntime } from '$lib/platform/appRuntime';
-  import { writeTextFile, readTextFile, pathExists } from '$lib/native/assetApi';
-  import { createScriptBaseline, matchesScriptBaseline } from '$lib/features/ai/scriptBaseline';
-  import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
-  import {
-    getOpenScriptTab,
-    getScriptTabsForCdb,
-    saveScriptTab,
-    updateScriptTabContent,
-  } from '$lib/stores/scriptEditor.svelte';
-  import { cloneEditableCard } from '$lib/domain/card/draft';
   import type { CardDataEntry } from '$lib/types';
-  import type { CardCollectionCommand, CardSearchExpression, CardSearchPage } from '$lib/modules/card';
+  import type { CardSearchExpression, CardSearchPage } from '$lib/modules/card';
   import { mergeWorkspaceAiContextRefs } from './aiContextRefs';
   import {
     buildMentionContextPrompt,
@@ -36,7 +24,6 @@
   } from './aiMentions';
   import {
     accumulateAiThreadTokenUsage,
-    captureWorkspaceMetadataScope,
     addAiProposal,
     appendAiMessage,
     compactAiThreadMessages,
@@ -44,22 +31,15 @@
     getActiveAiThread,
     getAiProposalsForThread,
     getAiThreads,
-    getCardImageDocumentForPath,
-    setCardImageDocumentForPath,
     updateAiProposalStatus,
     upsertAiToolRun,
     upsertAiThread,
-    workspaceMetadataState,
-    type WorkspaceAiPatch,
-    type WorkspaceAiMessage,
-    type WorkspaceAiProposal,
-    type WorkspaceAiToolRun,
-  } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
-  import {
-    createCardImageFormData,
-    normalizeCardImageFormData,
-  } from '$lib/features/card-image/layout';
-  import { queueAiCardDraftPatch } from './aiProposalApplication.svelte';
+  } from '$lib/features/ai/workspaceState';
+  import { workspaceMetadataState, captureWorkspaceMetadataScope } from '$lib/features/workspace-metadata/state.svelte';
+  import type { WorkspaceAiPatch, WorkspaceAiMessage, WorkspaceAiProposal } from '$lib/features/ai/types';
+  import { createAiProposalApplier } from '$lib/features/ai/proposalApplication';
+  import { createAiPatchApplier } from './aiProposalExecution';
+  import AiProposalInspector from './AiProposalInspector.svelte';
   import { renderMarkdown } from './markdown';
 
   const FULL_ACCESS_KEY = 'dataeditory:ai-full-access';
@@ -91,7 +71,6 @@
   let abortController = $state<AbortController | null>(null);
   let ownsRunningWorkspace: (() => boolean) | null = null;
   let isDisposed = false;
-  let isApplyingProposal = false;
   let fullAccess = $state(globalThis.localStorage?.getItem(FULL_ACCESS_KEY) === 'true');
   let accessMenuOpen = $state(false);
   let modelMenuOpen = $state(false);
@@ -581,217 +560,27 @@
     return text.length > 180 ? `${text.slice(0, 180)}...` : text;
   }
 
-  function formatValue(value: unknown) {
-    if (typeof value === 'string') return value || '(empty)';
-    return JSON.stringify(value, null, 2);
-  }
-
-  function cardChanged(current: CardDataEntry, before: unknown) {
-    return JSON.stringify(current) !== JSON.stringify(before);
-  }
-
-  async function applyCardPatch(patch: Extract<WorkspaceAiPatch, { kind: 'card' }>) {
-    const current = await documentRuntime.query<CardDataEntry | null>(
-      patch.documentId,
-      { kind: 'getById', cardId: patch.cardCode },
-    );
-    if (!current) throw new Error(`Card ${patch.cardCode} is not open`);
-    if (!fullAccess && cardChanged(current, patch.before)) {
-      const ok = await tauriBridge.ask(
-        $_('surface.ai_before_mismatch_confirm'),
-        { title: $_('surface.ai_title'), kind: 'warning' },
-      );
-      if (!ok) throw new Error('Skipped: target changed');
-    }
-    await executeCardCommand(patch.documentId, {
-      kind: 'upsert',
-      cards: [cloneEditableCard(patch.after as CardDataEntry)],
-    });
-    const revision = documentRuntime.getDocument(patch.documentId)?.revision ?? -1;
-    await refreshCachedSearchForTab(patch.documentId);
-    queueAiCardDraftPatch({ id: patch.id, workspaceId: patch.documentId, cardCode: patch.cardCode,
-      revision, patch: patch.after as Partial<CardDataEntry> });
-  }
-
-  async function applyBatchCardPatch(patch: Extract<WorkspaceAiPatch, { kind: 'batch-card' }>) {
-    const cards: CardDataEntry[] = [];
-    for (const item of patch.cards) {
-      const current = await documentRuntime.query<CardDataEntry | null>(
-        patch.documentId,
-        { kind: 'getById', cardId: item.cardCode },
-      );
-      if (!current) throw new Error(`Card ${item.cardCode} is not open`);
-      if (!fullAccess && cardChanged(current, item.before)) {
-        const ok = await tauriBridge.ask(
-          $_('surface.ai_before_mismatch_confirm'),
-          { title: $_('surface.ai_title'), kind: 'warning' },
-        );
-        if (!ok) throw new Error(`Skipped changed card ${item.cardCode}`);
-      }
-      cards.push(cloneEditableCard(item.after as CardDataEntry));
-    }
-    if (cards.length) {
-      await executeCardCommand(patch.documentId, { kind: 'upsert', cards });
-      await refreshCachedSearchForTab(patch.documentId);
-    }
-  }
-
-  async function executeCardCommand(documentId: string, command: CardCollectionCommand) {
-    const result = await documentRuntime.execute(documentId, command);
-    if (!result.changed) throw new Error('CDB was not changed');
-    recordUndoLabel(documentId, $_('surface.ai_title'));
-  }
-
-  async function applyScriptPatch(patch: Extract<WorkspaceAiPatch, { kind: 'script' }>) {
-    const findOpenTab = () => patch.cardCode
-      ? getOpenScriptTab(patch.cdbPath, patch.cardCode, patch.documentId)
-      : getScriptTabsForCdb({ tabId: patch.documentId, path: patch.cdbPath }).find((tab) => (
-        getCdbPathIdentity(tab.scriptPath) === getCdbPathIdentity(patch.path)
-      ));
-    const readCurrent = async () => {
-      const tab = findOpenTab();
-      if (tab) return tab.content;
-      return await pathExists(patch.path) ? readTextFile(patch.path) : null;
-    };
-    const content = await readCurrent();
-    if (!matchesScriptBaseline(patch.baseline, await createScriptBaseline(content))) {
-      const confirmed = await tauriBridge.ask($_('surface.ai_before_mismatch_confirm'), {
+  const proposalApplier = createAiProposalApplier({
+    applyPatch: createAiPatchApplier({
+      confirmConflict: () => tauriBridge.ask($_('surface.ai_before_mismatch_confirm'), {
         title: $_('surface.ai_title'), kind: 'warning',
-      });
-      if (!confirmed) throw new Error('Skipped: script changed since the proposal was created');
-    }
-    if (await readCurrent() !== content) throw new Error('Script changed while confirming the proposal');
-    const openTab = findOpenTab();
-    if (openTab) {
-      updateScriptTabContent(openTab.id, patch.content);
-      if (!(await saveScriptTab(openTab.id))) {
-        throw new Error(`Failed to save open script ${openTab.scriptPath}`);
-      }
-      return;
-    }
-    await writeTextFile(patch.path, patch.content);
-  }
-
-  async function applyImagePatch(patch: Extract<WorkspaceAiPatch, { kind: 'image' }>) {
-    const current = await getCardImageDocumentForPath(patch.cdbPath, patch.cardCode);
-    const card = (patch.patch && typeof patch.patch === 'object' && 'card' in patch.patch)
-      ? (patch.patch as { card?: CardDataEntry }).card
-      : null;
-    const baseForm = current?.form ?? createCardImageFormData(card ?? ({ code: patch.cardCode } as CardDataEntry));
-    const formPatch = patch.patch && typeof patch.patch === 'object' && 'form' in patch.patch
-      ? (patch.patch as { form?: Record<string, unknown> }).form ?? {}
-      : patch.patch;
-    await setCardImageDocumentForPath(patch.cdbPath, patch.cardCode, {
-      kind: 'dataeditory-card-image-config',
-      version: 1,
-      ...current,
-      form: normalizeCardImageFormData({
-        ...baseForm,
-        ...(formPatch as Record<string, unknown>),
       }),
-      exportScalePercent: typeof (patch.patch as { exportScalePercent?: unknown })?.exportScalePercent === 'number'
-        ? (patch.patch as { exportScalePercent: number }).exportScalePercent
-        : current?.exportScalePercent,
-      meta: {
-        ...(current?.meta ?? {}),
-        cardCode: patch.cardCode,
-      },
-    });
-  }
-
-  async function applyPatch(patch: WorkspaceAiPatch) {
-    const owner = documentRuntime.snapshot.documents.find(document => document.typeId === 'ygo.card-collection'
-      && getCdbPathIdentity(document.source?.path ?? document.source?.uri ?? '') === getCdbPathIdentity(patch.cdbPath));
-    if (!owner) throw new Error(`Workspace is no longer open: ${patch.cdbPath}`);
-    patch = { ...patch, documentId: owner.id };
-    if (patch.kind === 'card') return applyCardPatch(patch);
-    if (patch.kind === 'batch-card') return applyBatchCardPatch(patch);
-    if (patch.kind === 'script') return applyScriptPatch(patch);
-    if (patch.kind === 'script-test-plan') throw new Error('Script test plans are disabled');
-    return applyImagePatch(patch);
-  }
+      undoLabel: () => $_('surface.ai_title'),
+    }),
+    updateStatus: updateAiProposalStatus,
+  });
 
   async function applyProposal(proposal: WorkspaceAiProposal, singlePatch?: WorkspaceAiPatch) {
-    if (isApplyingProposal || !workspaceMetadataState.ready) return;
-    isApplyingProposal = true;
-    const ownerPath = workspaceMetadataState.cdbPath;
+    if (!workspaceMetadataState.ready) return;
     try {
-      const patches = singlePatch ? [singlePatch] : proposal.patches;
-      const log: NonNullable<WorkspaceAiProposal['applyLog']> = [...(proposal.applyLog ?? [])];
-      let applied = 0;
-
-      for (const patch of patches) {
-        try {
-          await applyPatch(patch);
-          applied += 1;
-          log.push({
-            patchId: patch.id,
-            ok: true,
-            message: 'applied',
-            usedFullAccess: fullAccess,
-            createdAt: Date.now(),
-          });
-        } catch (error) {
-          log.push({
-            patchId: patch.id,
-            ok: false,
-            message: error instanceof Error ? error.message : String(error),
-            usedFullAccess: fullAccess,
-            createdAt: Date.now(),
-          });
-          await updateAiProposalStatus({
-            threadId: proposal.threadId,
-            proposalId: proposal.id,
-            status: applied > 0 ? 'partially_applied' : 'failed',
-            applyLog: log,
-          }, ownerPath);
-          showToast(log.at(-1)?.message ?? 'Apply failed', 'error');
-          return;
-        }
-      }
-
-      await updateAiProposalStatus({
-        threadId: proposal.threadId,
-        proposalId: proposal.id,
-        status: singlePatch || applied < proposal.patches.length ? 'partially_applied' : 'applied',
-        applyLog: log,
-      }, ownerPath);
-      showToast($_('surface.ai_apply_success'), 'success');
-    } finally { isApplyingProposal = false; }
-  }
-
-  function patchTitle(patch: WorkspaceAiPatch) {
-    if (patch.kind === 'card') return `card ${patch.cardCode}`;
-    if (patch.kind === 'batch-card') return `batch ${patch.cards.length}`;
-    if (patch.kind === 'script') return patch.path;
-    if (patch.kind === 'script-test-plan') return patch.path;
-    return `image ${patch.cardCode}`;
-  }
-
-  function patchRows(patch: WorkspaceAiPatch) {
-    if (patch.kind === 'card') {
-      return Object.entries(patch.patch as Record<string, unknown>).map(([field, value]) => ({
-        field,
-        before: (patch.before as Record<string, unknown>)[field],
-        after: value,
-      }));
+      const result = await proposalApplier.apply({
+        proposal, singlePatch, ownerPath: workspaceMetadataState.cdbPath, fullAccess,
+      });
+      if (!result) return;
+      showToast(result.ok ? $_('surface.ai_apply_success') : result.message, result.ok ? 'success' : 'error');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error), 'error');
     }
-    if (patch.kind === 'batch-card') {
-      const fields = new Set<string>();
-      patch.cards.forEach((card) => Object.keys(card.patch as Record<string, unknown>).forEach((field) => fields.add(field)));
-      return [...fields].map((field) => ({ field, before: `${patch.cards.length} cards`, after: 'changed' }));
-    }
-    if (patch.kind === 'script') {
-      return [{ field: 'content', before: '(file)', after: patch.content }];
-    }
-    if (patch.kind === 'script-test-plan') {
-      return [{ field: 'testPlan', before: '(.dey temporary file)', after: patch.plan }];
-    }
-    return Object.entries(patch.patch as Record<string, unknown>).map(([field, value]) => ({
-      field,
-      before: '(metadata)',
-      after: value,
-    }));
   }
 
   $effect(() => {
@@ -1016,67 +805,7 @@
     </footer>
   </main>
 
-  <aside class="ai-inspector" aria-label={$_('surface.ai_proposal_diff')}>
-    <section class="context-strip">
-      <div>
-        <span>{$_('surface.ai_context_cdb')}</span>
-        <strong>{$activeTab?.name ?? '-'}</strong>
-      </div>
-      <div>
-        <span>{$_('surface.ai_proposal_diff')}</span>
-        <strong>{proposals.length}</strong>
-      </div>
-    </section>
-
-    <section class="review-list">
-      <div class="review-title">
-        <h3>{$_('surface.ai_proposal_diff')}</h3>
-      </div>
-      {#if proposals.length}
-        {#each proposals as proposal}
-          <article class="proposal-card">
-            <header class="proposal-head">
-              <div>
-                <strong>{proposal.title}</strong>
-                <small>{proposal.status ?? 'pending'}{proposal.model ? ` / ${proposal.model}` : ''}</small>
-              </div>
-              <button class="apply-button" type="button" disabled={proposal.status === 'applied'} onclick={() => void applyProposal(proposal)}>
-                {$_('surface.ai_apply_all')}
-              </button>
-            </header>
-            <p class="proposal-summary">{proposal.summary}</p>
-            <details class="tool-details">
-              <summary>{$_('surface.ai_tool_calls')}</summary>
-              {#each proposal.toolRuns as tool}
-                <p>{tool.name}: {tool.status}</p>
-              {/each}
-            </details>
-            {#each proposal.patches as patch}
-              <details class="patch-card" open>
-                <summary>{patch.kind}: {patchTitle(patch)}</summary>
-                <div class="patch-actions">
-                  <button class="ghost-button" type="button" onclick={() => void applyProposal(proposal, patch)}>
-                    {$_('surface.ai_apply_patch')}
-                  </button>
-                </div>
-                <div class="proposal-diff">
-                  {#each patchRows(patch) as row}
-                    <div class="diff-row">
-                      <strong>{row.field}</strong>
-                      <pre class="before">- {formatValue(row.before)}</pre>
-                      <pre class="after">+ {formatValue(row.after)}</pre>
-                    </div>
-                  {/each}
-                </div>
-              </details>
-            {/each}
-          </article>
-        {/each}
-      {:else}
-        <p class="empty-note">{$_('surface.ai_proposal_empty')}</p>
-      {/if}
-    </section>
-  </aside>
+  <AiProposalInspector {proposals} cdbName={$activeTab?.name ?? '-'} onApply={applyProposal} />
 </section>
 
 <style>
@@ -1099,8 +828,7 @@
   }
 
   .thread-list,
-  .ai-thread,
-  .ai-inspector {
+  .ai-thread {
     min-width: 0;
     min-height: 0;
   }
@@ -1115,7 +843,6 @@
   .rail-title,
   .ai-header,
   .model-row,
-  .proposal-head,
   .compose-actions {
     display: flex;
     align-items: center;
@@ -1123,8 +850,7 @@
   }
 
   .rail-title,
-  .ai-header,
-  .proposal-head {
+  .ai-header {
     justify-content: space-between;
   }
 
@@ -1245,9 +971,7 @@
   }
 
   .thread-item small,
-  .empty-note,
-  .proposal-card small,
-  .tool-details p {
+  .empty-note {
     color: var(--ai-muted);
     font-size: 0.78rem;
   }
@@ -1279,7 +1003,6 @@
   }
 
   h2,
-  h3,
   p {
     margin: 0;
   }
@@ -1290,11 +1013,6 @@
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  h3 {
-    font-size: 0.88rem;
-    line-height: 1.2;
   }
 
   .title-block span {
@@ -1667,14 +1385,9 @@
     white-space: nowrap;
   }
 
-  .run-button,
-  .apply-button {
-    padding: 0.48rem 0.7rem;
+  .run-button {
     color: #fff;
     background: var(--ai-accent);
-  }
-
-  .run-button {
     position: relative;
     width: 38px;
     height: 38px;
@@ -1705,171 +1418,12 @@
     }
   }
 
-  .ai-inspector {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 10px;
-    padding: 10px;
-    border-left: 1px solid var(--ai-line);
-    overflow: hidden;
-    background: color-mix(in srgb, var(--bg-surface) 84%, var(--bg-base));
-  }
-
-  .context-strip,
-  .review-list {
-    border: 1px solid var(--ai-line);
-    border-radius: 8px;
-    background: var(--bg-base);
-  }
-
-  .context-strip {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .context-strip div {
-    min-width: 0;
-    padding: 10px;
-  }
-
-  .context-strip div + div {
-    border-left: 1px solid var(--ai-line);
-    text-align: right;
-  }
-
-  .context-strip span {
-    display: block;
-    margin-bottom: 4px;
-    color: var(--ai-muted);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-  }
-
-  .context-strip strong {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .review-list {
-    min-height: 0;
-    overflow: auto;
-    padding: 10px;
-  }
-
-  .review-title {
-    position: sticky;
-    top: -10px;
-    z-index: 1;
-    padding: 0 0 9px;
-    background: var(--bg-base);
-  }
-
-  .proposal-card {
-    display: grid;
-    gap: 10px;
-    padding: 11px;
-    border: 1px solid var(--ai-line);
-    border-radius: 8px;
-    background: var(--ai-soft);
-  }
-
-  .proposal-card + .proposal-card {
-    margin-top: 10px;
-  }
-
-  .proposal-head {
-    align-items: flex-start;
-  }
-
-  .proposal-head strong {
-    display: block;
-    line-height: 1.25;
-  }
-
-  .proposal-summary {
-    color: var(--ai-muted);
-    font-size: 0.82rem;
-    line-height: 1.45;
-  }
-
-  .tool-details,
-  .patch-card {
-    border-top: 1px solid var(--ai-line);
-    padding-top: 8px;
-  }
-
-  summary {
-    cursor: pointer;
-    color: var(--ai-ink);
-    font-size: 0.82rem;
-    font-weight: 760;
-  }
-
-  .patch-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
-  }
-
-  .proposal-diff {
-    display: grid;
-    gap: 6px;
-    max-height: 320px;
-    overflow: auto;
-    margin-top: 8px;
-  }
-
-  .diff-row {
-    display: grid;
-    gap: 5px;
-    padding: 8px;
-    border: 1px solid var(--ai-line);
-    border-radius: 6px;
-    background: var(--bg-base);
-  }
-
-  .diff-row strong {
-    font-size: 0.76rem;
-  }
-
-  pre {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 0.75rem;
-    line-height: 1.42;
-  }
-
-  .before {
-    color: #cc5964;
-  }
-
-  .after {
-    color: #2f9b73;
-  }
-
   @media (max-width: 1180px) {
     .ai-surface {
       grid-template-columns: 200px minmax(0, 1fr);
       grid-template-rows: minmax(0, 1fr) minmax(260px, 40vh);
     }
 
-    .ai-inspector {
-      grid-column: 1 / -1;
-      grid-row: 2;
-      grid-template-columns: 260px 1fr;
-      grid-template-rows: minmax(0, 1fr);
-      border-top: 1px solid var(--ai-line);
-      border-left: 0;
-    }
-
-    .review-list {
-      grid-column: 2;
-      grid-row: 1;
-    }
   }
 
   @media (max-width: 860px) {
@@ -1895,8 +1449,7 @@
     }
 
     .ai-header,
-    .ai-compose,
-    .ai-inspector {
+    .ai-compose {
       grid-template-columns: minmax(0, 1fr);
     }
 
@@ -1904,9 +1457,5 @@
       justify-content: flex-start;
     }
 
-    .review-list {
-      grid-column: auto;
-      grid-row: auto;
-    }
   }
 </style>

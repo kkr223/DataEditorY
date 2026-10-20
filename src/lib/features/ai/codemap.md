@@ -30,6 +30,14 @@ Builds AI context from current app state:
 
 Built-in skills live under `static/resources/ai-skills/` and restrict the tools available for a request.
 
+### State and Proposal Application
+
+- `types.ts` — shared AI thread, message, tool, proposal, patch and status DTOs. Services and pure helpers import these without depending on a Svelte workbench store.
+- `workspaceState.ts` — AI thread/message/tool/proposal operations over the shared metadata persistence module. Thread updates merge omitted fields and retain cumulative token usage.
+- `proposalApplication.ts` — serial proposal application, per-patch audit results, partial-failure status, and duplicate-submit guard. Captures metadata ownership and authorization mode at the start. Persistence failures propagate and always release the guard.
+- `scriptChanges.ts` — baseline comparison and a second read after conflict confirmation, injected through read/confirm/write operations so the flow is independently testable.
+- Workbench adapters connect these use cases to document host commands, live script buffers and image metadata. The proposal inspector only displays data and calls an apply callback.
+
 ## Integration
 
 - **Consumed by**: `modules/card/workbench/AiSurface.svelte`, `modules/ai/workbench/`
