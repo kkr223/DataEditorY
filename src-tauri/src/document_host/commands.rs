@@ -18,6 +18,10 @@ use super::{
     },
 };
 
+// CDB commands take std::sync::Mutex locks and perform disk I/O. They must run
+// on the command threadpool: blocking the UI thread while an async query owns a
+// session lock can prevent that query's IPC response from being delivered and
+// deadlock tab switching/closing.
 const CDB_PROVIDER_ID: &str = "cdb.provider";
 const CDB_CODEC_ID: &str = "cdb.codec";
 const CARD_COLLECTION_TYPE: &str = "ygo.card-collection";
