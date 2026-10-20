@@ -9,7 +9,7 @@ import type {
   WorkspaceAiProposal,
   WorkspaceAiToolRun,
 } from '$lib/features/ai/types';
-import { pathExists, readTextFile, resolveResourceFile, writeTextFile } from '$lib/native/assetApi';
+import { pathExists, readTextFile, writeTextFile } from '$lib/native/assetApi';
 import { tauriBridge } from '$lib/infrastructure/tauri';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 import { normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
@@ -168,17 +168,9 @@ async function readUserAiResource(kind: AiResourceKind, file: string) {
 
 async function readBundledAiResource(kind: AiResourceKind, file: string) {
   const safeFile = normalizeAiResourceFile(file);
-  if (tauriBridge.isTauri()) {
-    try {
-      return await readTextFile(await resolveResourceFile(`${kind}/${safeFile}`));
-    } catch {
-      // Fall through to the web-served resource for dev/web builds.
-    }
-  }
   try {
     const response = await fetch(`/resources/${kind}/${safeFile}`);
-    if (!response.ok) return null;
-    return await response.text();
+    return response.ok ? response.text() : null;
   } catch {
     return null;
   }
@@ -671,7 +663,6 @@ export async function loadAiSkillFiles(): Promise<string[]> {
 }
 
 async function resolveAiResourcePath(kind: AiResourceKind, file: string) {
-  if (!tauriBridge.isTauri()) return resolveResourceFile(`${kind}/${normalizeAiResourceFile(file)}`);
   return ensureUserAiResource(kind, file);
 }
 
