@@ -20,7 +20,7 @@
   .btn-sm {
     padding: 0.25rem 0.6rem;
     border-radius: var(--control-radius);
-    font-size: 0.84rem;
+    font-size: var(--text-sm);
     font-weight: 600;
   }
 

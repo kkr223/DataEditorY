@@ -2,6 +2,7 @@
 
 :root {
   --ui-scale: 1;
+  color-scheme: dark;
   /* Default theme: dark */
   --bg-base: #15191f;
   --bg-surface: #1f2630;
@@ -24,13 +25,22 @@
   --control-radius: var(--border-radius-sm);
   --control-radius-soft: var(--border-radius-md);
   --control-radius-pill: 999px;
+  --radius-card: calc(10px * var(--ui-scale));
+  --radius-panel: var(--border-radius-lg);
+  --radius-dialog: calc(16px * var(--ui-scale));
+  --radius-overlay: calc(18px * var(--ui-scale));
+  --control-height-sm: calc(28px * var(--ui-scale));
+  --control-height-md: calc(34px * var(--ui-scale));
   --focus-ring: 0 0 0 1px var(--accent-primary);
   --focus-ring-strong: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 35%, transparent);
   --shadow-popover: 0 14px 34px rgba(0, 0, 0, 0.24);
   --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.18);
-  --dialog-radius: calc(16px * var(--ui-scale));
+  --dialog-radius: var(--radius-dialog);
   --dialog-backdrop: rgba(2, 6, 23, 0.62);
   --dialog-shadow: 0 24px 60px rgba(2, 6, 23, 0.32);
+  --shadow-card: 0 6px 18px rgba(0, 0, 0, 0.14);
+  --transition-fast: 120ms ease;
+  --transition-base: 180ms ease;
   --interactive-hover-border: color-mix(in srgb, var(--border-color) 82%, transparent);
   --interactive-soft-bg: color-mix(in srgb, var(--bg-surface-hover) 84%, transparent);
   --interactive-soft-border: color-mix(in srgb, var(--border-color) 72%, transparent);
@@ -48,13 +58,31 @@
   --spacing-xl: calc(32px * var(--ui-scale));
   
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+  --text-2xs: 0.72rem;
+  --text-xs: 0.78rem;
+  --text-sm: 0.84rem;
+  --text-base: 0.92rem;
+  --text-md: 1rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.35rem;
+  --text-2xl: 1.6rem;
+  --text-on-accent: #ffffff;
+  --state-success-fg: #22c55e;
+  --state-success-bg: #16a34a;
+  --state-warning-fg: #f59e0b;
+  --state-warning-bg: #b45309;
+  --state-info-fg: #3b82f6;
+  --state-info-bg: #2563eb;
+  --focus-outline: 2px solid color-mix(in srgb, var(--accent-primary) 75%, white 25%);
+
   /* Attributes & Types standard colors (optional, for later use) */
   --color-monster: #C5A059;
   --color-spell: #1D9E74;
   --color-trap: #BC5A84;
   --feature-script-accent: #0ea5e9;
   --feature-image-accent: #f59e0b;
+  --feature-ai-accent: var(--accent-secondary);
   --state-danger-bg: #dc2626;
   --state-danger-bg-hover: #b91c1c;
   --state-danger-text: #ffffff;
@@ -82,6 +110,7 @@
 }
 
 [data-theme='light'] {
+  color-scheme: light;
   --bg-base: #f4f7fc;
   --bg-surface: #ffffff;
   --bg-surface-hover: #eef3fa;
@@ -94,7 +123,7 @@
 
   --accent-primary: #2563eb;
   --accent-primary-hover: #1d4ed8;
-  --accent-secondary: #0f766e;
+  --accent-secondary: #7c3aed;
   --border-color: #cbd7e8;
   --shadow-popover: 0 12px 28px rgba(37, 99, 235, 0.12);
   --shadow-soft: 0 8px 18px rgba(37, 99, 235, 0.08);
@@ -112,6 +141,15 @@
   --card-list-type-token: #b9770e;
   --card-list-type-spell: #1b8f57;
   --card-list-type-trap: #c04f83;
+  --state-success-fg: #15803d;
+  --state-success-bg: #15803d;
+  --state-warning-fg: #b45309;
+  --state-warning-bg: #b45309;
+  --state-info-fg: #2563eb;
+  --state-info-bg: #2563eb;
+  --feature-script-accent: #0369a1;
+  --feature-image-accent: #b45309;
+  --focus-outline: 2px solid color-mix(in srgb, var(--accent-primary) 85%, black 15%);
 }
 
 *, *::before, *::after {
@@ -148,7 +186,7 @@ html, body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--bg-surface-hover);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -158,7 +196,7 @@ html, body {
 /* Common form elements base style */
 input, select, textarea, button {
   font-family: inherit;
-  font-size: 0.92rem;
+  font-size: var(--text-base);
 }
 
 button {
@@ -172,13 +210,37 @@ input, select, textarea {
   background-color: var(--bg-base);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--control-radius);
   padding: var(--spacing-sm);
-  transition: border-color 0.2s;
+  transition: border-color var(--transition-fast);
 }
 
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent-primary);
+}
+
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible,
+summary:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent-primary) 34%, transparent);
+  color: var(--text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 

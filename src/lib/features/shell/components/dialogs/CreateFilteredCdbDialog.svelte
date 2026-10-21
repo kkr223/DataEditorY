@@ -89,14 +89,14 @@
 
   .shell-dialog-header h3 {
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--text-md);
   }
 
   .shell-dialog-header p,
   .shell-dialog-hint {
     margin: 4px 0 0;
     color: var(--text-secondary);
-    font-size: 0.84rem;
+    font-size: var(--text-sm);
   }
 
   .shell-dialog-body {
@@ -122,17 +122,17 @@
 
   .btn-sm {
     padding: 0.42rem 0.8rem;
-    font-size: 0.84rem;
+    font-size: var(--text-sm);
     font-weight: 700;
     border-radius: var(--control-radius-soft);
     border: none;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
   }
 
   .btn-primary {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
   }
 
   .btn-primary:hover:not(:disabled) {

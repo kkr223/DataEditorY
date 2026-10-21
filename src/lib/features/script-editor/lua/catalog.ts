@@ -345,49 +345,10 @@ function buildBuiltinSnippets(): LuaSnippetItem[] {
   ];
 }
 
-function parseCustomSnippets(text: string): LuaSnippetItem[] {
-  const raw = JSON.parse(text) as unknown;
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return [];
-  }
-
-  return Object.entries(raw).flatMap(([name, value], index) => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return [];
-    }
-
-    const prefix = typeof value.prefix === 'string' ? value.prefix.trim() : '';
-    if (!prefix) {
-      return [];
-    }
-
-    const body = Array.isArray(value.body)
-      ? value.body.map((line: unknown) => String(line))
-      : typeof value.body === 'string'
-        ? value.body.split(/\r?\n/)
-        : [];
-
-    if (body.length === 0) {
-      return [];
-    }
-
-    const description = typeof value.description === 'string' ? value.description.trim() : '';
-
-    return [{
-      name,
-      prefix,
-      body,
-      description: description || name,
-      sortText: `1${String(index + 1).padStart(3, '0')}`,
-    }];
-  });
-}
-
 function buildLuaCatalog(source: {
   constants: string;
   typedDefinitions: string;
   functions: string;
-  snippets: string;
 }): LuaCatalog {
   return {
     constants: parseConstants(source.constants),
@@ -395,10 +356,7 @@ function buildLuaCatalog(source: {
       parseTypedDefinitions(source.typedDefinitions),
       parseFunctions(source.functions),
     ),
-    snippets: [
-      ...parseCustomSnippets(source.snippets),
-      ...buildBuiltinSnippets(),
-    ],
+    snippets: buildBuiltinSnippets(),
     keywords: [...generatedLuaCatalog.keywords],
   };
 }
@@ -415,14 +373,13 @@ export async function loadExternalLuaCatalog() {
   }
 
   try {
-    const [constants, typedDefinitions, functions, snippets] = await Promise.all([
+    const [constants, typedDefinitions, functions] = await Promise.all([
       readLuaIntelResource('constant.lua'),
       readLuaIntelResource('def.lua'),
       readLuaIntelResource('_functions.txt'),
-      readLuaIntelResource('snippets.json'),
     ]);
 
-    return buildLuaCatalog({ constants, typedDefinitions, functions, snippets });
+    return buildLuaCatalog({ constants, typedDefinitions, functions });
   } catch (error) {
     console.warn('Failed to load external Lua intel resources, falling back to generated catalog.', error);
     return null;

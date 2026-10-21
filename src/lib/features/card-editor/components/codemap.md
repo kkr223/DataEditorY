@@ -6,6 +6,6 @@ Card Editor UI Components — Svelte components for the card editing form and re
 ## Components
 - `CardEditorForm.svelte` — main editing form with all card fields
 - `CardEditorHeader.svelte` — card name, code, and alias display
-- `CardEditorFooter.svelte` — action buttons row with workbench contribution slots
+- `CardEditorFooter.svelte` — action buttons row with workbench contribution slots; delete availability and label follow Explorer selection, independently of single-card draft editing state
 - `CardCategoryPopover.svelte` — category and OT field editor popover
 - `CardImagePreview.svelte` — card image thumbnail with click-to-enlarge

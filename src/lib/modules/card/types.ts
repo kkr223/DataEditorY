@@ -51,9 +51,19 @@ export type CardCollectionQuery =
   | { kind: 'all' };
 
 export type CardCollectionCommand =
-  | { kind: 'upsert'; cards: CardDataEntry[] }
+  | { kind: 'upsert'; cards: CardDataEntry[]; expectedCards?: Array<CardDataEntry | null> }
   | { kind: 'delete'; cardIds: number[] }
-  | { kind: 'replaceCardId'; card: CardDataEntry; originalCardId: number };
+  | { kind: 'replaceCardId'; card: CardDataEntry; originalCardId: number; removeOriginal?: boolean; expectedTarget?: CardDataEntry | null };
+
+export type CardIdChange = {
+  originalCardId: number;
+  newCardId: number;
+  removeOriginal: boolean;
+  cdbPath: string;
+  reversed?: boolean;
+};
+
+export type CardIdChangeResult = { cardIdChange?: CardIdChange };
 
 export type CardSearchPage = {
   cards: CardDataEntry[];

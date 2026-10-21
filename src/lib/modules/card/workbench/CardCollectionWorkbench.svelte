@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { Component } from 'svelte';
+  import { onDestroy } from 'svelte';
   import CardList from '$lib/components/CardList.svelte';
   import CardEditor from '$lib/components/CardEditor.svelte';
+  import WorkspaceMetadataStatus from './WorkspaceMetadataStatus.svelte';
   import { activeTab } from '$lib/stores/db';
   import {
     editorState,
@@ -45,7 +47,10 @@
     'script',
     ...extensionSurfaces.map(({ surfaceId }) => surfaceId),
   ]);
-  let appliedMetadataPath = '';
+  let appliedMetadataPath = $state('');
+  let appliedMetadataTabId = $state('');
+  let applyingMetadataTabId = '';
+  let metadataApplySequence = 0;
   let requestedMetadataPath = '';
   let hydratedTabId = '';
   let lastPersistedUiKey = '';
@@ -57,6 +62,16 @@
   let extensionSurfaceError = $state('');
   let extensionLoadSequence = 0;
   let scriptSurfacePromise: Promise<typeof import('./ScriptSurface.svelte')> | null = null;
+  let scriptOpenSequence = 0;
+  let scriptOpenRequest = $state<{ tabId: string; sequence: number } | null>(null);
+
+  function handleSurfaceSelected(surface: CardSurfaceId) {
+    scriptOpenRequest = surface === 'script' && $activeTab
+      ? { tabId: $activeTab.id, sequence: ++scriptOpenSequence }
+      : null;
+  }
+
+  onDestroy(() => { metadataApplySequence += 1; });
 
   function loadScriptSurface() {
     return scriptSurfacePromise ??= import('./ScriptSurface.svelte');
@@ -94,6 +109,11 @@
     if (nextTabId === hydratedTabId) return;
 
     hydratedTabId = nextTabId;
+    scriptOpenRequest = null;
+    metadataApplySequence += 1;
+    appliedMetadataPath = '';
+    appliedMetadataTabId = '';
+    applyingMetadataTabId = '';
     clearSearchError();
     if (!tab) {
       setAllCards([]);
@@ -118,7 +138,10 @@
     if (path === requestedMetadataPath) return;
 
     requestedMetadataPath = path;
+    metadataApplySequence += 1;
     appliedMetadataPath = '';
+    appliedMetadataTabId = '';
+    applyingMetadataTabId = '';
     lastPersistedUiKey = '';
     lastPersistedExplorerKey = '';
     loadWorkspaceMetadataForPath(path);
@@ -126,9 +149,18 @@
 
   $effect(() => {
     const path = workspaceMetadataState.cdbPath;
+    const tabId = $activeTab?.id ?? '';
     workspaceMetadataState.ready;
     workspaceMetadataState.metadata;
-    if (!path || !workspaceMetadataState.ready || appliedMetadataPath === path) return;
+    if (!path || !tabId || $activeTab?.path !== path || !workspaceMetadataState.ready
+      || applyingMetadataTabId === tabId || (appliedMetadataPath === path && appliedMetadataTabId === tabId)) return;
+    applyingMetadataTabId = tabId;
+    const sequence = metadataApplySequence;
+    const finishRestoration = () => {
+      if (sequence !== metadataApplySequence || $activeTab?.id !== tabId || workspaceMetadataState.cdbPath !== path) return;
+      appliedMetadataPath = path;
+      appliedMetadataTabId = tabId;
+    };
 
     const cardWorkspace = getCardWorkspaceUi();
     if (cardWorkspace) {
@@ -145,6 +177,7 @@
         cardSurfaceState.explorerPinned = cardWorkspace.explorerPinned;
       }
     }
+    if (scriptOpenRequest?.tabId === tabId) cardSurfaceState.activeSurface = 'script';
 
     const explorer = getCardExplorerState();
     if (explorer) {
@@ -157,10 +190,19 @@
         : 1;
       editorState.searchFilters = filters;
       editorState.currentPage = page;
-      void handleSearch(false, false).then((ok) => {
-        if (!ok || workspaceMetadataState.cdbPath !== path) return;
-        setSelectedCards(selectedIds, selectedId, anchorId);
-      });
+      void handleSearch(false, false)
+        .then((ok) => {
+          if (sequence !== metadataApplySequence || $activeTab?.id !== tabId || workspaceMetadataState.cdbPath !== path) return;
+          if (ok) setSelectedCards(selectedIds, selectedId, anchorId);
+        })
+        .catch((error) => {
+          console.error('Failed to restore the saved Card Explorer search:', error);
+        })
+        .finally(() => {
+          // Even a rejected search must release the restoration latch; otherwise
+          // script/image surfaces can stay disabled for this workspace.
+          finishRestoration();
+        });
       lastPersistedExplorerKey = JSON.stringify({
         filters,
         selectedIds,
@@ -168,9 +210,10 @@
         selectionAnchorId: anchorId,
         page,
       });
+    } else {
+      finishRestoration();
     }
 
-    appliedMetadataPath = path;
     lastPersistedUiKey = JSON.stringify({
       path,
       activeSurface: cardSurfaceState.activeSurface,
@@ -220,41 +263,59 @@
   });
 </script>
 
-<div
-  class="editor-layout"
-  class:focus-mode={focusMode}
-  class:explorer-pinned={cardSurfaceState.explorerPinned}
->
-  <div class="explorer-shell" class:pinned={cardSurfaceState.explorerPinned}>
-    <div class="explorer-panel">
-      <CardList />
+<div class="workbench-shell">
+  <WorkspaceMetadataStatus />
+  <div
+    class="editor-layout"
+    class:focus-mode={focusMode}
+    class:explorer-pinned={cardSurfaceState.explorerPinned}
+  >
+    <div class="explorer-shell" class:pinned={cardSurfaceState.explorerPinned}>
+      <div class="explorer-panel">
+        <CardList />
+      </div>
     </div>
-  </div>
 
-  <CardSurfaceRail />
+    <CardSurfaceRail onSelectSurface={handleSurfaceSelected} />
 
-  <div class="surface-host">
-    <div class="card-surface-pane" class:hidden={cardSurfaceState.activeSurface !== 'card'}>
-      <CardEditor />
+    <div class="surface-host">
+      <div class="card-surface-pane" class:hidden={cardSurfaceState.activeSurface !== 'card'}>
+        <CardEditor />
+      </div>
+      {#if cardSurfaceState.activeSurface === 'script'}
+        {#await loadScriptSurface() then module}
+          {@const ScriptSurface = module.default}
+          <ScriptSurface
+            openSelectedRequest={scriptOpenRequest?.tabId === $activeTab?.id ? scriptOpenRequest?.sequence ?? 0 : 0}
+            onOpenSelectedRequestHandled={() => { scriptOpenRequest = null; }}
+            selectionReady={appliedMetadataTabId === $activeTab?.id
+            && appliedMetadataPath === $activeTab?.path
+            && workspaceMetadataState.ready && workspaceMetadataState.cdbPath === $activeTab?.path} />
+        {/await}
+      {:else if extensionSurfaceError}
+        <div class="surface-error" role="alert">{extensionSurfaceError}</div>
+      {:else if loadedExtensionSurface?.id === cardSurfaceState.activeSurface
+        && (loadedExtensionSurface.id !== 'image' || (appliedMetadataTabId === $activeTab?.id
+          && appliedMetadataPath === $activeTab?.path && workspaceMetadataState.ready
+          && workspaceMetadataState.cdbPath === $activeTab?.path))}
+        {@const ExtensionSurface = loadedExtensionSurface.component}
+        <ExtensionSurface />
+      {/if}
     </div>
-    {#if cardSurfaceState.activeSurface === 'script'}
-      {#await loadScriptSurface() then module}
-        {@const ScriptSurface = module.default}
-        <ScriptSurface />
-      {/await}
-    {:else if extensionSurfaceError}
-      <div class="surface-error" role="alert">{extensionSurfaceError}</div>
-    {:else if loadedExtensionSurface?.id === cardSurfaceState.activeSurface}
-      {@const ExtensionSurface = loadedExtensionSurface.component}
-      <ExtensionSurface />
-    {/if}
   </div>
 </div>
 
 <style>
+  .workbench-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
   .editor-layout {
     display: flex;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
     background: var(--bg-base);
   }
@@ -328,7 +389,7 @@
     place-items: center;
     height: 100%;
     padding: 2rem;
-    color: var(--danger-text, #f87171);
+    color: var(--state-danger-fg);
     text-align: center;
   }
 </style>

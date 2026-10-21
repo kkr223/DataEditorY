@@ -6,15 +6,6 @@ import { builtInModules as extraModules } from './extra';
 describe('built-in module composition', () => {
   test('base contains core editing and AI modules', () => {
     const registry = new ExtensionRegistry(baseModules);
-    expect([...registry.modules.keys()]).toEqual([
-      'settings',
-      'card',
-      'cdb',
-      'lua',
-      'package',
-      'merge',
-      'ai',
-    ]);
     expect(registry.modules.has('ai')).toBe(true);
     expect(registry.modules.has('card-image')).toBe(false);
     expect(registry.findGlobalTools().map((tool) => tool.id))

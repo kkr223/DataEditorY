@@ -147,7 +147,10 @@ impl SearchCompiler {
     }
 
     fn compile_id_prefix(&mut self, value: &str) -> Result<String, String> {
-        if value.is_empty()
+        // Card IDs are positive, but alias 0 is used for most cards. A literal
+        // "0" prefix must therefore not expand into 0..999999999 ranges.
+        if value == "0"
+            || value.is_empty()
             || value.len() > MAX_ID_DIGITS
             || !value.bytes().all(|byte| byte.is_ascii_digit())
             || (value.len() > 1 && value.starts_with('0'))
@@ -294,6 +297,17 @@ mod tests {
         assert_eq!(compiled.params.get("q0"), Some(&json!("%A/%/_//B%")));
         assert_eq!(compiled.params.get("q1"), Some(&json!(1)));
         assert_eq!(compiled.params.get("q2"), Some(&json!(2)));
+    }
+
+    #[test]
+    fn zero_id_prefix_matches_nothing_instead_of_every_alias_zero() {
+        let compiled = compile_search(&CardSearchExpression::IdPrefix {
+            value: "0".to_string(),
+        })
+        .expect("zero prefix should compile");
+
+        assert_eq!(compiled.clause, "1=0");
+        assert!(compiled.params.is_empty());
     }
 
     #[test]

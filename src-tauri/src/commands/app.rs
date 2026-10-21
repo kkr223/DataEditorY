@@ -2,7 +2,7 @@ use tauri::AppHandle;
 
 use crate::{services, AppendErrorLogRequest, PendingOpenCdbPaths};
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn append_error_log(
     app: AppHandle,
     request: AppendErrorLogRequest,

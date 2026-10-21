@@ -1,5 +1,5 @@
 import type { CardDataEntry } from '$lib/types';
-import type { WorkspaceAiContextRef } from './workspaceMetadataState.svelte';
+import type { WorkspaceAiContextRef } from '$lib/features/ai/types';
 
 export type CardMentionToken = {
   start: number;

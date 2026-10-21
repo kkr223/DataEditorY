@@ -23,10 +23,20 @@ Builds AI context from current app state:
 - Open database summaries
 - Script and image config readers
 - Configured script directory for script lookup and helper loading
+- Request ownership pins the active CDB and selection; open script buffers take precedence over disk reads
+- `scriptBaseline.ts` stores only file existence and a SHA-256 digest in script proposals. Apply checks this baseline and asks for confirmation if the script changed or an older proposal has no baseline.
 
 ### Skills
 
-Built-in skills live under `static/resources/ai-skills/` and restrict the tools available for a request.
+Built-in skills live under `static/resources/ai-skills/` and restrict the tools available for a request. Editing or adding a skill copies it into `<app config>/ai-resources/ai-skills/`, tracked by `user-manifest.json`; the user copy overrides the bundled file at runtime. Prompts use the same mechanism under `ai-prompts/`.
+
+### State and Proposal Application
+
+- `types.ts` — shared AI thread, message, tool, proposal, patch and status DTOs. Services and pure helpers import these without depending on a Svelte workbench store.
+- `workspaceState.ts` — AI thread/message/tool/proposal operations over the shared metadata persistence module. Thread updates merge omitted fields and retain cumulative token usage.
+- `proposalApplication.ts` — serial proposal application, per-patch audit results, partial-failure status, and duplicate-submit guard. Captures metadata ownership and authorization mode at the start. Persistence failures propagate and always release the guard.
+- `scriptChanges.ts` — baseline comparison and a second read after conflict confirmation, injected through read/confirm/write operations so the flow is independently testable.
+- Workbench adapters connect these use cases to document host commands, live script buffers and image metadata. The proposal inspector only displays data and calls an apply callback.
 
 ## Integration
 

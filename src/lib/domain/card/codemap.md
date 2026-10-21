@@ -40,6 +40,8 @@ Validates card drafts before committing them to the CDB working copy. Severe err
 
 Pure helpers for CDB batch edit previews and apply semantics. Operation groups are ordered, card groups are resolved to snapshots before execution, and empty values normalize through field-specific rules.
 
+`batchInput.ts` parses editable field input strictly (including hexadecimal setcodes and unknown ATK/DEF), rejects invalid values, and formats before/after preview values. Batch operations normalize packed level/scales and shared alias/rule-code storage through the existing draft helpers.
+
 ## Files
 
 | File | Purpose |
@@ -49,6 +51,7 @@ Pure helpers for CDB batch edit previews and apply semantics. Operation groups a
 | `draft.ts` | Card draft creation, cloning, and equivalence checking |
 | `validation.ts` | Draft validation errors and warnings |
 | `batchOperations.ts` | Batch field edit operation normalization and preview helpers |
+| `batchInput.ts` | Strict batch field parsing and preview value formatting |
 
 ## Integration
 

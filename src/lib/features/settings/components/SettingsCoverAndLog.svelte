@@ -42,7 +42,7 @@
   .sp-card {
     background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--radius-card);
     padding: 12px 14px;
     display: flex;
     flex-direction: column;
@@ -51,13 +51,13 @@
   }
   .sp-card-head h3 {
     margin: 0;
-    font-size: 0.88rem;
+    font-size: var(--text-base);
     font-weight: 700;
     color: var(--text-primary);
   }
   .sp-card-head p {
     margin: 2px 0 0;
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     line-height: 1.4;
   }
@@ -76,9 +76,9 @@
     width: 90px;
     aspect-ratio: 0.69;
     object-fit: cover;
-    border-radius: 6px;
-    background: #111827;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    border-radius: var(--control-radius-soft);
+    background: var(--bg-base);
+    box-shadow: var(--shadow-card);
     flex-shrink: 0;
   }
   .sp-cover-body {
@@ -93,11 +93,11 @@
     justify-content: space-between;
   }
   .sp-log-path {
-    font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
-    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
     line-height: 1.45;
     padding: 6px 8px;
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     background: var(--bg-base);
     border: 1px solid var(--border-color);
     color: var(--text-secondary);
@@ -112,9 +112,9 @@
   }
   .sp-btn {
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     padding: 5px 10px;
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     font-weight: 600;
     cursor: pointer;
     background: var(--bg-surface-active);

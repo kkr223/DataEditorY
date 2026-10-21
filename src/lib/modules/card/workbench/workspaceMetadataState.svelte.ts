@@ -1,136 +1,17 @@
 import type { CardImageConfigDocument } from '$lib/features/card-image/layout';
-import type { SearchFilters } from '$lib/types';
-import {
-  loadWorkspaceMetadata,
-  saveWorkspaceMetadata,
-  type WorkspaceMetadata,
-} from '$lib/native/metadataApi';
-import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+import { DEFAULT_SEARCH_FILTERS, type SearchFilters } from '$lib/types';
+import { loadWorkspaceMetadata, type WorkspaceMetadata } from '$lib/native/metadataApi';
+import { isCurrentMetadataPath, workspaceMetadataState, updateWorkspaceMetadata, updateWorkspaceMetadataForPath } from '$lib/features/workspace-metadata/state.svelte';
 
-const METADATA_SAVE_DELAY_MS = 700;
-
-export const workspaceMetadataState = $state({
-  cdbPath: '',
-  metadata: null as WorkspaceMetadata | null,
-  ready: false,
-});
-
-const isCurrentMetadataPath = (path: string) => (
-  workspaceMetadataState.ready
-  && getCdbPathIdentity(workspaceMetadataState.cdbPath) === getCdbPathIdentity(path)
-);
-
-export type WorkspaceAiMessage = {
-  id: string;
-  role: 'user' | 'assistant' | 'system' | 'event';
-  content: string;
-  createdAt: number;
-  model?: string;
-};
-
-export type WorkspaceAiContextRef = {
-  type: 'cdb' | 'card' | 'selection' | 'script' | 'image';
-  label: string;
-  value?: unknown;
-};
-
-export type WorkspaceAiToolRun = {
-  id: string;
-  name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  input?: unknown;
-  outputSummary?: string;
-  keyIds?: Array<string | number>;
-  createdAt: number;
-};
-
-export type WorkspaceAiPatch =
-  | {
-      id: string;
-      kind: 'card';
-      documentId: string;
-      cdbPath: string;
-      cardCode: number;
-      before: unknown;
-      patch: unknown;
-      after: unknown;
-    }
-  | {
-      id: string;
-      kind: 'batch-card';
-      documentId: string;
-      cdbPath: string;
-      summary: unknown;
-      cards: Array<{
-        cardCode: number;
-        before: unknown;
-        patch: unknown;
-        after: unknown;
-      }>;
-    }
-  | {
-      id: string;
-      kind: 'script';
-      documentId: string;
-      cdbPath: string;
-      cardCode?: number;
-      path: string;
-      content: string;
-    }
-  | {
-      id: string;
-      kind: 'script-test-plan';
-      documentId: string;
-      cdbPath: string;
-      cardCode: number;
-      path: string;
-      plan: unknown;
-    }
-  | {
-      id: string;
-      kind: 'image';
-      documentId: string;
-      cdbPath: string;
-      cardCode: number;
-      patch: unknown;
-    };
-
-export type WorkspaceAiProposal = {
-  id: string;
-  threadId: string;
-  title: string;
-  summary: string;
-  patches: WorkspaceAiPatch[];
-  toolRuns: WorkspaceAiToolRun[];
-  model?: string;
-  createdAt: number;
-  status?: 'pending' | 'applied' | 'dismissed' | 'partially_applied' | 'failed';
-  appliedAt?: number;
-  applyLog?: Array<{
-    patchId: string;
-    ok: boolean;
-    message: string;
-    usedFullAccess: boolean;
-    createdAt: number;
-  }>;
-};
-
-export type WorkspaceAiThread = {
-  id: string;
-  title: string;
-  scope: 'workspace' | 'cdb' | 'task';
-  messages: WorkspaceAiMessage[];
-  contextRefs: WorkspaceAiContextRef[];
-  toolRuns: WorkspaceAiToolRun[];
-  proposalIds: string[];
-  createdAt: number;
-  updatedAt: number;
-  tokenUsage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-};
+// Compatibility exports keep existing workbench consumers on the same state instance.
+export { workspaceMetadataState, updateWorkspaceMetadata, captureWorkspaceMetadataScope,
+  loadWorkspaceMetadataForPath, copyWorkspaceMetadataForSaveAs, flushAllWorkspaceMetadataSaves,
+} from '$lib/features/workspace-metadata/state.svelte';
+export type * from '$lib/features/ai/types';
+export { getAiThreads, getActiveAiThread, getAiProposals, getAiProposalsForThread,
+  upsertAiThread, deleteAiThread, accumulateAiThreadTokenUsage, resetAiThreadTokenUsage,
+  appendAiMessage, compactAiThreadMessages, upsertAiToolRun, addAiProposal, updateAiProposalStatus,
+} from '$lib/features/ai/workspaceState';
 
 export type WorkspaceCardGroup = {
   id: string;
@@ -166,127 +47,6 @@ export type WorkspaceTaskHistoryRecord = {
   summary?: Record<string, unknown>;
   createdAt: number;
 };
-
-let loadSequence = 0;
-const pendingSaves = new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => Promise<WorkspaceMetadata> }>();
-const inflightSaves = new Map<string, Promise<WorkspaceMetadata>>();
-
-function cancelScheduledMetadataSave(path: string) {
-  const key = getCdbPathIdentity(path);
-  const pending = pendingSaves.get(key);
-  if (!pending) return;
-  clearTimeout(pending.timer);
-  pendingSaves.delete(key);
-}
-
-function saveMetadataInOrder(path: string, metadata: WorkspaceMetadata, sourcePath?: string) {
-  const key = getCdbPathIdentity(path);
-  const previous = inflightSaves.get(key);
-  const saving = (previous ? previous.catch(() => undefined) : Promise.resolve())
-    .then(() => saveWorkspaceMetadata(path, metadata, sourcePath));
-  inflightSaves.set(key, saving);
-  const cleanup = () => {
-    if (inflightSaves.get(key) === saving) inflightSaves.delete(key);
-  };
-  void saving.then(cleanup, cleanup);
-  return saving;
-}
-
-async function flushMetadataSave(path: string) {
-  const key = getCdbPathIdentity(path);
-  const pending = pendingSaves.get(key);
-  if (pending) {
-    cancelScheduledMetadataSave(path);
-    await pending.run();
-  } else {
-    await inflightSaves.get(key);
-  }
-}
-
-function scheduleMetadataSave() {
-  const path = workspaceMetadataState.cdbPath;
-  const metadata = workspaceMetadataState.metadata;
-  if (!path || !metadata || !workspaceMetadataState.ready) return;
-
-  cancelScheduledMetadataSave(path);
-  const sequence = loadSequence;
-  const run = () => saveMetadataInOrder(path, metadata)
-    .then((saved) => {
-      if (sequence === loadSequence && workspaceMetadataState.metadata === metadata) {
-        workspaceMetadataState.metadata = saved;
-      }
-      return saved;
-    });
-  const timer = setTimeout(() => {
-    pendingSaves.delete(getCdbPathIdentity(path));
-    void run().catch((error) => console.error('Failed to save workspace metadata', error));
-  }, METADATA_SAVE_DELAY_MS);
-  pendingSaves.set(getCdbPathIdentity(path), { timer, run });
-}
-
-export function loadWorkspaceMetadataForPath(path: string) {
-  const normalizedPath = path.trim();
-  const sequence = ++loadSequence;
-  workspaceMetadataState.cdbPath = normalizedPath;
-  workspaceMetadataState.metadata = null;
-  workspaceMetadataState.ready = false;
-
-  if (!normalizedPath) return;
-
-  void flushMetadataSave(normalizedPath)
-    .then(() => loadWorkspaceMetadata(normalizedPath))
-    .then((metadata) => {
-      if (sequence !== loadSequence) return;
-      workspaceMetadataState.metadata = metadata;
-      workspaceMetadataState.ready = true;
-    })
-    .catch((error) => {
-      if (sequence !== loadSequence) return;
-      console.error('Failed to load workspace metadata', error);
-      workspaceMetadataState.metadata = { version: 1, cdbPath: normalizedPath };
-      workspaceMetadataState.ready = true;
-    });
-}
-
-export async function copyWorkspaceMetadataForSaveAs(sourcePath: string, destinationPath: string) {
-  const source = sourcePath.trim();
-  const destination = destinationPath.trim();
-  if (!source || !destination || source === destination) return;
-
-  await flushMetadataSave(source);
-
-  const hasLoadedSource = workspaceMetadataState.ready
-    && workspaceMetadataState.cdbPath === source
-    && workspaceMetadataState.metadata;
-  const metadata = hasLoadedSource
-    ? workspaceMetadataState.metadata as WorkspaceMetadata
-    : await loadWorkspaceMetadata(source);
-
-  if (hasLoadedSource) {
-    cancelScheduledMetadataSave(source);
-    const savedSource = await saveMetadataInOrder(source, metadata);
-    if (workspaceMetadataState.cdbPath === source && workspaceMetadataState.metadata === metadata) {
-      workspaceMetadataState.metadata = savedSource;
-    }
-  }
-
-  await flushMetadataSave(destination);
-  await saveMetadataInOrder(destination, {
-    ...metadata,
-    cdbPath: destination,
-  }, source);
-}
-
-export function updateWorkspaceMetadata(
-  mutate: (metadata: WorkspaceMetadata) => WorkspaceMetadata,
-) {
-  const path = workspaceMetadataState.cdbPath;
-  if (!path || !workspaceMetadataState.ready) return;
-
-  const base = workspaceMetadataState.metadata ?? { version: 1, cdbPath: path };
-  workspaceMetadataState.metadata = mutate(base);
-  scheduleMetadataSave();
-}
 
 export function getCardWorkspaceUi() {
   const ui = workspaceMetadataState.metadata?.ui;
@@ -332,14 +92,40 @@ export function setCardShowcaseOutputDir(outputDir: string) {
   }));
 }
 
-export function getCardExplorerState() {
+function normalizeExplorerFilters(value: unknown): Partial<SearchFilters> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const source = value as Record<string, unknown>;
+  const filters: Partial<SearchFilters> = {};
+  for (const key of Object.keys(DEFAULT_SEARCH_FILTERS) as Array<keyof SearchFilters>) {
+    if (typeof source[key] === 'string') filters[key] = source[key] as string;
+  }
+  return filters;
+}
+
+function normalizeOptionalCardId(value: unknown): number | null {
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
+export function getCardExplorerState(): WorkspaceCardExplorerState | null {
   const ui = workspaceMetadataState.metadata?.ui;
   const explorer = ui && typeof ui === 'object'
     ? ui.cardExplorer
     : null;
-  return explorer && typeof explorer === 'object'
-    ? explorer as WorkspaceCardExplorerState
-    : null;
+  if (!explorer || typeof explorer !== 'object' || Array.isArray(explorer)) return null;
+
+  const record = explorer as Record<string, unknown>;
+  return {
+    filters: normalizeExplorerFilters(record.filters),
+    selectedIds: normalizeCardIds(
+      Array.isArray(record.selectedIds)
+        ? record.selectedIds.filter((id): id is number => Number.isInteger(id) && id > 0)
+        : [],
+    ),
+    selectedId: normalizeOptionalCardId(record.selectedId),
+    selectionAnchorId: normalizeOptionalCardId(record.selectionAnchorId),
+    page: Number.isInteger(record.page) && Number(record.page) > 0 ? Number(record.page) : 1,
+  };
 }
 
 export function setCardExplorerState(input: WorkspaceCardExplorerState) {
@@ -446,13 +232,9 @@ export async function setCardImageDocumentForPath(
 ) {
   const path = cdbPath.trim();
   if (!path) return;
-  if (isCurrentMetadataPath(path)) {
-    setCardImageDocument(cardCode, document);
-    return;
-  }
-  await flushMetadataSave(path);
-  const metadata = await loadWorkspaceMetadata(path);
-  await saveMetadataInOrder(path, setCardImageDocumentInMetadata(metadata, cardCode, document));
+  await updateWorkspaceMetadataForPath(path, (metadata) => (
+    setCardImageDocumentInMetadata(metadata, cardCode, document)
+  ));
 }
 
 function createId(prefix: string) {
@@ -554,291 +336,6 @@ export function removeCardsFromGroup(groupId: string, cardIds: number[]) {
   }));
 }
 
-function readAiState(metadata: WorkspaceMetadata | null) {
-  const ai = metadata?.ai && typeof metadata.ai === 'object' ? metadata.ai : {};
-  const threads = Array.isArray(ai.threads)
-    ? (ai.threads as WorkspaceAiThread[]).map((thread) => ({
-        ...thread,
-        messages: Array.isArray(thread.messages) ? thread.messages : [],
-        contextRefs: Array.isArray(thread.contextRefs) ? thread.contextRefs : [],
-        toolRuns: Array.isArray(thread.toolRuns) ? thread.toolRuns : [],
-        proposalIds: Array.isArray(thread.proposalIds) ? thread.proposalIds : [],
-      }))
-    : [];
-  const proposals = Array.isArray(ai.proposals) ? ai.proposals as WorkspaceAiProposal[] : [];
-  const activeThreadId = typeof ai.activeThreadId === 'string' ? ai.activeThreadId : threads[0]?.id ?? null;
-  return { ai, threads, proposals, activeThreadId };
-}
-
-export function getAiThreads() {
-  return readAiState(workspaceMetadataState.metadata).threads;
-}
-
-export function getActiveAiThread() {
-  const { threads, activeThreadId } = readAiState(workspaceMetadataState.metadata);
-  return threads.find((thread) => thread.id === activeThreadId) ?? threads[0] ?? null;
-}
-
-export function getAiProposals() {
-  return readAiState(workspaceMetadataState.metadata).proposals;
-}
-
-export function getAiProposalsForThread(threadId: string) {
-  return getAiProposals().filter((proposal) => proposal.threadId === threadId);
-}
-
-export function upsertAiThread(input: Partial<WorkspaceAiThread> & {
-  title: string;
-  contextRefs?: WorkspaceAiContextRef[];
-}) {
-  const now = Date.now();
-  const thread: WorkspaceAiThread = {
-    id: input.id ?? createId('ai-thread'),
-    title: input.title,
-    scope: input.scope ?? 'cdb',
-    messages: input.messages ?? [],
-    contextRefs: input.contextRefs ?? [],
-    toolRuns: input.toolRuns ?? [],
-    proposalIds: input.proposalIds ?? [],
-    createdAt: input.createdAt ?? now,
-    updatedAt: now,
-  };
-
-  updateWorkspaceMetadata((metadata) => {
-    const { ai, threads } = readAiState(metadata);
-    const exists = threads.some((item) => item.id === thread.id);
-    return {
-      ...metadata,
-      ai: {
-        ...ai,
-        activeThreadId: thread.id,
-        threads: exists
-          ? threads.map((item) => (item.id === thread.id ? thread : item))
-          : [thread, ...threads],
-      },
-    };
-  });
-
-  return thread;
-}
-
-export function deleteAiThread(threadId: string) {
-  updateWorkspaceMetadata((metadata) => {
-    const { ai, threads, proposals } = readAiState(metadata);
-    const nextThreads = threads.filter((thread) => thread.id !== threadId);
-    return {
-      ...metadata,
-      ai: {
-        ...ai,
-        activeThreadId: nextThreads[0]?.id ?? null,
-        threads: nextThreads,
-        proposals: proposals.filter((proposal) => proposal.threadId !== threadId),
-      },
-    };
-  });
-}
-
-export function accumulateAiThreadTokenUsage(input: {
-  threadId: string;
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}) {
-  updateWorkspaceMetadata((metadata) => {
-    const { ai, threads } = readAiState(metadata);
-    return {
-      ...metadata,
-      ai: {
-        ...ai,
-        threads: threads.map((thread) => {
-          if (thread.id !== input.threadId) return thread;
-          const prev = thread.tokenUsage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
-          return {
-            ...thread,
-            tokenUsage: {
-              promptTokens: prev.promptTokens + input.promptTokens,
-              completionTokens: prev.completionTokens + input.completionTokens,
-              totalTokens: prev.totalTokens + input.totalTokens,
-            },
-            updatedAt: Date.now(),
-          };
-        }),
-      },
-    };
-  });
-}
-
-export function resetAiThreadTokenUsage(threadId: string) {
-  updateWorkspaceMetadata((metadata) => {
-    const { ai, threads } = readAiState(metadata);
-    return {
-      ...metadata,
-      ai: {
-        ...ai,
-        threads: threads.map((thread) => thread.id !== threadId ? thread : {
-          ...thread,
-          tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-          updatedAt: Date.now(),
-        }),
-      },
-    };
-  });
-}
-
-export function appendAiMessage(input: {
-  threadId: string;
-  role: WorkspaceAiMessage['role'];
-  content: string;
-  contextRefs?: WorkspaceAiContextRef[];
-  model?: string;
-}) {
-  const content = input.content.trim();
-  if (!content) return;
-
-  const now = Date.now();
-  const message: WorkspaceAiMessage = {
-    id: createId('ai-message'),
-    role: input.role,
-    content,
-    createdAt: now,
-    model: input.model,
-  };
-
-  updateWorkspaceMetadata((metadata) => {
-    const { ai, threads } = readAiState(metadata);
-    return {
-      ...metadata,
-      ai: {
-        ...ai,
-        activeThreadId: input.threadId,
-        threads: threads.map((thread) => thread.id === input.threadId
-          ? {
-              ...thread,
-              messages: [...thread.messages, message],
-              contextRefs: input.contextRefs ?? thread.contextRefs,
-              updatedAt: now,
-            }
-          : thread),
-      },
-    };
-  });
-}
-
-export function compactAiThreadMessages(input: {
-  threadId: string;
-  summary: string;
-  keepLast: number;
-  model?: string;
-}) {
-  const summary = input.summary.trim();
-  if (!summary) return;
-
-  const now = Date.now();
-  const keepLast = Math.max(1, Math.floor(input.keepLast));
-  const compactedMessage: WorkspaceAiMessage = {
-    id: createId('ai-message'),
-    role: 'system',
-    content: summary,
-    createdAt: now,
-    model: input.model,
-  };
-
-  updateWorkspaceMetadata((metadata) => {
-    const { ai, threads } = readAiState(metadata);
-    return {
-      ...metadata,
-      ai: {
-        ...ai,
-        activeThreadId: input.threadId,
-        threads: threads.map((thread) => {
-          if (thread.id !== input.threadId || thread.messages.length <= keepLast + 1) return thread;
-          return {
-            ...thread,
-            messages: [compactedMessage, ...thread.messages.slice(-keepLast)],
-            updatedAt: now,
-          };
-        }),
-      },
-    };
-  });
-}
-
-export function upsertAiToolRun(input: WorkspaceAiToolRun & { threadId: string }) {
-  updateWorkspaceMetadata((metadata) => {
-    const { ai, threads } = readAiState(metadata);
-    return {
-      ...metadata,
-      ai: {
-        ...ai,
-        activeThreadId: input.threadId,
-        threads: threads.map((thread) => thread.id === input.threadId
-          ? {
-              ...thread,
-              toolRuns: thread.toolRuns.some((tool) => tool.id === input.id)
-                ? thread.toolRuns.map((tool) => (tool.id === input.id ? input : tool))
-                : [...thread.toolRuns, input],
-              updatedAt: Date.now(),
-            }
-          : thread),
-      },
-    };
-  });
-}
-
-export function addAiProposal(input: WorkspaceAiProposal) {
-  updateWorkspaceMetadata((metadata) => {
-    const { ai, threads, proposals } = readAiState(metadata);
-    return {
-      ...metadata,
-      ai: {
-        ...ai,
-        activeThreadId: input.threadId,
-        proposals: [input, ...proposals.filter((proposal) => proposal.id !== input.id)],
-        threads: threads.map((thread) => thread.id === input.threadId
-          ? {
-              ...thread,
-              proposalIds: [input.id, ...thread.proposalIds.filter((id) => id !== input.id)],
-              updatedAt: Date.now(),
-            }
-          : thread),
-      },
-    };
-  });
-}
-
-export function updateAiProposalStatus(input: {
-  threadId: string;
-  proposalId: string;
-  status: WorkspaceAiProposal['status'];
-  applyLog?: WorkspaceAiProposal['applyLog'];
-}) {
-  updateWorkspaceMetadata((metadata) => {
-    const { ai, threads, proposals } = readAiState(metadata);
-    const now = Date.now();
-    return {
-      ...metadata,
-      ai: {
-        ...ai,
-        activeThreadId: input.threadId,
-        proposals: proposals.map((proposal) => proposal.id === input.proposalId
-          ? {
-              ...proposal,
-              status: input.status,
-              appliedAt: input.status === 'applied' || input.status === 'partially_applied' ? now : proposal.appliedAt,
-              applyLog: input.applyLog ?? proposal.applyLog,
-            }
-          : proposal),
-        threads: threads.map((thread) => thread.id === input.threadId
-          ? {
-              ...thread,
-              updatedAt: now,
-            }
-          : thread),
-      },
-    };
-  });
-}
-
 export function appendWorkspaceTaskHistory(input: {
   kind: string;
   label: string;
@@ -876,19 +373,6 @@ export async function appendWorkspaceTaskHistoryForPath(
 ) {
   const path = cdbPath.trim();
   if (!path) return;
-  if (workspaceMetadataState.ready && workspaceMetadataState.cdbPath === path) {
-    appendWorkspaceTaskHistory(input);
-    return;
-  }
-
-  await flushMetadataSave(path);
-  const metadata = await loadWorkspaceMetadata(path);
-  const tasks = metadata.tasks && typeof metadata.tasks === 'object'
-    ? metadata.tasks
-    : {};
-  const recent = Array.isArray(tasks.recent)
-    ? tasks.recent as WorkspaceTaskHistoryRecord[]
-    : [];
   const record: WorkspaceTaskHistoryRecord = {
     id: createId('task'),
     kind: input.kind,
@@ -897,11 +381,12 @@ export async function appendWorkspaceTaskHistoryForPath(
     createdAt: Date.now(),
   };
 
-  await saveMetadataInOrder(path, {
-    ...metadata,
-    tasks: {
-      ...tasks,
-      recent: [record, ...recent].slice(0, 50),
-    },
+  await updateWorkspaceMetadataForPath(path, (metadata) => {
+    const tasks = metadata.tasks ?? {};
+    const recent = Array.isArray(tasks.recent) ? tasks.recent as WorkspaceTaskHistoryRecord[] : [];
+    return {
+      ...metadata,
+      tasks: { ...tasks, recent: [record, ...recent].slice(0, 50) },
+    };
   });
 }

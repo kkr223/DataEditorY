@@ -5,6 +5,7 @@
     activeTextTab,
     getActiveTextTab,
     getTextTabLanguage,
+    reloadTextTab,
     saveTextTab,
     saveTextTabAs,
     setTextTabViewState,
@@ -14,9 +15,8 @@
   import { attachFontZoomActions } from '$lib/features/script-editor/runtime';
   import {
     setWorkspaceLifecycleMetadata,
-    setWorkspaceSaveHandler,
-    clearWorkspaceSaveHandler,
   } from '$lib/application/workspace/lifecycle';
+  import { registerTextTabModel } from '$lib/features/script-editor/monaco/textModels';
   import { buildCallHighlightDecorations } from '$lib/features/script-editor/controller';
   import { collectLuaInlineHighlights } from '$lib/features/script-editor/lua/calls';
   import type { editor as MonacoEditor } from 'monaco-editor';
@@ -114,10 +114,11 @@
 
     if (!model) {
       model = monacoApi.editor.createModel(tab.content, language, uri);
+      registerTextTabModel(tab.id, model, monacoModule.clearModelContext);
     } else if (isSwitchingTab) {
       isApplyingModel = true;
-      model.setValue(tab.content);
-      monacoApi.editor.setModelLanguage(model, language);
+      if (model.getValue() !== tab.content) model.setValue(tab.content);
+      if (model.getLanguageId() !== language) monacoApi.editor.setModelLanguage(model, language);
       isApplyingModel = false;
     }
 
@@ -149,21 +150,12 @@
 
   function syncLifecycleMetadata() {
     const tab = $activeTextTab;
-    if (!tab) {
-      if (currentBoundTabId) {
-        clearWorkspaceSaveHandler(currentBoundTabId);
-      }
-      return;
-    }
+    if (!tab) return;
     setWorkspaceLifecycleMetadata(tab.id, {
       dirty: tab.isDirty,
       status: 'ready',
       savePolicy: 'manual',
       closeGuard: 'confirm-dirty',
-    });
-    setWorkspaceSaveHandler(tab.id, async (destinationPath?: string) => {
-      if (destinationPath) return saveTextTab(tab.id, destinationPath);
-      return saveTextTab(tab.id);
     });
   }
 
@@ -187,17 +179,10 @@
 
   async function handleReload() {
     const tab = getActiveTextTab();
-    if (!tab || !editorInstance || !monacoApi) return;
-    const { readTextFile } = await import('$lib/native/assetApi');
+    if (!tab) return;
     try {
-      const content = (await readTextFile(tab.path)).replaceAll('\r\n', '\n');
-      const model = editorInstance.getModel();
-      if (model) {
-        isApplyingModel = true;
-        model.setValue(content);
-        isApplyingModel = false;
-      }
-      updateTextTabContent(tab.id, content);
+      const reloaded = await reloadTextTab(tab.id);
+      if (!reloaded || !isMonacoReady || getActiveTextTab()?.id !== tab.id) return;
       if (getTextTabLanguage(tab) === 'lua') scheduleLuaValidation();
       showToast('Reloaded', 'success');
     } catch (error) {
@@ -220,6 +205,7 @@
     monacoApi = loadedMonaco;
 
     editorInstance = loadedMonaco.editor.create(editorHost, {
+      model: null,
       automaticLayout: true,
       contextmenu: true,
       minimap: { enabled: true },
@@ -276,11 +262,11 @@
   });
 
   onDestroy(() => {
+    isMonacoReady = false;
     if (editorInstance && currentBoundTabId) {
       const model = editorInstance.getModel();
       if (model) setTextTabViewState(currentBoundTabId, editorInstance.saveViewState());
     }
-    if (currentBoundTabId) clearWorkspaceSaveHandler(currentBoundTabId);
     clearTimeout(validateTimer ?? undefined);
     validateTimer = null;
     themeObserver?.disconnect();
@@ -406,12 +392,12 @@
 
   .text-btn.primary {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
     border-color: var(--accent-primary);
   }
 
   .text-btn.primary:hover:not(:disabled) {
-    color: white;
+    color: var(--text-on-accent);
     filter: brightness(1.08);
   }
 
@@ -419,8 +405,8 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border: 0;
+    border-radius: 0;
     background: #121714;
   }
 
@@ -507,8 +493,8 @@
   }
 
   .text-editor :global(.suggest-widget .monaco-list-row.focused) {
-    background: #50675b !important;
-    color: #f2fbf5 !important;
+    background: var(--bg-surface-active) !important;
+    color: var(--text-primary) !important;
   }
 
   .text-editor :global(.suggest-widget .monaco-list-row.focused .label-name),
@@ -519,8 +505,8 @@
   }
 
   .text-editor :global(.suggest-widget .monaco-list-row:hover) {
-    background: rgba(80, 103, 91, 0.24) !important;
-    color: #eef7f1 !important;
+    background: rgba(55, 67, 84, 0.24) !important;
+    color: var(--text-primary) !important;
   }
 
   .text-editor :global(.suggest-widget .monaco-list-row:hover .label-name),
@@ -550,8 +536,8 @@
   }
 
   :global([data-theme='light']) .text-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(97, 141, 106, 0.22) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(97, 141, 106, 0.14) !important;
+    --vscode-editor-selectionBackground: rgba(79, 142, 98, 0.22) !important;
+    --vscode-editor-inactiveSelectionBackground: rgba(79, 142, 98, 0.14) !important;
     --vscode-editor-lineHighlightBackground: rgba(74, 133, 91, 0.1) !important;
     --vscode-editorError-background: rgba(198, 128, 117, 0.08) !important;
     --vscode-editorError-border: rgba(198, 128, 117, 0.2) !important;
@@ -582,13 +568,13 @@
   }
 
   :global([data-theme='light']) .text-editor :global(.suggest-widget .monaco-list-row.focused) {
-    background: #dbe8dc !important;
-    color: #16311e !important;
+    background: var(--bg-surface-active) !important;
+    color: var(--text-primary) !important;
   }
 
   :global([data-theme='light']) .text-editor :global(.suggest-widget .monaco-list-row:hover) {
-    background: rgba(219, 232, 220, 0.42) !important;
-    color: #16311e !important;
+    background: rgba(238, 243, 250, 0.42) !important;
+    color: var(--text-primary) !important;
   }
 
   .text-empty {

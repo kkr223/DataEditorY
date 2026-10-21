@@ -205,7 +205,7 @@
   .category-trigger {
     width: 34px;
     height: 34px;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     border: 1px solid var(--border-color);
     background: color-mix(in srgb, var(--bg-surface) 96%, transparent);
     color: var(--text-secondary);
@@ -214,7 +214,7 @@
     cursor: pointer;
     box-shadow: var(--shadow-popover);
     font-weight: 800;
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     position: relative;
   }
 
@@ -229,14 +229,14 @@
     position: absolute;
     min-width: 16px;
     height: 16px;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     right: -4px;
     top: -5px;
     display: grid;
     place-items: center;
     padding: 0 4px;
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
     font-size: 0.62rem;
     line-height: 1;
   }
@@ -261,7 +261,7 @@
 
   .category-popover-header strong {
     color: var(--text-primary);
-    font-size: 0.86rem;
+    font-size: var(--text-base);
   }
 
   .category-grid {
@@ -277,7 +277,7 @@
     gap: 6px;
     min-width: 0;
     color: var(--text-primary);
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 600;
     cursor: pointer;
     user-select: none;

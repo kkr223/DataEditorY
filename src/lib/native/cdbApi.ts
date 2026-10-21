@@ -36,6 +36,7 @@ export type BatchOperationPreview = {
   targetCount: number;
   changedCount: number;
   sample: CardDataEntry[];
+  changes: Array<{ before: CardDataEntry; after: CardDataEntry }>;
 };
 
 const batchPreviewSnapshots = new Map<string, {
@@ -80,18 +81,21 @@ export async function previewBatchOperations(
   operations: BatchFieldOperation[],
 ): Promise<BatchOperationPreview> {
   const cardsById = new Map<number, CardDataEntry>();
-
-  for (const group of groups) {
-    for (const card of await getCardsByIdsInTab(sessionId, group.cardIds)) {
-      cardsById.set(card.code, card);
-    }
+  const revision = documentRuntime.getDocument(sessionId)?.revision ?? -1;
+  const groupIds = new Set(operations.map((operation) => operation.groupId));
+  const targetIds = [...new Set(groups.filter((group) => groupIds.has(group.id)).flatMap((group) => group.cardIds))];
+  for (const card of await getCardsByIdsInTab(sessionId, targetIds)) {
+    cardsById.set(card.code, card);
+  }
+  if (documentRuntime.getDocument(sessionId)?.revision !== revision) {
+    throw new Error('The CDB changed while building this batch preview. Build a new preview.');
   }
 
   const changed = compileBatchOperationChanges([...cardsById.values()], groups, operations);
   const previewId = createPreviewId();
   batchPreviewSnapshots.set(previewId, {
     sessionId,
-    revision: documentRuntime.getDocument(sessionId)?.revision ?? -1,
+    revision,
     cards: changed,
   });
 
@@ -100,6 +104,7 @@ export async function previewBatchOperations(
     targetCount: cardsById.size,
     changedCount: changed.length,
     sample: changed.slice(0, 8),
+    changes: changed.slice(0, 8).map((after) => ({ before: cardsById.get(after.code)!, after })),
   };
 }
 

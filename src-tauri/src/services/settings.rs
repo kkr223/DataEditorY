@@ -4,9 +4,10 @@ use tauri::AppHandle;
 use crate::{
     custom_cover_path, decrypt_secret_key, encrypt_secret_key, load_persisted_settings,
     normalize_agent_max_steps, normalize_base_url, normalize_model,
-    normalize_package_include_patterns, normalize_script_directory, normalize_script_template,
-    normalize_shortcut_bindings, normalize_temperature, normalize_ygopro_path,
-    save_persisted_settings, to_settings_payload, AppSettingsPayload, SaveAppSettingsRequest,
+    normalize_package_include_patterns, normalize_script_directory,
+    normalize_script_editor_font_size, normalize_script_template, normalize_shortcut_bindings,
+    normalize_temperature, normalize_ygopro_path, save_persisted_settings, to_settings_payload,
+    AppSettingsPayload, SaveAppSettingsRequest,
 };
 
 pub fn load_app_settings(app: &AppHandle) -> Result<AppSettingsPayload, String> {
@@ -42,9 +43,18 @@ pub fn save_app_settings(
     settings.auto_complete_function_parameters = request
         .auto_complete_function_parameters
         .unwrap_or(settings.auto_complete_function_parameters);
+    settings.script_editor_font_size = normalize_script_editor_font_size(
+        request
+            .script_editor_font_size
+            .or(Some(settings.script_editor_font_size)),
+    );
     if let Some(package_include_patterns) = request.package_include_patterns {
         settings.package_include_patterns =
             normalize_package_include_patterns(Some(package_include_patterns));
+    }
+    if let Some(script_snippets) = request.script_snippets {
+        super::script_snippets::validate_script_snippets(&script_snippets)?;
+        settings.script_snippets = Some(script_snippets);
     }
     if let Some(shortcut_bindings) = request.shortcut_bindings {
         settings.shortcut_bindings = normalize_shortcut_bindings(Some(shortcut_bindings));

@@ -4,7 +4,7 @@ import { tauriBridge } from '$lib/infrastructure/tauri';
 import {
   activeTabId,
   deleteCardsInTab,
-  getCardByIdInTab,
+  queryCardByIdInTab,
   modifyCardsInTab,
   refreshSearchAfterMutation,
   replaceCardIdInTab,
@@ -44,7 +44,10 @@ export async function saveDraftCardFlow(input: {
   draftCard: CardDataEntry;
   originalCardCode: number | null;
   removeOriginal?: boolean;
+  expectedTarget?: CardDataEntry | null;
   t: Translate;
+  getDraftCard: () => CardDataEntry;
+  canUpdateDraft: () => boolean;
   setDraftCard: (card: CardDataEntry) => void;
   setOriginalCardCode: (code: number | null) => void;
   setLastSyncedSelectedId: (code: number | null) => void;
@@ -65,28 +68,40 @@ export async function saveDraftCardFlow(input: {
   const nextCard = cloneEditableCard(input.draftCard);
   nextCard.code = targetCode;
   const dbCard = toPersistableDraftCard(nextCard);
+  const submittedSnapshot = createCardSnapshot(nextCard);
+  const draftMatches = (snapshot: string) => input.canUpdateDraft()
+    && createCardSnapshot(cloneEditableCard(input.getDraftCard())) === snapshot;
 
-  const shouldReplaceId = input.removeOriginal
-    && input.originalCardCode !== null
+  const shouldReplaceId = input.originalCardCode !== null
     && input.originalCardCode !== targetCode;
   const mutationTabId = input.tabId;
   const ok = shouldReplaceId
-    ? await replaceCardIdInTab(mutationTabId, dbCard, input.originalCardCode as number, false)
-    : await modifyCardsInTab(mutationTabId, [dbCard], false);
+    ? await replaceCardIdInTab(mutationTabId, dbCard, input.originalCardCode as number, false, !!input.removeOriginal, input.expectedTarget ?? null)
+    : await modifyCardsInTab(mutationTabId, [dbCard], false,
+      input.expectedTarget === undefined ? undefined : [input.expectedTarget]);
   if (!ok) {
     showToast(input.t('editor.save_failed'), 'error');
     return false;
   }
 
-  await refreshSearchAfterMutation(mutationTabId, () => input.handleSearch(true));
-  if (get(activeTabId) === mutationTabId) {
-    input.setDraftCard(cloneEditableCard(dbCard));
+  const committedSnapshot = createCardSnapshot(dbCard);
+  if (input.canUpdateDraft()) {
+    // Acknowledge exactly the submitted version, retaining edits made during I/O.
+    if (draftMatches(submittedSnapshot)) input.setDraftCard(cloneEditableCard(dbCard));
     input.setLastSyncedSelectedId(targetCode);
-    input.setLastLoadedCardSnapshot(createCardSnapshot(dbCard));
-    updateVisibleCards([dbCard]);
+    input.setLastLoadedCardSnapshot(committedSnapshot);
     input.setOriginalCardCode(targetCode);
-    if (getAllCardsMap().has(targetCode)) setSingleSelectedCard(targetCode);
+  }
+  await refreshSearchAfterMutation(mutationTabId, () => input.handleSearch(true));
+  if (input.canUpdateDraft()) {
+    updateVisibleCards([dbCard]);
+    if (draftMatches(committedSnapshot) && getAllCardsMap().has(targetCode)) setSingleSelectedCard(targetCode);
     await input.refreshDraftImage(targetCode, true);
+  }
+  if (!draftMatches(committedSnapshot)) {
+    showToast(input.t('editor.draft_changed_during_save'), 'info');
+    // Callers must not navigate away or save the CDB while a newer draft remains.
+    return false;
   }
   showToast(
     input.t('editor.card_modified', { values: { code: String(targetCode) } }),
@@ -95,13 +110,31 @@ export async function saveDraftCardFlow(input: {
   return true;
 }
 
+async function reviewTargetCard(tabId: string, code: number, originalCode: number | null, t: Translate) {
+  try {
+    const card = await queryCardByIdInTab(tabId, code) ?? null;
+    if (card && card.code !== originalCode) {
+      const confirmed = await tauriBridge.ask(
+        t('editor.overwrite_target_confirm', { values: { code: String(code) } }),
+        { title: t('editor.overwrite_target_title'), kind: 'warning' },
+      );
+      if (!confirmed) return { approved: false } as const;
+    }
+    return { approved: true, card } as const;
+  } catch (error) {
+    console.error('Failed to inspect the target card:', error);
+    showToast(t('editor.save_failed'), 'error');
+    return { approved: false } as const;
+  }
+}
+
 export async function modifyDraftCardFlow(input: {
   tabId: string;
   draftCard: CardDataEntry;
   originalCardCode: number | null;
   isEditingExisting: boolean;
   t: Translate;
-  saveDraftCard: (targetCode: number, removeOriginal?: boolean) => Promise<boolean>;
+  saveDraftCard: (targetCode: number, removeOriginal?: boolean, expectedTarget?: CardDataEntry | null) => Promise<boolean>;
 }) {
   const targetCode = getValidatedCardCode(input.draftCard, input.t);
   if (!targetCode) return false;
@@ -109,6 +142,9 @@ export async function modifyDraftCardFlow(input: {
   if (input.isEditingExisting && input.originalCardCode === targetCode) {
     return input.saveDraftCard(targetCode);
   }
+
+  const target = await reviewTargetCard(input.tabId, targetCode, input.originalCardCode, input.t);
+  if (!target.approved) return false;
 
   if (input.isEditingExisting && input.originalCardCode !== targetCode) {
     const removeOriginal = await tauriBridge.ask(
@@ -124,24 +160,10 @@ export async function modifyDraftCardFlow(input: {
       },
     );
 
-    return input.saveDraftCard(targetCode, !!removeOriginal);
+    return input.saveDraftCard(targetCode, !!removeOriginal, target.card);
   }
 
-  const existing = await getCardByIdInTab(input.tabId, targetCode);
-  if (existing) {
-    const overwriteExisting = await tauriBridge.ask(
-      input.t('editor.overwrite_target_confirm', {
-        values: { code: String(targetCode) },
-      }),
-      {
-        title: input.t('editor.overwrite_target_title'),
-        kind: 'warning',
-      },
-    );
-    if (!overwriteExisting) return false;
-  }
-
-  return input.saveDraftCard(targetCode);
+  return input.saveDraftCard(targetCode, false, target.card);
 }
 
 export async function saveAsDraftCardFlow(input: {
@@ -149,54 +171,47 @@ export async function saveAsDraftCardFlow(input: {
   draftCard: CardDataEntry;
   originalCardCode: number | null;
   t: Translate;
-  saveDraftCard: (targetCode: number, removeOriginal?: boolean) => Promise<boolean>;
+  saveDraftCard: (targetCode: number, removeOriginal?: boolean, expectedTarget?: CardDataEntry | null) => Promise<boolean>;
 }) {
   const targetCode = getValidatedCardCode(input.draftCard, input.t);
   if (!targetCode) return;
 
-  const existing = await getCardByIdInTab(input.tabId, targetCode);
-  if (existing && existing.code !== input.originalCardCode) {
-    const overwriteExisting = await tauriBridge.ask(
-      input.t('editor.overwrite_target_confirm', {
-        values: { code: String(targetCode) },
-      }),
-      {
-        title: input.t('editor.overwrite_target_title'),
-        kind: 'warning',
-      },
-    );
-    if (!overwriteExisting) return;
-  }
-
-  await input.saveDraftCard(targetCode, false);
+  const target = await reviewTargetCard(input.tabId, targetCode, input.originalCardCode, input.t);
+  if (!target.approved) return false;
+  return input.saveDraftCard(targetCode, false, target.card);
 }
 
 export async function deleteDraftCardFlow(input: {
   tabId: string;
   originalCardCode: number | null;
+  selectedCardIds?: number[];
   t: Translate;
   resetDraftCard: () => void;
   clearSelection: () => void;
   handleSearch: (preserveSelection?: boolean) => Promise<boolean>;
 }) {
-  if (input.originalCardCode === null) return;
+  const cardIds = [...new Set(input.selectedCardIds?.length
+    ? input.selectedCardIds
+    : input.originalCardCode === null ? [] : [input.originalCardCode])];
+  if (cardIds.length === 0) return;
+  const multiple = cardIds.length > 1;
 
   const confirmed = await tauriBridge.ask(
-    input.t('editor.delete_confirm', {
-      values: { code: String(input.originalCardCode) },
+    input.t(multiple ? 'editor.delete_selected_confirm' : 'editor.delete_confirm', {
+      values: { code: String(cardIds[0]), count: String(cardIds.length) },
     }),
     {
-      title: input.t('editor.delete_confirm_title'),
+      title: input.t(multiple ? 'editor.delete_selected_title' : 'editor.delete_confirm_title'),
       kind: 'warning',
     },
   );
   if (!confirmed) return;
 
   const mutationTabId = input.tabId;
-  if (await deleteCardsInTab(mutationTabId, [input.originalCardCode], false)) {
+  if (await deleteCardsInTab(mutationTabId, cardIds, false)) {
     showToast(
-      input.t('editor.card_deleted', {
-        values: { code: String(input.originalCardCode) },
+      input.t(multiple ? 'editor.cards_deleted' : 'editor.card_deleted', {
+        values: { code: String(cardIds[0]), count: String(cardIds.length) },
       }),
       'success',
     );
@@ -205,6 +220,8 @@ export async function deleteDraftCardFlow(input: {
       input.clearSelection();
       input.resetDraftCard();
     }
+  } else {
+    showToast(input.t('editor.delete_failed'), 'error');
   }
 }
 

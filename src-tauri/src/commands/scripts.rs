@@ -1,6 +1,6 @@
 use crate::{services, CardScriptDocument, CardScriptInfo};
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn get_card_script_info(
     cdb_path: String,
     card_id: u32,
@@ -8,7 +8,7 @@ pub(crate) fn get_card_script_info(
     services::scripts::get_card_script_info(cdb_path, card_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn read_card_script(
     cdb_path: String,
     card_id: u32,
@@ -16,7 +16,7 @@ pub(crate) fn read_card_script(
     services::scripts::read_card_script(cdb_path, card_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn save_card_script(
     cdb_path: String,
     card_id: u32,

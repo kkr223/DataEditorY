@@ -113,6 +113,7 @@ pub fn run() {
             commands::media::load_strings_conf,
             commands::media::open_in_system_editor,
             commands::media::open_in_default_app,
+            commands::media::reveal_file,
             commands::metadata::load_workspace_metadata,
             commands::metadata::save_workspace_metadata,
             commands::settings::load_app_settings,

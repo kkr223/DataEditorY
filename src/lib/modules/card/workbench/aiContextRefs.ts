@@ -1,4 +1,4 @@
-import type { WorkspaceAiContextRef } from './workspaceMetadataState.svelte';
+import type { WorkspaceAiContextRef } from '$lib/features/ai/types';
 
 const getContextIdentity = (ref: WorkspaceAiContextRef) => {
   const value = ref.value && typeof ref.value === 'object'

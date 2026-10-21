@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    fs,
-    path::Path,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, fs, path::Path};
 
 use tauri::AppHandle;
 use ygopro_cdb_encode_rs::YgoProCdb;
@@ -12,13 +7,11 @@ use crate::{
     models::cdb::{CardDto, OpenCdbTabResponse},
     repository::cdb as cdb_repository,
     session::cdb::{
-        app_temp_dir, basename, build_temp_path_in_dir, canonicalize_path, cleanup_temp_path,
-        ensure_parent_dir, remove_session, replace_session, CdbSessionMeta, OpenCdbSessions,
+        app_temp_dir, basename, build_temp_path_in_dir, canonicalize_path, ensure_parent_dir,
+        remove_session, replace_session, with_session_meta, CdbSessionMeta, OpenCdbSessions,
+        TemporaryCdbFile,
     },
 };
-
-#[cfg(test)]
-use crate::session::cdb::with_session_meta;
 
 pub fn open_cdb_tab(
     app: &AppHandle,
@@ -31,12 +24,8 @@ pub fn open_cdb_tab(
 }
 
 pub fn close_cdb_tab(sessions: &OpenCdbSessions, tab_id: String) -> Result<(), String> {
-    if let Some(session) = remove_session(sessions, &tab_id)? {
-        // Drop the CDB instance before deleting the file — on Windows the
-        // SQLite connection holds a file lock that prevents deletion.
-        drop(session.cdb);
-        cleanup_temp_path(&session.working_path);
-    }
+    // Existing queries own the session until they finish; the last owner cleans up.
+    drop(remove_session(sessions, &tab_id)?);
     Ok(())
 }
 
@@ -45,30 +34,33 @@ pub fn save_cdb_tab_to(
     tab_id: String,
     destination: Option<String>,
 ) -> Result<String, String> {
-    let mut sessions = sessions
-        .0
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let session = sessions
-        .get_mut(&tab_id)
-        .ok_or_else(|| format!("Unknown cdb tab: {tab_id}"))?;
-    let target = destination
-        .or_else(|| Some(session.path.clone()))
-        .filter(|path| !path.trim().is_empty())
-        .ok_or_else(|| "A destination path is required for this document".to_string())?;
+    with_session_meta(sessions, &tab_id, |session| {
+        // Only this session is locked during database access and disk I/O.
+        let _cdb_guard = session
+            .cdb
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut source_path = session
+            .path
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let target = destination
+            .or_else(|| Some(source_path.clone()))
+            .filter(|path| !path.trim().is_empty())
+            .ok_or_else(|| "A destination path is required for this document".to_string())?;
 
-    let target_path = Path::new(&target);
-    ensure_parent_dir(target_path)?;
-    let _cdb_guard = session
-        .cdb
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let tmp_path = target_path.with_extension("cdb.tmp");
-    fs::copy(&session.working_path, &tmp_path).map_err(|err| err.to_string())?;
-    fs::rename(&tmp_path, target_path).map_err(|err| err.to_string())?;
-    let _ = fs::remove_file(target_path.with_extension("cdb.tmp"));
-    session.path = canonicalize_path(&target);
-    Ok(target)
+        let target_path = Path::new(&target);
+        ensure_parent_dir(target_path)?;
+        let parent = target_path
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        let staged = TemporaryCdbFile(build_temp_path_in_dir(parent, ".dataeditory-save")?);
+        fs::copy(&session.working_path, &staged.0).map_err(|err| err.to_string())?;
+        fs::rename(&staged.0, target_path).map_err(|err| err.to_string())?;
+        *source_path = canonicalize_path(&target);
+        Ok(target)
+    })
 }
 
 pub fn create_unsaved_cdb_tab(
@@ -87,7 +79,8 @@ fn create_unsaved_cdb_tab_in_dir(
     tab_id: String,
     initial_cards: Vec<CardDto>,
 ) -> Result<OpenCdbTabResponse, String> {
-    let temp_path = build_temp_path_in_dir(&session_dir, &tab_id)?;
+    let temp_path = build_temp_path_in_dir(session_dir, &tab_id)?;
+    let working_copy = TemporaryCdbFile(temp_path.clone());
     ensure_parent_dir(&temp_path)?;
     let mut cdb = cdb_repository::create_cdb(&temp_path)?;
     if !initial_cards.is_empty() {
@@ -98,11 +91,7 @@ fn create_unsaved_cdb_tab_in_dir(
     register_session(
         sessions,
         tab_id,
-        CdbSessionMeta {
-            path: String::new(),
-            working_path: temp_path,
-            cdb: Arc::new(Mutex::new(cdb)),
-        },
+        CdbSessionMeta::new(String::new(), cdb, working_copy),
     )?;
     Ok(OpenCdbTabResponse {
         name: "Untitled.cdb".to_string(),
@@ -119,6 +108,7 @@ pub(crate) fn open_cdb_tab_in_dir(
 ) -> Result<OpenCdbTabResponse, String> {
     let original_path = canonicalize_path(&path);
     let temp_path = build_temp_path_in_dir(session_dir, &tab_id)?;
+    let working_copy = TemporaryCdbFile(temp_path.clone());
     ensure_parent_dir(&temp_path)?;
     fs::copy(&original_path, &temp_path).map_err(|err| err.to_string())?;
 
@@ -127,11 +117,7 @@ pub(crate) fn open_cdb_tab_in_dir(
     register_session(
         sessions,
         tab_id,
-        CdbSessionMeta {
-            path: original_path,
-            working_path: temp_path,
-            cdb: Arc::new(Mutex::new(cdb)),
-        },
+        CdbSessionMeta::new(original_path, cdb, working_copy),
     )?;
 
     Ok(response)
@@ -153,9 +139,7 @@ fn register_session(
     tab_id: String,
     session: CdbSessionMeta,
 ) -> Result<(), String> {
-    if let Some(previous) = replace_session(sessions, tab_id, session)? {
-        cleanup_temp_path(&previous.working_path);
-    }
+    drop(replace_session(sessions, tab_id, session)?);
     Ok(())
 }
 
@@ -235,7 +219,10 @@ mod tests {
 
         with_session_meta(&sessions, "tab-open", |session| {
             let expected = std::fs::canonicalize(&source_path).unwrap();
-            assert_eq!(Path::new(&session.path), expected.as_path());
+            assert_eq!(
+                Path::new(&*session.path.lock().unwrap()),
+                expected.as_path()
+            );
             assert!(session.working_path.is_file());
             Ok(())
         })
@@ -379,7 +366,7 @@ mod tests {
         assert_eq!(copied_cards.len(), 2);
         with_session_meta(&sessions, "tab-save-as", |session| {
             assert_eq!(
-                session.path,
+                *session.path.lock().unwrap(),
                 canonicalize_path(&destination_path.to_string_lossy())
             );
             Ok(())
@@ -418,5 +405,87 @@ mod tests {
         assert!(with_session_meta(&sessions, "tab-close", |_| Ok(())).is_err());
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn close_defers_file_cleanup_until_the_last_query_releases_its_session() {
+        let root = make_temp_dir("close-inflight");
+        let sessions = make_sessions();
+        create_unsaved_cdb_tab_in_dir(&sessions, &root, "A".into(), vec![]).unwrap();
+        let held = sessions.0.lock().unwrap().get("A").unwrap().clone();
+        let working_path = held.working_path.clone();
+        close_cdb_tab(&sessions, "A".into()).unwrap();
+        assert!(with_session_meta(&sessions, "A", |_| Ok(())).is_err());
+        assert!(working_path.exists());
+        assert!(held.cdb.lock().unwrap().find_all().is_ok());
+        drop(held);
+        assert!(!working_path.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn failed_open_cleans_the_partially_created_working_copy() {
+        let root = make_temp_dir("invalid-open");
+        let source = root.join("invalid.cdb");
+        fs::write(&source, b"not a database").unwrap();
+        let session_dir = root.join("sessions");
+        assert!(open_cdb_tab_in_dir(
+            &make_sessions(),
+            &session_dir,
+            "A".into(),
+            source.to_string_lossy().into_owned()
+        )
+        .is_err());
+        assert_eq!(fs::read_dir(session_dir).unwrap().count(), 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn replacing_a_session_releases_its_old_working_copy() {
+        let root = make_temp_dir("replace");
+        let sessions = make_sessions();
+        create_unsaved_cdb_tab_in_dir(&sessions, &root, "A".into(), vec![]).unwrap();
+        let old_path = with_session_meta(&sessions, "A", |s| Ok(s.working_path.clone())).unwrap();
+        create_unsaved_cdb_tab_in_dir(&sessions, &root, "A".into(), vec![]).unwrap();
+        assert!(!old_path.exists());
+        close_cdb_tab(&sessions, "A".into()).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn waiting_for_a_database_during_save_does_not_hold_the_session_map() {
+        use std::{
+            sync::Arc,
+            thread,
+            time::{Duration, Instant},
+        };
+        let root = make_temp_dir("save-lock-scope");
+        let sessions = Arc::new(make_sessions());
+        create_unsaved_cdb_tab_in_dir(&sessions, &root, "A".into(), vec![]).unwrap();
+        let held = sessions.0.lock().unwrap().get("A").unwrap().clone();
+        let connection = held.cdb.lock().unwrap();
+        let worker_sessions = sessions.clone();
+        let target = root.join("saved.cdb").to_string_lossy().into_owned();
+        let saving =
+            thread::spawn(move || save_cdb_tab_to(&worker_sessions, "A".into(), Some(target)));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Arc::strong_count(&held) < 3 && Instant::now() < deadline {
+            thread::yield_now();
+        }
+        let acquired_session = Arc::strong_count(&held) >= 3;
+        let mut map_available = false;
+        while Instant::now() < deadline {
+            if sessions.0.try_lock().is_ok() {
+                map_available = true;
+                break;
+            }
+            thread::yield_now();
+        }
+        drop(connection);
+        saving.join().unwrap().unwrap();
+        assert!(acquired_session && map_available);
+        drop(held);
+        close_cdb_tab(&sessions, "A".into()).unwrap();
+        fs::remove_dir_all(root).unwrap();
     }
 }

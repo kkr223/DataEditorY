@@ -65,6 +65,11 @@ export function clearWorkspaceSaveHandler(id: string) {
   workspaceSaveHandlers.delete(id);
 }
 
+export function disposeWorkspaceLifecycle(id: string) {
+  clearWorkspaceSaveHandler(id);
+  clearWorkspaceLifecycleMetadata(id);
+}
+
 export function tryRunWorkspaceSaveHandler(id: string, destinationPath?: string) {
   const handler = workspaceSaveHandlers.get(id);
   if (!handler) {

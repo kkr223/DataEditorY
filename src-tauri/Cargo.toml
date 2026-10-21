@@ -1,6 +1,6 @@
 [package]
 name = "dataeditory"
-version = "3.3.0"
+version = "3.4.0"
 description = "ygocore card database editor y"
 authors = ["kkr223"]
 edition = "2021"
@@ -26,8 +26,9 @@ tauri-plugin-dialog = "2"
 aes-gcm = "0.10"
 base64 = "0.22"
 rand = "0.8"
+tempfile = "3.27"
 sha2 = "0.10"
-ygopro-cdb-encode-rs = { path = "../../ygopro-cdb-encode-rs" }
+ygopro-cdb-encode-rs = { git = "https://github.com/kkr223/ygopro-cdb-encode-rs.git", rev = "1a622aa6b22f998b2d5863312a2c653b9c8c84b0" }
 mime_guess = "2"
 percent-encoding = "2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"] }

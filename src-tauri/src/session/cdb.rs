@@ -8,14 +8,34 @@ use std::{
 use tauri::{AppHandle, Manager};
 use ygopro_cdb_encode_rs::YgoProCdb;
 
-#[derive(Clone)]
 pub(crate) struct CdbSessionMeta {
-    pub(crate) path: String,
+    pub(crate) path: Mutex<String>,
     pub(crate) working_path: PathBuf,
-    pub(crate) cdb: Arc<Mutex<YgoProCdb>>,
+    pub(crate) cdb: Mutex<YgoProCdb>,
+    // Rust drops fields in declaration order: close SQLite before removing its file.
+    _working_copy: TemporaryCdbFile,
 }
 
-pub struct OpenCdbSessions(pub Mutex<HashMap<String, CdbSessionMeta>>);
+impl CdbSessionMeta {
+    pub(crate) fn new(path: String, cdb: YgoProCdb, working_copy: TemporaryCdbFile) -> Self {
+        Self {
+            path: Mutex::new(path),
+            working_path: working_copy.0.clone(),
+            cdb: Mutex::new(cdb),
+            _working_copy: working_copy,
+        }
+    }
+}
+
+pub(crate) struct TemporaryCdbFile(pub(crate) PathBuf);
+
+impl Drop for TemporaryCdbFile {
+    fn drop(&mut self) {
+        cleanup_temp_path(&self.0);
+    }
+}
+
+pub struct OpenCdbSessions(pub Mutex<HashMap<String, Arc<CdbSessionMeta>>>);
 
 pub(crate) fn canonicalize_path(path: &str) -> String {
     fs::canonicalize(path)
@@ -55,14 +75,28 @@ pub(crate) fn basename(path: &str) -> String {
 }
 
 pub(crate) fn cleanup_temp_path(path: &Path) {
-    let _ = fs::remove_file(path);
-    let _ = fs::remove_file(path.with_extension("cdb-journal"));
-    let _ = fs::remove_file(path.with_extension("cdb-wal"));
-    let _ = fs::remove_file(path.with_extension("cdb-shm"));
+    for file in [
+        path.to_path_buf(),
+        path.with_extension("cdb-journal"),
+        path.with_extension("cdb-wal"),
+        path.with_extension("cdb-shm"),
+    ] {
+        if let Err(error) = fs::remove_file(&file) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                eprintln!(
+                    "Failed to clean up CDB working file {}: {error}",
+                    file.display()
+                );
+            }
+        }
+    }
 }
 
 pub(crate) fn ensure_parent_dir(path: &Path) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
     Ok(())
@@ -90,18 +124,18 @@ pub(crate) fn replace_session(
     sessions: &OpenCdbSessions,
     tab_id: String,
     session: CdbSessionMeta,
-) -> Result<Option<CdbSessionMeta>, String> {
+) -> Result<Option<Arc<CdbSessionMeta>>, String> {
     let mut sessions = sessions
         .0
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    Ok(sessions.insert(tab_id, session))
+    Ok(sessions.insert(tab_id, Arc::new(session)))
 }
 
 pub(crate) fn remove_session(
     sessions: &OpenCdbSessions,
     tab_id: &str,
-) -> Result<Option<CdbSessionMeta>, String> {
+) -> Result<Option<Arc<CdbSessionMeta>>, String> {
     let mut sessions = sessions
         .0
         .lock()

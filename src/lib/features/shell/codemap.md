@@ -15,11 +15,13 @@ Application Shell — manages the app frame, CDB-only top-level tabs, global/CDB
 - **`mergeController.ts`** — merge workflow: add sources, reorder, analyze, execute merge via `native/taskApi`
 - **`packageController.ts`** — package workflow: ZIP/YPK export via `native/taskApi`
 - **`filterCdbController.ts`** — create filtered CDB from current search results
+- **`listenerScope.ts`** — owns asynchronous native listener registrations; late registrations are immediately removed after controller cleanup
+- **`workspaceShutdown.ts`** — flushes metadata and closes documents through their provider protocol before window exit, allowing pending asset renames to roll back
 
 ### Components
 
 - `AppTopBar.svelte` — toolbar with open/create/tools/settings/theme/language entries; save is not a permanent top-level button
-- `AppTabBar.svelte` — CDB workspace tab bar with close/dirty indicators
+- `AppTabBar.svelte` — CDB workspace tab bar with close/dirty indicators and scoped save/path/reveal/bulk-close context actions; cancellation stops sequential batch closing
 - `FileDragOverlay.svelte` — drag-and-drop overlay for `.cdb` files
 - `RecentHistoryPopover.svelte` — recently opened files dropdown
 - `dialogs/MergeCdbDialog.svelte` — multi-source merge dialog with analysis preview

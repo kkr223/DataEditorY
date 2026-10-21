@@ -55,7 +55,7 @@
 
   .script-side-card {
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
     padding: 8px;
     display: flex;
@@ -65,7 +65,7 @@
 
   .script-side-card h3 {
     margin: 0;
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
   }
 
   .effect-text,
@@ -77,7 +77,7 @@
 
   .effect-text {
     color: var(--text-secondary);
-    font-size: 0.77rem;
+    font-size: var(--text-xs);
     line-height: 1.45;
     white-space: pre-wrap;
     word-break: break-word;
@@ -102,7 +102,7 @@
 
   .string-label {
     color: var(--accent-primary);
-    font-size: 0.7rem;
+    font-size: var(--text-2xs);
     font-family: Consolas, 'Courier New', monospace;
     align-self: flex-start;
     padding: 0;
@@ -120,7 +120,7 @@
   .string-label:focus-visible {
     outline: 1px solid var(--accent-primary);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: var(--control-radius);
   }
 
   .string-input {
@@ -128,11 +128,11 @@
     height: 1.8rem;
     min-height: 1.8rem;
     resize: none;
-    border-radius: 7px;
+    border-radius: var(--control-radius-soft);
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     background: color-mix(in srgb, var(--bg-base) 90%, transparent);
     color: var(--text-secondary);
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     line-height: 1.2;
     padding: 0.24rem 0.48rem;
   }

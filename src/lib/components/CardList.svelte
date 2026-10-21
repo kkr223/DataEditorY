@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openCardMenu } from "$lib/features/context-menu/cardMenu";
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { isDbLoaded } from '$lib/stores/db';
@@ -49,6 +50,7 @@
   let virtualBottomSpacerHeight = $derived(Math.max(0, (pageCards.length - virtualEndIndex) * VIRTUAL_ROW_HEIGHT));
 
   let hasActiveFilters = $derived(
+    editorState.searchFilters.name !== '' ||
     editorState.searchFilters.id !== '' ||
     editorState.searchFilters.desc !== '' ||
     editorState.searchFilters.nameOrDesc !== '' ||
@@ -266,7 +268,7 @@
   });
 </script>
 
-<section class="pane list-pane" use:disableAutofill>
+<section aria-label={$_("results.title")} class="pane list-pane" use:disableAutofill oncontextmenu={(event) => { if (!(event.target as Element).closest("input, textarea, select, button")) openCardMenu(event); }}>
   <div class="list-header-complex">
     <div class="search-row">
       <div class="search-input-wrapper">
@@ -494,7 +496,7 @@
     {/if}
 
     <div class="results-stats">
-      <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">
+      <span style="font-size: var(--text-base); color: var(--text-secondary); font-weight: 500;">
         {$_('results.title')} <span class="badge" style="margin-left: 4px;">{totalCards}</span>
       </span>
     </div>
@@ -517,9 +519,12 @@
         {/if}
         {#each virtualCards as card (card.code)}
           <tr
+            tabindex="0"
+            onkeydown={(event) => { if (event.key === "Enter") { event.preventDefault(); setSingleSelectedCard(card.code); } }}
             class:selected={selectedIdsSet.has(card.code)}
             class:primary-selected={editorState.selectedId === card.code}
             onclick={(event) => handleRowClick(event, card.code)}
+            oncontextmenu={(event) => openCardMenu(event, card.code)}
           >
             <td class="id-col">{card.code}</td>
             <td class={`name-col ${getCardTypeTone(card.type)}`}>{card.name}</td>
@@ -591,7 +596,7 @@
     border-radius: var(--control-radius-pill);
     background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface-active));
     color: var(--text-secondary);
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     line-height: 1;
   }
   .filter-chip-label {
@@ -629,16 +634,16 @@
     z-index: 100;
   }
   .results-stats { padding: var(--spacing-xs) var(--spacing-md); background-color: var(--bg-surface-active); border-top: 1px solid var(--border-color); }
-  .badge { background: var(--bg-surface-active); color: var(--text-secondary); padding: 2px 8px; border-radius: var(--control-radius-pill); font-size: 0.8rem; font-weight: 500; }
+  .badge { background: var(--bg-surface-active); color: var(--text-secondary); padding: 2px 8px; border-radius: var(--control-radius-pill); font-size: var(--text-sm); font-weight: 500; }
 
   /* Form */
   .form-group { margin-bottom: var(--spacing-sm); display: flex; flex-direction: column; gap: 4px; }
   .form-row { display: flex; gap: var(--spacing-sm); }
   .form-row .form-group { flex: 1; }
   .flex-2 { flex: 2 !important; }
-  label, .group-label { font-size: 0.86rem; color: var(--text-secondary); font-weight: 600; }
-  input, select { width: 100%; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 0.3rem 0.55rem; font-size: 0.92rem; transition: all 0.2s; }
-  textarea { width: 100%; min-height: 6.5rem; resize: vertical; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 0.45rem 0.55rem; font-size: 0.92rem; transition: all 0.2s; }
+  label, .group-label { font-size: var(--text-base); color: var(--text-secondary); font-weight: 600; }
+  input, select { width: 100%; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 0.3rem 0.55rem; font-size: var(--text-base); transition: all 0.2s; }
+  textarea { width: 100%; min-height: 6.5rem; resize: vertical; background-color: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 0.45rem 0.55rem; font-size: var(--text-base); transition: all 0.2s; }
   input:focus, select:focus { border-color: var(--accent-primary); box-shadow: var(--focus-ring); outline: none; }
   textarea:focus { border-color: var(--accent-primary); box-shadow: var(--focus-ring); outline: none; }
   .input-error { border-color: var(--state-danger-fg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--state-danger-fg) 20%, transparent); }
@@ -652,13 +657,13 @@
     background: var(--state-danger-soft-bg);
     border: 1px solid var(--state-danger-soft-border);
     color: var(--state-danger-fg);
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     line-height: 1.35;
   }
 
   /* Buttons */
-  button { font-size: 0.9rem; font-weight: 600; padding: 0.38rem 0.7rem; border-radius: var(--control-radius); display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-sm); transition: all 0.2s; cursor: pointer; border: none; }
-  .btn-primary { background-color: var(--accent-primary); color: white; }
+  button { font-size: var(--text-base); font-weight: 600; padding: 0.38rem 0.7rem; border-radius: var(--control-radius); display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-sm); transition: all 0.2s; cursor: pointer; border: none; }
+  .btn-primary { background-color: var(--accent-primary); color: var(--text-on-accent); }
   .btn-primary:hover { background-color: var(--accent-primary-hover); }
   .btn-secondary { background-color: var(--bg-surface-active); color: var(--text-primary); }
   .btn-secondary:hover { background-color: var(--bg-surface-hover); }
@@ -689,23 +694,24 @@
 
   /* Table */
   .table-container { flex: 1; overflow: auto; }
-  .data-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
   .data-table th { position: sticky; top: 0; background-color: var(--bg-surface); color: var(--text-secondary); font-weight: 500; text-align: left; padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--border-color); z-index: 10; }
   .data-table td { padding: var(--spacing-xs) var(--spacing-sm); border-bottom: 1px solid var(--border-color); }
   .data-table tbody tr:not(.virtual-spacer) { height: 30px; }
   .data-table tbody tr.virtual-spacer td { padding: 0; border-bottom: none; }
+  .data-table tbody { user-select: none; -webkit-user-select: none; }
   .data-table tbody tr { cursor: pointer; transition: background-color 0.1s; }
   .data-table tbody tr:hover { background-color: var(--bg-surface-hover); }
-  .data-table tbody tr.selected { background-color: rgba(59, 130, 246, 0.15); border-left: 2px solid var(--accent-primary); }
+  .data-table tbody tr.selected { background-color: color-mix(in srgb, var(--accent-primary) 15%, transparent); border-left: 2px solid var(--accent-primary); }
   .data-table tbody tr.selected td:first-child { padding-left: calc(var(--spacing-sm) - 2px); }
-  .data-table tbody tr.primary-selected { background-color: rgba(59, 130, 246, 0.22); }
-  .id-col { color: var(--text-secondary); font-variant-numeric: tabular-nums; font-size: 0.86rem; }
+  .data-table tbody tr.primary-selected { background-color: color-mix(in srgb, var(--accent-primary) 22%, transparent); }
+  .id-col { color: var(--text-secondary); font-variant-numeric: tabular-nums; font-size: var(--text-base); }
   .name-col {
     font-weight: 500;
     transition: color 0.12s ease;
   }
   .type-col {
-    font-size: 0.84rem;
+    font-size: var(--text-sm);
     font-weight: 600;
     letter-spacing: 0.01em;
   }
@@ -727,11 +733,11 @@
   .page-btn { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0 !important; border-radius: var(--control-radius); background: var(--bg-surface-active); color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.15s; }
   .page-btn:hover:not(:disabled) { background: var(--bg-surface-hover); color: var(--text-primary); }
   .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-  .page-info { flex: 0 0 auto; font-size: 0.84rem; color: var(--text-secondary); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 52px; text-align: center; }
+  .page-info { flex: 0 0 auto; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 52px; text-align: center; }
   .page-divider { flex: 0 0 auto; width: 1px; height: 18px; background: var(--border-color); margin: 0 2px; }
-  .page-jump-input { flex: 0 0 auto; width: 3rem !important; height: 1.7rem; text-align: center; font-size: 0.84rem !important; padding: 0.1rem 0.2rem !important; }
+  .page-jump-input { flex: 0 0 auto; width: 3rem !important; height: 1.7rem; text-align: center; font-size: var(--text-sm) !important; padding: 0.1rem 0.2rem !important; }
   .page-jump-input::-webkit-inner-spin-button, .page-jump-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-  .page-go { width: auto !important; min-width: 2.45rem; padding: 0 0.45rem !important; font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
+  .page-go { width: auto !important; min-width: 2.45rem; padding: 0 0.45rem !important; font-size: var(--text-sm); font-weight: 600; white-space: nowrap; }
 
   /* Range Inputs */
   .range-inputs { display: flex; align-items: center; gap: 4px; }
@@ -762,8 +768,8 @@
   .setcode-prefix {
     padding: 0 0.45rem;
     color: var(--text-secondary);
-    font-family: monospace;
-    font-size: 0.84rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
     border-right: 1px solid var(--border-color);
     background: var(--bg-surface);
   }
@@ -772,7 +778,7 @@
     border-radius: 0;
     box-shadow: none;
     padding: 0.3rem 0.45rem;
-    font-family: monospace;
+    font-family: var(--font-mono);
   }
   .setcode-search-input input:focus {
     box-shadow: none;

@@ -39,13 +39,15 @@ Each feature registers as an `ExtensionModule` (`types.ts:148`) containing:
 4. User edits → `runtime.execute()` → provider forwards command to Rust → revision incremented → dirty flag set
 5. User saves → `runtime.save()` → codec encodes → writes to disk
 
+Saves are serialized per document and acknowledge the revision captured before encoding. Edits made during a save remain dirty; close waits for queued saves before disposing the provider.
+
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `types.ts` | All platform type definitions — DocumentRecord, ExtensionModule, DataProvider, CodecDescriptor, WorkbenchDescriptor, etc. |
 | `registry.ts` | `ExtensionRegistry` class — module registration, validation, lookup |
-| `runtime.ts` | `DocumentRuntime` class — document lifecycle (open, query, execute, save, close, undo) |
+| `runtime.ts` | `DocumentRuntime` class — document lifecycle (open, query, execute, save, close, undo); `moveDocument` changes tab order without changing document data, dirty state, or activation |
 | `memoryProvider.ts` | In-memory `DataProvider` implementation |
 | `persistentMemoryProvider.ts` | localStorage-backed `DataProvider` for compatibility/persistent in-memory documents |
 | `filePatterns.ts` | File pattern matching utilities for codec resolution |

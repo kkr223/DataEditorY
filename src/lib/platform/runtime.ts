@@ -14,6 +14,7 @@ import type {
 type RuntimeListener = (snapshot: DocumentRuntimeSnapshot) => void;
 
 type OpenDocumentOptions = { activate?: boolean; signal?: AbortSignal };
+export type DocumentPlacement = 'before' | 'after';
 
 export type CreateDocumentRequest = {
   typeId: string;
@@ -29,6 +30,7 @@ export class DocumentRuntime {
 
   private readonly providerInstances = new Map<string, DataProvider>();
   private readonly documents = new Map<string, DocumentRecord>();
+  private readonly pendingSaves = new Map<string, Promise<DocumentRecord>>();
   private readonly listeners = new Set<RuntimeListener>();
   private activeDocumentId: string | null = null;
 
@@ -72,6 +74,21 @@ export class DocumentRuntime {
   activate(id: string) {
     this.requireDocument(id);
     this.activeDocumentId = id;
+    this.emit();
+  }
+
+  moveDocument(documentId: string, targetId: string, placement: DocumentPlacement) {
+    const document = this.documents.get(documentId);
+    const target = this.documents.get(targetId);
+    if (!document || !target || documentId === targetId || document.typeId !== target.typeId) return;
+    const current = [...this.documents.values()];
+    const reordered = current.filter((item) => item.id !== documentId);
+    const index = reordered.findIndex((item) => item.id === targetId);
+    reordered.splice(index + (placement === 'after' ? 1 : 0), 0, document);
+    if (reordered.every((item, i) => item === current[i])) return;
+    // Keep the records themselves: pending saves/commands still own these objects.
+    this.documents.clear();
+    for (const item of reordered) this.documents.set(item.id, item);
     this.emit();
   }
 
@@ -220,7 +237,19 @@ export class DocumentRuntime {
     return result;
   }
 
-  async save(documentId: string, destination?: DocumentSource) {
+  save(documentId: string, destination?: DocumentSource): Promise<DocumentRecord> {
+    const previous = this.pendingSaves.get(documentId);
+    const saving = (previous ? previous.catch(() => undefined) : Promise.resolve())
+      .then(() => this.saveDocument(documentId, destination));
+    this.pendingSaves.set(documentId, saving);
+    const cleanup = () => {
+      if (this.pendingSaves.get(documentId) === saving) this.pendingSaves.delete(documentId);
+    };
+    void saving.then(cleanup, cleanup);
+    return saving;
+  }
+
+  private async saveDocument(documentId: string, destination?: DocumentSource) {
     const document = this.requireDocument(documentId);
     const target = destination ?? document.source;
     if (!target) {
@@ -238,19 +267,21 @@ export class DocumentRuntime {
       throw new Error(`Codec ${codec.id} cannot save data type ${document.typeId}`);
     }
 
+    const savedRevision = document.revision;
     await codec.encode(this.createAccess(document), target, this.codecContext);
     document.source = target;
     if (destination) {
       document.title = target.name;
     }
     document.codecId = codec.id;
-    document.savedRevision = document.revision;
-    document.dirty = false;
+    document.savedRevision = savedRevision;
+    document.dirty = document.revision !== savedRevision;
     this.emit();
     return this.cloneRecord(document);
   }
 
   async close(documentId: string, force = false) {
+    await this.pendingSaves.get(documentId);
     const document = this.requireDocument(documentId);
     if (document.dirty && !force) {
       throw new Error(`Document ${document.title} has unsaved changes`);
@@ -275,6 +306,13 @@ export class DocumentRuntime {
   setReferences(documentId: string, references: DocumentRef[]) {
     const document = this.requireDocument(documentId);
     document.references = structuredClone(references);
+    this.emit();
+  }
+
+  relocateSource(documentId: string, source: DocumentSource) {
+    const document = this.requireDocument(documentId);
+    document.source = { ...source };
+    document.title = source.name;
     this.emit();
   }
 

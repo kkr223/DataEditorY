@@ -10,7 +10,7 @@ mock.module('$lib/stores/toast.svelte', () => ({
   showToast: () => undefined,
 }));
 
-const { createCardEditorLifecycleController } = await import('./lifecycle');
+const { createCardEditorLifecycleController, syncLoadedDraftEffect } = await import('./lifecycle');
 
 function createSaveController() {
   const card = createEmptyCard();
@@ -86,4 +86,20 @@ describe('card editor workspace save', () => {
     expect(saved).toBe(false);
     expect(saveCalls).toBe(0);
   });
+});
+
+test('refreshing the selected card preserves a newer dirty draft', () => {
+  const original = { ...createEmptyCard(), code: 100, name: 'Old' };
+  const refreshed = { ...original, name: 'Committed' };
+  let loads = 0;
+  const input = {
+    isDbLoaded: true, selectedId: 100, selectedCard: refreshed,
+    lastSyncedSelectedId: 100, originalCardCode: 100,
+    lastLoadedCardSnapshot: createCardSnapshot(original),
+    loadCardIntoDraft: () => { loads++; }, resetDraftCard() {}, refreshDraftImage() {},
+  };
+  syncLoadedDraftEffect({ ...input, preserveDraft: true });
+  expect(loads).toBe(0);
+  syncLoadedDraftEffect({ ...input, preserveDraft: false });
+  expect(loads).toBe(1);
 });

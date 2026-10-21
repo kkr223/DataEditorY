@@ -7,19 +7,9 @@
   import { createAiAppContext } from '$lib/features/ai/context';
   import { runWorkspaceAgent, type AgentStage } from '$lib/native/aiApi';
   import { appSettingsState, connectAiProvider, loadAppSettings, saveAppSettings } from '$lib/stores/appSettings.svelte';
-  import { refreshCachedSearchForTab } from '$lib/stores/search';
   import { documentRuntime } from '$lib/platform/appRuntime';
-  import { writeTextFile } from '$lib/native/assetApi';
-  import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
-  import {
-    getOpenScriptTab,
-    getScriptTabsForCdb,
-    saveScriptTab,
-    updateScriptTabContent,
-  } from '$lib/stores/scriptEditor.svelte';
-  import { cloneEditableCard } from '$lib/domain/card/draft';
   import type { CardDataEntry } from '$lib/types';
-  import type { CardCollectionCommand, CardSearchExpression, CardSearchPage } from '$lib/modules/card';
+  import type { CardSearchExpression, CardSearchPage } from '$lib/modules/card';
   import { mergeWorkspaceAiContextRefs } from './aiContextRefs';
   import {
     buildMentionContextPrompt,
@@ -41,22 +31,15 @@
     getActiveAiThread,
     getAiProposalsForThread,
     getAiThreads,
-    getCardImageDocumentForPath,
-    setCardImageDocumentForPath,
     updateAiProposalStatus,
     upsertAiToolRun,
     upsertAiThread,
-    workspaceMetadataState,
-    type WorkspaceAiPatch,
-    type WorkspaceAiMessage,
-    type WorkspaceAiProposal,
-    type WorkspaceAiToolRun,
-  } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
-  import {
-    createCardImageFormData,
-    normalizeCardImageFormData,
-  } from '$lib/features/card-image/layout';
-  import { queueAiCardDraftPatch } from './aiProposalApplication.svelte';
+  } from '$lib/features/ai/workspaceState';
+  import { workspaceMetadataState, captureWorkspaceMetadataScope } from '$lib/features/workspace-metadata/state.svelte';
+  import type { WorkspaceAiPatch, WorkspaceAiMessage, WorkspaceAiProposal } from '$lib/features/ai/types';
+  import { createAiProposalApplier } from '$lib/features/ai/proposalApplication';
+  import { createAiPatchApplier } from './aiProposalExecution';
+  import AiProposalInspector from './AiProposalInspector.svelte';
   import { renderMarkdown } from './markdown';
 
   const FULL_ACCESS_KEY = 'dataeditory:ai-full-access';
@@ -86,6 +69,8 @@
   let isRunning = $state(false);
   let stage = $state<AgentStage | ''>('');
   let abortController = $state<AbortController | null>(null);
+  let ownsRunningWorkspace: (() => boolean) | null = null;
+  let isDisposed = false;
   let fullAccess = $state(globalThis.localStorage?.getItem(FULL_ACCESS_KEY) === 'true');
   let accessMenuOpen = $state(false);
   let modelMenuOpen = $state(false);
@@ -447,9 +432,14 @@
 
   async function handleSubmit() {
     const content = composer.trim();
-    if (!content || isRunning) return;
-
+    const ownerId = $activeTab?.id;
+    if (!content || isRunning || !ownerId || !workspaceMetadataState.ready) return;
+    const metadataIsCurrent = captureWorkspaceMetadataScope();
     const thread = ensureThread();
+    const ownsWorkspace = () => !isDisposed && metadataIsCurrent()
+      && $activeTab?.id === ownerId && Boolean(documentRuntime.getDocument(ownerId))
+      && getAiThreads().some(candidate => candidate.id === thread.id);
+
     appendAiMessage({ threadId: thread.id, role: 'user', content });
     const mentionContextPrompt = buildMentionContextPrompt(thread.contextRefs);
     composer = '';
@@ -458,8 +448,10 @@
     const controller = new AbortController();
     const announcedStages = new Set<string>();
     abortController = controller;
+    ownsRunningWorkspace = ownsWorkspace;
 
     const appendRunEvent = (message: string) => {
+      if (!ownsWorkspace() || controller.signal.aborted) return;
       appendAiMessage({ threadId: thread.id, role: 'event', content: message });
     };
 
@@ -468,9 +460,10 @@
         threadId: thread.id,
         instruction: mentionContextPrompt ? `${mentionContextPrompt}\n\n用户指令：\n${content}` : content,
         history: thread.messages,
-        context: createAiAppContext(),
+        context: createAiAppContext(ownerId),
         signal: controller.signal,
         onStageChange: (nextStage) => {
+          if (!ownsWorkspace() || controller.signal.aborted) return;
           stage = nextStage;
           if (!announcedStages.has(nextStage)) {
             announcedStages.add(nextStage);
@@ -478,6 +471,7 @@
           }
         },
         onToolCall: (event) => {
+          if (!ownsWorkspace() || controller.signal.aborted) return;
           upsertAiToolRun({
             threadId: thread.id,
             id: event.id,
@@ -489,6 +483,7 @@
           appendRunEvent($_('surface.ai_tool_started', { values: { name: event.name } }));
         },
         onToolResult: (event) => {
+          if (!ownsWorkspace() || controller.signal.aborted) return;
           upsertAiToolRun({
             threadId: thread.id,
             id: event.id,
@@ -501,6 +496,7 @@
           appendRunEvent($_(event.ok ? 'surface.ai_tool_completed' : 'surface.ai_tool_failed', { values: { name: event.name } }));
         },
       });
+      if (!ownsWorkspace() || controller.signal.aborted) return;
       for (const skill of result.usedSkills) {
         appendAiMessage({
           threadId: thread.id,
@@ -521,6 +517,7 @@
           await applyProposal(result.proposal);
         }
       }
+      if (!ownsWorkspace()) return;
       accumulateAiThreadTokenUsage({
         threadId: thread.id,
         promptTokens: result.tokenUsage.promptTokens,
@@ -528,6 +525,7 @@
         totalTokens: result.tokenUsage.totalTokens,
       });
     } catch (error) {
+      if (!ownsWorkspace()) return;
       appendAiMessage({
         threadId: thread.id,
         role: 'assistant',
@@ -536,9 +534,12 @@
           : error instanceof Error ? error.message : 'AI request failed',
       });
     } finally {
-      isRunning = false;
-      stage = '';
-      abortController = null;
+      if (abortController === controller) {
+        isRunning = false;
+        stage = '';
+        abortController = null;
+        ownsRunningWorkspace = null;
+      }
     }
   }
 
@@ -559,191 +560,27 @@
     return text.length > 180 ? `${text.slice(0, 180)}...` : text;
   }
 
-  function formatValue(value: unknown) {
-    if (typeof value === 'string') return value || '(empty)';
-    return JSON.stringify(value, null, 2);
-  }
-
-  function cardChanged(current: CardDataEntry, before: unknown) {
-    return JSON.stringify(current) !== JSON.stringify(before);
-  }
-
-  async function applyCardPatch(patch: Extract<WorkspaceAiPatch, { kind: 'card' }>) {
-    const current = await documentRuntime.query<CardDataEntry | null>(
-      patch.documentId,
-      { kind: 'getById', cardId: patch.cardCode },
-    );
-    if (!current) throw new Error(`Card ${patch.cardCode} is not open`);
-    if (!fullAccess && cardChanged(current, patch.before)) {
-      const ok = await tauriBridge.ask(
-        $_('surface.ai_before_mismatch_confirm'),
-        { title: $_('surface.ai_title'), kind: 'warning' },
-      );
-      if (!ok) throw new Error('Skipped: target changed');
-    }
-    await executeCardCommand(patch.documentId, {
-      kind: 'upsert',
-      cards: [cloneEditableCard(patch.after as CardDataEntry)],
-    });
-    await refreshCachedSearchForTab(patch.documentId);
-    queueAiCardDraftPatch({ id: patch.id, patch: patch.after as Partial<CardDataEntry> });
-  }
-
-  async function applyBatchCardPatch(patch: Extract<WorkspaceAiPatch, { kind: 'batch-card' }>) {
-    const cards: CardDataEntry[] = [];
-    for (const item of patch.cards) {
-      const current = await documentRuntime.query<CardDataEntry | null>(
-        patch.documentId,
-        { kind: 'getById', cardId: item.cardCode },
-      );
-      if (!current) throw new Error(`Card ${item.cardCode} is not open`);
-      if (!fullAccess && cardChanged(current, item.before)) {
-        const ok = await tauriBridge.ask(
-          $_('surface.ai_before_mismatch_confirm'),
-          { title: $_('surface.ai_title'), kind: 'warning' },
-        );
-        if (!ok) throw new Error(`Skipped changed card ${item.cardCode}`);
-      }
-      cards.push(cloneEditableCard(item.after as CardDataEntry));
-    }
-    if (cards.length) {
-      await executeCardCommand(patch.documentId, { kind: 'upsert', cards });
-      await refreshCachedSearchForTab(patch.documentId);
-    }
-  }
-
-  async function executeCardCommand(documentId: string, command: CardCollectionCommand) {
-    const result = await documentRuntime.execute(documentId, command);
-    if (!result.changed) throw new Error('CDB was not changed');
-  }
-
-  async function applyScriptPatch(patch: Extract<WorkspaceAiPatch, { kind: 'script' }>) {
-    const openTab = patch.cardCode
-      ? getOpenScriptTab(patch.cdbPath, patch.cardCode, patch.documentId)
-      : getScriptTabsForCdb({ tabId: patch.documentId, path: patch.cdbPath }).find((tab) => (
-        getCdbPathIdentity(tab.scriptPath) === getCdbPathIdentity(patch.path)
-      ));
-    if (openTab) {
-      updateScriptTabContent(openTab.id, patch.content);
-      if (!(await saveScriptTab(openTab.id))) {
-        throw new Error(`Failed to save open script ${openTab.scriptPath}`);
-      }
-      return;
-    }
-    await writeTextFile(patch.path, patch.content);
-  }
-
-  async function applyImagePatch(patch: Extract<WorkspaceAiPatch, { kind: 'image' }>) {
-    const current = await getCardImageDocumentForPath(patch.cdbPath, patch.cardCode);
-    const card = (patch.patch && typeof patch.patch === 'object' && 'card' in patch.patch)
-      ? (patch.patch as { card?: CardDataEntry }).card
-      : null;
-    const baseForm = current?.form ?? createCardImageFormData(card ?? ({ code: patch.cardCode } as CardDataEntry));
-    const formPatch = patch.patch && typeof patch.patch === 'object' && 'form' in patch.patch
-      ? (patch.patch as { form?: Record<string, unknown> }).form ?? {}
-      : patch.patch;
-    await setCardImageDocumentForPath(patch.cdbPath, patch.cardCode, {
-      kind: 'dataeditory-card-image-config',
-      version: 1,
-      ...current,
-      form: normalizeCardImageFormData({
-        ...baseForm,
-        ...(formPatch as Record<string, unknown>),
+  const proposalApplier = createAiProposalApplier({
+    applyPatch: createAiPatchApplier({
+      confirmConflict: () => tauriBridge.ask($_('surface.ai_before_mismatch_confirm'), {
+        title: $_('surface.ai_title'), kind: 'warning',
       }),
-      exportScalePercent: typeof (patch.patch as { exportScalePercent?: unknown })?.exportScalePercent === 'number'
-        ? (patch.patch as { exportScalePercent: number }).exportScalePercent
-        : current?.exportScalePercent,
-      meta: {
-        ...(current?.meta ?? {}),
-        cardCode: patch.cardCode,
-      },
-    });
-  }
-
-  async function applyPatch(patch: WorkspaceAiPatch) {
-    if (patch.kind === 'card') return applyCardPatch(patch);
-    if (patch.kind === 'batch-card') return applyBatchCardPatch(patch);
-    if (patch.kind === 'script') return applyScriptPatch(patch);
-    if (patch.kind === 'script-test-plan') throw new Error('Script test plans are disabled');
-    return applyImagePatch(patch);
-  }
+      undoLabel: () => $_('surface.ai_title'),
+    }),
+    updateStatus: updateAiProposalStatus,
+  });
 
   async function applyProposal(proposal: WorkspaceAiProposal, singlePatch?: WorkspaceAiPatch) {
-    const patches = singlePatch ? [singlePatch] : proposal.patches;
-    const log: NonNullable<WorkspaceAiProposal['applyLog']> = [...(proposal.applyLog ?? [])];
-    let applied = 0;
-
-    for (const patch of patches) {
-      try {
-        await applyPatch(patch);
-        applied += 1;
-        log.push({
-          patchId: patch.id,
-          ok: true,
-          message: 'applied',
-          usedFullAccess: fullAccess,
-          createdAt: Date.now(),
-        });
-      } catch (error) {
-        log.push({
-          patchId: patch.id,
-          ok: false,
-          message: error instanceof Error ? error.message : String(error),
-          usedFullAccess: fullAccess,
-          createdAt: Date.now(),
-        });
-        updateAiProposalStatus({
-          threadId: proposal.threadId,
-          proposalId: proposal.id,
-          status: applied > 0 ? 'partially_applied' : 'failed',
-          applyLog: log,
-        });
-        showToast(log.at(-1)?.message ?? 'Apply failed', 'error');
-        return;
-      }
+    if (!workspaceMetadataState.ready) return;
+    try {
+      const result = await proposalApplier.apply({
+        proposal, singlePatch, ownerPath: workspaceMetadataState.cdbPath, fullAccess,
+      });
+      if (!result) return;
+      showToast(result.ok ? $_('surface.ai_apply_success') : result.message, result.ok ? 'success' : 'error');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error), 'error');
     }
-
-    updateAiProposalStatus({
-      threadId: proposal.threadId,
-      proposalId: proposal.id,
-      status: singlePatch || applied < proposal.patches.length ? 'partially_applied' : 'applied',
-      applyLog: log,
-    });
-    showToast($_('surface.ai_apply_success'), 'success');
-  }
-
-  function patchTitle(patch: WorkspaceAiPatch) {
-    if (patch.kind === 'card') return `card ${patch.cardCode}`;
-    if (patch.kind === 'batch-card') return `batch ${patch.cards.length}`;
-    if (patch.kind === 'script') return patch.path;
-    if (patch.kind === 'script-test-plan') return patch.path;
-    return `image ${patch.cardCode}`;
-  }
-
-  function patchRows(patch: WorkspaceAiPatch) {
-    if (patch.kind === 'card') {
-      return Object.entries(patch.patch as Record<string, unknown>).map(([field, value]) => ({
-        field,
-        before: (patch.before as Record<string, unknown>)[field],
-        after: value,
-      }));
-    }
-    if (patch.kind === 'batch-card') {
-      const fields = new Set<string>();
-      patch.cards.forEach((card) => Object.keys(card.patch as Record<string, unknown>).forEach((field) => fields.add(field)));
-      return [...fields].map((field) => ({ field, before: `${patch.cards.length} cards`, after: 'changed' }));
-    }
-    if (patch.kind === 'script') {
-      return [{ field: 'content', before: '(file)', after: patch.content }];
-    }
-    if (patch.kind === 'script-test-plan') {
-      return [{ field: 'testPlan', before: '(.dey temporary file)', after: patch.plan }];
-    }
-    return Object.entries(patch.patch as Record<string, unknown>).map(([field, value]) => ({
-      field,
-      before: '(metadata)',
-      after: value,
-    }));
   }
 
   $effect(() => {
@@ -760,7 +597,15 @@
     mentionOpen = false;
   });
 
-  onDestroy(cancelMentionSearch);
+  $effect(() => {
+    if (abortController && ownsRunningWorkspace && !ownsRunningWorkspace()) cancelRun();
+  });
+
+  onDestroy(() => {
+    isDisposed = true;
+    cancelRun();
+    cancelMentionSearch();
+  });
 
   $effect(() => {
     const thread = activeThread;
@@ -960,67 +805,7 @@
     </footer>
   </main>
 
-  <aside class="ai-inspector" aria-label={$_('surface.ai_proposal_diff')}>
-    <section class="context-strip">
-      <div>
-        <span>{$_('surface.ai_context_cdb')}</span>
-        <strong>{$activeTab?.name ?? '-'}</strong>
-      </div>
-      <div>
-        <span>{$_('surface.ai_proposal_diff')}</span>
-        <strong>{proposals.length}</strong>
-      </div>
-    </section>
-
-    <section class="review-list">
-      <div class="review-title">
-        <h3>{$_('surface.ai_proposal_diff')}</h3>
-      </div>
-      {#if proposals.length}
-        {#each proposals as proposal}
-          <article class="proposal-card">
-            <header class="proposal-head">
-              <div>
-                <strong>{proposal.title}</strong>
-                <small>{proposal.status ?? 'pending'}{proposal.model ? ` / ${proposal.model}` : ''}</small>
-              </div>
-              <button class="apply-button" type="button" disabled={proposal.status === 'applied'} onclick={() => void applyProposal(proposal)}>
-                {$_('surface.ai_apply_all')}
-              </button>
-            </header>
-            <p class="proposal-summary">{proposal.summary}</p>
-            <details class="tool-details">
-              <summary>{$_('surface.ai_tool_calls')}</summary>
-              {#each proposal.toolRuns as tool}
-                <p>{tool.name}: {tool.status}</p>
-              {/each}
-            </details>
-            {#each proposal.patches as patch}
-              <details class="patch-card" open>
-                <summary>{patch.kind}: {patchTitle(patch)}</summary>
-                <div class="patch-actions">
-                  <button class="ghost-button" type="button" onclick={() => void applyProposal(proposal, patch)}>
-                    {$_('surface.ai_apply_patch')}
-                  </button>
-                </div>
-                <div class="proposal-diff">
-                  {#each patchRows(patch) as row}
-                    <div class="diff-row">
-                      <strong>{row.field}</strong>
-                      <pre class="before">- {formatValue(row.before)}</pre>
-                      <pre class="after">+ {formatValue(row.after)}</pre>
-                    </div>
-                  {/each}
-                </div>
-              </details>
-            {/each}
-          </article>
-        {/each}
-      {:else}
-        <p class="empty-note">{$_('surface.ai_proposal_empty')}</p>
-      {/if}
-    </section>
-  </aside>
+  <AiProposalInspector {proposals} cdbName={$activeTab?.name ?? '-'} onApply={applyProposal} />
 </section>
 
 <style>
@@ -1029,22 +814,19 @@
     --ai-soft: color-mix(in srgb, var(--bg-surface) 86%, var(--bg-base));
     --ai-ink: var(--text-primary);
     --ai-muted: var(--text-secondary);
-    --ai-accent: color-mix(in srgb, var(--accent-primary) 82%, #1f7a68);
-    --ai-amber: #b7791f;
+    --ai-accent: var(--feature-ai-accent);
+    --ai-amber: var(--state-warning-fg);
     height: 100%;
     min-width: 0;
     display: grid;
     grid-template-columns: 216px minmax(440px, 1fr) minmax(330px, 400px);
     overflow: hidden;
     color: var(--ai-ink);
-    background:
-      linear-gradient(90deg, color-mix(in srgb, var(--bg-base) 94%, #0f1f1d), var(--bg-base)),
-      var(--bg-base);
+    background: var(--bg-base);
   }
 
   .thread-list,
-  .ai-thread,
-  .ai-inspector {
+  .ai-thread {
     min-width: 0;
     min-height: 0;
   }
@@ -1053,13 +835,12 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     border-right: 1px solid var(--ai-line);
-    background: color-mix(in srgb, var(--bg-surface) 92%, #101513);
+    background: var(--bg-surface);
   }
 
   .rail-title,
   .ai-header,
   .model-row,
-  .proposal-head,
   .compose-actions {
     display: flex;
     align-items: center;
@@ -1067,8 +848,7 @@
   }
 
   .rail-title,
-  .ai-header,
-  .proposal-head {
+  .ai-header {
     justify-content: space-between;
   }
 
@@ -1077,7 +857,7 @@
     padding: 0 10px 0 14px;
     border-bottom: 1px solid var(--ai-line);
     color: var(--ai-muted);
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     font-weight: 800;
     text-transform: uppercase;
   }
@@ -1096,11 +876,12 @@
 
   button {
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--control-radius-soft);
     cursor: pointer;
     color: var(--ai-ink);
     background: var(--bg-surface-active);
-    font-weight: 750;
+    font-weight: 700;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
   }
 
   button:disabled {
@@ -1112,7 +893,7 @@
     width: 26px;
     height: 26px;
     padding: 0;
-    font-size: 1.05rem;
+    font-size: var(--text-lg);
     line-height: 1;
   }
 
@@ -1189,11 +970,9 @@
   }
 
   .thread-item small,
-  .empty-note,
-  .proposal-card small,
-  .tool-details p {
+  .empty-note {
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
   }
 
   .empty-note {
@@ -1223,28 +1002,22 @@
   }
 
   h2,
-  h3,
   p {
     margin: 0;
   }
 
   h2 {
     overflow: hidden;
-    font-size: 0.92rem;
+    font-size: var(--text-base);
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  h3 {
-    font-size: 0.88rem;
-    line-height: 1.2;
-  }
-
   .title-block span {
     overflow: hidden;
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1268,7 +1041,7 @@
     min-width: 0;
     border: 1px solid var(--ai-line);
     border-right: 0;
-    border-radius: 6px;
+    border-radius: var(--control-radius-soft);
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
     background: var(--ai-soft);
@@ -1280,7 +1053,7 @@
     height: 28px;
     padding: 0;
     border: 1px solid var(--ai-line);
-    border-radius: 0 6px 6px 0;
+    border-radius: 0 var(--control-radius-soft) var(--control-radius-soft) 0;
     background: var(--ai-soft);
   }
 
@@ -1294,7 +1067,7 @@
     overflow: auto;
     padding: 4px;
     border: 1px solid var(--ai-line);
-    border-radius: 6px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-surface);
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
   }
@@ -1317,7 +1090,7 @@
     display: block;
     padding: 0.42rem 0.48rem;
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
   }
 
   .model-row .ghost-button {
@@ -1340,7 +1113,7 @@
     width: min(780px, 100%);
     padding: 11px 13px;
     border: 1px solid var(--ai-line);
-    border-radius: 8px;
+    border-radius: var(--radius-card);
     background: var(--ai-soft);
   }
 
@@ -1361,7 +1134,7 @@
     gap: 8px;
     align-self: center;
     color: var(--ai-muted);
-    font-size: 0.86rem;
+    font-size: var(--text-base);
   }
 
   .event-line span {
@@ -1379,7 +1152,7 @@
     display: block;
     margin-bottom: 6px;
     color: var(--ai-muted);
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     text-transform: uppercase;
   }
 
@@ -1393,15 +1166,15 @@
     margin: 8px 0;
     padding: 9px 10px;
     overflow: auto;
-    border-radius: 6px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-base);
   }
 
   .message-content :global(code) {
     padding: 1px 4px;
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     background: var(--bg-base);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 0.9em;
   }
 
@@ -1428,9 +1201,9 @@
     margin: 0 auto;
     padding: 12px;
     border: 1px solid var(--ai-line);
-    border-radius: 18px;
+    border-radius: var(--radius-overlay);
     background: var(--bg-surface);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--shadow-card);
   }
 
   .context-chips {
@@ -1444,9 +1217,9 @@
     overflow: hidden;
     padding: 0.22rem 0.48rem;
     border: 1px solid var(--ai-line);
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     color: var(--ai-muted);
-    font-size: 0.76rem;
+    font-size: var(--text-2xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1479,9 +1252,9 @@
     overflow: auto;
     padding: 4px;
     border: 1px solid var(--ai-line);
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-surface);
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--shadow-popover);
   }
 
   .mention-menu button {
@@ -1509,7 +1282,7 @@
   .mention-menu small,
   .mention-menu span {
     color: var(--ai-muted);
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
   }
 
   .composer-input:focus,
@@ -1543,11 +1316,11 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     background: transparent;
     color: var(--ai-muted);
     padding: 0 8px;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     font-weight: 800;
     cursor: pointer;
   }
@@ -1563,7 +1336,7 @@
   }
 
   .chevron {
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
   }
 
   .access-options {
@@ -1575,9 +1348,9 @@
     overflow: hidden;
     padding: 4px;
     border: 1px solid var(--ai-line);
-    border-radius: 8px;
+    border-radius: var(--control-radius-soft);
     background: var(--bg-surface);
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--shadow-popover);
   }
 
   .access-options button {
@@ -1597,7 +1370,7 @@
     min-width: 0;
     margin-left: auto;
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     font-weight: 760;
     white-space: nowrap;
   }
@@ -1606,19 +1379,14 @@
     max-width: 12rem;
     overflow: hidden;
     color: var(--ai-muted);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .run-button,
-  .apply-button {
-    padding: 0.48rem 0.7rem;
-    color: #fff;
-    background: var(--ai-accent);
-  }
-
   .run-button {
+    color: var(--text-on-accent);
+    background: var(--ai-accent);
     position: relative;
     width: 38px;
     height: 38px;
@@ -1649,171 +1417,12 @@
     }
   }
 
-  .ai-inspector {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 10px;
-    padding: 10px;
-    border-left: 1px solid var(--ai-line);
-    overflow: hidden;
-    background: color-mix(in srgb, var(--bg-surface) 84%, var(--bg-base));
-  }
-
-  .context-strip,
-  .review-list {
-    border: 1px solid var(--ai-line);
-    border-radius: 8px;
-    background: var(--bg-base);
-  }
-
-  .context-strip {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .context-strip div {
-    min-width: 0;
-    padding: 10px;
-  }
-
-  .context-strip div + div {
-    border-left: 1px solid var(--ai-line);
-    text-align: right;
-  }
-
-  .context-strip span {
-    display: block;
-    margin-bottom: 4px;
-    color: var(--ai-muted);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-  }
-
-  .context-strip strong {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .review-list {
-    min-height: 0;
-    overflow: auto;
-    padding: 10px;
-  }
-
-  .review-title {
-    position: sticky;
-    top: -10px;
-    z-index: 1;
-    padding: 0 0 9px;
-    background: var(--bg-base);
-  }
-
-  .proposal-card {
-    display: grid;
-    gap: 10px;
-    padding: 11px;
-    border: 1px solid var(--ai-line);
-    border-radius: 8px;
-    background: var(--ai-soft);
-  }
-
-  .proposal-card + .proposal-card {
-    margin-top: 10px;
-  }
-
-  .proposal-head {
-    align-items: flex-start;
-  }
-
-  .proposal-head strong {
-    display: block;
-    line-height: 1.25;
-  }
-
-  .proposal-summary {
-    color: var(--ai-muted);
-    font-size: 0.82rem;
-    line-height: 1.45;
-  }
-
-  .tool-details,
-  .patch-card {
-    border-top: 1px solid var(--ai-line);
-    padding-top: 8px;
-  }
-
-  summary {
-    cursor: pointer;
-    color: var(--ai-ink);
-    font-size: 0.82rem;
-    font-weight: 760;
-  }
-
-  .patch-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
-  }
-
-  .proposal-diff {
-    display: grid;
-    gap: 6px;
-    max-height: 320px;
-    overflow: auto;
-    margin-top: 8px;
-  }
-
-  .diff-row {
-    display: grid;
-    gap: 5px;
-    padding: 8px;
-    border: 1px solid var(--ai-line);
-    border-radius: 6px;
-    background: var(--bg-base);
-  }
-
-  .diff-row strong {
-    font-size: 0.76rem;
-  }
-
-  pre {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 0.75rem;
-    line-height: 1.42;
-  }
-
-  .before {
-    color: #cc5964;
-  }
-
-  .after {
-    color: #2f9b73;
-  }
-
   @media (max-width: 1180px) {
     .ai-surface {
       grid-template-columns: 200px minmax(0, 1fr);
       grid-template-rows: minmax(0, 1fr) minmax(260px, 40vh);
     }
 
-    .ai-inspector {
-      grid-column: 1 / -1;
-      grid-row: 2;
-      grid-template-columns: 260px 1fr;
-      grid-template-rows: minmax(0, 1fr);
-      border-top: 1px solid var(--ai-line);
-      border-left: 0;
-    }
-
-    .review-list {
-      grid-column: 2;
-      grid-row: 1;
-    }
   }
 
   @media (max-width: 860px) {
@@ -1839,8 +1448,7 @@
     }
 
     .ai-header,
-    .ai-compose,
-    .ai-inspector {
+    .ai-compose {
       grid-template-columns: minmax(0, 1fr);
     }
 
@@ -1848,9 +1456,5 @@
       justify-content: flex-start;
     }
 
-    .review-list {
-      grid-column: auto;
-      grid-row: auto;
-    }
   }
 </style>

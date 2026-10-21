@@ -12,6 +12,7 @@ import { showToast } from '$lib/stores/toast.svelte';
 import { createFilterCdbController } from '$lib/features/shell/filterCdbController';
 import { createMergeController } from '$lib/features/shell/mergeController';
 import { createPackageController } from '$lib/features/shell/packageController';
+import { createListenerScope } from './listenerScope';
 
 const activeTabState = fromStore(activeTab);
 
@@ -55,7 +56,7 @@ export function createShellDialogsController() {
     mergeAnalysisKey: '',
   });
 
-  let baseWindowTitle = 'DataEditorY Extra';
+  let baseWindowTitle = 'DataEditorY';
   let nextBackgroundTaskId = 1;
   const pendingBackgroundTasks: PendingBackgroundTask[] = [];
   let isProcessingBackgroundTasks = false;
@@ -228,12 +229,13 @@ export function createShellDialogsController() {
     state.isMergeCdbOpen = false;
   }
   function setup() {
-    const unlisteners: Array<() => void> = [];
+    const listeners = createListenerScope();
     baseWindowTitle = document.title || baseWindowTitle;
 
     if (tauriBridge.isTauri()) {
       void getCurrentWindow().title()
         .then((title) => {
+          if (listeners.disposed) return;
           if (title?.trim()) {
             baseWindowTitle = title;
             void applyWindowTitle();
@@ -243,7 +245,8 @@ export function createShellDialogsController() {
           console.warn('Failed to read window title', error);
         });
 
-      void tauriBridge.listen<BackgroundTaskProgressEvent>('background-task-progress', (event) => {
+      listeners.add(tauriBridge.listen<BackgroundTaskProgressEvent>('background-task-progress', (event) => {
+        if (listeners.disposed) return;
         const payload = event.payload;
         if (!payload) {
           return;
@@ -256,17 +259,13 @@ export function createShellDialogsController() {
           current: payload.current,
           total: payload.total,
         });
-      }).then((unlisten) => {
-        unlisteners.push(unlisten);
-      });
+      }));
     } else {
       void applyWindowTitle();
     }
 
     return () => {
-      for (const unlisten of unlisteners) {
-        unlisten();
-      }
+      listeners.dispose();
       pendingBackgroundTasks.length = 0;
       shellBackgroundTaskState.queue = [];
       clearBackgroundTask();

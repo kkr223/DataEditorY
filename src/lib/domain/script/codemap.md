@@ -7,6 +7,7 @@ Script Workspace Domain — pure logic for Lua script content normalization and 
 ## Design
 
 - `workspace.ts` — manages script workspace state: content tracking, dirty detection, normalization of generated scripts
+- `splitTabs.ts` — groups a pair of scripts into a combined tab and identifies the survivor when either side closes
 - `tabIdentity.ts` — normalizes script tab keys using source CDB identity so equivalent CDB paths do not create duplicate `c{id}.lua` tabs
 - `normalizeGeneratedScript(content)` — normalizes whitespace and line endings for comparison
 - Used by Script surface, AI proposals, and script save/restore flows

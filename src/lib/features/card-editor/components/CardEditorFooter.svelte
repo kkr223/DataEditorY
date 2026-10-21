@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   export let isEditingExisting = false;
+  export let canDelete = false;
   export let editingHint = "";
   export let newCardHint = "";
   export let backgroundTaskLabel = "";
@@ -53,7 +54,7 @@
     <button class="btn-secondary btn-sm" onclick={onNewCard}>{newCardLabel}</button>
     <button class="btn-save-as btn-sm" onclick={onSaveAs}>{saveAsLabel}</button>
     <button class="btn-primary btn-sm" onclick={onModify}>{modifyLabel}</button>
-    <button class="btn-danger btn-sm" onclick={onDelete} disabled={!isEditingExisting}>{deleteLabel}</button>
+    <button class="btn-danger btn-sm" onclick={onDelete} disabled={!canDelete}>{deleteLabel}</button>
   </div>
 </div>
 
@@ -70,7 +71,7 @@
     min-width: 0;
     flex: 1;
     color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-size: var(--text-base);
   }
 
   .background-task-status {
@@ -85,7 +86,7 @@
     border: 1px solid color-mix(in srgb, var(--accent-primary) 24%, var(--border-color));
     background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface-active));
     color: var(--text-primary);
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
     line-height: 1;
     white-space: nowrap;
   }
@@ -134,7 +135,7 @@
   }
 
   button {
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     font-weight: 600;
     padding: 4px 10px;
     border-radius: var(--control-radius);
@@ -142,19 +143,19 @@
     align-items: center;
     justify-content: center;
     gap: 4px;
-    transition: all 0.15s;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
     cursor: pointer;
     border: none;
   }
 
   .btn-sm {
     padding: 0.25rem 0.6rem;
-    font-size: 0.84rem;
+    font-size: var(--text-sm);
   }
 
   .btn-primary {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
   }
 
   .btn-primary:hover {
@@ -173,7 +174,7 @@
 
   .btn-save-as {
     background: var(--accent-secondary);
-    color: white;
+    color: var(--text-on-accent);
   }
 
   .btn-save-as:hover {

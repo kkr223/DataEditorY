@@ -2,27 +2,27 @@ use tauri::AppHandle;
 
 use crate::services;
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn read_cdb(path: String) -> Result<Vec<u8>, String> {
     services::media::read_cdb(path)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn read_text_file(path: String) -> Result<String, String> {
     services::media::read_text_file(path)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
     services::media::write_file(path, data)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn path_exists(path: String) -> Result<bool, String> {
     services::media::path_exists(path)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn resolve_resource_file(
     app: AppHandle,
     relative_path: String,
@@ -30,29 +30,29 @@ pub(crate) fn resolve_resource_file(
     services::media::resolve_resource_file(&app, relative_path)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn list_image_folder_entries(path: String) -> Result<Vec<String>, String> {
     services::media::list_image_folder_entries(path)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn read_lua_helper_scripts(
     path: String,
 ) -> Result<Vec<services::media::LuaHelperScript>, String> {
     services::media::read_lua_helper_scripts(path)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn read_builtin_lua_helper_scripts() -> Vec<services::media::LuaHelperScript> {
     services::media::read_builtin_lua_helper_scripts()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn read_image(path: String) -> Result<Vec<u8>, String> {
     services::media::read_image(path)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn import_card_image(
     src: String,
     dest: String,
@@ -63,17 +63,24 @@ pub(crate) fn import_card_image(
     services::media::import_card_image(src, dest, max_width, max_height, quality)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn load_strings_conf(app: AppHandle) -> Result<String, String> {
     services::media::load_strings_conf(&app)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn open_in_system_editor(path: String) -> Result<(), String> {
     services::media::open_in_system_editor(path)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn open_in_default_app(path: String) -> Result<(), String> {
     services::media::open_in_default_app(path)
+}
+
+#[tauri::command(async)]
+pub(crate) async fn reveal_file(path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || services::media::reveal_file(path))
+        .await
+        .map_err(|error| error.to_string())?
 }

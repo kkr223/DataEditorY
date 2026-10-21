@@ -1,7 +1,12 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import SplitScriptEditor from '$lib/features/script-editor/components/SplitScriptEditor.svelte';
+  import { clearScriptPair, scriptSplitPairs, setScriptPair } from '$lib/features/script-editor/splitState';
+  import { groupScriptTabs, getPairSurvivor } from '$lib/domain/script/splitTabs';
+  import { openScriptTabMenu } from '$lib/features/script-editor/tabMenu';
+  import { onDestroy, tick } from 'svelte';
   import { _ } from 'svelte-i18n';
   import LuaScriptEditor from '$lib/components/LuaScriptEditor.svelte';
+  import { tabDrag } from '$lib/components/tabDrag';
   import { activeTab } from '$lib/stores/db';
   import { getSelectedCard } from '$lib/stores/editor.svelte';
   import {
@@ -10,6 +15,7 @@
     activeScriptTabId,
     closeScriptTab,
     openExistingScriptTab,
+    moveScriptTab,
     scriptTabs,
     setScriptTabViewState,
   } from '$lib/stores/scriptEditor.svelte';
@@ -21,24 +27,36 @@
   } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
   import {
     getScriptTabKey,
-    isSameCdbPath,
     isScriptTabOwnedByCdb,
   } from '$lib/domain/script/tabIdentity';
   import { getWorkspaceDocument } from '$lib/core/workspace/store.svelte';
   import { confirmWorkspaceClose } from '$lib/application/workspace/lifecycle';
   import { showToast } from '$lib/stores/toast.svelte';
+  import { cardSurfaceState } from './surfaceState.svelte';
+
+  let {
+    selectionReady = false,
+    openSelectedRequest = 0,
+    onOpenSelectedRequestHandled,
+  }: {
+    selectionReady?: boolean;
+    openSelectedRequest?: number;
+    onOpenSelectedRequestHandled?: () => void;
+  } = $props();
 
   let isOpening = $state(false);
   let isMissingScript = $state(false);
-  let restoredPath = '';
-  let restorationCompletePath = '';
+  let createSelectedRequested = $state(false);
+  let restoredWorkspaceKey = $state('');
+  let restorationCompleteWorkspaceKey = $state('');
   let lastPersistedScriptKey = '';
   let lastResolvedCardKey = '';
-  let lastRestorationPath = '';
+  let lastRestorationWorkspaceKey = '';
   let restorationSequence = 0;
   let resolveSequence = 0;
   const selectedCard = $derived(getSelectedCard());
   const activeCdb = $derived($activeTab);
+  const workspaceKey = $derived(activeCdb ? JSON.stringify([activeCdb.id, activeCdb.path]) : '');
   const currentCdbScriptTabs = $derived.by(() => (
     activeCdb
       ? $scriptTabs.filter((tab) => isScriptTabOwnedByCdb(tab, { tabId: activeCdb.id, path: activeCdb.path }))
@@ -50,48 +68,63 @@
     return isScriptTabOwnedByCdb(tab, { tabId: activeCdb.id, path: activeCdb.path }) ? tab : null;
   });
 
+  const pair = $derived(activeCdb ? $scriptSplitPairs[activeCdb.id] ?? null : null);
+  const tabGroups = $derived(groupScriptTabs(currentCdbScriptTabs, pair));
+  const activePair = $derived(pair && surfaceScriptTab && [pair.leftId, pair.rightId].includes(surfaceScriptTab.id)
+    ? tabGroups.find((group) => group.length === 2) ?? null : null);
+
+  function openSplit(tabId: string) {
+    if (!activeCdb || !surfaceScriptTab || surfaceScriptTab.id === tabId || !currentCdbScriptTabs.some((tab) => tab.id === tabId)) return;
+    setScriptPair(activeCdb.id, { leftId: surfaceScriptTab.id, rightId: tabId });
+  }
+
   onDestroy(() => {
     restorationSequence += 1;
     resolveSequence += 1;
   });
 
   async function closeSurfaceScriptTab(tabId: string) {
+    const ownerId = activeCdb?.id;
     const workspace = getWorkspaceDocument(tabId);
-    if (workspace && !(await confirmWorkspaceClose(workspace))) return;
+    if (workspace && !(await confirmWorkspaceClose(workspace))) return false;
+    if (activeCdb?.id !== ownerId) return false;
+    const survivor = getPairSurvivor(pair, tabId);
+    if (survivor && ownerId) {
+      clearScriptPair(ownerId);
+      await activateScriptTab(survivor);
+      await tick();
+    }
     await closeScriptTab(tabId);
+    return true;
   }
 
-  async function openSelectedScript() {
-    if (!activeCdb || !selectedCard || isOpening) return;
-    isOpening = true;
-    try {
-      await openCardScriptWorkspace({
-        cdbPath: activeCdb.path,
-        sourceTabId: activeCdb.id,
-        cardCode: selectedCard.code,
-        cardName: selectedCard.name ?? '',
-      });
-      isMissingScript = false;
-    } finally {
-      isOpening = false;
-    }
+  function openSelectedScript() {
+    createSelectedRequested = true;
   }
 
   $effect(() => {
     const path = activeCdb?.path ?? '';
     const sourceTabId = activeCdb?.id ?? null;
-    if (path !== lastRestorationPath) {
-      lastRestorationPath = path;
+    const key = workspaceKey;
+    if (key !== lastRestorationWorkspaceKey) {
+      lastRestorationWorkspaceKey = key;
       restorationSequence += 1;
+      resolveSequence += 1;
+      lastResolvedCardKey = '';
+      isOpening = false;
+      isMissingScript = false;
+      createSelectedRequested = false;
     }
     const sequence = restorationSequence;
     workspaceMetadataState.ready;
     workspaceMetadataState.metadata;
-    if (!path || !sourceTabId || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restoredPath === path) {
+    if (!selectionReady || !path || !sourceTabId || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restoredWorkspaceKey === key) {
       return;
     }
 
-    restoredPath = path;
+    restoredWorkspaceKey = key;
+    const initialCardKey = selectedCard ? getScriptTabKey(path, selectedCard.code) : '';
+    const isCurrentRestoration = () => sequence === restorationSequence && workspaceKey === key && selectionReady;
     const surfaceState = getScriptSurfaceState();
     const openTabs = surfaceState?.openTabs ?? [];
     const activeCode = surfaceState?.activeCardCode ?? openTabs[0]?.cardCode ?? null;
@@ -110,28 +143,34 @@
             cardName: tab.cardName ?? '',
             activate: false,
           });
-          if (sequence !== restorationSequence || !isSameCdbPath(activeCdb?.path ?? '', path)) return;
+          if (sequence !== restorationSequence || workspaceKey !== key) return;
           if (tabId && tab.viewState) {
             setScriptTabViewState(tabId, tab.viewState);
           }
         }
 
-        if (sequence !== restorationSequence || !isSameCdbPath(activeCdb?.path ?? '', path)) return;
+        if (sequence !== restorationSequence || workspaceKey !== key) return;
         const currentActive = $activeScriptTab;
         const alreadyActive = currentActive
           && isScriptTabOwnedByCdb(currentActive, { tabId: sourceTabId, path })
           && currentCdbScriptTabs.some((tab) => tab.id === currentActive.id);
-        if (!alreadyActive && activeCode) {
-          const active = $scriptTabs.find((tab) => (
-            isScriptTabOwnedByCdb(tab, { tabId: sourceTabId, path }) && tab.cardCode === activeCode
-          ));
-          if (active) activateScriptTab(active.id);
+        const active = alreadyActive ? currentActive : $scriptTabs.find((tab) => (
+          isScriptTabOwnedByCdb(tab, { tabId: sourceTabId, path }) && tab.cardCode === activeCode
+        ));
+        if (active) {
+          await activateScriptTab(active.id, undefined, isCurrentRestoration);
+          if (!isCurrentRestoration()) return;
+          // Returning to a workspace restores its active script independently of
+          // Explorer selection. Only a subsequent card change should follow it.
+          if ((selectedCard ? getScriptTabKey(path, selectedCard.code) : '') === initialCardKey) {
+            lastResolvedCardKey = initialCardKey;
+          }
         }
       } catch (error) {
         console.error('Failed to restore script surface tabs', error);
       } finally {
-        if (sequence === restorationSequence && isSameCdbPath(activeCdb?.path ?? '', path)) {
-          restorationCompletePath = path;
+        if (sequence === restorationSequence && workspaceKey === key) {
+          restorationCompleteWorkspaceKey = key;
         }
       }
     })();
@@ -143,12 +182,20 @@
     const cardCode = selectedCard?.code ?? 0;
     const cardName = selectedCard?.name ?? '';
     const cardKey = path && cardCode ? getScriptTabKey(path, cardCode) : '';
-    if (!cardKey || !sourceTabId || restorationCompletePath !== path || lastResolvedCardKey === cardKey) {
+    const requested = openSelectedRequest > 0 || createSelectedRequested;
+    if (!selectionReady || !cardKey || !sourceTabId || restorationCompleteWorkspaceKey !== workspaceKey
+      || (!requested && lastResolvedCardKey === cardKey)) {
       return;
     }
 
     lastResolvedCardKey = cardKey;
+    if (openSelectedRequest > 0) onOpenSelectedRequestHandled?.();
+    createSelectedRequested = false;
     const sequence = ++resolveSequence;
+    const key = workspaceKey;
+    const canActivate = () => sequence === resolveSequence && workspaceKey === key && selectionReady
+      && cardSurfaceState.activeSurface === 'script'
+      && getScriptTabKey(activeCdb?.path ?? '', selectedCard?.code ?? 0) === cardKey;
     isOpening = true;
     isMissingScript = false;
     if (
@@ -158,24 +205,27 @@
     ) {
       activeScriptTabId.set(null);
     }
-    void openExistingScriptTab({
+    const input = {
       cdbPath: path,
       sourceTabId,
       cardCode,
       cardName,
-      activate: false,
-    })
-      .then((tabId) => {
-        if (sequence !== resolveSequence || getScriptTabKey(activeCdb?.path ?? '', selectedCard?.code ?? 0) !== cardKey) return;
+      activate: false as const,
+    };
+    const opening = requested
+      ? openCardScriptWorkspace(input).then((result) => result?.tabId ?? null)
+      : openExistingScriptTab(input);
+    void opening
+      .then(async (tabId) => {
+        if (!canActivate()) return;
         if (!tabId) {
           isMissingScript = true;
           return;
         }
-        activateScriptTab(tabId);
+        await activateScriptTab(tabId, undefined, canActivate);
       })
       .catch((error) => {
         if (sequence !== resolveSequence) return;
-        lastResolvedCardKey = '';
         showToast(
           `${$_('editor.script_open_failed')}: ${error instanceof Error ? error.message : String(error)}`,
           'error',
@@ -189,7 +239,7 @@
   $effect(() => {
     const path = activeCdb?.path ?? '';
     const sourceTabId = activeCdb?.id ?? null;
-    if (!path || !sourceTabId || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restoredPath !== path) {
+    if (!selectionReady || !path || !sourceTabId || !workspaceMetadataState.ready || workspaceMetadataState.cdbPath !== path || restorationCompleteWorkspaceKey !== workspaceKey) {
       return;
     }
 
@@ -216,28 +266,33 @@
 <section class="script-surface">
   {#if currentCdbScriptTabs.length}
     <nav class="script-tab-strip" aria-label={$_('surface.script')}>
-      {#each currentCdbScriptTabs as tab}
+      {#each tabGroups as group (group.map((tab) => tab.id).join(':'))}
         <div
-          class:active={$activeScriptTab?.id === tab.id}
+          use:tabDrag={{ id: group[0].id, scope: workspaceKey, enabled: group.length === 1, onMove: moveScriptTab }}
+          class:active={group.some((tab) => $activeScriptTab?.id === tab.id)}
+          class:paired={group.length === 2}
           class="script-tab"
-          onauxclick={(event) => { if (event.button === 1) { event.preventDefault(); void closeSurfaceScriptTab(tab.id); } }}
         >
-          <button type="button" class="script-tab-main" onclick={() => activateScriptTab(tab.id)}>
-            c{tab.cardCode}.lua{tab.isDirty ? ' *' : ''}
-          </button>
-          <button
-            type="button"
-            class="script-tab-close"
-            aria-label={$_('editor.script_reference_close')}
-            title={$_('editor.script_reference_close')}
-            onclick={() => void closeSurfaceScriptTab(tab.id)}
-          >x</button>
+          {#each group as tab (tab.id)}
+            <div role="group" aria-label={`c${tab.cardCode}.lua`} class="script-tab-half" class:focused={$activeScriptTab?.id === tab.id}
+              oncontextmenu={(event) => openScriptTabMenu(event, { tab, tabs: currentCdbScriptTabs, activeId: surfaceScriptTab?.id ?? null, onSplit: openSplit, onClose: closeSurfaceScriptTab })}
+              onauxclick={(event) => { if (event.button === 1) { event.preventDefault(); void closeSurfaceScriptTab(tab.id); } }}>
+              <button type="button" class="script-tab-main" onclick={() => activateScriptTab(tab.id)}>
+                c{tab.cardCode}.lua{tab.isDirty ? ' *' : ''}
+              </button>
+              <button type="button" class="script-tab-close" data-tab-close
+                aria-label={`${$_('editor.script_reference_close')} c${tab.cardCode}.lua`}
+                title={$_('editor.script_reference_close')} onclick={() => void closeSurfaceScriptTab(tab.id)}>×</button>
+            </div>
+          {/each}
         </div>
       {/each}
     </nav>
   {/if}
   <div class="script-content">
-  {#if surfaceScriptTab}
+  {#if activePair}
+    <SplitScriptEditor left={activePair[0]} right={activePair[1]} />
+  {:else if surfaceScriptTab}
     <LuaScriptEditor />
   {:else}
     <div class="surface-empty">
@@ -251,7 +306,7 @@
         <button
           type="button"
           class="primary-action"
-          disabled={!selectedCard || !activeCdb || isOpening}
+          disabled={!selectionReady || !selectedCard || !activeCdb || isOpening}
           onclick={() => void openSelectedScript()}
         >
           {isOpening ? '...' : $_(isMissingScript ? 'surface.create_script' : 'surface.open_script')}
@@ -285,6 +340,9 @@
   }
 
   .script-tab {
+    position: relative;
+    user-select: none;
+    touch-action: pan-y;
     flex: 0 0 auto;
     height: 30px;
     display: flex;
@@ -295,11 +353,20 @@
     color: var(--text-secondary);
   }
 
+  .script-tab-half { height: 100%; display: flex; align-items: center; }
+  .paired .script-tab-half + .script-tab-half { border-left: 1px solid var(--border-color); }
+  .paired .script-tab-half.focused { box-shadow: inset 0 2px var(--accent-primary); }
+
   .script-tab.active {
     border-color: var(--border-color);
     background: var(--bg-base);
     color: var(--text-primary);
   }
+
+  .script-tab:global([data-tab-dragging]) { opacity: 0.45; }
+  .script-tab:global([data-tab-dragging]) button { cursor: grabbing; }
+  .script-tab:global([data-tab-drop='before']) { box-shadow: inset 3px 0 var(--accent-primary); }
+  .script-tab:global([data-tab-drop='after']) { box-shadow: inset -3px 0 var(--accent-primary); }
 
   .script-tab button {
     height: 100%;
@@ -317,7 +384,7 @@
   .script-tab-close {
     width: 27px;
     padding: 0;
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
   }
 
   .script-tab-close:hover {
@@ -351,7 +418,7 @@
 
   h2 {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: var(--text-lg);
     color: var(--text-primary);
   }
 
@@ -382,7 +449,7 @@
     border: none;
     border-radius: var(--control-radius);
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
     padding: 0.52rem 0.82rem;
     font-weight: 700;
     cursor: pointer;

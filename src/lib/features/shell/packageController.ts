@@ -7,6 +7,7 @@ import { appShellState } from '$lib/stores/appShell.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { writeErrorLog } from '$lib/utils/errorLog';
 import { workspaceState } from '$lib/core/workspace/store.svelte';
+import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 import { saveWorkspaceDocument } from '$lib/application/workspace/commandBus';
 import { startTask } from '$lib/native/taskApi';
 import { appendWorkspaceTaskHistoryForPath } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
@@ -47,7 +48,8 @@ export function createPackageController(
 
     if (
       appShellState.mainView === 'script'
-      && activeScriptTabState.current?.cdbPath === targetCdbPath
+      && activeScriptTabState.current?.cdbPath
+      && getCdbPathIdentity(activeScriptTabState.current.cdbPath) === getCdbPathIdentity(targetCdbPath)
       && activeScriptWorkspace?.dirty
     ) {
       const confirmed = await tauriBridge.ask(t('editor.package_zip_unsaved_script_confirm'), {
@@ -63,8 +65,10 @@ export function createPackageController(
       }
     }
 
+    const targetIdentity = getCdbPathIdentity(targetCdbPath);
     const sourceWorkspace = workspaceState.documents.find(
-      (document) => document.kind === 'db' && document.source.path === targetCdbPath,
+      (document) => document.kind === 'db'
+        && getCdbPathIdentity(document.source.path) === targetIdentity,
     ) ?? null;
 
     if (sourceWorkspace?.dirty) {

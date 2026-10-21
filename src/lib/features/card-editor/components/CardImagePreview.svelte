@@ -52,7 +52,7 @@
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background: rgba(5, 10, 18, 0.82);
+    background: var(--dialog-backdrop);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -63,9 +63,9 @@
     position: relative;
     max-width: min(92vw, 900px);
     max-height: 92vh;
-    border-radius: 10px;
+    border-radius: var(--radius-dialog);
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--dialog-shadow);
     background: var(--bg-elevated);
     border: 1px solid var(--border-color);
   }
@@ -77,9 +77,9 @@
     width: 32px;
     height: 32px;
     border: none;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.72);
-    color: white;
+    border-radius: var(--control-radius-pill);
+    background: color-mix(in srgb, var(--bg-base) 82%, transparent);
+    color: var(--text-on-accent);
     cursor: pointer;
     z-index: 1;
   }

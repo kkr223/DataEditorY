@@ -67,18 +67,18 @@
   }
 
   .strip-field label {
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     color: var(--text-secondary);
     font-weight: 600;
   }
 
   .strip-field input {
     padding: 0.25rem 0.45rem;
-    font-size: 0.9rem;
+    font-size: var(--text-base);
   }
 
   button {
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     font-weight: 600;
     padding: 4px 10px;
     border-radius: var(--control-radius);
@@ -86,19 +86,19 @@
     align-items: center;
     justify-content: center;
     gap: 4px;
-    transition: all 0.15s;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
     cursor: pointer;
     border: none;
   }
 
   .btn-sm {
     padding: 0.25rem 0.6rem;
-    font-size: 0.84rem;
+    font-size: var(--text-sm);
   }
 
   .btn-primary {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
   }
 
   .btn-primary:hover {

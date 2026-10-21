@@ -1,4 +1,6 @@
 import { derived, get, writable } from 'svelte/store';
+import { tick } from 'svelte';
+import { clearScriptPair, scriptSplitPairs } from '$lib/features/script-editor/splitState';
 import type { ScriptWorkspaceState } from '$lib/types';
 import { activeTabId, tabs } from '$lib/stores/db';
 import {
@@ -21,7 +23,8 @@ import {
   isScriptTabOwnedByCdb,
 } from '$lib/domain/script/tabIdentity';
 import { documentRuntime } from '$lib/platform/appRuntime';
-import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
+import type { DocumentPlacement } from '$lib/platform/runtime';
+import { CARD_COLLECTION_TYPE, type CardIdChange } from '$lib/modules/card';
 import { createScriptDocumentSync } from '$lib/features/script-editor/documentSync';
 import { createLatestActivation } from '$lib/features/script-editor/activation';
 import {
@@ -162,6 +165,28 @@ const hydrateScriptTab = async (
 
 export const getActiveScriptTab = () => get(activeScriptTab);
 
+// Both split panes already have live models. Focus must identify the save target
+// immediately, without waiting for the other pane's debounced document sync.
+export const focusScriptTab = (tabId: string) => {
+  const tab = get(scriptTabs).find((item) => item.id === tabId);
+  const owner = get(tabs).find((item) => item.id === get(activeTabId));
+  if (!tab || !owner || !isScriptTabOwnedByCdb(tab, { tabId: owner.id, path: owner.path })) return;
+  scriptActivation.begin();
+  documentRuntime.activate(tabId);
+  activeScriptTabId.set(tabId);
+  activateScriptView();
+};
+
+export const moveScriptTab = (tabId: string, targetId: string, placement: DocumentPlacement) => {
+  const current = get(scriptTabs);
+  const tab = current.find((item) => item.id === tabId);
+  const target = current.find((item) => item.id === targetId);
+  if (!tab || !target || !isScriptTabOwnedByCdb(target, {
+    tabId: tab.sourceTabId ?? '', path: tab.cdbPath,
+  })) return;
+  documentRuntime.moveDocument(tabId, targetId, placement);
+};
+
 export const registerScriptModelDisposer = (dispose: (tabId: string) => void) => {
   disposeScriptModelHook = dispose;
 };
@@ -176,10 +201,11 @@ export const hasUnsavedScriptChanges = (
 export const activateScriptTab = (
   tabId: string,
   isLatestActivation = scriptActivation.begin(),
+  canActivate: () => boolean = () => true,
 ) => {
-  if (!isLatestActivation()) return;
+  if (!isLatestActivation() || !canActivate()) return;
   const activate = () => {
-    if (!isLatestActivation()) return;
+    if (!isLatestActivation() || !canActivate()) return;
     const tab = get(scriptTabs).find((item) => item.id === tabId);
     if (!tab) return;
     if (tab.sourceTabId && !get(tabs).some((owner) => owner.id === tab.sourceTabId)) return;
@@ -225,19 +251,20 @@ const discardCancelledScript = async (documentId: string | null) => {
 
 export const openOrCreateScriptTab = async (input: ScriptTabContext & {
   templateContent: string;
+  activate?: boolean;
 }): Promise<OpenScriptTabResult | null> => {
-  const isLatestActivation = scriptActivation.begin();
+  const isLatestActivation = input.activate === false ? null : scriptActivation.begin();
   const key = `${input.sourceTabId ?? ''}:${getScriptTabKey(input.cdbPath, input.cardCode)}`;
   const inflight = inflightOpenRequests.get(key);
   if (inflight) {
     const result = await inflight;
-    if (result) await activateScriptTab(result.tabId, isLatestActivation);
+    if (result && isLatestActivation) await activateScriptTab(result.tabId, isLatestActivation);
     return result;
   }
 
   const existing = getOpenScriptTab(input.cdbPath, input.cardCode, input.sourceTabId);
   if (existing) {
-    await activateScriptTab(existing.id, isLatestActivation);
+    if (isLatestActivation) await activateScriptTab(existing.id, isLatestActivation);
     return { tabId: existing.id, createdFromTemplate: false };
   }
 
@@ -282,7 +309,7 @@ export const openOrCreateScriptTab = async (input: ScriptTabContext & {
         });
       }
       await hydrateScriptTab(document.id, input, info.path, !info.exists, signal);
-      await activateScriptTab(document.id, () => !signal.aborted && isLatestActivation());
+      if (isLatestActivation) await activateScriptTab(document.id, () => !signal.aborted && isLatestActivation());
       return {
         tabId: document.id,
         createdFromTemplate: !info.exists,
@@ -430,6 +457,12 @@ export const closeScriptTab = async (tabId: string) => {
   const index = currentTabs.findIndex((tab) => tab.id === tabId);
   if (index === -1) return;
   const closedTab = currentTabs[index];
+  const pair = get(scriptSplitPairs)[closedTab.sourceTabId ?? ''];
+  if (pair && (pair.leftId === tabId || pair.rightId === tabId)) {
+    clearScriptPair(closedTab.sourceTabId!);
+    // Detach the diff view before disposing either of its models.
+    await tick();
+  }
   const cdbIndex = currentTabs
     .filter((tab) => isSameCdbPath(tab.cdbPath, closedTab.cdbPath))
     .findIndex((tab) => tab.id === tabId);
@@ -467,6 +500,23 @@ export const closeScriptTab = async (tabId: string) => {
 export const getScriptTabsForCdb = (cdb: { tabId: string; path: string }) => (
   get(scriptTabs).filter((tab) => isScriptTabOwnedByCdb(tab, cdb))
 );
+
+export const syncScriptTabsAfterCardIdChange = (tabId: string, change: CardIdChange) => {
+  if (!change.removeOriginal) return;
+  const oldCode = change.reversed ? change.newCardId : change.originalCardId;
+  const newCode = change.reversed ? change.originalCardId : change.newCardId;
+  const ownedTabs = getScriptTabsForCdb({ tabId, path: change.cdbPath });
+  for (const tab of ownedTabs.filter((tab) => tab.cardCode === oldCode)) {
+    const scriptPath = tab.scriptPath.replace(/c\d+\.lua$/i, buildScriptFileName(newCode));
+    attachScriptMetadata(tab.id, {
+      cdbPath: tab.cdbPath, sourceTabId: tab.sourceTabId, cardCode: newCode,
+      cardName: tab.cardName, createdFromTemplate: tab.createdFromTemplate,
+    });
+    documentRuntime.relocateSource(tab.id, {
+      uri: scriptPath, path: scriptPath, name: buildScriptFileName(newCode),
+    });
+  }
+};
 
 export const closeScriptTabsForCdb = async (cdb: { tabId: string; path: string }) => {
   for (const [controller, ownerId] of pendingScriptOpens) {

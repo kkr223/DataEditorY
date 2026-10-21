@@ -5,6 +5,8 @@ import { tauriBridge } from '$lib/infrastructure/tauri';
 import { activateTextView, activateEditorView } from '$lib/stores/appShell.svelte';
 import { showToast } from '$lib/stores/toast.svelte';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+import { disposeWorkspaceLifecycle, setWorkspaceSaveHandler } from '$lib/application/workspace/lifecycle';
+import { disposeTextTabModel } from '$lib/features/script-editor/monaco/textModels';
 
 export type TextTab = {
   id: string;
@@ -25,6 +27,9 @@ export const activeTextTab = derived(
 );
 
 const inflightTextOpens = new Map<string, Promise<string | null>>();
+const inflightTextSaves = new Map<string, Promise<boolean>>();
+const editVersions = new Map<string, number>();
+const reloadRequests = new Map<string, object>();
 
 export const getActiveTextTab = () => get(activeTextTab);
 
@@ -127,6 +132,7 @@ export async function openTextFile(path: string): Promise<string | null> {
         viewState: null,
       };
       textTabs.update((tabs) => [...tabs, tab]);
+      setWorkspaceSaveHandler(id, (destination) => saveTextTab(id, destination));
       activeTextTabId.set(id);
       activateTextView();
       return id;
@@ -150,9 +156,8 @@ export async function openTextFileDialog(): Promise<string | null> {
     directory: false,
   });
   if (!selected) return null;
-  const path = typeof selected === 'string' ? selected : (selected as { path?: string }).path;
-  if (!path) return null;
-  return openTextFile(path);
+  const path = Array.isArray(selected) ? selected[0] : selected;
+  return path ? openTextFile(path) : null;
 }
 
 export function activateTextTab(tabId: string) {
@@ -166,6 +171,7 @@ export function updateTextTabContent(tabId: string, content: string) {
   textTabs.update((tabs) => tabs.map((tab) => {
     if (tab.id !== tabId) return tab;
     if (tab.content === content) return tab;
+    editVersions.set(tabId, (editVersions.get(tabId) ?? 0) + 1);
     return {
       ...tab,
       content,
@@ -180,7 +186,19 @@ export function setTextTabViewState(tabId: string, viewState: unknown | null) {
   )));
 }
 
-export async function saveTextTab(tabId: string, destinationPath?: string): Promise<boolean> {
+export function saveTextTab(tabId: string, destinationPath?: string): Promise<boolean> {
+  reloadRequests.delete(tabId);
+  const previous = inflightTextSaves.get(tabId) ?? Promise.resolve();
+  const saving = previous.then(() => saveTextTabNow(tabId, destinationPath));
+  inflightTextSaves.set(tabId, saving);
+  const cleanup = () => {
+    if (inflightTextSaves.get(tabId) === saving) inflightTextSaves.delete(tabId);
+  };
+  void saving.then(cleanup, cleanup);
+  return saving;
+}
+
+async function saveTextTabNow(tabId: string, destinationPath?: string): Promise<boolean> {
   const tab = get(textTabs).find((item) => item.id === tabId);
   if (!tab) return false;
 
@@ -205,8 +223,8 @@ export async function saveTextTab(tabId: string, destinationPath?: string): Prom
             ...item,
             path: targetPath,
             name: basename(targetPath),
-            savedContent: item.content,
-            isDirty: false,
+            savedContent: tab.content,
+            isDirty: item.content !== tab.content,
           }
         : item
     )));
@@ -217,6 +235,29 @@ export async function saveTextTab(tabId: string, destinationPath?: string): Prom
       values: { name: tab.name },
     } as never)), 'error');
     return false;
+  }
+}
+
+export async function reloadTextTab(tabId: string): Promise<boolean> {
+  const tab = get(textTabs).find(item => item.id === tabId);
+  if (!tab) return false;
+  const version = editVersions.get(tabId) ?? 0;
+  const request = {};
+  reloadRequests.set(tabId, request);
+  try {
+    await inflightTextSaves.get(tabId);
+    if (reloadRequests.get(tabId) !== request || (editVersions.get(tabId) ?? 0) !== version) return false;
+    const content = (await readTextFile(tab.path)).replaceAll('\r\n', '\n');
+    const current = get(textTabs).find(item => item.id === tabId);
+    if (reloadRequests.get(tabId) !== request || !current || current.path !== tab.path
+      || (editVersions.get(tabId) ?? 0) !== version) return false;
+    editVersions.set(tabId, version + 1);
+    textTabs.update(tabs => tabs.map(item => item.id === tabId
+      ? { ...item, content, savedContent: content, isDirty: false }
+      : item));
+    return true;
+  } finally {
+    if (reloadRequests.get(tabId) === request) reloadRequests.delete(tabId);
   }
 }
 
@@ -234,11 +275,16 @@ export async function saveTextTabAs(tabId: string): Promise<boolean> {
 }
 
 export async function closeTextTab(tabId: string): Promise<boolean> {
+  await inflightTextSaves.get(tabId);
   const tabs = get(textTabs);
   const index = tabs.findIndex((tab) => tab.id === tabId);
   if (index === -1) return false;
 
   textTabs.update((list) => list.filter((tab) => tab.id !== tabId));
+  reloadRequests.delete(tabId);
+  editVersions.delete(tabId);
+  disposeTextTabModel(tabId);
+  disposeWorkspaceLifecycle(tabId);
 
   const currentActive = get(activeTextTabId);
   if (currentActive === tabId) {

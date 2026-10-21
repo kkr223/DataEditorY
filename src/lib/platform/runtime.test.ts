@@ -54,6 +54,106 @@ const modules: ExtensionModule[] = [{
 }];
 
 describe('document runtime', () => {
+  test('concurrent saves run in order and close waits for the final write', async () => {
+    let release!: () => void;
+    let started!: () => void;
+    const blocked = new Promise<void>(resolve => { release = resolve; });
+    const writing = new Promise<void>(resolve => { started = resolve; });
+    const persisted: string[] = [];
+    let writesStarted = 0;
+    const runtime = new DocumentRuntime(modules, {
+      ...codecContext,
+      readText: async () => '{}',
+      writeText: async (_path, content) => {
+        writesStarted++;
+        if (writesStarted === 1) { started(); await blocked; }
+        persisted.push(content);
+      },
+    });
+    const doc = await runtime.openSource({ uri: 'D:/queued.note.json', name: 'queued.note.json' });
+    try {
+      await runtime.execute(doc.id, { kind: 'replace', value: { value: 1 } });
+      const first = runtime.save(doc.id);
+      await writing;
+      await runtime.execute(doc.id, { kind: 'replace', value: { value: 2 } });
+      const second = runtime.save(doc.id);
+      const closing = runtime.close(doc.id);
+      await Promise.resolve();
+      expect(writesStarted).toBe(1);
+      expect(runtime.getDocument(doc.id)).not.toBe(null);
+      release();
+      await Promise.all([first, second, closing]);
+      expect(persisted).toEqual(['{"value":1}', '{"value":2}']);
+      expect(runtime.getDocument(doc.id)).toBeNull();
+    } finally { release(); }
+  });
+
+  test('saving keeps edits made during file writing dirty', async () => {
+    let finish!: () => void;
+    let started!: () => void;
+    const blocked = new Promise<void>(resolve => { finish = resolve; });
+    const writing = new Promise<void>(resolve => { started = resolve; });
+    const persisted: string[] = [];
+    const runtime = new DocumentRuntime(modules, {
+      ...codecContext,
+      readText: async () => '{}',
+      writeText: async (_path, content) => {
+        if (persisted.length === 0) { started(); await blocked; }
+        persisted.push(content);
+      },
+    });
+    const doc = await runtime.openSource({ uri: 'D:/race.note.json', name: 'race.note.json' });
+    await runtime.execute(doc.id, { kind: 'replace', value: { value: 'first' } });
+    const firstSave = runtime.save(doc.id);
+    await writing;
+    await runtime.execute(doc.id, { kind: 'replace', value: { value: 'second' } });
+    finish();
+    await firstSave;
+    expect(runtime.getDocument(doc.id)?.dirty).toBe(true);
+    expect(persisted).toEqual(['{"value":"first"}']);
+    await runtime.save(doc.id);
+    expect(persisted).toEqual(['{"value":"first"}', '{"value":"second"}']);
+    expect(runtime.getDocument(doc.id)?.dirty).toBe(false);
+    await runtime.close(doc.id);
+  });
+
+  test('moving tabs survives runtime updates and closing follows the displayed order', async () => {
+    const runtime = new DocumentRuntime(modules, codecContext);
+    const create = (title: string) => runtime.createDocument({
+      typeId: 'test.note', providerId: 'memory', title, initialData: {},
+    });
+    const first = await create('First');
+    const second = await create('Second');
+    const third = await create('Third');
+    runtime.activate(first.id);
+    runtime.moveDocument(third.id, first.id, 'before');
+    expect(runtime.snapshot.documents.map((item) => item.id)).toEqual([third.id, first.id, second.id]);
+    expect(runtime.snapshot.activeDocumentId).toBe(first.id);
+    expect(runtime.getDocument(third.id)).toEqual(third);
+    await runtime.execute(first.id, { kind: 'patch', value: { edited: true } });
+    expect(runtime.snapshot.documents.map((item) => item.id)).toEqual([third.id, first.id, second.id]);
+    runtime.moveDocument(third.id, second.id, 'after');
+    expect(runtime.snapshot.documents.map((item) => item.id)).toEqual([first.id, second.id, third.id]);
+    runtime.activate(second.id);
+    await runtime.close(second.id, true);
+    expect(runtime.snapshot.activeDocumentId).toBe(third.id);
+  });
+
+  test('stale or redundant tab moves leave the runtime unchanged', async () => {
+    const runtime = new DocumentRuntime(modules, codecContext);
+    const first = await runtime.createDocument({ typeId: 'test.note', providerId: 'memory', title: 'First' });
+    const second = await runtime.createDocument({ typeId: 'test.note', providerId: 'memory', title: 'Second' });
+    let emissions = 0;
+    const unsubscribe = runtime.subscribe(() => { emissions += 1; });
+    runtime.moveDocument(first.id, first.id, 'after');
+    runtime.moveDocument(first.id, second.id, 'before');
+    runtime.moveDocument('closed', second.id, 'after');
+    runtime.moveDocument(second.id, 'closed', 'before');
+    expect(emissions).toBe(1);
+    expect(runtime.snapshot.documents.map((item) => item.id)).toEqual([first.id, second.id]);
+    unsubscribe();
+  });
+
   test('opens, modifies, saves, and closes a document', async () => {
     const runtime = new DocumentRuntime(modules, codecContext);
     const opened = await runtime.openSource({

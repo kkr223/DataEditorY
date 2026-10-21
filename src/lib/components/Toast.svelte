@@ -31,32 +31,33 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 14px;
-    border-radius: 6px;
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: white;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    padding: 9px 15px;
+    border: 1px solid color-mix(in srgb, white 16%, transparent);
+    border-radius: var(--control-radius-soft);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-on-accent);
+    box-shadow: var(--shadow-popover);
     animation: toast-in 0.25s ease-out;
     pointer-events: auto;
-    max-width: 320px;
+    max-width: 360px;
   }
 
   .toast-icon {
-    font-size: 0.95rem;
+    font-size: var(--text-md);
     flex-shrink: 0;
   }
 
   .toast-success {
-    background: linear-gradient(135deg, #22c55e, #16a34a);
+    background: var(--state-success-bg);
   }
 
   .toast-error {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: var(--state-danger-bg);
   }
 
   .toast-info {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    background: var(--state-info-bg);
   }
 
   @keyframes toast-in {

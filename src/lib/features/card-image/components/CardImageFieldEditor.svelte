@@ -411,51 +411,52 @@
 {/if}
 
 <style>
-  .btn-sm { padding: 0.38rem 0.75rem; font-size: 0.84rem; font-weight: 700; border-radius: 8px; border: none; cursor: pointer; transition: all 0.15s; }
-  .btn-secondary { background: rgba(148, 163, 184, 0.14); color: var(--text-primary); border: 1px solid rgba(148, 163, 184, 0.22); }
-  .drawer-section { margin-bottom: 18px; padding: 14px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-base); }
+  .btn-sm { padding: 0.38rem 0.75rem; font-size: var(--text-sm); font-weight: 700; border-radius: var(--control-radius-soft); border: 1px solid transparent; cursor: pointer; transition: background-color var(--transition-fast), border-color var(--transition-fast); }
+  .btn-secondary { background: var(--bg-surface-active); color: var(--text-primary); border-color: var(--border-color); }
+  .btn-secondary:hover { background: var(--bg-surface-hover); }
+  .drawer-section { margin-bottom: 18px; padding: 14px; border: 1px solid var(--border-color); border-radius: var(--radius-card); background: var(--bg-base); }
   .foreground-section { margin-top: 12px; margin-bottom: 0; }
-  .section-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+  .section-title { font-size: var(--text-md); font-weight: 700; color: var(--text-primary); }
   .field-stack { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
   .field-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
   .subfield-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-top: 6px; }
   .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .field span { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
-  .field input, .field select, .field textarea { width: 100%; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 8px; font-size: 0.9rem; }
+  .field span { font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600; }
+  .field input, .field select, .field textarea { width: 100%; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--control-radius); padding: 6px 8px; font-size: var(--text-base); }
   .field textarea { resize: vertical; min-height: 110px; }
   .star-alignment { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
-  .star-alignment button { min-height: 32px; padding: 6px 4px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: 0.85rem; cursor: pointer; }
-  .star-alignment button.active { border-color: var(--accent-primary); background: var(--accent-primary); color: #fff; }
+  .star-alignment button { min-height: 32px; padding: 6px 4px; border: 1px solid var(--border-color); border-radius: var(--control-radius); background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: var(--text-base); cursor: pointer; }
+  .star-alignment button.active { border-color: var(--accent-primary); background: var(--accent-primary); color: var(--text-on-accent); }
   .field-span-2 { grid-column: span 2; }
   .color-input-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
   .color-input-row-compact { grid-template-columns: 52px minmax(0, 1fr); }
   .color-swatch { min-height: 38px; padding: 4px; cursor: pointer; }
   .color-preset-group { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
-  .color-preset-label { font-size: 0.78rem; color: var(--text-secondary); font-weight: 600; }
+  .color-preset-label { font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600; }
   .color-preset-list { display: flex; flex-wrap: wrap; gap: 8px; }
-  .color-preset-chip { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 999px; border: 1px solid var(--border-color); background: var(--bg-surface); transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
+  .color-preset-chip { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: var(--control-radius-pill); border: 1px solid var(--border-color); background: var(--bg-surface); transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
   .color-preset-chip:hover { border-color: color-mix(in srgb, var(--accent-primary) 35%, var(--border-color)); transform: translateY(-1px); }
   .color-preset-chip.is-active { border-color: var(--accent-primary); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 30%, transparent); }
-  .color-preset-swatch { width: 18px; height: 18px; border-radius: 999px; flex: 0 0 auto; background: var(--preset-color); border: 1px solid color-mix(in srgb, #0f172a 18%, rgba(255, 255, 255, 0.28)); }
+  .color-preset-swatch { width: 18px; height: 18px; border-radius: var(--control-radius-pill); flex: 0 0 auto; background: var(--preset-color); border: 1px solid color-mix(in srgb, var(--bg-base) 18%, rgba(255, 255, 255, 0.28)); }
   .toggle-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
-  .toggle { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); color: var(--text-primary); font-size: 0.88rem; }
+  .toggle { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--control-radius-soft); background: var(--bg-surface); color: var(--text-primary); font-size: var(--text-base); }
   .toggle input { width: auto; margin: 0; }
   .gradient-toggle { margin-top: 6px; align-self: flex-start; }
-  .field-hint { font-size: 0.84rem; color: var(--text-secondary); }
+  .field-hint { font-size: var(--text-sm); color: var(--text-secondary); }
   .link-arrow-grid { display: grid; grid-template: repeat(3, 34px) / repeat(3, 34px); gap: 4px; width: max-content; }
-  .link-arrow { padding: 0; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); color: var(--text-secondary); font-size: 1rem; }
+  .link-arrow { padding: 0; border: 1px solid var(--border-color); border-radius: var(--control-radius); background: var(--bg-surface); color: var(--text-secondary); font-size: var(--text-md); }
   .link-arrow:hover { border-color: var(--accent-primary); color: var(--text-primary); }
-  .link-arrow.active { border-color: var(--accent-primary); background: var(--accent-primary); color: #fff; }
+  .link-arrow.active { border-color: var(--accent-primary); background: var(--accent-primary); color: var(--text-on-accent); }
   .link-arrow-center { grid-row: 2; grid-column: 2; display: grid; place-items: center; color: var(--text-secondary); opacity: 0.35; }
   .effect-block-fieldset { margin: 0; padding: 0; border: none; min-width: 0; }
   .effect-block-fieldset:disabled { opacity: 0.58; }
-  .rarity-mask-panel { padding: 12px; border: 1px solid color-mix(in srgb, var(--accent-primary) 22%, var(--border-color)); border-radius: 10px; background: color-mix(in srgb, var(--accent-primary) 4%, var(--bg-surface)); }
+  .rarity-mask-panel { padding: 12px; border: 1px solid color-mix(in srgb, var(--accent-primary) 22%, var(--border-color)); border-radius: var(--radius-card); background: color-mix(in srgb, var(--accent-primary) 4%, var(--bg-surface)); }
   .rarity-mask-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .rarity-mask-header > div:first-child { display: flex; flex-direction: column; gap: 4px; }
-  .rarity-mask-title { color: var(--text-primary); font-size: 0.9rem; font-weight: 700; }
+  .rarity-mask-title { color: var(--text-primary); font-size: var(--text-base); font-weight: 700; }
   .style-section { container-type: inline-size; padding: 16px; }
   .style-group { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border-color); }
-  .style-group-title { margin: 0 0 12px; color: var(--text-primary); font-size: 0.86rem; font-weight: 650; }
+  .style-group-title { margin: 0 0 12px; color: var(--text-primary); font-size: var(--text-base); font-weight: 650; }
   .style-group > .field-grid { margin-top: 0; }
   .style-section .field-grid, .style-section .subfield-grid { align-items: end; gap: 12px; }
   .style-section .field input:not([type='checkbox']):not([type='range']), .style-section .field select { min-height: 36px; }
@@ -463,7 +464,7 @@
   .style-section .toggle { min-height: 38px; }
   .style-section input[type='checkbox'], .style-section input[type='range'] { accent-color: var(--accent-primary); }
   .style-colors { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; align-items: start; }
-  .style-color-panel, .style-layer-panel { gap: 10px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface); }
+  .style-color-panel, .style-layer-panel { gap: 10px; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--control-radius-soft); background: var(--bg-surface); }
   .style-color-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .style-color-heading .gradient-toggle { margin: 0; padding: 0; min-height: 0; border: none; background: transparent; }
   .style-color-panel .subfield-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
@@ -473,8 +474,8 @@
   .style-section .color-preset-label { flex-shrink: 0; }
   .style-section .color-preset-list { gap: 6px; }
   .style-section .color-preset-chip { width: 26px; height: 26px; }
-  .style-section .field-hint { color: var(--text-disabled); font-size: 0.76rem; line-height: 1.5; }
-  .style-section .rarity-mask-panel { border-color: var(--border-color); border-radius: 8px; background: var(--bg-surface); }
+  .style-section .field-hint { color: var(--text-disabled); font-size: var(--text-xs); line-height: 1.5; }
+  .style-section .rarity-mask-panel { border-color: var(--border-color); border-radius: var(--control-radius-soft); background: var(--bg-surface); }
   .style-mask-coverage { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--border-color); gap: 8px; }
   .style-section .rarity-mask-header > button { flex-shrink: 0; }
   button:disabled { cursor: not-allowed; opacity: 0.55; }

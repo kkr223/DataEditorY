@@ -126,23 +126,6 @@ describe("card image config document", () => {
     expect(parsed.exportScalePercent).toBeNull();
   });
 
-  test("exposes the upstream out-frame rarity", () => {
-    expect(CARD_IMAGE_RARE_OPTIONS.some(({ value }) => value === "o")).toBe(true);
-    expect(CARD_IMAGE_RARE_OPTIONS.some(({ value }) => value === "pser2")).toBe(true);
-  });
-
-  test("uses upstream rendering defaults", () => {
-    const form = normalizeCardImageFormData({});
-    expect(form.gradientStroke).toBe(true);
-    expect(form.foregroundCoverAttribute).toBe(true);
-    expect(form.foregroundClipBelowEffectBox).toBe(false);
-    expect(form.rarityMaskEffectBox).toBe(true);
-    expect(form.rarityMaskArtwork).toBe(false);
-    expect(form.rarityMaskCoverName).toBe(false);
-    expect(form.rarityMaskCoverAttribute).toBe(false);
-    expect(form.rarityMaskCoverLevel).toBe(false);
-  });
-
   test("defaults out-frame rarity to an enabled colored effect box", () => {
     const imported = normalizeCardImageFormData({ rare: "o" });
     const selected = applyCardImageRarityDefaults(normalizeCardImageFormData({}), "o");

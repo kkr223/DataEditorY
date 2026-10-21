@@ -136,15 +136,15 @@
 {/if}
 
 <style>
-  .btn-sm { padding: 0.38rem 0.75rem; font-size: 0.84rem; font-weight: 700; border-radius: 8px; border: none; cursor: pointer; transition: all 0.15s; }
-  .btn-primary { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28); }
-  .btn-primary:hover { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-  .btn-secondary { background: rgba(148, 163, 184, 0.14); color: var(--text-primary); border: 1px solid rgba(148, 163, 184, 0.22); }
-  .btn-secondary:hover { background: rgba(148, 163, 184, 0.22); }
+  .btn-sm { padding: 0.38rem 0.75rem; font-size: var(--text-sm); font-weight: 700; border-radius: var(--control-radius-soft); border: 1px solid transparent; cursor: pointer; transition: background-color var(--transition-fast), border-color var(--transition-fast); }
+  .btn-primary { background: var(--accent-primary); color: var(--text-on-accent); box-shadow: var(--shadow-soft); }
+  .btn-primary:hover { background: var(--accent-primary-hover); }
+  .btn-secondary { background: var(--bg-surface-active); color: var(--text-primary); border-color: var(--border-color); }
+  .btn-secondary:hover { background: var(--bg-surface-hover); }
   button:disabled { cursor: not-allowed; opacity: 0.6; }
   .form-toolbar, .foreground-toolbar, .preview-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .upload-btn { box-shadow: 0 10px 24px rgba(37, 99, 235, 0.34); padding-inline: 1rem; }
-  .field-hint { font-size: 0.84rem; color: var(--text-secondary); }
+  .field-hint { font-size: var(--text-sm); color: var(--text-secondary); }
   .preview-actions { justify-content: flex-end; }
   .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; border: 0; padding: 0; white-space: nowrap; clip-path: inset(50%); overflow: hidden; }
 </style>

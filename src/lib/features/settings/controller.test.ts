@@ -6,34 +6,56 @@ import {
   hydrateSettingsForm,
   isSettingsFormDirty,
   shouldAutoConnectSettings,
+  validateSettingsForm,
 } from '$lib/features/settings/controller';
 import { createDefaultShortcutBindingMap } from '$lib/features/shortcuts/registry';
 
 const DEFAULT_SHORTCUT_BINDINGS = createDefaultShortcutBindingMap();
 
 describe('settings controller helpers', () => {
-  test('creates the default settings form state', () => {
-    const state = createSettingsFormState();
-    expect(state.apiBaseUrl).toBe('');
-    expect(state.model).toBe('gpt-4o-mini');
-    expect(state.temperature).toBe(1);
-    expect(state.agentMaxSteps).toBe(100);
-    expect(state.ygoproPath).toBe('');
-    expect(state.scriptDirectory).toBe('');
-    expect(state.scriptTemplate).toBe('');
-    expect(state.useExternalScriptEditor).toBe(false);
-    expect(state.saveScriptImageToLocal).toBe(false);
-    expect(state.autoCompleteFunctionParameters).toBe(true);
-    expect(state.packageIncludePatternsText).toBe('');
-    expect(state.secretKey).toBe('');
-    expect(typeof state.shortcutBindings).toBe('object');
-    expect(Object.keys(state.shortcutBindings).length > 0).toBe(true);
+  test('hydrates custom snippets and validates edits without changing the saved configuration', () => {
+    const form = createSettingsFormState();
+    const values = {
+      ...form, packageIncludePatterns: [], hasSecretKey: false, coverImagePath: null, errorLogPath: '',
+      scriptSnippets: '{"mine":{"prefix":"#mine","body":"-- mine","description":"My hint"}}',
+    };
+    hydrateSettingsForm(form, values, { isHydrated: false });
+    expect(form.scriptSnippets).toBe(values.scriptSnippets);
+    expect(isSettingsFormDirty(form, values)).toBe(false);
+    form.scriptSnippets = '{}';
+    expect(isSettingsFormDirty(form, values)).toBe(true);
+    expect(validateSettingsForm(form)).toBeNull();
+    expect(values.scriptSnippets).toContain('#mine');
+    form.scriptSnippets = 'broken';
+    expect(validateSettingsForm(form)).toBe('snippets');
+  });
+
+  test('rejects empty, fractional and out-of-range editor font sizes', () => {
+    const form = createSettingsFormState();
+    for (const size of [Number.NaN, 7, 33, 14.5]) {
+      form.scriptEditorFontSize = size;
+      expect(validateSettingsForm(form)).toBe('font-size');
+    }
+    form.scriptEditorFontSize = 20;
+    expect(validateSettingsForm(form)).toBeNull();
   });
 
   test('normalizes temperature into the supported range', () => {
     expect(getNormalizedSettingsTemperature(Number.NaN)).toBe(1);
     expect(getNormalizedSettingsTemperature(-1)).toBe(0);
     expect(getNormalizedSettingsTemperature(3)).toBe(2);
+  });
+
+  test('tracks a changed editor font preference and hydrates the saved default', () => {
+    const form = createSettingsFormState();
+    const values = { ...form, packageIncludePatterns: [], hasSecretKey: false, coverImagePath: null, errorLogPath: '' };
+    expect(isSettingsFormDirty(form, values)).toBe(false);
+    form.scriptEditorFontSize = 22;
+    expect(isSettingsFormDirty(form, values)).toBe(true);
+    values.scriptEditorFontSize = 22;
+    hydrateSettingsForm(form, values, { isHydrated: true });
+    expect(form.scriptEditorFontSize).toBe(22);
+    expect(isSettingsFormDirty(form, values)).toBe(false);
   });
 
   test('normalizes long-task rounds into the supported range', () => {
@@ -60,6 +82,7 @@ describe('settings controller helpers', () => {
         useExternalScriptEditor: true,
         saveScriptImageToLocal: true,
         autoCompleteFunctionParameters: false,
+        scriptEditorFontSize: 18,
         packageIncludePatterns: ['pics/{code}.jpg', 'script/c{code}.lua'],
         shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
         hasSecretKey: true,
@@ -79,6 +102,7 @@ describe('settings controller helpers', () => {
     expect(form.useExternalScriptEditor).toBe(true);
     expect(form.saveScriptImageToLocal).toBe(true);
     expect(form.autoCompleteFunctionParameters).toBe(false);
+    expect(form.scriptEditorFontSize).toBe(18);
     expect(form.packageIncludePatternsText).toBe('pics/{code}.jpg\nscript/c{code}.lua');
     expect(form.secretKey).toBe('');
     expect(result.isHydrated).toBe(true);
@@ -101,6 +125,7 @@ describe('settings controller helpers', () => {
         useExternalScriptEditor: false,
         saveScriptImageToLocal: false,
         autoCompleteFunctionParameters: true,
+      scriptEditorFontSize: 14,
         packageIncludePatterns: ['pics/{code}.jpg'],
         shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
         hasSecretKey: true,
@@ -133,6 +158,7 @@ describe('settings controller helpers', () => {
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
       autoCompleteFunctionParameters: true,
+      scriptEditorFontSize: 14,
       packageIncludePatterns: ['pics/{code}.jpg'],
       shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: false,
@@ -152,6 +178,7 @@ describe('settings controller helpers', () => {
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
       autoCompleteFunctionParameters: true,
+      scriptEditorFontSize: 14,
       packageIncludePatterns: ['pics/{code}.jpg'],
       shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: false,
@@ -172,6 +199,7 @@ describe('settings controller helpers', () => {
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
       autoCompleteFunctionParameters: true,
+      scriptEditorFontSize: 14,
       packageIncludePatterns: ['pics/{code}.jpg'],
       shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: false,
@@ -192,6 +220,7 @@ describe('settings controller helpers', () => {
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
       autoCompleteFunctionParameters: true,
+      scriptEditorFontSize: 14,
       packageIncludePatterns: ['pics/{code}.jpg'],
       shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: false,
@@ -212,6 +241,7 @@ describe('settings controller helpers', () => {
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
       autoCompleteFunctionParameters: true,
+      scriptEditorFontSize: 14,
       packageIncludePatterns: ['pics/{code}.jpg'],
       shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: false,
@@ -232,6 +262,7 @@ describe('settings controller helpers', () => {
       useExternalScriptEditor: false,
       saveScriptImageToLocal: false,
       autoCompleteFunctionParameters: true,
+      scriptEditorFontSize: 14,
       packageIncludePatterns: ['pics/{code}.jpg'],
       shortcutBindings: DEFAULT_SHORTCUT_BINDINGS,
       hasSecretKey: true,

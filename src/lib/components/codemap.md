@@ -15,6 +15,7 @@ Shared UI Components — reusable/orchestrating Svelte components used across fe
 | `SetcodeField.svelte` | Setcode (archetype) input field with catalog lookup and autocomplete |
 | `SettingsPanel.svelte` | Settings panel container |
 | `Toast.svelte` | Toast notification display |
+| `tabDrag.ts` | Shared pointer action for horizontal CDB/Lua tab sorting: insertion markers, edge scrolling, cancellation, and click suppression after a drag |
 
 ## Design
 

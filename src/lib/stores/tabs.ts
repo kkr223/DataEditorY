@@ -8,6 +8,7 @@ import { documentRuntime } from '$lib/platform/appRuntime';
 import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
 import { CDB_PROVIDER_ID } from '$lib/modules/cdb';
 import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+import { writeErrorLog } from '$lib/utils/errorLog';
 import {
   popUndoLabel,
   pushUndoLabel,
@@ -192,17 +193,18 @@ export async function createCdbFile(path?: string): Promise<string | null> {
 }
 
 export async function closeTab(tabId: string) {
-  if (!get(tabs).some((tab) => tab.id === tabId)) return;
+  if (!get(tabs).some((tab) => tab.id === tabId)) return false;
 
   try {
     await documentRuntime.close(tabId, true);
   } catch (err) {
     console.error('Failed to close CDB tab:', err);
-    return;
+    return false;
   }
 
   clearUndoHistory(tabId);
   clearSourceFilterCacheForTab(tabId);
+  return true;
 }
 
 export async function saveCdbFile(): Promise<boolean> {
@@ -326,6 +328,12 @@ export async function undoLastOperationInTab(tabId: string, refreshCachedSearch 
     const result = await documentRuntime.undo(tab.id);
     if (!result.changed) return false;
 
+    const change = (result.value as import('$lib/modules/card').CardIdChangeResult | undefined)?.cardIdChange;
+    if (change) {
+      const { syncScriptTabsAfterCardIdChange } = await import('./scriptEditor.svelte');
+      syncScriptTabsAfterCardIdChange(tab.id, change);
+    }
+
     popUndoLabel(tab.id);
     clearSourceFilterCacheForTab(tab.id);
     if (refreshCachedSearch) {
@@ -355,11 +363,27 @@ export async function saveCdbTabAs(tabId: string, path: string): Promise<boolean
 
   try {
     const name = targetPath.split(/[\\/]/).pop() || tab.name;
+    const sourcePath = tab.path;
     const saved = await documentRuntime.save(tab.id, {
       uri: targetPath,
       path: targetPath,
       name,
     });
+    // Copy editor metadata only after the CDB itself was written, so a failed
+    // Save As does not leave orphaned .dey files at the destination.
+    if (sourcePath) {
+      try {
+        const { copyWorkspaceMetadataForSaveAs } = await import('$lib/features/workspace-metadata/state.svelte');
+        await copyWorkspaceMetadataForSaveAs(sourcePath, targetPath);
+      } catch (metadataError) {
+        console.error('Failed to copy workspace metadata for Save As:', metadataError);
+        void writeErrorLog({
+          source: 'tabs.save-as.metadata',
+          error: metadataError,
+          extra: { sourcePath, targetPath },
+        });
+      }
+    }
     pushRecentCdbEntry({ path: targetPath, name: saved.title });
     return true;
   } catch (err) {

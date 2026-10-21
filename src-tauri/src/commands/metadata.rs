@@ -2,12 +2,12 @@ use serde_json::Value;
 
 use crate::services;
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn load_workspace_metadata(cdb_path: String) -> Result<Value, String> {
     services::metadata::load_workspace_metadata(cdb_path)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub(crate) fn save_workspace_metadata(
     cdb_path: String,
     metadata: Value,

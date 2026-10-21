@@ -14,6 +14,9 @@ Card Image Maker Feature (extra only) — maps current card/draft data to `yugio
 - **`exporter.ts`** — export helpers for single-card and batch image output
 - **`scriptRenderer.ts`** — renders Lua script code as a styled image (for code screenshot export)
 - **`workspaceAssets.ts`** — resolves `workspace-asset:` references from metadata to image files under `.dey/card-image/`
+- **`imageOperations.ts`** — cancels stale uploads, imports, and render work by CDB/card context and request generation; disposal invalidates pending work
+
+Image surfaces create a controller per CDB/card identity after Explorer restoration. Foreground bitmap and transform changes are applied together. Workspace image filenames include a SHA-256 content fingerprint (legacy fixed filenames remain readable), and save acknowledgements replace inline data only when the image bytes match the current edit.
 
 ### Components
 

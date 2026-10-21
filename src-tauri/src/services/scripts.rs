@@ -38,7 +38,7 @@ pub fn save_card_script(
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
 
-    fs::write(&script_path, normalize_script_content(content)).map_err(|err| err.to_string())?;
+    super::atomic::write_atomic(&script_path, normalize_script_content(content).as_bytes())?;
     Ok(CardScriptInfo {
         path: script_path.to_string_lossy().to_string(),
         exists: true,

@@ -26,10 +26,12 @@
   import { activeScriptTab, getActiveScriptTab, registerScriptModelDisposer, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
   import { appSettingsState } from '$lib/stores/appSettings.svelte';
+  import { normalizeScriptEditorFontSize } from '$lib/features/script-editor/fontPreferences';
   import { collectLuaInlineHighlights } from '$lib/features/script-editor/lua/calls';
   import type { CardDataEntry } from '$lib/types';
   import type { editor as MonacoEditor } from 'monaco-editor';
   import { normalizeCardStrings } from '$lib/domain/card/draft';
+  import { normalizeScriptContent } from '$lib/domain/script/workspace';
   import {
     buildCallHighlightDecorations,
     buildScriptEditorContextKey,
@@ -85,12 +87,14 @@
     hintState = $bindable<ScriptEditorCoreHintState>(createDefaultHintState()),
     referenceState = $bindable<ScriptEditorCoreReferenceState>(createDefaultReferenceState()),
     children,
+    onCopySelectionImage,
   } = $props<{
     cardContext?: CardDataEntry | null;
     hasSelectedCode?: boolean;
     hintState?: ScriptEditorCoreHintState;
     referenceState?: ScriptEditorCoreReferenceState;
     children?: Snippet;
+    onCopySelectionImage?: () => unknown | Promise<unknown>;
   }>();
 
   let editorHost = $state<HTMLDivElement | null>(null);
@@ -103,10 +107,12 @@
   let isApplyingModel = false;
   let isMonacoReady = $state(false);
   let loadContextToken = 0;
+  let isDisposed = false;
   let lastContextKey = $state('');
   let savedScriptStrings = $state<string[]>(Array.from({ length: 16 }, () => ''));
   let referenceSelection = $state<ReturnType<MonacoEditor.IStandaloneCodeEditor['getSelection']>>(null);
   let hoverAbove = true;
+  let lastAppliedDefaultFontSize: number | null = null;
   let suggestHintTimer: ReturnType<typeof setTimeout> | null = null;
   let validateTimer: ReturnType<typeof setTimeout> | null = null;
   let lastHighlightSource = '';
@@ -189,6 +195,8 @@
   }
 
   async function loadCardContext() {
+    if (isDisposed) return;
+    const currentToken = ++loadContextToken;
     const tab = getActiveScriptTab();
     if (!tab) {
       cardContext = null;
@@ -196,13 +204,12 @@
       return;
     }
 
-    const currentToken = ++loadContextToken;
     const result = await loadScriptCardContextFlow({
       tab,
       dbTabs: $tabs,
       loadToken: currentToken,
     });
-    if (result.loadToken !== loadContextToken) return;
+    if (isDisposed || result.loadToken !== loadContextToken || getActiveScriptTab()?.id !== tab.id) return;
 
     cardContext = result.cardContext;
     savedScriptStrings = result.savedScriptStrings;
@@ -351,7 +358,7 @@
   }
 
   async function syncEditorWithActiveTab() {
-    if (!editorInstance || !monacoModule || !monacoApi) return;
+    if (isDisposed || !editorInstance || !monacoModule || !monacoApi) return;
 
     const tab = getActiveScriptTab();
     if (!tab) {
@@ -373,7 +380,8 @@
 
     if (!model) {
       model = monacoApi.editor.createModel(tab.content, 'lua', uri);
-    } else if (model.getValue() !== tab.content) {
+      model.setEOL(monacoApi.editor.EndOfLineSequence.LF);
+    } else if (normalizeScriptContent(model.getValue()) !== tab.content) {
       isApplyingModel = true;
       model.setValue(tab.content);
       isApplyingModel = false;
@@ -536,6 +544,7 @@
     editorInstance.updateOptions({
       hover: {
         above: hoverAbove,
+        delay: 0,
       },
     });
   }
@@ -618,6 +627,8 @@
 
     const runtime = await createScriptMonacoRuntime({
       host: editorHost,
+      onCopySelectionImage: () => onCopySelectionImage?.(),
+      getDefaultFontSize: () => appSettingsState.values.scriptEditorFontSize,
       onDidChangeModelContent: () => {
         if (isApplyingModel || !currentBoundTabId) return;
         const model = editorInstance?.getModel();
@@ -674,6 +685,9 @@
   });
 
   onDestroy(() => {
+    isDisposed = true;
+    loadContextToken += 1;
+    isMonacoReady = false;
     clearSuggestHint();
     clearCurrentFunctionHint();
     if (editorInstance && currentBoundTabId) {
@@ -685,6 +699,15 @@
     validateTimer = null;
     monacoRuntime?.dispose();
     monacoRuntime = null;
+    editorInstance = null;
+  });
+
+  $effect(() => {
+    const fontSize = normalizeScriptEditorFontSize(appSettingsState.values.scriptEditorFontSize);
+    if (!isMonacoReady || !editorInstance) return;
+    if (fontSize === lastAppliedDefaultFontSize) return;
+    lastAppliedDefaultFontSize = fontSize;
+    untrack(() => editorInstance?.updateOptions({ fontSize }));
   });
 
   $effect(() => {
@@ -738,17 +761,17 @@
   .script-editor-shell {
     min-width: 0;
     min-height: 0;
-    padding: 6px 6px 6px 8px;
+    padding: 0;
     position: relative;
   }
 
   .script-editor {
     height: 100%;
     min-height: 0;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border: 0;
+    border-radius: 0;
     overflow: hidden;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1);
+    box-shadow: none;
     background: #121714;
   }
 
@@ -760,9 +783,9 @@
       repeating-linear-gradient(
         to bottom,
         rgba(0, 0, 0, 0) 0,
-        rgba(0, 0, 0, 0) 21px,
-        rgba(186, 227, 198, 0.08) 21px,
-        rgba(186, 227, 198, 0.08) 22px
+        rgba(0, 0, 0, 0) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(186, 227, 198, 0.08) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(186, 227, 198, 0.08) var(--script-editor-line-height, 22px)
       ),
       #121714 !important;
   }
@@ -835,8 +858,8 @@
   }
 
   .script-editor :global(.suggest-widget .monaco-list-row.focused) {
-    background: #50675b !important;
-    color: #f2fbf5 !important;
+    background: var(--bg-surface-active) !important;
+    color: var(--text-primary) !important;
   }
 
   .script-editor :global(.suggest-widget .monaco-list-row.focused .label-name),
@@ -847,8 +870,8 @@
   }
 
   .script-editor :global(.suggest-widget .monaco-list-row:hover) {
-    background: rgba(80, 103, 91, 0.24) !important;
-    color: #eef7f1 !important;
+    background: rgba(55, 67, 84, 0.24) !important;
+    color: var(--text-primary) !important;
   }
 
   .script-editor :global(.suggest-widget .monaco-list-row:hover .label-name),
@@ -870,16 +893,16 @@
       repeating-linear-gradient(
         to bottom,
         rgba(0, 0, 0, 0) 0,
-        rgba(0, 0, 0, 0) 21px,
-        rgba(104, 145, 112, 0.1) 21px,
-        rgba(104, 145, 112, 0.1) 22px
+        rgba(0, 0, 0, 0) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(104, 145, 112, 0.1) calc(var(--script-editor-line-height, 22px) - 1px),
+        rgba(104, 145, 112, 0.1) var(--script-editor-line-height, 22px)
       ),
       #f1f5ec !important;
   }
 
   :global([data-theme='light']) .script-editor :global(.monaco-editor) {
-    --vscode-editor-selectionBackground: rgba(97, 141, 106, 0.22) !important;
-    --vscode-editor-inactiveSelectionBackground: rgba(97, 141, 106, 0.14) !important;
+    --vscode-editor-selectionBackground: rgba(79, 142, 98, 0.22) !important;
+    --vscode-editor-inactiveSelectionBackground: rgba(79, 142, 98, 0.14) !important;
     --vscode-editor-lineHighlightBackground: rgba(74, 133, 91, 0.1) !important;
     --vscode-editorError-background: rgba(198, 128, 117, 0.08) !important;
     --vscode-editorError-border: rgba(198, 128, 117, 0.2) !important;
@@ -910,12 +933,12 @@
   }
 
   :global([data-theme='light']) .script-editor :global(.suggest-widget .monaco-list-row.focused) {
-    background: #dbe8dc !important;
-    color: #16311e !important;
+    background: var(--bg-surface-active) !important;
+    color: var(--text-primary) !important;
   }
 
   :global([data-theme='light']) .script-editor :global(.suggest-widget .monaco-list-row:hover) {
-    background: rgba(219, 232, 220, 0.42) !important;
-    color: #16311e !important;
+    background: rgba(238, 243, 250, 0.42) !important;
+    color: var(--text-primary) !important;
   }
 </style>

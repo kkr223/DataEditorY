@@ -53,6 +53,7 @@ export {
 export {
   getCardById,
   getCardByIdInTab,
+  queryCardByIdInTab,
   getCardsByIdsInTab,
   getCardsByIds,
   modifyCard,

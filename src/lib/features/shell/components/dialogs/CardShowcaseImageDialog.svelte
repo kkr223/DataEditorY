@@ -35,13 +35,16 @@
 
   let {
     open = false,
+    initialCardIds,
     onClose = () => {},
   }: {
     open?: boolean;
+    initialCardIds?: number[];
     onClose?: () => void;
   } = $props();
 
   let target = $state<ShowcaseTarget>('cdb');
+  $effect(() => { if (open && initialCardIds) target = 'selection'; });
   let selectedGroupId = $state('');
   let outputDir = $state('');
   let cardsPerImage = $state(10);
@@ -97,7 +100,7 @@
     const tab = get(activeTab);
     if (!tab) return [];
     if (target === 'selection') {
-      return getCardsByIdsInTab(tab.id, getSelectedCardIds());
+      return getCardsByIdsInTab(tab.id, initialCardIds ?? getSelectedCardIds());
     }
     if (target === 'filter') {
       return queryCardsByFiltersInTab(tab.id, parseCachedFiltersJson(tab.cachedFilters));
@@ -282,12 +285,12 @@
 {/if}
 
 <style>
-  .dialog-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 24px; background: rgba(0, 0, 0, 0.48); }
-  .showcase-dialog { width: min(760px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; gap: 14px; overflow: auto; padding: 20px; border: 1px solid var(--border-color); border-radius: var(--control-radius-soft); background: var(--bg-surface); box-shadow: var(--shadow-popover); color: var(--text-primary); }
+  .dialog-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 24px; background: var(--dialog-backdrop); backdrop-filter: blur(4px); }
+  .showcase-dialog { width: min(760px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; gap: 14px; overflow: auto; padding: 20px; border: 1px solid var(--border-color); border-radius: var(--dialog-radius); background: var(--bg-surface); box-shadow: var(--dialog-shadow); color: var(--text-primary); }
   header, footer, .target-panel, .path-row, .check-row { display: flex; align-items: center; gap: 10px; }
   header { justify-content: space-between; }
   h2, p { margin: 0; }
-  h2 { font-size: 1.08rem; }
+  h2 { font-size: var(--text-lg); }
   header p, .attribution-panel p, small { color: var(--text-secondary); line-height: 1.45; }
   .close-btn { width: 30px; height: 30px; border: none; border-radius: var(--control-radius); background: var(--bg-surface-active); color: var(--text-primary); cursor: pointer; }
   .target-panel, .attribution-panel { padding: 12px; border: 1px solid var(--border-color); border-radius: var(--control-radius); background: var(--bg-base); }
@@ -295,7 +298,7 @@
   .target-panel label, .check-row { flex-direction: row; align-items: center; color: var(--text-primary); }
   .settings-grid { display: grid; grid-template-columns: minmax(150px, 0.35fr) minmax(0, 1fr); gap: 12px; }
   .field, .attribution-panel { display: flex; flex-direction: column; gap: 7px; }
-  .field > span { color: var(--text-secondary); font-size: 0.8rem; font-weight: 700; }
+  .field > span { color: var(--text-secondary); font-size: var(--text-sm); font-weight: 700; }
   input, select, textarea { min-width: 0; width: 100%; border: 1px solid var(--border-color); border-radius: var(--control-radius); background: var(--bg-base); color: var(--text-primary); padding: 0.46rem 0.58rem; font: inherit; }
   textarea { min-height: 4.6rem; resize: vertical; }
   input[type='radio'], input[type='checkbox'] { width: auto; }
@@ -305,7 +308,7 @@
   .progress span { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 700; }
   footer { justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--border-color); }
   .primary-action, .secondary-action { border: none; border-radius: var(--control-radius); padding: 0.5rem 0.76rem; font-weight: 700; cursor: pointer; }
-  .primary-action { background: var(--accent-primary); color: white; }
+  .primary-action { background: var(--accent-primary); color: var(--text-on-accent); }
   .secondary-action { flex: 0 0 auto; background: var(--bg-surface-active); color: var(--text-primary); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
   @media (max-width: 680px) { .settings-grid { grid-template-columns: 1fr; } }

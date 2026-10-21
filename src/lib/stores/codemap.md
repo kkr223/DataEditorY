@@ -14,6 +14,7 @@ Uses a mix of Svelte `writable` stores and Svelte 5 `$state` runes (files ending
 - **`db.ts`** — barrel export aggregating all DB-related stores (tabs, search, undo, cardUtils, cardOperations, recentHistory)
 - **`search.ts`** — Card Explorer search execution: builds queries from filters via `domain/search/query.ts`, executes via document host, caches paginated results
 - **`cardOperations.ts`** — CRUD operations on cards: modify, delete, upsert via document host provider
+  `queryCardByIdInTab` propagates read failures for mutation preflight; guarded upsert/ID replacement forwards reviewed snapshots to the host.
 - **`cardUtils.ts`** — card cloning and utility helpers
 - **`cardClipboard.svelte.ts`** — copy/paste card buffer with multi-select support
 - **`undo.ts`** — undo operation types and labels
@@ -21,12 +22,13 @@ Uses a mix of Svelte `writable` stores and Svelte 5 `$state` runes (files ending
 ### Editor Stores
 
 - **`editor.svelte.ts`** — card editor/Card Explorer state: selected cards, filters, current page, active card, pagination, selection anchoring
-- **`scriptEditor.svelte.ts`** — Lua script editor state: CDB-owned internal script tabs, active tab, content tracking, view state persistence
+- **`scriptEditor.svelte.ts`** — Lua script editor state: CDB-owned internal script tabs, scoped tab sorting through the document runtime, active tab, content tracking, view state persistence
+- **`textEditor.svelte.ts`** — compatibility text tabs: serializes saves, guards reloads with tab/edit/request identity, and releases Monaco models and lifecycle handlers when a tab closes. Only the written content becomes the saved baseline.
 
 ### App-Level Stores
 
 - **`appShell.svelte.ts`** — shell layout, settings panel visibility, and compatibility view state
-- **`appSettings.svelte.ts`** — user preferences: AI config, script template, package settings, language, cover image
+- **`appSettings.svelte.ts`** — user preferences: AI config, script template, Lua editor default font size, persistent custom Lua snippets/descriptions, package settings, language, cover image
 - **`recentHistory.ts`** — recently opened CDB files (persisted via Rust settings)
 - **`toast.svelte.ts`** — notification toast queue
 

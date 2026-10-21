@@ -58,9 +58,9 @@
     max-width: min(520px, 78vw);
     padding: 10px;
     border: 1px solid var(--border-color);
-    border-radius: 14px;
+    border-radius: var(--radius-panel);
     background: color-mix(in srgb, var(--bg-surface) 92%, var(--bg-base));
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+    box-shadow: var(--shadow-popover);
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -95,7 +95,7 @@
   .open-history-header {
     padding: 2px 6px 8px;
     color: var(--text-secondary);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -126,7 +126,7 @@
     height: 100%;
     padding: 10px 42px 10px 12px;
     border: 1px solid transparent;
-    border-radius: 10px;
+    border-radius: var(--radius-card);
     background: transparent;
     color: var(--text-primary);
     text-align: left;
@@ -150,14 +150,14 @@
     width: 18px;
     height: 18px;
     border: 1px solid var(--border-color);
-    border-radius: 999px;
+    border-radius: var(--control-radius-pill);
     background: var(--bg-surface);
     color: var(--text-secondary);
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
     transition: transform 0.16s ease, background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
     font: inherit;
-    font-size: 0.72rem;
+    font-size: var(--text-2xs);
     font-weight: 700;
     line-height: 1;
     z-index: 1;
@@ -172,7 +172,7 @@
   }
 
   .open-history-name {
-    font-size: 0.92rem;
+    font-size: var(--text-base);
     font-weight: 600;
   }
 
@@ -188,7 +188,7 @@
   .open-history-path,
   .open-history-empty {
     color: var(--text-secondary);
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     line-height: 1.4;
   }
 

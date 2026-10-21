@@ -2,6 +2,8 @@ import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
 import { normalizeShortcutBindingMap } from '$lib/features/shortcuts/registry';
 import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
 import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
+import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, normalizeScriptEditorFontSize } from '$lib/features/script-editor/fontPreferences';
+import { DEFAULT_SCRIPT_SNIPPETS } from '$lib/features/script-editor/snippetPreferences';
 
 export interface AppSettingsPayload {
   apiBaseUrl: string;
@@ -14,6 +16,8 @@ export interface AppSettingsPayload {
   useExternalScriptEditor: boolean;
   saveScriptImageToLocal: boolean;
   autoCompleteFunctionParameters: boolean;
+  scriptEditorFontSize: number;
+  scriptSnippets?: string;
   packageIncludePatterns: string[];
   shortcutBindings: Record<string, string>;
   hasSecretKey: boolean;
@@ -63,6 +67,8 @@ function createDefaultSettings(): AppSettingsPayload {
     useExternalScriptEditor: false,
     saveScriptImageToLocal: false,
     autoCompleteFunctionParameters: true,
+    scriptEditorFontSize: DEFAULT_SCRIPT_EDITOR_FONT_SIZE,
+    scriptSnippets: DEFAULT_SCRIPT_SNIPPETS,
     packageIncludePatterns: [...DEFAULT_PACKAGE_INCLUDE_PATTERNS],
     shortcutBindings: normalizeShortcutBindingMap(undefined),
     hasSecretKey: false,
@@ -171,6 +177,8 @@ function applySettings(payload: AppSettingsPayload) {
     useExternalScriptEditor: Boolean(payload.useExternalScriptEditor),
     saveScriptImageToLocal: Boolean(payload.saveScriptImageToLocal),
     autoCompleteFunctionParameters: payload.autoCompleteFunctionParameters !== false,
+    scriptEditorFontSize: normalizeScriptEditorFontSize(payload.scriptEditorFontSize),
+    scriptSnippets: payload.scriptSnippets ?? DEFAULT_SCRIPT_SNIPPETS,
     packageIncludePatterns: normalizePackageIncludePatterns(payload.packageIncludePatterns),
     shortcutBindings: normalizeShortcutBindingMap(payload.shortcutBindings),
     hasSecretKey: Boolean(payload.hasSecretKey),
@@ -275,6 +283,8 @@ export async function saveAppSettings(input: {
   useExternalScriptEditor?: boolean;
   saveScriptImageToLocal?: boolean;
   autoCompleteFunctionParameters?: boolean;
+  scriptEditorFontSize?: number;
+  scriptSnippets?: string;
   packageIncludePatterns?: string[];
   shortcutBindings?: Record<string, string>;
   secretKey?: string;
@@ -294,6 +304,8 @@ export async function saveAppSettings(input: {
         useExternalScriptEditor: input.useExternalScriptEditor,
         saveScriptImageToLocal: input.saveScriptImageToLocal,
         autoCompleteFunctionParameters: input.autoCompleteFunctionParameters,
+        scriptEditorFontSize: input.scriptEditorFontSize === undefined ? undefined : normalizeScriptEditorFontSize(input.scriptEditorFontSize),
+        scriptSnippets: input.scriptSnippets,
         packageIncludePatterns: input.packageIncludePatterns
           ? normalizePackageIncludePatterns(input.packageIncludePatterns)
           : undefined,

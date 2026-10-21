@@ -408,7 +408,7 @@
   }
 
   .no-img {
-    font-size: 1.5rem;
+    font-size: var(--text-2xl);
     opacity: 0.3;
   }
 
@@ -445,7 +445,7 @@
   }
 
   .compact-panel-label {
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     margin: 0;
     line-height: 1;
   }
@@ -532,7 +532,7 @@
 
   .inline-field label {
     min-width: 3.35rem;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     color: var(--text-secondary);
     text-align: left;
     margin: 0;
@@ -562,7 +562,7 @@
 
   label,
   .group-label {
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     color: var(--text-secondary);
     font-weight: 600;
   }
@@ -576,7 +576,7 @@
     border: 1px solid var(--border-color);
     border-radius: var(--control-radius);
     padding: 3px 6px;
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     transition: border-color 0.15s;
   }
 
@@ -589,7 +589,7 @@
   }
 
   textarea {
-    font-size: 0.94rem;
+    font-size: var(--text-base);
     padding: 6px;
   }
 
@@ -626,7 +626,7 @@
     gap: 0.333rem;
     cursor: pointer;
     user-select: none;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
@@ -640,7 +640,7 @@
   }
 
   .checkbox-label-condensed {
-    font-size: 0.78rem;
+    font-size: var(--text-xs);
     letter-spacing: -0.02em;
     font-stretch: condensed;
   }
@@ -666,7 +666,7 @@
   .link-arrow {
     width: 1.75rem;
     height: 1.75rem;
-    font-size: 0.85rem;
+    font-size: var(--text-base);
     padding: 0 !important;
     border: 1px solid var(--border-color);
     background: var(--bg-base);
@@ -677,7 +677,7 @@
 
   .link-arrow.active {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
     border-color: var(--accent-primary);
     box-shadow: var(--accent-soft-glow);
   }
@@ -694,7 +694,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1rem;
+    font-size: var(--text-md);
     color: var(--text-secondary);
     opacity: 0.25;
   }
@@ -740,7 +740,7 @@
   }
 
   .hint-label {
-    font-size: 0.76rem;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     min-width: 1.733rem;
     flex-shrink: 0;
@@ -751,7 +751,7 @@
     border: none;
     background: transparent;
     padding: 2px 0;
-    font-size: 0.86rem;
+    font-size: var(--text-base);
   }
 
   .hint-row input:focus {

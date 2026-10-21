@@ -52,3 +52,15 @@ export function hasWorkspaceCardDraftUndo(sessionId: string | null | undefined) 
 export function clearWorkspaceCardDraft(sessionId: string) {
   delete cardDraftWorkspaceState.sessions[sessionId];
 }
+
+const draftCommitters = new Map<string, () => Promise<boolean>>();
+
+export function registerCardDraftCommitter(sessionId: string, commit: () => Promise<boolean>) {
+  draftCommitters.set(sessionId, commit);
+  return () => { if (draftCommitters.get(sessionId) === commit) draftCommitters.delete(sessionId); };
+}
+
+export async function commitWorkspaceCardDraft(sessionId: string) {
+  if (!getWorkspaceCardDraft(sessionId)?.dirty) return true;
+  return (await draftCommitters.get(sessionId)?.()) ?? false;
+}

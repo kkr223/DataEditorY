@@ -3,11 +3,28 @@ import { sveltekit } from "@sveltejs/kit/vite";
 
 const DEFAULT_DEV_HOST = "127.0.0.1";
 const DEFAULT_DEV_PORT = 43127;
-const DEFAULT_HMR_PORT = 43128;
 const host = globalThis.process?.env?.TAURI_DEV_HOST || DEFAULT_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [sveltekit()],
+  plugins: [
+    {
+      name: "isolate-dev-server-cache",
+      apply: "serve",
+      /** @param {import("vite").UserConfig} config */
+      config(config) {
+        // This hook sees CLI overrides such as --port as well as the defaults below.
+        const port = config.server?.port ?? DEFAULT_DEV_PORT;
+        return {
+          cacheDir: `node_modules/.vite/dev-${port}`,
+          server: { ws: { port: port + 1 } },
+        };
+      },
+    },
+    sveltekit(),
+  ],
+  optimizeDeps: {
+    include: ["yugioh-card-ts", "yugioh-card-ts/document"],
+  },
   build: {
     chunkSizeWarningLimit: 3900,
     rollupOptions: {
@@ -46,10 +63,9 @@ export default defineConfig(async () => ({
     port: DEFAULT_DEV_PORT,
     strictPort: true,
     host,
-    hmr: {
+    ws: {
       protocol: "ws",
       host,
-      port: DEFAULT_HMR_PORT,
     },
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`

@@ -36,3 +36,7 @@ export function checkAssets(cdbPath: string, cardIds: number[]) {
     request: { cdbPath, cardIds },
   });
 }
+
+export function revealFile(path: string) {
+  return invokeCommand<void>('reveal_file', { path });
+}

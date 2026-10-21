@@ -39,10 +39,10 @@
     right: 16px;
     max-width: min(56vw, 920px);
     padding: 0.5rem 0.75rem;
-    border-radius: 8px;
-    background: rgba(26, 34, 32, 0.82);
+    border-radius: var(--control-radius-soft);
+    background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
     color: rgba(221, 235, 226, 0.72);
-    font-size: 0.86rem;
+    font-size: var(--text-base);
     line-height: 1.5;
     font-style: italic;
     pointer-events: none;
@@ -62,9 +62,9 @@
     flex-direction: column;
     gap: 0.2rem;
     padding: 0.5rem 0.7rem;
-    border: 1px solid rgba(146, 185, 159, 0.24);
-    border-radius: 10px;
-    background: rgba(34, 43, 39, 0.92);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-card);
+    background: var(--bg-elevated);
     color: rgba(230, 242, 235, 0.9);
     backdrop-filter: blur(3px);
     pointer-events: none;
@@ -84,15 +84,15 @@
 
   .current-function-hint-title {
     font-family: 'Consolas', 'SFMono-Regular', 'Courier New', monospace;
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     line-height: 1.4;
-    color: #e1f3e5;
+    color: var(--text-primary);
     white-space: normal;
     word-break: break-word;
   }
 
   .current-function-hint-description {
-    font-size: 0.84rem;
+    font-size: var(--text-sm);
     line-height: 1.45;
     color: rgba(218, 233, 223, 0.76);
     white-space: pre-wrap;
@@ -100,19 +100,19 @@
   }
 
   :global([data-theme='light']) .suggest-inline-hint {
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--bg-elevated);
     color: rgba(52, 76, 62, 0.72);
   }
 
   :global([data-theme='light']) .current-function-hint {
     border-color: rgba(109, 150, 119, 0.22);
-    background: rgba(255, 255, 255, 0.92);
+    background: var(--bg-elevated);
     color: rgba(36, 60, 46, 0.88);
     box-shadow: 0 10px 22px rgba(67, 96, 77, 0.08);
   }
 
   :global([data-theme='light']) .current-function-hint-title {
-    color: #234432;
+    color: var(--text-primary);
   }
 
   :global([data-theme='light']) .current-function-hint-description {

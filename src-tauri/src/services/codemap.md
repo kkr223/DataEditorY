@@ -14,19 +14,21 @@ Rust Business Services — service functions implementing CDB sessions, metadata
 | `package.rs` | ZIP/YPK packaging: collects CDB + `pics/` + `script/` + `strings.conf`, compresses with deflate |
 | `media.rs` | Media operations: `handle_media_protocol_request` (custom URI scheme for serving local images), `collect_cdb_paths_from_args` (CLI arg parsing), image reading/conversion/import |
 | `scripts.rs` | Script file management: resolve script path from CDB location, read/write/save `.lua` files, template-based creation |
-| `metadata.rs` | Workspace metadata: load/save `.dey/{cdb-stem}.workspace.json`; externalize embedded image data to `.dey/card-image/`; copy referenced assets on Save As |
+| `metadata.rs` | Workspace metadata: load/save `.dey/{cdb-stem}.workspace.json`; externalize images to immutable SHA-256-named files under `.dey/card-image/` with legacy-reference compatibility; copy referenced assets on Save As |
 | `lua_replace.rs` | Lua search/replace preview and apply support for CDB-level migration tasks |
 | `assets_check.rs` | Resource validation for CDB-related pics/scripts/assets |
 | `settings.rs` | App settings: load/save JSON settings, API key encryption/decryption, cover image management |
+| `script_snippets.rs` | Custom Lua snippet validation and one-time migration from installed resources to user settings; existing preferences and intentionally empty lists survive version updates |
 | `crypto.rs` | AES-GCM encryption for API keys with machine-specific key derivation |
 | `logging.rs` | Error log file management |
-| `assets.rs` | Resource path resolution for bundled assets |
+| `assets.rs` | CDB resource paths, asset copying, and reversible card-ID image/script migration |
 | `app_config.rs` | App configuration paths and directory resolution |
+| `atomic.rs` | Shared atomic file replacement (temporary file + rename) for settings, scripts, and text/binary writes |
 
 ## Design Patterns
 
 - **Working Copy Pattern** (`cdb_session.rs`): Every opened CDB is copied to a temp directory. All edits happen on the copy. Save writes the copy back to the original path atomically (temp file + rename).
-- **Atomic Save**: Uses `file.cdb.tmp` → `rename(file.cdb)` to prevent corruption on interrupted writes.
+- **Atomic Save**: CDB saves use a unique staging file beside the target, then rename it; only the target session is locked during I/O. Metadata writes use a flushed temporary file and atomic replacement, preserving the old JSON on write failure.
 - **Metadata Separation**: `.dey` files store editor state only; CDB facts, script contents, image binaries, API keys, and large caches stay out.
 - **Background Progress Events**: Merge and package operations emit `background-task-progress` events via Tauri for frontend progress display.
 

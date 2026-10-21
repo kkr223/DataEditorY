@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 
 export interface RecentCdbEntry {
   path: string;
@@ -26,13 +27,15 @@ function normalizeRecentCdbHistory(value: unknown): RecentCdbEntry[] {
     if (!item || typeof item !== 'object') continue;
 
     const path = typeof item.path === 'string' ? item.path.trim() : '';
-    if (!path || seenPaths.has(path)) continue;
+    if (!path) continue;
+    const identity = getCdbPathIdentity(path);
+    if (seenPaths.has(identity)) continue;
 
     const name = typeof item.name === 'string' && item.name.trim()
       ? item.name.trim()
       : path.split(/[/\\]/).pop() || path;
 
-    seenPaths.add(path);
+    seenPaths.add(identity);
     entries.push({ path, name });
 
     if (entries.length >= MAX_RECENT_CDB_HISTORY) {
@@ -45,14 +48,19 @@ function normalizeRecentCdbHistory(value: unknown): RecentCdbEntry[] {
 
 function persistRecentCdbHistory(entries: RecentCdbEntry[]) {
   if (!canUseLocalStorage()) return;
-  window.localStorage.setItem(RECENT_CDB_HISTORY_KEY, JSON.stringify(entries));
+  try {
+    window.localStorage.setItem(RECENT_CDB_HISTORY_KEY, JSON.stringify(entries));
+  } catch {
+    // Recent history is optional; storage failures must not break opening files.
+  }
 }
 
 export function pushRecentCdbEntry(entry: RecentCdbEntry) {
   recentCdbHistory.update((current) => {
+    const identity = getCdbPathIdentity(entry.path);
     const next = [
       entry,
-      ...current.filter((item) => item.path !== entry.path),
+      ...current.filter((item) => getCdbPathIdentity(item.path) !== identity),
     ].slice(0, MAX_RECENT_CDB_HISTORY);
     persistRecentCdbHistory(next);
     return next;
@@ -74,8 +82,9 @@ export function removeRecentCdbHistoryEntry(path: string) {
   const normalizedPath = path.trim();
   if (!normalizedPath) return;
 
+  const identity = getCdbPathIdentity(normalizedPath);
   recentCdbHistory.update((current) => {
-    const next = current.filter((item) => item.path !== normalizedPath);
+    const next = current.filter((item) => getCdbPathIdentity(item.path) !== identity);
     persistRecentCdbHistory(next);
     return next;
   });
