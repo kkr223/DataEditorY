@@ -29,6 +29,22 @@ async function settle() {
   for (let index = 0; index < 30; index += 1) await Promise.resolve();
 }
 
+test('script surface state retains multiple dependency paths and the active dependency', async () => {
+  state.loadWorkspaceMetadataForPath('helper-tabs.cdb');
+  await settle();
+  state.setScriptSurfaceState({ openTabs: [
+    { cardCode: 0, scriptPath: '/script/helper.lua' },
+    { cardCode: 0, scriptPath: '/script/other.lua' },
+    { cardCode: 0 },
+    { cardCode: 123, scriptPath: '/script/c123.lua' },
+  ], activeCardCode: 0, activeScriptPath: '/script/other.lua' });
+  await state.flushAllWorkspaceMetadataSaves();
+  state.loadWorkspaceMetadataForPath('helper-tabs.cdb');
+  await settle();
+  expect(state.getScriptSurfaceState()?.openTabs).toHaveLength(3);
+  expect(state.getScriptSurfaceState()?.activeScriptPath).toBe('/script/other.lua');
+});
+
 test('an asynchronous AI owner stays invalid after switching away and back', async () => {
   state.loadWorkspaceMetadataForPath('owner-A.cdb');
   await settle();

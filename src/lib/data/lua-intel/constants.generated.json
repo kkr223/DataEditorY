@@ -3498,6 +3498,24 @@
     "category": "Codes"
   },
   {
+    "name": "EFFECT_ADD_CARD_TYPE",
+    "value": "377",
+    "description": "增加卡片种类（当作通常怪兽与当作通常怪兽卡是不同的，CARD_TYPE系列EFFECT为后者）",
+    "category": "Codes"
+  },
+  {
+    "name": "EFFECT_REMOVE_CARD_TYPE",
+    "value": "378",
+    "description": "删除卡片种类",
+    "category": "Codes"
+  },
+  {
+    "name": "EFFECT_CHANGE_CARD_TYPE",
+    "value": "379",
+    "description": "改变卡片种类",
+    "category": "Codes"
+  },
+  {
     "name": "EFFECT_FLAG_EFFECT",
     "value": "0x20000000",
     "description": "标记类效果，即RegisterFlagEffect()创建的效果",
@@ -4650,15 +4668,27 @@
     "category": "Hint Message --提示消息，显示在窗口的上面"
   },
   {
-    "name": "HINGMSG_NUMBER",
+    "name": "HINTMSG_NUMBER",
     "value": "565",
     "description": "请选择一个数字",
     "category": "Hint Message --提示消息，显示在窗口的上面"
   },
   {
-    "name": "HINGMSG_LVRANK",
+    "name": "HINTMSG_LVRANK",
     "value": "567",
     "description": "请宣言一个等级",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINGMSG_NUMBER",
+    "value": "565",
+    "description": "for compat, deprecated",
+    "category": "Hint Message --提示消息，显示在窗口的上面"
+  },
+  {
+    "name": "HINGMSG_LVRANK",
+    "value": "567",
+    "description": "for compat, deprecated",
     "category": "Hint Message --提示消息，显示在窗口的上面"
   },
   {

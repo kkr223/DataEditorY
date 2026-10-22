@@ -15,18 +15,22 @@ The script editor is structured in three layers:
 
 ### Lua Analysis (`lua/`)
 
-- **`catalog.ts`** — loads and indexes the Lua intellisense catalog (functions, constants, snippets) from generated data
+- **`catalog.ts`** — loads the Lua intellisense catalog from generated data and installed resources; edited function entries override bundled definitions, with independent fallback for missing companion files
 - **`calls.ts`** — extracts function call sites from Lua AST (via `luaparse`)
 - **`semantic.ts`** — semantic analysis: scope chain, symbol extraction, call/hover resolution, token classification
 - **`diagnostics.ts`** — basic Lua diagnostics: undefined variables, unused locals, type mismatches
 - **`reference.ts`** — reference manual lookup: function signatures, parameter docs, hover info
+- **`navigation.ts`, `navigationToken.ts`** — AST-based file-local function definitions, lexical shadowing, incomplete-call token recovery, and literal `Duel.LoadScript` document links
 
 ### Monaco Integration (`monaco/`)
 
 - **`setup.ts`** — Monaco editor configuration: language registration, theme, keybindings
 - **`completion.ts`** — completion provider: function names, constants, snippet expansion, `#`-prefix custom snippets
+- **`navigation.ts`** — registers definition and document-link providers; routes dependency links through CDB-owned script tabs
 
 ### Other
+
+- **`scriptNavigation.ts`** — resolves dependency paths against script/CDB/configured/game directories, reuses open buffers, and guards activation during asynchronous file opens
 
 - **`contextMenu.ts`** — localized Monaco editing actions and selected-code image copying
 - **`tabMenu.ts`** — scoped Lua tab save/reload/external-open/card-navigation/split/close actions

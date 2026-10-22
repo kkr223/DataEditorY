@@ -5,7 +5,7 @@ import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
 import { appSettingsState } from '$lib/stores/appSettings.svelte';
 import { scriptTabs, focusScriptTab, registerScriptModelDisposer, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
 import { getCardByIdInTab } from '$lib/stores/db';
-import { normalizeScriptContent } from '$lib/domain/script/workspace';
+import { getScriptTabTitle, normalizeScriptContent } from '$lib/domain/script/workspace';
 import { attachFontZoomActions, attachSnippetTabNavigation, buildScriptEditorMonacoOptions } from './runtime';
 import { attachScriptContextMenu } from './contextMenu';
 import { shareScriptImageFlow } from './useCases';
@@ -80,7 +80,7 @@ export async function createSplitScriptRuntime(input: {
       applying = false;
     });
     let card: CardDataEntry | null = null;
-    if (tab.sourceTabId) void getCardByIdInTab(tab.sourceTabId, tab.cardCode).then((value) => {
+    if (tab.sourceTabId && tab.cardCode > 0) void getCardByIdInTab(tab.sourceTabId, tab.cardCode).then((value) => {
       if (disposed || models[index].isDisposed()) return;
       card = value ?? null;
       module.setModelContext(models[index], { cardCode: tab.cardCode, cardName: tab.cardName, strings: value?.strings ?? [], card: value ?? null });
@@ -97,7 +97,7 @@ export async function createSplitScriptRuntime(input: {
       try {
         await shareScriptImageFlow({ tab: current, isSharing: false,
           selection: { content, startLineNumber: selection.startLineNumber },
-          renderInfo: buildScriptImageRenderInfo({ cardContext: card, fallbackCode: current.cardCode, title: `c${current.cardCode}.lua`, t: get(_) }),
+          renderInfo: buildScriptImageRenderInfo({ cardContext: card, fallbackCode: current.cardCode, title: getScriptTabTitle(current), t: get(_) }),
           t: (key, options) => String(get(_)(key, options as never)),
         });
       } finally { sharing = false; }

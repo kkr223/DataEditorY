@@ -13,89 +13,6 @@
     "category": "General"
   },
   {
-    "name": "bit.band",
-    "namespace": "bit",
-    "shortName": "band",
-    "signature": "bit.band(int a, int b)",
-    "returnType": "int",
-    "parameters": [
-      "int a",
-      "int b"
-    ],
-    "description": "把 a 和 b 进行按位与的操作， a 和 b 本身不会发生变化，等同于 a&b\n按位与规则是：2个数转成二进制进行比较，相同位置的有0则为0\n比如：7&8 的结果就是 0 ，7&10 的结果就是 2\n7 ==0b 0111\n8 ==0b 1000\n10==0b 1010\n0 ==0b 0000\n2 ==0b 0010",
-    "raw": "int bit.band(int a, int b)",
-    "category": "bit"
-  },
-  {
-    "name": "bit.bor",
-    "namespace": "bit",
-    "shortName": "bor",
-    "signature": "bit.bor(int a, int b)",
-    "returnType": "int",
-    "parameters": [
-      "int a",
-      "int b"
-    ],
-    "description": "把 a 和 b 进行按位或的操作， a 和 b 本身不会发生变化，等同于 a|b\n按位或规则是：2个数转成二进制进行比较，相同位置的有1则为1\n比如：7|8 的结果就是 15 ，7|10 的结果就是 15\n7 ==0b 0111\n8 ==0b 1000\n10==0b 1010\n15==0b 1111",
-    "raw": "int bit.bor(int a, int b)",
-    "category": "bit"
-  },
-  {
-    "name": "bit.bxor",
-    "namespace": "bit",
-    "shortName": "bxor",
-    "signature": "bit.bxor(int a, int b)",
-    "returnType": "int",
-    "parameters": [
-      "int a",
-      "int b"
-    ],
-    "description": "把 a 和 b 进行按位异或的操作， a 和 b 本身不会发生变化，等同于 a~b\n按位异或规则是：2个数转成二进制进行比较，相同位置的值相同则为0，不同则为1\n比如：7~8 的结果就是 15 ，7~10 的结果就是 13\n7 ==0b 0111\n8 ==0b 1000\n10==0b 1010\n15==0b 1111\n13==0b 1101",
-    "raw": "int bit.bxor(int a, int b)",
-    "category": "bit"
-  },
-  {
-    "name": "bit.lshift",
-    "namespace": "bit",
-    "shortName": "lshift",
-    "signature": "bit.lshift(int a, int b)",
-    "returnType": "int",
-    "parameters": [
-      "int a",
-      "int b"
-    ],
-    "description": "把 a 按位左移 b 的位数，等同于 a<<b\n按位左移规则是：把1个数(<<符号左边的数字)转成二进制，然后把整个数据向左移动一定位数(<<符号右边的数字)，并用相同数量的0补上由于位移空出的低位的位置。\n如果高位因为位移超出数据类型的表示范围，则那部分会被舍弃\n对于 int 类型，一般是32位，计算机一般采用补码，最高位为1表示负数。1个负数的补码表示形式 就是 把这个数的正数按位取反，最后数值+1。\n比如 -2 ，把 2 (00000000000000000000000000000010) 按位取反，得到 11111111111111111111111111111101，最后+1， 就是 11111111111111111111111111111110\n如果对此数 0b 11110000101001010110100111000011 (十进制为 -257594941) 左移4位，则结果为 0b 1010010101101001110000110000 (十进制为 173448240)",
-    "raw": "int bit.lshift(int a, int b)",
-    "category": "bit"
-  },
-  {
-    "name": "bit.rshift",
-    "namespace": "bit",
-    "shortName": "rshift",
-    "signature": "bit.rshift(int a, int b)",
-    "returnType": "int",
-    "parameters": [
-      "int a",
-      "int b"
-    ],
-    "description": "把 a 按位右移 b 的位数，等同于 a>>b\n按位右移规则是：把1个数(<<符号左边的数字)转成二进制，然后把整个数据向右移动一定位数(<<符号右边的数字)，并用相同数量的0补上由于位移空出的高位的位置。\n如果低位因为位移超出数据类型的表示范围，则那部分会被舍弃\n对于 int 类型，一般是32位，计算机一般采用补码，最高位为1表示负数。1个负数的补码表示形式 就是 把这个数的正数按位取反，最后数值+1。\n比如 -2 ，把 2 (00000000000000000000000000000010) 按位取反，得到 11111111111111111111111111111101，最后+1， 就是 11111111111111111111111111111110\n如果对此数 0b 11110000101001010110100111000011 (十进制为 -257594941) 右移4位，则结果为 0b 1111000010100101011010011100 (十进制为 252335772)",
-    "raw": "int bit.rshift(int a, int b)",
-    "category": "bit"
-  },
-  {
-    "name": "bit.bnot",
-    "namespace": "bit",
-    "shortName": "bnot",
-    "signature": "bit.bnot(int a)",
-    "returnType": "int",
-    "parameters": [
-      "int a"
-    ],
-    "description": "对 a 进行按位取反操作， a 本身不会发生变化，等同于 ~a\n按位取反规则是：把1个数转成二进制，对每一位取另一个值，就是1变成0, 0变成1 。\n比如： ~65535 (0b 1111111111111111) 的结果就是 0b 11111111111111110000000000000000 (十进制为 -65536)",
-    "raw": "int bit.bnot(int a)",
-    "category": "bit"
-  },
-  {
     "name": "Card.mat_filter",
     "namespace": "Card",
     "shortName": "mat_filter",
@@ -422,20 +339,6 @@
     ],
     "description": "检查c作为link素材时能否当作名字含有setname的卡",
     "raw": "function Card.IsLinkSetCard(c, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Card.IsSpecialSummonSetCard",
-    "namespace": "Card",
-    "shortName": "IsSpecialSummonSetCard",
-    "signature": "Card.IsSpecialSummonSetCard(c, ...)",
-    "returnType": "boolean",
-    "parameters": [
-      "Card c",
-      "integer ..."
-    ],
-    "description": "检查c是否被卡名含有setname的卡特殊召唤",
-    "raw": "function Card.IsSpecialSummonSetCard(c, ...) end",
     "category": "Typed Definitions"
   },
   {
@@ -1370,6 +1273,34 @@
     "category": "Typed Definitions"
   },
   {
+    "name": "Card.IsSpecialSummonSetCard",
+    "namespace": "Card",
+    "shortName": "IsSpecialSummonSetCard",
+    "signature": "Card.IsSpecialSummonSetCard(c, ...)",
+    "returnType": "boolean",
+    "parameters": [
+      "Card c",
+      "integer ..."
+    ],
+    "description": "检查c是否被卡名含有setname的卡特殊召唤",
+    "raw": "function Card.IsSpecialSummonSetCard(c, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Card.GetSpecialSummonInfo",
+    "namespace": "Card",
+    "shortName": "GetSpecialSummonInfo",
+    "signature": "Card.GetSpecialSummonInfo(c, ...)",
+    "returnType": "...",
+    "parameters": [
+      "Card c",
+      "integer ..."
+    ],
+    "description": "返回c的特殊召唤的信息\nSUMMON_INFO_CODE\nSUMMON_INFO_CODE2\nSUMMON_INFO_TYPE\nSUMMON_INFO_LEVEL\nSUMMON_INFO_RANK\nSUMMON_INFO_ATTRIBUTE\nSUMMON_INFO_RACE\nSUMMON_INFO_ATTACK\nSUMMON_INFO_DEFENSE\nSUMMON_INFO_REASON_EFFET",
+    "raw": "function Card.GetSpecialSummonInfo(c, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
     "name": "Card.GetSummonType",
     "namespace": "Card",
     "shortName": "GetSummonType",
@@ -1406,20 +1337,6 @@
     ],
     "description": "返回召唤/特殊召唤 c 上场的玩家",
     "raw": "function Card.GetSummonPlayer(c) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Card.GetSpecialSummonInfo",
-    "namespace": "Card",
-    "shortName": "GetSpecialSummonInfo",
-    "signature": "Card.GetSpecialSummonInfo(c, ...)",
-    "returnType": "...",
-    "parameters": [
-      "Card c",
-      "integer ..."
-    ],
-    "description": "返回c的特殊召唤的信息\nSUMMON_INFO_CODE\nSUMMON_INFO_CODE2\nSUMMON_INFO_TYPE\nSUMMON_INFO_LEVEL\nSUMMON_INFO_RANK\nSUMMON_INFO_ATTRIBUTE\nSUMMON_INFO_RACE\nSUMMON_INFO_ATTACK\nSUMMON_INFO_DEFENSE\nSUMMON_INFO_REASON_EFFET",
-    "raw": "function Card.GetSpecialSummonInfo(c, ...) end",
     "category": "Typed Definitions"
   },
   {
@@ -4085,1368 +4002,6 @@
     "category": "Typed Definitions"
   },
   {
-    "name": "Effect.CreateEffect",
-    "namespace": "Effect",
-    "shortName": "CreateEffect",
-    "signature": "Effect.CreateEffect(c)",
-    "returnType": "Effect",
-    "parameters": [
-      "Card c"
-    ],
-    "description": "新建一个空效果\n并且效果的Owner为c",
-    "raw": "function Effect.CreateEffect(c) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GlobalEffect",
-    "namespace": "Effect",
-    "shortName": "GlobalEffect",
-    "signature": "Effect.GlobalEffect()",
-    "returnType": "Effect",
-    "parameters": [],
-    "description": "新建一个全局效果",
-    "raw": "function Effect.GlobalEffect() end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.Clone",
-    "namespace": "Effect",
-    "shortName": "Clone",
-    "signature": "Effect.Clone(e)",
-    "returnType": "Effect",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "新建一个效果e的副本",
-    "raw": "function Effect.Clone(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.Reset",
-    "namespace": "Effect",
-    "shortName": "Reset",
-    "signature": "Effect.Reset(e)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "把效果e重置，重置之后不可以再使用此效果",
-    "raw": "function Effect.Reset(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetFieldID",
-    "namespace": "Effect",
-    "shortName": "GetFieldID",
-    "signature": "Effect.GetFieldID(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "获取效果e的id",
-    "raw": "function Effect.GetFieldID(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetDescription",
-    "namespace": "Effect",
-    "shortName": "SetDescription",
-    "signature": "Effect.SetDescription(e, desc)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer desc"
-    ],
-    "description": "为效果e设置效果描述",
-    "raw": "function Effect.SetDescription(e, desc) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetCode",
-    "namespace": "Effect",
-    "shortName": "SetCode",
-    "signature": "Effect.SetCode(e, code)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer code"
-    ],
-    "description": "为效果e设置Code属性",
-    "raw": "function Effect.SetCode(e, code) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetRange",
-    "namespace": "Effect",
-    "shortName": "SetRange",
-    "signature": "Effect.SetRange(e, range)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer range"
-    ],
-    "description": "为效果e设置Range属性，即e的生效位置",
-    "raw": "function Effect.SetRange(e, range) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetTargetRange",
-    "namespace": "Effect",
-    "shortName": "SetTargetRange",
-    "signature": "Effect.SetTargetRange(e, s_range, o_range)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer s_range",
-      "integer o_range"
-    ],
-    "description": "为效果e设置Target Range属性\ns_range指影响的我方区域\no_range值影响的对方区域\n如果property属性中指定了EFFECT_FLAG_ABSOLUTE_RANGE标志，\n那么s_range指玩家1受到影响的区域，o_range指玩家2受到影响的区域\n如果这是一个召唤(覆盖)/限制召唤(覆盖)/特殊召唤手续\n(EFFECT_SUMMON_PROC/EFFECT_LIMIT_SUMMON_PROC/EFFECT_SPSUMMON_PROC等)的效果，\n并且property指定了EFFECT_FLAG_SPSUM_PARAM标志，\n那么s_range表示特殊召唤到的哪个玩家的场地，\no_range表示可选择的表示形式",
-    "raw": "function Effect.SetTargetRange(e, s_range, o_range) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetAbsoluteRange",
-    "namespace": "Effect",
-    "shortName": "SetAbsoluteRange",
-    "signature": "Effect.SetAbsoluteRange(e, playerid, s_range, o_range)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer playerid",
-      "integer s_range",
-      "integer o_range"
-    ],
-    "description": "设置target range属性并设置 EFFECT_FLAG_ABSOLUTE_TARGET 标志\nplayerid != 0 s_range和o_range反转",
-    "raw": "function Effect.SetAbsoluteRange(e, playerid, s_range, o_range) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetCountLimit",
-    "namespace": "Effect",
-    "shortName": "SetCountLimit",
-    "signature": "Effect.SetCountLimit(e, count, code?)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer count",
-      "integer code?"
-    ],
-    "description": "设置一回合可以发动的次数count（仅触发型效果有效），相同的code(不等于0或1时)共用1个次数\ncode包含以下数值具有特殊的性质\nEFFECT_COUNT_CODE_OATH          誓约使用次数\nEFFECT_COUNT_CODE_DUEL          决斗中使用次数\nEFFECT_COUNT_CODE_SINGLE        同一张卡多个效果公共使用次数（不限制同名卡）",
-    "raw": "function Effect.SetCountLimit(e, count, code) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetReset",
-    "namespace": "Effect",
-    "shortName": "SetReset",
-    "signature": "Effect.SetReset(e, reset_flag, reset_count?)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer reset_flag",
-      "integer reset_count?"
-    ],
-    "description": "设置reset参数",
-    "raw": "function Effect.SetReset(e, reset_flag, reset_count) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetType",
-    "namespace": "Effect",
-    "shortName": "SetType",
-    "signature": "Effect.SetType(e, type)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer type"
-    ],
-    "description": "为效果e设置Type属性",
-    "raw": "function Effect.SetType(e, type) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetProperty",
-    "namespace": "Effect",
-    "shortName": "SetProperty",
-    "signature": "Effect.SetProperty(e, prop1, prop2?)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer prop1",
-      "integer prop2?"
-    ],
-    "description": "设置Property属性",
-    "raw": "function Effect.SetProperty(e, prop1, prop2) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetLabel",
-    "namespace": "Effect",
-    "shortName": "SetLabel",
-    "signature": "Effect.SetLabel(e, ...)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer ..."
-    ],
-    "description": "设置Label属性",
-    "raw": "function Effect.SetLabel(e, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetLabelObject",
-    "namespace": "Effect",
-    "shortName": "SetLabelObject",
-    "signature": "Effect.SetLabelObject(e, labelobject)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "Card|Group|Effect labelobject"
-    ],
-    "description": "设置LabelObject属性",
-    "raw": "function Effect.SetLabelObject(e, labelobject) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetCategory",
-    "namespace": "Effect",
-    "shortName": "SetCategory",
-    "signature": "Effect.SetCategory(e, cate)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer cate"
-    ],
-    "description": "设置Category属性",
-    "raw": "function Effect.SetCategory(e, cate) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetHintTiming",
-    "namespace": "Effect",
-    "shortName": "SetHintTiming",
-    "signature": "Effect.SetHintTiming(e, s_time, o_time?)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer s_time",
-      "integer o_time?"
-    ],
-    "description": "设置提示时点，第二个和第三个参数分别表示 自己 和对方的回合",
-    "raw": "function Effect.SetHintTiming(e, s_time, o_time) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetCondition",
-    "namespace": "Effect",
-    "shortName": "SetCondition",
-    "signature": "Effect.SetCondition(e, con_func)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "function con_func"
-    ],
-    "description": "设置Condition属性",
-    "raw": "function Effect.SetCondition(e, con_func) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetCost",
-    "namespace": "Effect",
-    "shortName": "SetCost",
-    "signature": "Effect.SetCost(e, cost_func)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "function cost_func"
-    ],
-    "description": "设置Cost属性",
-    "raw": "function Effect.SetCost(e, cost_func) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetTarget",
-    "namespace": "Effect",
-    "shortName": "SetTarget",
-    "signature": "Effect.SetTarget(e, targ_func)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "function targ_func"
-    ],
-    "description": "设置Target属性",
-    "raw": "function Effect.SetTarget(e, targ_func) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetValue",
-    "namespace": "Effect",
-    "shortName": "SetValue",
-    "signature": "Effect.SetValue(e, val)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "function|integer|boolean val"
-    ],
-    "description": "设置Value属性",
-    "raw": "function Effect.SetValue(e, val) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetOperation",
-    "namespace": "Effect",
-    "shortName": "SetOperation",
-    "signature": "Effect.SetOperation(e, op_func)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "nil|function op_func"
-    ],
-    "description": "设置Operation属性",
-    "raw": "function Effect.SetOperation(e, op_func) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetOwnerPlayer",
-    "namespace": "Effect",
-    "shortName": "SetOwnerPlayer",
-    "signature": "Effect.SetOwnerPlayer(e, player?)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer player?"
-    ],
-    "description": "设置OwnerPlayer属性为player",
-    "raw": "function Effect.SetOwnerPlayer(e, player) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetDescription",
-    "namespace": "Effect",
-    "shortName": "GetDescription",
-    "signature": "Effect.GetDescription(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回效果描述",
-    "raw": "function Effect.GetDescription(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetCode",
-    "namespace": "Effect",
-    "shortName": "GetCode",
-    "signature": "Effect.GetCode(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回code属性",
-    "raw": "function Effect.GetCode(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetType",
-    "namespace": "Effect",
-    "shortName": "GetType",
-    "signature": "Effect.GetType(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回Type属性",
-    "raw": "function Effect.GetType(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetProperty",
-    "namespace": "Effect",
-    "shortName": "GetProperty",
-    "signature": "Effect.GetProperty(e)",
-    "returnType": "integer, integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回Property属性",
-    "raw": "function Effect.GetProperty(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetLabel",
-    "namespace": "Effect",
-    "shortName": "GetLabel",
-    "signature": "Effect.GetLabel(e)",
-    "returnType": "... integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回Label属性",
-    "raw": "function Effect.GetLabel(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetLabelObject",
-    "namespace": "Effect",
-    "shortName": "GetLabelObject",
-    "signature": "Effect.GetLabelObject(e)",
-    "returnType": "Card|Group|Effect",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回LabelObject属性",
-    "raw": "function Effect.GetLabelObject(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetCategory",
-    "namespace": "Effect",
-    "shortName": "GetCategory",
-    "signature": "Effect.GetCategory(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回Category属性",
-    "raw": "function Effect.GetCategory(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetRange",
-    "namespace": "Effect",
-    "shortName": "GetRange",
-    "signature": "Effect.GetRange(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回Range属性",
-    "raw": "function Effect.GetRange(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetOwner",
-    "namespace": "Effect",
-    "shortName": "GetOwner",
-    "signature": "Effect.GetOwner(e)",
-    "returnType": "Card",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回Owner属性",
-    "raw": "function Effect.GetOwner(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetHandler",
-    "namespace": "Effect",
-    "shortName": "GetHandler",
-    "signature": "Effect.GetHandler(e)",
-    "returnType": "Card",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回效果在哪一张卡上生效(通常是用Card.RegisterEffect注册该效果的卡)",
-    "raw": "function Effect.GetHandler(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetCondition",
-    "namespace": "Effect",
-    "shortName": "GetCondition",
-    "signature": "Effect.GetCondition(e)",
-    "returnType": "function",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回condition属性",
-    "raw": "function Effect.GetCondition(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetTarget",
-    "namespace": "Effect",
-    "shortName": "GetTarget",
-    "signature": "Effect.GetTarget(e)",
-    "returnType": "function",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回target属性",
-    "raw": "function Effect.GetTarget(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetCost",
-    "namespace": "Effect",
-    "shortName": "GetCost",
-    "signature": "Effect.GetCost(e)",
-    "returnType": "function",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回cost属性",
-    "raw": "function Effect.GetCost(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetValue",
-    "namespace": "Effect",
-    "shortName": "GetValue",
-    "signature": "Effect.GetValue(e)",
-    "returnType": "function|integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回value属性",
-    "raw": "function Effect.GetValue(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetOperation",
-    "namespace": "Effect",
-    "shortName": "GetOperation",
-    "signature": "Effect.GetOperation(e)",
-    "returnType": "function",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回operation属性",
-    "raw": "function Effect.GetOperation(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetActiveType",
-    "namespace": "Effect",
-    "shortName": "GetActiveType",
-    "signature": "Effect.GetActiveType(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回e的效果类型（怪兽·魔法·陷阱）\n与发动该效果的卡的类型不一定相同，比如灵摆效果视为魔法卡的效果",
-    "raw": "function Effect.GetActiveType(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.IsActiveType",
-    "namespace": "Effect",
-    "shortName": "IsActiveType",
-    "signature": "Effect.IsActiveType(e, type)",
-    "returnType": "boolean",
-    "parameters": [
-      "Effect e",
-      "integer type"
-    ],
-    "description": "检查e的效果类型（怪兽·魔法·陷阱）是否有type",
-    "raw": "function Effect.IsActiveType(e, type) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetOwnerPlayer",
-    "namespace": "Effect",
-    "shortName": "GetOwnerPlayer",
-    "signature": "Effect.GetOwnerPlayer(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回OwnerPlayer属性（发动效果、建立效果的玩家）\n若無OwnerPlayer属性，则是Owner的控制者",
-    "raw": "function Effect.GetOwnerPlayer(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetHandlerPlayer",
-    "namespace": "Effect",
-    "shortName": "GetHandlerPlayer",
-    "signature": "Effect.GetHandlerPlayer(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回当前玩家，一般是Handler的控制者",
-    "raw": "function Effect.GetHandlerPlayer(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.IsHasProperty",
-    "namespace": "Effect",
-    "shortName": "IsHasProperty",
-    "signature": "Effect.IsHasProperty(e, prop1, prop2?)",
-    "returnType": "boolean",
-    "parameters": [
-      "Effect e",
-      "integer prop1",
-      "integer prop2?"
-    ],
-    "description": "检查效果是否含有标志prop1[和prop2]",
-    "raw": "function Effect.IsHasProperty(e, prop1, prop2) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.IsHasCategory",
-    "namespace": "Effect",
-    "shortName": "IsHasCategory",
-    "signature": "Effect.IsHasCategory(e, cate)",
-    "returnType": "boolean",
-    "parameters": [
-      "Effect e",
-      "integer cate"
-    ],
-    "description": "检查效果是否含有效果分类cate",
-    "raw": "function Effect.IsHasCategory(e, cate) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.IsHasType",
-    "namespace": "Effect",
-    "shortName": "IsHasType",
-    "signature": "Effect.IsHasType(e, type)",
-    "returnType": "boolean",
-    "parameters": [
-      "Effect e",
-      "integer type"
-    ],
-    "description": "检查效果是否属于类型type",
-    "raw": "function Effect.IsHasType(e, type) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.IsHasRange",
-    "namespace": "Effect",
-    "shortName": "IsHasRange",
-    "signature": "Effect.IsHasRange(e, range)",
-    "returnType": "boolean",
-    "parameters": [
-      "Effect e",
-      "integer range"
-    ],
-    "description": "检查效果是否含有区域range",
-    "raw": "function Effect.IsHasRange(e, range) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.IsActivatable",
-    "namespace": "Effect",
-    "shortName": "IsActivatable",
-    "signature": "Effect.IsActivatable(e, player, neglect_loc?, neglect_target?)",
-    "returnType": "boolean",
-    "parameters": [
-      "Effect e",
-      "integer player",
-      "boolean neglect_loc?",
-      "boolean neglect_target?"
-    ],
-    "description": "检查效果e能否由player发动\nneglect_loc=true 为不检测发动位置(手卡)， neglect_target=true 为不检测对象要求",
-    "raw": "function Effect.IsActivatable(e, player, neglect_loc, neglect_target) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.IsActivated",
-    "namespace": "Effect",
-    "shortName": "IsActivated",
-    "signature": "Effect.IsActivated(e)",
-    "returnType": "boolean",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "检查效果e是否是已发动的效果",
-    "raw": "function Effect.IsActivated(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.IsCostChecked",
-    "namespace": "Effect",
-    "shortName": "IsCostChecked",
-    "signature": "Effect.IsCostChecked(e)",
-    "returnType": "boolean",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "检查效果e是否检查过cost，即是否是被复制的",
-    "raw": "function Effect.IsCostChecked(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.SetCostCheck",
-    "namespace": "Effect",
-    "shortName": "SetCostCheck",
-    "signature": "Effect.SetCostCheck(e, b)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "boolean b"
-    ],
-    "description": "设置效果e的cost检查标记为b",
-    "raw": "function Effect.SetCostCheck(e, b) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetActivateLocation",
-    "namespace": "Effect",
-    "shortName": "GetActivateLocation",
-    "signature": "Effect.GetActivateLocation(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回效果e的发动区域",
-    "raw": "function Effect.GetActivateLocation(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.GetActivateSequence",
-    "namespace": "Effect",
-    "shortName": "GetActivateSequence",
-    "signature": "Effect.GetActivateSequence(e)",
-    "returnType": "integer",
-    "parameters": [
-      "Effect e"
-    ],
-    "description": "返回效果e的发动区域序号",
-    "raw": "function Effect.GetActivateSequence(e) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.CheckCountLimit",
-    "namespace": "Effect",
-    "shortName": "CheckCountLimit",
-    "signature": "Effect.CheckCountLimit(e, p)",
-    "returnType": "boolean",
-    "parameters": [
-      "Effect e",
-      "integer p"
-    ],
-    "description": "检测玩家 p 是否还有可以发动的效果 e 的次数",
-    "raw": "function Effect.CheckCountLimit(e, p) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Effect.UseCountLimit",
-    "namespace": "Effect",
-    "shortName": "UseCountLimit",
-    "signature": "Effect.UseCountLimit(e, p, count?, oath_only?)",
-    "returnType": "void",
-    "parameters": [
-      "Effect e",
-      "integer p",
-      "integer count?",
-      "boolean oath_only?"
-    ],
-    "description": "手动减少玩家 p 对效果 e 的 count 个可用次数[ oath_only 为 该效果是否是 EFFECT_FLAG_OATH]",
-    "raw": "function Effect.UseCountLimit(e, p, count, oath_only) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.CreateGroup",
-    "namespace": "Group",
-    "shortName": "CreateGroup",
-    "signature": "Group.CreateGroup()",
-    "returnType": "Group",
-    "parameters": [],
-    "description": "新建一个空的卡片组",
-    "raw": "function Group.CreateGroup() end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.KeepAlive",
-    "namespace": "Group",
-    "shortName": "KeepAlive",
-    "signature": "Group.KeepAlive(g)",
-    "returnType": "void",
-    "parameters": [
-      "Group g"
-    ],
-    "description": "让卡片组持续，把卡片组设置为效果的LabelObject需要设置",
-    "raw": "function Group.KeepAlive(g) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.DeleteGroup",
-    "namespace": "Group",
-    "shortName": "DeleteGroup",
-    "signature": "Group.DeleteGroup(g)",
-    "returnType": "void",
-    "parameters": [
-      "Group g"
-    ],
-    "description": "删除卡片组g",
-    "raw": "function Group.DeleteGroup(g) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.Clone",
-    "namespace": "Group",
-    "shortName": "Clone",
-    "signature": "Group.Clone(g)",
-    "returnType": "Group",
-    "parameters": [
-      "Group g"
-    ],
-    "description": "新建卡片组g的副本",
-    "raw": "function Group.Clone(g) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.FromCards",
-    "namespace": "Group",
-    "shortName": "FromCards",
-    "signature": "Group.FromCards(...)",
-    "returnType": "Group",
-    "parameters": [
-      "Card ..."
-    ],
-    "description": "不定参数，把传入的所有卡组合成一个卡片组并返回，所有参数只能是 Card 类型。\n没有参数时，相当于Group.CreateGroup()",
-    "raw": "function Group.FromCards(...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.Clear",
-    "namespace": "Group",
-    "shortName": "Clear",
-    "signature": "Group.Clear(g)",
-    "returnType": "void",
-    "parameters": [
-      "Group g"
-    ],
-    "description": "清空卡片组",
-    "raw": "function Group.Clear(g) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.AddCard",
-    "namespace": "Group",
-    "shortName": "AddCard",
-    "signature": "Group.AddCard(g, c)",
-    "returnType": "void",
-    "parameters": [
-      "Group g",
-      "Card c"
-    ],
-    "description": "往g中增加c",
-    "raw": "function Group.AddCard(g, c) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.RemoveCard",
-    "namespace": "Group",
-    "shortName": "RemoveCard",
-    "signature": "Group.RemoveCard(g, c)",
-    "returnType": "void",
-    "parameters": [
-      "Group g",
-      "Card c"
-    ],
-    "description": "把c从g中移除",
-    "raw": "function Group.RemoveCard(g, c) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.GetFirst",
-    "namespace": "Group",
-    "shortName": "GetFirst",
-    "signature": "Group.GetFirst(g)",
-    "returnType": "Card",
-    "parameters": [
-      "Group g"
-    ],
-    "description": "返回g中第一张卡，并重置当前指针到g中第一张卡\n如果g中不存在卡则返回nil",
-    "raw": "function Group.GetFirst(g) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.GetNext",
-    "namespace": "Group",
-    "shortName": "GetNext",
-    "signature": "Group.GetNext(g)",
-    "returnType": "Card",
-    "parameters": [
-      "Group g"
-    ],
-    "description": "使指针指向下一张卡并返回这张卡，如果不存在则返回nil",
-    "raw": "function Group.GetNext(g) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.GetCount",
-    "namespace": "Group",
-    "shortName": "GetCount",
-    "signature": "Group.GetCount(g)",
-    "returnType": "integer",
-    "parameters": [
-      "Group g"
-    ],
-    "description": "返回g中卡的数量",
-    "raw": "function Group.GetCount(g) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.__len",
-    "namespace": "Group",
-    "shortName": "__len",
-    "signature": "Group.__len(Group g)",
-    "returnType": "int",
-    "parameters": [
-      "Group g"
-    ],
-    "description": "和 Group.GetCount 一样",
-    "raw": "int Group.__len(Group g)",
-    "category": "Group"
-  },
-  {
-    "name": "Group.ForEach",
-    "namespace": "Group",
-    "shortName": "ForEach",
-    "signature": "Group.ForEach(g, f, ...)",
-    "returnType": "void",
-    "parameters": [
-      "Group g",
-      "function f",
-      "any ..."
-    ],
-    "description": "以g中的每一张卡作为参数调用一次f ,第三个参数开始为额外参数",
-    "raw": "function Group.ForEach(g, f, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.Filter",
-    "namespace": "Group",
-    "shortName": "Filter",
-    "signature": "Group.Filter(g, f, ex, ...)",
-    "returnType": "Group",
-    "parameters": [
-      "Group g",
-      "function f",
-      "Card|Group|nil ex",
-      "any ..."
-    ],
-    "description": "过滤函数，从g中筛选满足筛选条件f并且不等于ex的卡\n从第4个参数开始为额外参数",
-    "raw": "function Group.Filter(g, f, ex, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.FilterCount",
-    "namespace": "Group",
-    "shortName": "FilterCount",
-    "signature": "Group.FilterCount(g, f, ex, ...)",
-    "returnType": "integer",
-    "parameters": [
-      "Group g",
-      "function f",
-      "Card|Group|nil ex",
-      "any ..."
-    ],
-    "description": "过滤函数，和Group.Filter基本相同，不同之处在于此函数只返回满足条件的卡的数量",
-    "raw": "function Group.FilterCount(g, f, ex, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.FilterSelect",
-    "namespace": "Group",
-    "shortName": "FilterSelect",
-    "signature": "Group.FilterSelect(g, player, f, min, max, ex, ...)",
-    "returnType": "Group",
-    "parameters": [
-      "Group g",
-      "integer player",
-      "function f",
-      "integer min",
-      "integer max",
-      "Card|Group|nil ex",
-      "any ..."
-    ],
-    "description": "过滤函数，让玩家player从g中选择 min-max 张满足筛选条件f并且不等于ex的卡\n从第7个参数开始为额外参数",
-    "raw": "function Group.FilterSelect(g, player, f, min, max, ex, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.Select",
-    "namespace": "Group",
-    "shortName": "Select",
-    "signature": "Group.Select(g, player, min, max, ex)",
-    "returnType": "Group",
-    "parameters": [
-      "Group g",
-      "integer player",
-      "integer min",
-      "integer max",
-      "Card|Group|nil ex"
-    ],
-    "description": "让玩家player从g中选择min-max张不等于ex的卡",
-    "raw": "function Group.Select(g, player, min, max, ex) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.SelectUnselect",
-    "namespace": "Group",
-    "shortName": "SelectUnselect",
-    "signature": "Group.SelectUnselect(cg, sg, player, btok, cancelable, minc, maxc)",
-    "returnType": "Card|nil",
-    "parameters": [
-      "Group cg",
-      "Group|nil 已选的卡，可以从中取消选择 sg",
-      "integer player",
-      "boolean btok",
-      "boolean cancelable",
-      "integer minc",
-      "integer maxc"
-    ],
-    "description": "让玩家 player 从 cg 中选择 1 张卡放入 sg ，并返回选的卡。\nbtok 表示是否可以点击完成选择的按钮， cancelable 表示是否可以取消整个选择返回 nil，\nminc 和 maxc 是客户端的文字缓冲提示，表示需要选择 minc-maxc 张卡，但是这个只是影响视觉效果，并不代表必须要选择那个数量",
-    "raw": "function Group.SelectUnselect(cg, sg, player, btok, cancelable, minc, maxc) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.RandomSelect",
-    "namespace": "Group",
-    "shortName": "RandomSelect",
-    "signature": "Group.RandomSelect(g, player, count)",
-    "returnType": "Group",
-    "parameters": [
-      "Group g",
-      "integer player",
-      "integer count"
-    ],
-    "description": "让玩家player从g中随机选择count张卡\n因为是随机选择，所以参数player基本无用，由系统随机选取",
-    "raw": "function Group.RandomSelect(g, player, count) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.CancelableSelect",
-    "namespace": "Group",
-    "shortName": "CancelableSelect",
-    "signature": "Group.CancelableSelect(g, player, min, max, ex)",
-    "returnType": "Group|nil",
-    "parameters": [
-      "Group g",
-      "integer player",
-      "integer min",
-      "integer max",
-      "Card|Group|nil ex"
-    ],
-    "description": "让玩家player从g中选择min-max张不等于ex的卡，可以取消并返回nil",
-    "raw": "function Group.CancelableSelect(g, player, min, max, ex) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.IsExists",
-    "namespace": "Group",
-    "shortName": "IsExists",
-    "signature": "Group.IsExists(g, f, count, ex, ...)",
-    "returnType": "boolean",
-    "parameters": [
-      "Group g",
-      "function f",
-      "integer count",
-      "Card|Group|nil ex",
-      "any ..."
-    ],
-    "description": "过滤函数，检查g中是否存在至少count张满足筛选条件f并且不等于ex的卡\n从第5个参数开始为额外参数",
-    "raw": "function Group.IsExists(g, f, count, ex, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.CheckWithSumEqual",
-    "namespace": "Group",
-    "shortName": "CheckWithSumEqual",
-    "signature": "Group.CheckWithSumEqual(g, f, sum, min, max, ...)",
-    "returnType": "boolean",
-    "parameters": [
-      "Group g",
-      "function f",
-      "integer sum",
-      "integer min",
-      "integer max",
-      "any ..."
-    ],
-    "description": "子集求和判定函数，f为返回一个interger值的函数\n检查g中是否存在一个数量为min-max的子集满足以f对子集的每一个元素求值的和等于sum，从第6个参数开始为额外参数\n比如：g:CheckWithSumEqual(Card.GetSynchroLevel,7,2,99)\n检查g中是否存在一个子集满足子集的同调用等级之和等于7",
-    "raw": "function Group.CheckWithSumEqual(g, f, sum, min, max, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.SelectWithSumEqual",
-    "namespace": "Group",
-    "shortName": "SelectWithSumEqual",
-    "signature": "Group.SelectWithSumEqual(g, player, f, sum, min, max, ...)",
-    "returnType": "Group",
-    "parameters": [
-      "Group g",
-      "integer player",
-      "function f",
-      "integer sum",
-      "integer min",
-      "integer max",
-      "any ..."
-    ],
-    "description": "让玩家player从g中选取一个数量为min-max的子集使子集的特定函数的和等于sum，从第7个参数开始为额外参数",
-    "raw": "function Group.SelectWithSumEqual(g, player, f, sum, min, max, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.CheckWithSumGreater",
-    "namespace": "Group",
-    "shortName": "CheckWithSumGreater",
-    "signature": "Group.CheckWithSumGreater(g, f, sum, ...)",
-    "returnType": "boolean",
-    "parameters": [
-      "Group g",
-      "function f",
-      "integer sum",
-      "any ..."
-    ],
-    "description": "子集求和判定函数之二，f为返回一个interger值的函数\n检查g中是否存在一个子集满足以f对子集的每一个元素求值的和刚好大于或者等于sum，从第4个参数开始为额外参数\n比如：g:CheckWithSumGreater(Card.GetRitualLevel,8)\n检查g中是否存在一个子集满足子集的仪式用等级之和大于等于8\n注：判定必须是“刚好”大于或者等于\n以等级为例，要使等级合计大于等于8，可以选择LV1+LV7而不可以选择LV1+LV4+LV4",
-    "raw": "function Group.CheckWithSumGreater(g, f, sum, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.SelectWithSumGreater",
-    "namespace": "Group",
-    "shortName": "SelectWithSumGreater",
-    "signature": "Group.SelectWithSumGreater(g, player, f, sum, ...)",
-    "returnType": "Group",
-    "parameters": [
-      "Group g",
-      "integer player",
-      "function f",
-      "integer sum",
-      "any ..."
-    ],
-    "description": "让玩家player从g中选取一个子集使子集的特定函数f的和大于等于sum，从第5个参数开始为额外参数",
-    "raw": "function Group.SelectWithSumGreater(g, player, f, sum, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.GetMinGroup",
-    "namespace": "Group",
-    "shortName": "GetMinGroup",
-    "signature": "Group.GetMinGroup(g, f, ...)",
-    "returnType": "Group, integer",
-    "parameters": [
-      "Group g",
-      "function f",
-      "any ..."
-    ],
-    "description": "f为返回一个interger值的函数，从g中筛选出具有最小的f的值的卡\n第2个返回值为这个最小值，从第3个参数开始为额外参数\n要使用第2个返回值注意检查g非空",
-    "raw": "function Group.GetMinGroup(g, f, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.GetMaxGroup",
-    "namespace": "Group",
-    "shortName": "GetMaxGroup",
-    "signature": "Group.GetMaxGroup(g, f, ...)",
-    "returnType": "Group, integer",
-    "parameters": [
-      "Group g",
-      "function f",
-      "any ..."
-    ],
-    "description": "f为返回一个interger值的函数，从g中筛选出具有最大的f的值的卡\n第2个返回值为这个最大值，从第3个参数开始为额外参数\n要使用第2个返回值注意检查g非空",
-    "raw": "function Group.GetMaxGroup(g, f, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.GetSum",
-    "namespace": "Group",
-    "shortName": "GetSum",
-    "signature": "Group.GetSum(g, f, ...)",
-    "returnType": "integer",
-    "parameters": [
-      "Group g",
-      "function f",
-      "any ..."
-    ],
-    "description": "计算g中所有卡的取值的总和，f为为每张卡的取值函数，从第3个参数开始为额外参数",
-    "raw": "function Group.GetSum(g, f, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.GetClassCount",
-    "namespace": "Group",
-    "shortName": "GetClassCount",
-    "signature": "Group.GetClassCount(g, f, ...)",
-    "returnType": "integer",
-    "parameters": [
-      "Group g",
-      "function f",
-      "any ..."
-    ],
-    "description": "计算g中所有卡的种类数量，f为分类的依据，返回相同的值视为同一种类，从第3个参数开始为额外参数\n比如 g:GetClassCount(Card.GetCode()) 就是计算g中卡名不同的卡的数量",
-    "raw": "function Group.GetClassCount(g, f, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.Remove",
-    "namespace": "Group",
-    "shortName": "Remove",
-    "signature": "Group.Remove(g, f, ex, ...)",
-    "returnType": "void",
-    "parameters": [
-      "Group g",
-      "function f",
-      "Card|nil ex",
-      "any ..."
-    ],
-    "description": "从g中移除满足筛选条件f并且不等于ex的所有卡，第4个参数开始是额外参数",
-    "raw": "function Group.Remove(g, f, ex, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.Merge",
-    "namespace": "Group",
-    "shortName": "Merge",
-    "signature": "Group.Merge(g1, g2)",
-    "returnType": "void",
-    "parameters": [
-      "Group g1",
-      "Group g2"
-    ],
-    "description": "把g2中的所有卡合并到g1，若g1中原本就有属于g2的卡，那些卡将不会重复\n注：g2本身不会发生变化",
-    "raw": "function Group.Merge(g1, g2) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.Sub",
-    "namespace": "Group",
-    "shortName": "Sub",
-    "signature": "Group.Sub(g1, g2)",
-    "returnType": "void",
-    "parameters": [
-      "Group g1",
-      "Group g2"
-    ],
-    "description": "从g1中移除属于g2中的卡\n注：g2本身不会发生变化",
-    "raw": "function Group.Sub(g1, g2) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.Equal",
-    "namespace": "Group",
-    "shortName": "Equal",
-    "signature": "Group.Equal(g1, g2)",
-    "returnType": "boolean",
-    "parameters": [
-      "Group g1",
-      "Group g2"
-    ],
-    "description": "判断g1和g2是否相同",
-    "raw": "function Group.Equal(g1, g2) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.IsContains",
-    "namespace": "Group",
-    "shortName": "IsContains",
-    "signature": "Group.IsContains(g, c)",
-    "returnType": "boolean",
-    "parameters": [
-      "Group g",
-      "Card c"
-    ],
-    "description": "检查g中是否存在卡片c",
-    "raw": "function Group.IsContains(g, c) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.SearchCard",
-    "namespace": "Group",
-    "shortName": "SearchCard",
-    "signature": "Group.SearchCard(g, f, ...)",
-    "returnType": "Card|nil",
-    "parameters": [
-      "Group g",
-      "function f",
-      "any ..."
-    ],
-    "description": "过滤函数，返回g中满足筛选条件f的第一张卡，若没有则返回nil，从第3个参数开始为额外参数",
-    "raw": "function Group.SearchCard(g, f, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.GetBinClassCount",
-    "namespace": "Group",
-    "shortName": "GetBinClassCount",
-    "signature": "Group.GetBinClassCount(g, f, ...)",
-    "returnType": "integer",
-    "parameters": [
-      "Group g",
-      "function f",
-      "any ..."
-    ],
-    "description": "和 Group.GetClassCount 类似，但是算法不同(使用位运算)",
-    "raw": "function Group.GetBinClassCount(g, f, ...) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Group.__add",
-    "namespace": "Group",
-    "shortName": "__add",
-    "signature": "Group.__add(Group|Card target1, Group|Card target2)",
-    "returnType": "Group",
-    "parameters": [
-      "Group|Card target1",
-      "Group|Card target2"
-    ],
-    "description": "新建一个卡片组，将 target1 和 target2 中的 全部卡添加到这个卡片组，并返回这个卡片组，若有相同的卡只会添加1次， target1,target2 本身不会有任何变化",
-    "raw": "Group Group.__add(Group|Card target1, Group|Card target2)",
-    "category": "Group"
-  },
-  {
-    "name": "Group.__bor",
-    "namespace": "Group",
-    "shortName": "__bor",
-    "signature": "Group.__bor(Group|Card target1, Group|Card target2)",
-    "returnType": "Group",
-    "parameters": [
-      "Group|Card target1",
-      "Group|Card target2"
-    ],
-    "description": "代码和 Group.__add 完全一样",
-    "raw": "Group Group.__bor(Group|Card target1, Group|Card target2)",
-    "category": "Group"
-  },
-  {
-    "name": "Group.__sub",
-    "namespace": "Group",
-    "shortName": "__sub",
-    "signature": "Group.__sub(Group|Card target1, Group|Card target2)",
-    "returnType": "Group",
-    "parameters": [
-      "Group|Card target1",
-      "Group|Card target2"
-    ],
-    "description": "新建一个卡片组，将 target1 中的 全部卡添加到这个卡片组，然后再从这个卡片组把 target2 的卡全部删除，最后返回这个卡片组，target1,target2 本身不会有任何变化",
-    "raw": "Group Group.__sub(Group|Card target1, Group|Card target2)",
-    "category": "Group"
-  },
-  {
-    "name": "Group.__band",
-    "namespace": "Group",
-    "shortName": "__band",
-    "signature": "Group.__band(Group|Card target1, Group|Card target2)",
-    "returnType": "Group",
-    "parameters": [
-      "Group|Card target1",
-      "Group|Card target2"
-    ],
-    "description": "新建一个卡片组，将 target1 和 target2 中相同的卡（就是那张卡同时存在于 target1 和 target2 ）全部添加到 这个卡片组里，最后返回这个卡片组，target1,target2 本身不会有任何变化",
-    "raw": "Group Group.__band(Group|Card target1, Group|Card target2)",
-    "category": "Group"
-  },
-  {
-    "name": "Group.__bxor",
-    "namespace": "Group",
-    "shortName": "__bxor",
-    "signature": "Group.__bxor(Group|Card target1, Group|Card target2)",
-    "returnType": "Group",
-    "parameters": [
-      "Group|Card target1",
-      "Group|Card target2"
-    ],
-    "description": "新建一个卡片组，将 target1 和 target2 中不同的卡（就是只存在于 target1 或者 target2 里的卡）全部添加到 这个卡片组里，最后返回这个卡片组，target1,target2 本身不会有任何变化",
-    "raw": "Group Group.__bxor(Group|Card target1, Group|Card target2)",
-    "category": "Group"
-  },
-  {
     "name": "Duel.EnableGlobalFlag",
     "namespace": "Duel",
     "shortName": "EnableGlobalFlag",
@@ -6495,6 +5050,19 @@
     "category": "Typed Definitions"
   },
   {
+    "name": "Duel.RevealSelectDeckSequence",
+    "namespace": "Duel",
+    "shortName": "RevealSelectDeckSequence",
+    "signature": "Duel.RevealSelectDeckSequence(enabled?)",
+    "returnType": "void",
+    "parameters": [
+      "boolean enabled?"
+    ],
+    "description": "启用选择卡组时显示真实序号",
+    "raw": "function Duel.RevealSelectDeckSequence(enabled) end",
+    "category": "Typed Definitions"
+  },
+  {
     "name": "Duel.ShuffleDeck",
     "namespace": "Duel",
     "shortName": "ShuffleDeck",
@@ -7134,17 +5702,6 @@
     "category": "Typed Definitions"
   },
   {
-    "name": "Duel.AdjustAll",
-    "namespace": "Duel",
-    "shortName": "AdjustAll",
-    "signature": "Duel.AdjustAll()",
-    "returnType": "void",
-    "parameters": [],
-    "description": "立刻刷新场地信息",
-    "raw": "function Duel.AdjustAll() end",
-    "category": "Typed Definitions"
-  },
-  {
     "name": "Duel.AdjustInstantly",
     "namespace": "Duel",
     "shortName": "AdjustInstantly",
@@ -7155,6 +5712,17 @@
     ],
     "description": "手动刷新场上[受到卡片c影响]的卡的无效状态",
     "raw": "function Duel.AdjustInstantly(c) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Duel.AdjustAll",
+    "namespace": "Duel",
+    "shortName": "AdjustAll",
+    "signature": "Duel.AdjustAll()",
+    "returnType": "void",
+    "parameters": [],
+    "description": "立刻刷新场地信息",
+    "raw": "function Duel.AdjustAll() end",
     "category": "Typed Definitions"
   },
   {
@@ -8765,6 +7333,1637 @@
     "category": "Typed Definitions"
   },
   {
+    "name": "Effect.CreateEffect",
+    "namespace": "Effect",
+    "shortName": "CreateEffect",
+    "signature": "Effect.CreateEffect(c)",
+    "returnType": "Effect",
+    "parameters": [
+      "Card c"
+    ],
+    "description": "新建一个空效果\n并且效果的Owner为c",
+    "raw": "function Effect.CreateEffect(c) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GlobalEffect",
+    "namespace": "Effect",
+    "shortName": "GlobalEffect",
+    "signature": "Effect.GlobalEffect()",
+    "returnType": "Effect",
+    "parameters": [],
+    "description": "新建一个全局效果",
+    "raw": "function Effect.GlobalEffect() end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.Clone",
+    "namespace": "Effect",
+    "shortName": "Clone",
+    "signature": "Effect.Clone(e)",
+    "returnType": "Effect",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "新建一个效果e的副本",
+    "raw": "function Effect.Clone(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.Reset",
+    "namespace": "Effect",
+    "shortName": "Reset",
+    "signature": "Effect.Reset(e)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "把效果e重置，重置之后不可以再使用此效果",
+    "raw": "function Effect.Reset(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetFieldID",
+    "namespace": "Effect",
+    "shortName": "GetFieldID",
+    "signature": "Effect.GetFieldID(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "获取效果e的id",
+    "raw": "function Effect.GetFieldID(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetDescription",
+    "namespace": "Effect",
+    "shortName": "SetDescription",
+    "signature": "Effect.SetDescription(e, desc)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer desc"
+    ],
+    "description": "为效果e设置效果描述",
+    "raw": "function Effect.SetDescription(e, desc) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetCode",
+    "namespace": "Effect",
+    "shortName": "SetCode",
+    "signature": "Effect.SetCode(e, code)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer code"
+    ],
+    "description": "为效果e设置Code属性",
+    "raw": "function Effect.SetCode(e, code) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetRange",
+    "namespace": "Effect",
+    "shortName": "SetRange",
+    "signature": "Effect.SetRange(e, range)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer range"
+    ],
+    "description": "为效果e设置Range属性，即e的生效位置",
+    "raw": "function Effect.SetRange(e, range) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetTargetRange",
+    "namespace": "Effect",
+    "shortName": "SetTargetRange",
+    "signature": "Effect.SetTargetRange(e, s_range, o_range)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer s_range",
+      "integer o_range"
+    ],
+    "description": "为效果e设置Target Range属性\ns_range指影响的我方区域\no_range值影响的对方区域\n如果property属性中指定了EFFECT_FLAG_ABSOLUTE_RANGE标志，\n那么s_range指玩家1受到影响的区域，o_range指玩家2受到影响的区域\n如果这是一个召唤(覆盖)/限制召唤(覆盖)/特殊召唤手续\n(EFFECT_SUMMON_PROC/EFFECT_LIMIT_SUMMON_PROC/EFFECT_SPSUMMON_PROC等)的效果，\n并且property指定了EFFECT_FLAG_SPSUM_PARAM标志，\n那么s_range表示特殊召唤到的哪个玩家的场地，\no_range表示可选择的表示形式",
+    "raw": "function Effect.SetTargetRange(e, s_range, o_range) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetAbsoluteRange",
+    "namespace": "Effect",
+    "shortName": "SetAbsoluteRange",
+    "signature": "Effect.SetAbsoluteRange(e, playerid, s_range, o_range)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer playerid",
+      "integer s_range",
+      "integer o_range"
+    ],
+    "description": "设置target range属性并设置 EFFECT_FLAG_ABSOLUTE_TARGET 标志\nplayerid != 0 s_range和o_range反转",
+    "raw": "function Effect.SetAbsoluteRange(e, playerid, s_range, o_range) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetCountLimit",
+    "namespace": "Effect",
+    "shortName": "SetCountLimit",
+    "signature": "Effect.SetCountLimit(e, count, code?)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer count",
+      "integer code?"
+    ],
+    "description": "设置一回合可以发动的次数count（仅触发型效果有效），相同的code(不等于0或1时)共用1个次数\ncode包含以下数值具有特殊的性质\nEFFECT_COUNT_CODE_OATH          誓约使用次数\nEFFECT_COUNT_CODE_DUEL          决斗中使用次数\nEFFECT_COUNT_CODE_SINGLE        同一张卡多个效果公共使用次数（不限制同名卡）",
+    "raw": "function Effect.SetCountLimit(e, count, code) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetReset",
+    "namespace": "Effect",
+    "shortName": "SetReset",
+    "signature": "Effect.SetReset(e, reset_flag, reset_count?)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer reset_flag",
+      "integer reset_count?"
+    ],
+    "description": "设置reset参数",
+    "raw": "function Effect.SetReset(e, reset_flag, reset_count) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetType",
+    "namespace": "Effect",
+    "shortName": "SetType",
+    "signature": "Effect.SetType(e, type)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer type"
+    ],
+    "description": "为效果e设置Type属性",
+    "raw": "function Effect.SetType(e, type) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetProperty",
+    "namespace": "Effect",
+    "shortName": "SetProperty",
+    "signature": "Effect.SetProperty(e, prop1, prop2?)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer prop1",
+      "integer prop2?"
+    ],
+    "description": "设置Property属性",
+    "raw": "function Effect.SetProperty(e, prop1, prop2) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetLabel",
+    "namespace": "Effect",
+    "shortName": "SetLabel",
+    "signature": "Effect.SetLabel(e, ...)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer ..."
+    ],
+    "description": "设置Label属性",
+    "raw": "function Effect.SetLabel(e, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetLabelObject",
+    "namespace": "Effect",
+    "shortName": "SetLabelObject",
+    "signature": "Effect.SetLabelObject(e, labelobject)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "Card|Group|Effect labelobject"
+    ],
+    "description": "设置LabelObject属性",
+    "raw": "function Effect.SetLabelObject(e, labelobject) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetCategory",
+    "namespace": "Effect",
+    "shortName": "SetCategory",
+    "signature": "Effect.SetCategory(e, cate)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer cate"
+    ],
+    "description": "设置Category属性",
+    "raw": "function Effect.SetCategory(e, cate) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetHintTiming",
+    "namespace": "Effect",
+    "shortName": "SetHintTiming",
+    "signature": "Effect.SetHintTiming(e, s_time, o_time?)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer s_time",
+      "integer o_time?"
+    ],
+    "description": "设置提示时点，第二个和第三个参数分别表示 自己 和对方的回合",
+    "raw": "function Effect.SetHintTiming(e, s_time, o_time) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetCondition",
+    "namespace": "Effect",
+    "shortName": "SetCondition",
+    "signature": "Effect.SetCondition(e, con_func)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "function con_func"
+    ],
+    "description": "设置Condition属性",
+    "raw": "function Effect.SetCondition(e, con_func) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetTarget",
+    "namespace": "Effect",
+    "shortName": "SetTarget",
+    "signature": "Effect.SetTarget(e, targ_func)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "function targ_func"
+    ],
+    "description": "设置Target属性",
+    "raw": "function Effect.SetTarget(e, targ_func) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetCost",
+    "namespace": "Effect",
+    "shortName": "SetCost",
+    "signature": "Effect.SetCost(e, cost_func)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "function cost_func"
+    ],
+    "description": "设置Cost属性",
+    "raw": "function Effect.SetCost(e, cost_func) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetValue",
+    "namespace": "Effect",
+    "shortName": "SetValue",
+    "signature": "Effect.SetValue(e, val)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "function|integer|boolean val"
+    ],
+    "description": "设置Value属性",
+    "raw": "function Effect.SetValue(e, val) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetOperation",
+    "namespace": "Effect",
+    "shortName": "SetOperation",
+    "signature": "Effect.SetOperation(e, op_func)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "nil|function op_func"
+    ],
+    "description": "设置Operation属性",
+    "raw": "function Effect.SetOperation(e, op_func) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetOwnerPlayer",
+    "namespace": "Effect",
+    "shortName": "SetOwnerPlayer",
+    "signature": "Effect.SetOwnerPlayer(e, player?)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer player?"
+    ],
+    "description": "设置OwnerPlayer属性为player",
+    "raw": "function Effect.SetOwnerPlayer(e, player) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetDescription",
+    "namespace": "Effect",
+    "shortName": "GetDescription",
+    "signature": "Effect.GetDescription(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回效果描述",
+    "raw": "function Effect.GetDescription(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetCode",
+    "namespace": "Effect",
+    "shortName": "GetCode",
+    "signature": "Effect.GetCode(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回code属性",
+    "raw": "function Effect.GetCode(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetType",
+    "namespace": "Effect",
+    "shortName": "GetType",
+    "signature": "Effect.GetType(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回Type属性",
+    "raw": "function Effect.GetType(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetProperty",
+    "namespace": "Effect",
+    "shortName": "GetProperty",
+    "signature": "Effect.GetProperty(e)",
+    "returnType": "integer, integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回Property属性",
+    "raw": "function Effect.GetProperty(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetLabel",
+    "namespace": "Effect",
+    "shortName": "GetLabel",
+    "signature": "Effect.GetLabel(e)",
+    "returnType": "... integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回Label属性",
+    "raw": "function Effect.GetLabel(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetLabelObject",
+    "namespace": "Effect",
+    "shortName": "GetLabelObject",
+    "signature": "Effect.GetLabelObject(e)",
+    "returnType": "Card|Group|Effect",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回LabelObject属性",
+    "raw": "function Effect.GetLabelObject(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetCategory",
+    "namespace": "Effect",
+    "shortName": "GetCategory",
+    "signature": "Effect.GetCategory(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回Category属性",
+    "raw": "function Effect.GetCategory(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetRange",
+    "namespace": "Effect",
+    "shortName": "GetRange",
+    "signature": "Effect.GetRange(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回Range属性",
+    "raw": "function Effect.GetRange(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetOwner",
+    "namespace": "Effect",
+    "shortName": "GetOwner",
+    "signature": "Effect.GetOwner(e)",
+    "returnType": "Card",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回Owner属性",
+    "raw": "function Effect.GetOwner(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetHandler",
+    "namespace": "Effect",
+    "shortName": "GetHandler",
+    "signature": "Effect.GetHandler(e)",
+    "returnType": "Card",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回效果在哪一张卡上生效(通常是用Card.RegisterEffect注册该效果的卡)",
+    "raw": "function Effect.GetHandler(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetCondition",
+    "namespace": "Effect",
+    "shortName": "GetCondition",
+    "signature": "Effect.GetCondition(e)",
+    "returnType": "function",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回condition属性",
+    "raw": "function Effect.GetCondition(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetTarget",
+    "namespace": "Effect",
+    "shortName": "GetTarget",
+    "signature": "Effect.GetTarget(e)",
+    "returnType": "function",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回target属性",
+    "raw": "function Effect.GetTarget(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetCost",
+    "namespace": "Effect",
+    "shortName": "GetCost",
+    "signature": "Effect.GetCost(e)",
+    "returnType": "function",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回cost属性",
+    "raw": "function Effect.GetCost(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetValue",
+    "namespace": "Effect",
+    "shortName": "GetValue",
+    "signature": "Effect.GetValue(e)",
+    "returnType": "function|integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回value属性",
+    "raw": "function Effect.GetValue(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetOperation",
+    "namespace": "Effect",
+    "shortName": "GetOperation",
+    "signature": "Effect.GetOperation(e)",
+    "returnType": "function",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回operation属性",
+    "raw": "function Effect.GetOperation(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetActiveType",
+    "namespace": "Effect",
+    "shortName": "GetActiveType",
+    "signature": "Effect.GetActiveType(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回e的效果类型（怪兽·魔法·陷阱）\n与发动该效果的卡的类型不一定相同，比如灵摆效果视为魔法卡的效果",
+    "raw": "function Effect.GetActiveType(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.IsActiveType",
+    "namespace": "Effect",
+    "shortName": "IsActiveType",
+    "signature": "Effect.IsActiveType(e, type)",
+    "returnType": "boolean",
+    "parameters": [
+      "Effect e",
+      "integer type"
+    ],
+    "description": "检查e的效果类型（怪兽·魔法·陷阱）是否有type",
+    "raw": "function Effect.IsActiveType(e, type) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetOwnerPlayer",
+    "namespace": "Effect",
+    "shortName": "GetOwnerPlayer",
+    "signature": "Effect.GetOwnerPlayer(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回OwnerPlayer属性（发动效果、建立效果的玩家）\n若無OwnerPlayer属性，则是Owner的控制者",
+    "raw": "function Effect.GetOwnerPlayer(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetHandlerPlayer",
+    "namespace": "Effect",
+    "shortName": "GetHandlerPlayer",
+    "signature": "Effect.GetHandlerPlayer(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回当前玩家，一般是Handler的控制者",
+    "raw": "function Effect.GetHandlerPlayer(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.IsHasProperty",
+    "namespace": "Effect",
+    "shortName": "IsHasProperty",
+    "signature": "Effect.IsHasProperty(e, prop1, prop2?)",
+    "returnType": "boolean",
+    "parameters": [
+      "Effect e",
+      "integer prop1",
+      "integer prop2?"
+    ],
+    "description": "检查效果是否含有标志prop1[和prop2]",
+    "raw": "function Effect.IsHasProperty(e, prop1, prop2) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.IsHasCategory",
+    "namespace": "Effect",
+    "shortName": "IsHasCategory",
+    "signature": "Effect.IsHasCategory(e, cate)",
+    "returnType": "boolean",
+    "parameters": [
+      "Effect e",
+      "integer cate"
+    ],
+    "description": "检查效果是否含有效果分类cate",
+    "raw": "function Effect.IsHasCategory(e, cate) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.IsHasType",
+    "namespace": "Effect",
+    "shortName": "IsHasType",
+    "signature": "Effect.IsHasType(e, type)",
+    "returnType": "boolean",
+    "parameters": [
+      "Effect e",
+      "integer type"
+    ],
+    "description": "检查效果是否属于类型type",
+    "raw": "function Effect.IsHasType(e, type) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.IsHasRange",
+    "namespace": "Effect",
+    "shortName": "IsHasRange",
+    "signature": "Effect.IsHasRange(e, range)",
+    "returnType": "boolean",
+    "parameters": [
+      "Effect e",
+      "integer range"
+    ],
+    "description": "检查效果是否含有区域range",
+    "raw": "function Effect.IsHasRange(e, range) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.IsActivatable",
+    "namespace": "Effect",
+    "shortName": "IsActivatable",
+    "signature": "Effect.IsActivatable(e, player, neglect_loc?, neglect_target?)",
+    "returnType": "boolean",
+    "parameters": [
+      "Effect e",
+      "integer player",
+      "boolean neglect_loc?",
+      "boolean neglect_target?"
+    ],
+    "description": "检查效果e能否由player发动\nneglect_loc=true 为不检测发动位置(手卡)， neglect_target=true 为不检测对象要求",
+    "raw": "function Effect.IsActivatable(e, player, neglect_loc, neglect_target) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.IsActivated",
+    "namespace": "Effect",
+    "shortName": "IsActivated",
+    "signature": "Effect.IsActivated(e)",
+    "returnType": "boolean",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "检查效果e是否是已发动的效果",
+    "raw": "function Effect.IsActivated(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.IsCostChecked",
+    "namespace": "Effect",
+    "shortName": "IsCostChecked",
+    "signature": "Effect.IsCostChecked(e)",
+    "returnType": "boolean",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "检查效果e是否检查过cost，即是否是被复制的",
+    "raw": "function Effect.IsCostChecked(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.SetCostCheck",
+    "namespace": "Effect",
+    "shortName": "SetCostCheck",
+    "signature": "Effect.SetCostCheck(e, b)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "boolean b"
+    ],
+    "description": "设置效果e的cost检查标记为b",
+    "raw": "function Effect.SetCostCheck(e, b) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetActivateLocation",
+    "namespace": "Effect",
+    "shortName": "GetActivateLocation",
+    "signature": "Effect.GetActivateLocation(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回效果e的发动区域",
+    "raw": "function Effect.GetActivateLocation(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.GetActivateSequence",
+    "namespace": "Effect",
+    "shortName": "GetActivateSequence",
+    "signature": "Effect.GetActivateSequence(e)",
+    "returnType": "integer",
+    "parameters": [
+      "Effect e"
+    ],
+    "description": "返回效果e的发动区域序号",
+    "raw": "function Effect.GetActivateSequence(e) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.CheckCountLimit",
+    "namespace": "Effect",
+    "shortName": "CheckCountLimit",
+    "signature": "Effect.CheckCountLimit(e, p)",
+    "returnType": "boolean",
+    "parameters": [
+      "Effect e",
+      "integer p"
+    ],
+    "description": "检测玩家 p 是否还有可以发动的效果 e 的次数",
+    "raw": "function Effect.CheckCountLimit(e, p) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Effect.UseCountLimit",
+    "namespace": "Effect",
+    "shortName": "UseCountLimit",
+    "signature": "Effect.UseCountLimit(e, p, count?, oath_only?)",
+    "returnType": "void",
+    "parameters": [
+      "Effect e",
+      "integer p",
+      "integer count?",
+      "boolean oath_only?"
+    ],
+    "description": "手动减少玩家 p 对效果 e 的 count 个可用次数[ oath_only 为 该效果是否是 EFFECT_FLAG_OATH]",
+    "raw": "function Effect.UseCountLimit(e, p, count, oath_only) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.CreateGroup",
+    "namespace": "Group",
+    "shortName": "CreateGroup",
+    "signature": "Group.CreateGroup()",
+    "returnType": "Group",
+    "parameters": [],
+    "description": "新建一个空的卡片组",
+    "raw": "function Group.CreateGroup() end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.KeepAlive",
+    "namespace": "Group",
+    "shortName": "KeepAlive",
+    "signature": "Group.KeepAlive(g)",
+    "returnType": "void",
+    "parameters": [
+      "Group g"
+    ],
+    "description": "让卡片组持续，把卡片组设置为效果的LabelObject需要设置",
+    "raw": "function Group.KeepAlive(g) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.DeleteGroup",
+    "namespace": "Group",
+    "shortName": "DeleteGroup",
+    "signature": "Group.DeleteGroup(g)",
+    "returnType": "void",
+    "parameters": [
+      "Group g"
+    ],
+    "description": "删除卡片组g",
+    "raw": "function Group.DeleteGroup(g) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.Clone",
+    "namespace": "Group",
+    "shortName": "Clone",
+    "signature": "Group.Clone(g)",
+    "returnType": "Group",
+    "parameters": [
+      "Group g"
+    ],
+    "description": "新建卡片组g的副本",
+    "raw": "function Group.Clone(g) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.FromCards",
+    "namespace": "Group",
+    "shortName": "FromCards",
+    "signature": "Group.FromCards(...)",
+    "returnType": "Group",
+    "parameters": [
+      "Card ..."
+    ],
+    "description": "不定参数，把传入的所有卡组合成一个卡片组并返回，所有参数只能是 Card 类型。\n没有参数时，相当于Group.CreateGroup()",
+    "raw": "function Group.FromCards(...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.Clear",
+    "namespace": "Group",
+    "shortName": "Clear",
+    "signature": "Group.Clear(g)",
+    "returnType": "void",
+    "parameters": [
+      "Group g"
+    ],
+    "description": "清空卡片组",
+    "raw": "function Group.Clear(g) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.AddCard",
+    "namespace": "Group",
+    "shortName": "AddCard",
+    "signature": "Group.AddCard(g, c)",
+    "returnType": "void",
+    "parameters": [
+      "Group g",
+      "Card c"
+    ],
+    "description": "往g中增加c",
+    "raw": "function Group.AddCard(g, c) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.RemoveCard",
+    "namespace": "Group",
+    "shortName": "RemoveCard",
+    "signature": "Group.RemoveCard(g, c)",
+    "returnType": "void",
+    "parameters": [
+      "Group g",
+      "Card c"
+    ],
+    "description": "把c从g中移除",
+    "raw": "function Group.RemoveCard(g, c) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.GetFirst",
+    "namespace": "Group",
+    "shortName": "GetFirst",
+    "signature": "Group.GetFirst(g)",
+    "returnType": "Card",
+    "parameters": [
+      "Group g"
+    ],
+    "description": "返回g中第一张卡，并重置当前指针到g中第一张卡\n如果g中不存在卡则返回nil",
+    "raw": "function Group.GetFirst(g) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.GetNext",
+    "namespace": "Group",
+    "shortName": "GetNext",
+    "signature": "Group.GetNext(g)",
+    "returnType": "Card",
+    "parameters": [
+      "Group g"
+    ],
+    "description": "使指针指向下一张卡并返回这张卡，如果不存在则返回nil",
+    "raw": "function Group.GetNext(g) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.GetCount",
+    "namespace": "Group",
+    "shortName": "GetCount",
+    "signature": "Group.GetCount(g)",
+    "returnType": "integer",
+    "parameters": [
+      "Group g"
+    ],
+    "description": "返回g中卡的数量",
+    "raw": "function Group.GetCount(g) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.__len",
+    "namespace": "Group",
+    "shortName": "__len",
+    "signature": "Group.__len(Group g)",
+    "returnType": "int",
+    "parameters": [
+      "Group g"
+    ],
+    "description": "和 Group.GetCount 一样",
+    "raw": "int Group.__len(Group g)",
+    "category": "Group"
+  },
+  {
+    "name": "Group.ForEach",
+    "namespace": "Group",
+    "shortName": "ForEach",
+    "signature": "Group.ForEach(g, f, ...)",
+    "returnType": "void",
+    "parameters": [
+      "Group g",
+      "function f",
+      "any ..."
+    ],
+    "description": "以g中的每一张卡作为参数调用一次f ,第三个参数开始为额外参数",
+    "raw": "function Group.ForEach(g, f, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.Filter",
+    "namespace": "Group",
+    "shortName": "Filter",
+    "signature": "Group.Filter(g, f, ex, ...)",
+    "returnType": "Group",
+    "parameters": [
+      "Group g",
+      "function f",
+      "Card|Group|nil ex",
+      "any ..."
+    ],
+    "description": "过滤函数，从g中筛选满足筛选条件f并且不等于ex的卡\n从第4个参数开始为额外参数",
+    "raw": "function Group.Filter(g, f, ex, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.FilterCount",
+    "namespace": "Group",
+    "shortName": "FilterCount",
+    "signature": "Group.FilterCount(g, f, ex, ...)",
+    "returnType": "integer",
+    "parameters": [
+      "Group g",
+      "function f",
+      "Card|Group|nil ex",
+      "any ..."
+    ],
+    "description": "过滤函数，和Group.Filter基本相同，不同之处在于此函数只返回满足条件的卡的数量",
+    "raw": "function Group.FilterCount(g, f, ex, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.FilterSelect",
+    "namespace": "Group",
+    "shortName": "FilterSelect",
+    "signature": "Group.FilterSelect(g, player, f, min, max, ex, ...)",
+    "returnType": "Group",
+    "parameters": [
+      "Group g",
+      "integer player",
+      "function f",
+      "integer min",
+      "integer max",
+      "Card|Group|nil ex",
+      "any ..."
+    ],
+    "description": "过滤函数，让玩家player从g中选择 min-max 张满足筛选条件f并且不等于ex的卡\n从第7个参数开始为额外参数",
+    "raw": "function Group.FilterSelect(g, player, f, min, max, ex, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.Select",
+    "namespace": "Group",
+    "shortName": "Select",
+    "signature": "Group.Select(g, player, min, max, ex)",
+    "returnType": "Group",
+    "parameters": [
+      "Group g",
+      "integer player",
+      "integer min",
+      "integer max",
+      "Card|Group|nil ex"
+    ],
+    "description": "让玩家player从g中选择min-max张不等于ex的卡",
+    "raw": "function Group.Select(g, player, min, max, ex) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.SelectUnselect",
+    "namespace": "Group",
+    "shortName": "SelectUnselect",
+    "signature": "Group.SelectUnselect(cg, sg, player, btok, cancelable, minc, maxc)",
+    "returnType": "Card|nil",
+    "parameters": [
+      "Group cg",
+      "Group|nil 已选的卡，可以从中取消选择 sg",
+      "integer player",
+      "boolean btok",
+      "boolean cancelable",
+      "integer minc",
+      "integer maxc"
+    ],
+    "description": "让玩家 player 从 cg 中选择 1 张卡放入 sg ，并返回选的卡。\nbtok 表示是否可以点击完成选择的按钮， cancelable 表示是否可以取消整个选择返回 nil，\nminc 和 maxc 是客户端的文字缓冲提示，表示需要选择 minc-maxc 张卡，但是这个只是影响视觉效果，并不代表必须要选择那个数量",
+    "raw": "function Group.SelectUnselect(cg, sg, player, btok, cancelable, minc, maxc) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.RandomSelect",
+    "namespace": "Group",
+    "shortName": "RandomSelect",
+    "signature": "Group.RandomSelect(g, player, count)",
+    "returnType": "Group",
+    "parameters": [
+      "Group g",
+      "integer player",
+      "integer count"
+    ],
+    "description": "让玩家player从g中随机选择count张卡\n因为是随机选择，所以参数player基本无用，由系统随机选取",
+    "raw": "function Group.RandomSelect(g, player, count) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.CancelableSelect",
+    "namespace": "Group",
+    "shortName": "CancelableSelect",
+    "signature": "Group.CancelableSelect(g, player, min, max, ex)",
+    "returnType": "Group|nil",
+    "parameters": [
+      "Group g",
+      "integer player",
+      "integer min",
+      "integer max",
+      "Card|Group|nil ex"
+    ],
+    "description": "让玩家player从g中选择min-max张不等于ex的卡，可以取消并返回nil",
+    "raw": "function Group.CancelableSelect(g, player, min, max, ex) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.IsExists",
+    "namespace": "Group",
+    "shortName": "IsExists",
+    "signature": "Group.IsExists(g, f, count, ex, ...)",
+    "returnType": "boolean",
+    "parameters": [
+      "Group g",
+      "function f",
+      "integer count",
+      "Card|Group|nil ex",
+      "any ..."
+    ],
+    "description": "过滤函数，检查g中是否存在至少count张满足筛选条件f并且不等于ex的卡\n从第5个参数开始为额外参数",
+    "raw": "function Group.IsExists(g, f, count, ex, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.CheckWithSumEqual",
+    "namespace": "Group",
+    "shortName": "CheckWithSumEqual",
+    "signature": "Group.CheckWithSumEqual(g, f, sum, min, max, ...)",
+    "returnType": "boolean",
+    "parameters": [
+      "Group g",
+      "function f",
+      "integer sum",
+      "integer min",
+      "integer max",
+      "any ..."
+    ],
+    "description": "子集求和判定函数，f为返回一个interger值的函数\n检查g中是否存在一个数量为min-max的子集满足以f对子集的每一个元素求值的和等于sum，从第6个参数开始为额外参数\n比如：g:CheckWithSumEqual(Card.GetSynchroLevel,7,2,99)\n检查g中是否存在一个子集满足子集的同调用等级之和等于7",
+    "raw": "function Group.CheckWithSumEqual(g, f, sum, min, max, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.SelectWithSumEqual",
+    "namespace": "Group",
+    "shortName": "SelectWithSumEqual",
+    "signature": "Group.SelectWithSumEqual(g, player, f, sum, min, max, ...)",
+    "returnType": "Group",
+    "parameters": [
+      "Group g",
+      "integer player",
+      "function f",
+      "integer sum",
+      "integer min",
+      "integer max",
+      "any ..."
+    ],
+    "description": "让玩家player从g中选取一个数量为min-max的子集使子集的特定函数的和等于sum，从第7个参数开始为额外参数",
+    "raw": "function Group.SelectWithSumEqual(g, player, f, sum, min, max, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.CheckWithSumGreater",
+    "namespace": "Group",
+    "shortName": "CheckWithSumGreater",
+    "signature": "Group.CheckWithSumGreater(g, f, sum, ...)",
+    "returnType": "boolean",
+    "parameters": [
+      "Group g",
+      "function f",
+      "integer sum",
+      "any ..."
+    ],
+    "description": "子集求和判定函数之二，f为返回一个interger值的函数\n检查g中是否存在一个子集满足以f对子集的每一个元素求值的和刚好大于或者等于sum，从第4个参数开始为额外参数\n比如：g:CheckWithSumGreater(Card.GetRitualLevel,8)\n检查g中是否存在一个子集满足子集的仪式用等级之和大于等于8\n注：判定必须是“刚好”大于或者等于\n以等级为例，要使等级合计大于等于8，可以选择LV1+LV7而不可以选择LV1+LV4+LV4",
+    "raw": "function Group.CheckWithSumGreater(g, f, sum, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.SelectWithSumGreater",
+    "namespace": "Group",
+    "shortName": "SelectWithSumGreater",
+    "signature": "Group.SelectWithSumGreater(g, player, f, sum, ...)",
+    "returnType": "Group",
+    "parameters": [
+      "Group g",
+      "integer player",
+      "function f",
+      "integer sum",
+      "any ..."
+    ],
+    "description": "让玩家player从g中选取一个子集使子集的特定函数f的和大于等于sum，从第5个参数开始为额外参数",
+    "raw": "function Group.SelectWithSumGreater(g, player, f, sum, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.GetMinGroup",
+    "namespace": "Group",
+    "shortName": "GetMinGroup",
+    "signature": "Group.GetMinGroup(g, f, ...)",
+    "returnType": "Group, integer",
+    "parameters": [
+      "Group g",
+      "function f",
+      "any ..."
+    ],
+    "description": "f为返回一个interger值的函数，从g中筛选出具有最小的f的值的卡\n第2个返回值为这个最小值，从第3个参数开始为额外参数\n要使用第2个返回值注意检查g非空",
+    "raw": "function Group.GetMinGroup(g, f, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.GetMaxGroup",
+    "namespace": "Group",
+    "shortName": "GetMaxGroup",
+    "signature": "Group.GetMaxGroup(g, f, ...)",
+    "returnType": "Group, integer",
+    "parameters": [
+      "Group g",
+      "function f",
+      "any ..."
+    ],
+    "description": "f为返回一个interger值的函数，从g中筛选出具有最大的f的值的卡\n第2个返回值为这个最大值，从第3个参数开始为额外参数\n要使用第2个返回值注意检查g非空",
+    "raw": "function Group.GetMaxGroup(g, f, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.GetSum",
+    "namespace": "Group",
+    "shortName": "GetSum",
+    "signature": "Group.GetSum(g, f, ...)",
+    "returnType": "integer",
+    "parameters": [
+      "Group g",
+      "function f",
+      "any ..."
+    ],
+    "description": "计算g中所有卡的取值的总和，f为为每张卡的取值函数，从第3个参数开始为额外参数",
+    "raw": "function Group.GetSum(g, f, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.GetClassCount",
+    "namespace": "Group",
+    "shortName": "GetClassCount",
+    "signature": "Group.GetClassCount(g, f, ...)",
+    "returnType": "integer",
+    "parameters": [
+      "Group g",
+      "function f",
+      "any ..."
+    ],
+    "description": "计算g中所有卡的种类数量，f为分类的依据，返回相同的值视为同一种类，从第3个参数开始为额外参数\n比如 g:GetClassCount(Card.GetCode()) 就是计算g中卡名不同的卡的数量",
+    "raw": "function Group.GetClassCount(g, f, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.Remove",
+    "namespace": "Group",
+    "shortName": "Remove",
+    "signature": "Group.Remove(g, f, ex, ...)",
+    "returnType": "void",
+    "parameters": [
+      "Group g",
+      "function f",
+      "Card|nil ex",
+      "any ..."
+    ],
+    "description": "从g中移除满足筛选条件f并且不等于ex的所有卡，第4个参数开始是额外参数",
+    "raw": "function Group.Remove(g, f, ex, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.Merge",
+    "namespace": "Group",
+    "shortName": "Merge",
+    "signature": "Group.Merge(g1, g2)",
+    "returnType": "void",
+    "parameters": [
+      "Group g1",
+      "Group g2"
+    ],
+    "description": "把g2中的所有卡合并到g1，若g1中原本就有属于g2的卡，那些卡将不会重复\n注：g2本身不会发生变化",
+    "raw": "function Group.Merge(g1, g2) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.Sub",
+    "namespace": "Group",
+    "shortName": "Sub",
+    "signature": "Group.Sub(g1, g2)",
+    "returnType": "void",
+    "parameters": [
+      "Group g1",
+      "Group g2"
+    ],
+    "description": "从g1中移除属于g2中的卡\n注：g2本身不会发生变化",
+    "raw": "function Group.Sub(g1, g2) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.Equal",
+    "namespace": "Group",
+    "shortName": "Equal",
+    "signature": "Group.Equal(g1, g2)",
+    "returnType": "boolean",
+    "parameters": [
+      "Group g1",
+      "Group g2"
+    ],
+    "description": "判断g1和g2是否相同",
+    "raw": "function Group.Equal(g1, g2) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.IsContains",
+    "namespace": "Group",
+    "shortName": "IsContains",
+    "signature": "Group.IsContains(g, c)",
+    "returnType": "boolean",
+    "parameters": [
+      "Group g",
+      "Card c"
+    ],
+    "description": "检查g中是否存在卡片c",
+    "raw": "function Group.IsContains(g, c) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.SearchCard",
+    "namespace": "Group",
+    "shortName": "SearchCard",
+    "signature": "Group.SearchCard(g, f, ...)",
+    "returnType": "Card|nil",
+    "parameters": [
+      "Group g",
+      "function f",
+      "any ..."
+    ],
+    "description": "过滤函数，返回g中满足筛选条件f的第一张卡，若没有则返回nil，从第3个参数开始为额外参数",
+    "raw": "function Group.SearchCard(g, f, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.GetBinClassCount",
+    "namespace": "Group",
+    "shortName": "GetBinClassCount",
+    "signature": "Group.GetBinClassCount(g, f, ...)",
+    "returnType": "integer",
+    "parameters": [
+      "Group g",
+      "function f",
+      "any ..."
+    ],
+    "description": "和 Group.GetClassCount 类似，但是算法不同(使用位运算)",
+    "raw": "function Group.GetBinClassCount(g, f, ...) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Group.__add",
+    "namespace": "Group",
+    "shortName": "__add",
+    "signature": "Group.__add(Group|Card target1, Group|Card target2)",
+    "returnType": "Group",
+    "parameters": [
+      "Group|Card target1",
+      "Group|Card target2"
+    ],
+    "description": "新建一个卡片组，将 target1 和 target2 中的 全部卡添加到这个卡片组，并返回这个卡片组，若有相同的卡只会添加1次， target1,target2 本身不会有任何变化",
+    "raw": "Group Group.__add(Group|Card target1, Group|Card target2)",
+    "category": "Group"
+  },
+  {
+    "name": "Group.__bor",
+    "namespace": "Group",
+    "shortName": "__bor",
+    "signature": "Group.__bor(Group|Card target1, Group|Card target2)",
+    "returnType": "Group",
+    "parameters": [
+      "Group|Card target1",
+      "Group|Card target2"
+    ],
+    "description": "代码和 Group.__add 完全一样",
+    "raw": "Group Group.__bor(Group|Card target1, Group|Card target2)",
+    "category": "Group"
+  },
+  {
+    "name": "Group.__sub",
+    "namespace": "Group",
+    "shortName": "__sub",
+    "signature": "Group.__sub(Group|Card target1, Group|Card target2)",
+    "returnType": "Group",
+    "parameters": [
+      "Group|Card target1",
+      "Group|Card target2"
+    ],
+    "description": "新建一个卡片组，将 target1 中的 全部卡添加到这个卡片组，然后再从这个卡片组把 target2 的卡全部删除，最后返回这个卡片组，target1,target2 本身不会有任何变化",
+    "raw": "Group Group.__sub(Group|Card target1, Group|Card target2)",
+    "category": "Group"
+  },
+  {
+    "name": "Group.__band",
+    "namespace": "Group",
+    "shortName": "__band",
+    "signature": "Group.__band(Group|Card target1, Group|Card target2)",
+    "returnType": "Group",
+    "parameters": [
+      "Group|Card target1",
+      "Group|Card target2"
+    ],
+    "description": "新建一个卡片组，将 target1 和 target2 中相同的卡（就是那张卡同时存在于 target1 和 target2 ）全部添加到 这个卡片组里，最后返回这个卡片组，target1,target2 本身不会有任何变化",
+    "raw": "Group Group.__band(Group|Card target1, Group|Card target2)",
+    "category": "Group"
+  },
+  {
+    "name": "Group.__bxor",
+    "namespace": "Group",
+    "shortName": "__bxor",
+    "signature": "Group.__bxor(Group|Card target1, Group|Card target2)",
+    "returnType": "Group",
+    "parameters": [
+      "Group|Card target1",
+      "Group|Card target2"
+    ],
+    "description": "新建一个卡片组，将 target1 和 target2 中不同的卡（就是只存在于 target1 或者 target2 里的卡）全部添加到 这个卡片组里，最后返回这个卡片组，target1,target2 本身不会有任何变化",
+    "raw": "Group Group.__bxor(Group|Card target1, Group|Card target2)",
+    "category": "Group"
+  },
+  {
+    "name": "Debug.Message",
+    "namespace": "Debug",
+    "shortName": "Message",
+    "signature": "Debug.Message(msg)",
+    "returnType": "void",
+    "parameters": [
+      "any msg"
+    ],
+    "description": "显示消息。\n注意，只会在本地生效，在服务器端不会生效。",
+    "raw": "function Debug.Message(msg) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Debug.AddCard",
+    "namespace": "Debug",
+    "shortName": "AddCard",
+    "signature": "Debug.AddCard(code, owner, player, location, seq, pos, proc?)",
+    "returnType": "Card",
+    "parameters": [
+      "integer code",
+      "integer owner",
+      "integer player",
+      "integer location",
+      "integer seq",
+      "integer pos",
+      "boolean proc?"
+    ],
+    "description": "添加卡片，将卡号为code的卡片的持有者设置为owner，以表示形式pos放置在player的场上位于location上序号为seq的格子处\nproc=true则完成正规召唤程序(即解除苏生限制)",
+    "raw": "function Debug.AddCard(code, owner, player, location, seq, pos, proc) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Debug.SetPlayerInfo",
+    "namespace": "Debug",
+    "shortName": "SetPlayerInfo",
+    "signature": "Debug.SetPlayerInfo(playerid, lp, startcount, drawcount)",
+    "returnType": "void",
+    "parameters": [
+      "integer playerid",
+      "integer lp",
+      "integer startcount",
+      "integer drawcount"
+    ],
+    "description": "设置玩家信息，基本分为lp，初始手卡为startcount张，每回合抽drawcount张\n在残局当中， playerid ：自己=0,对方=1",
+    "raw": "function Debug.SetPlayerInfo(playerid, lp, startcount, drawcount) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Debug.PreSummon",
+    "namespace": "Debug",
+    "shortName": "PreSummon",
+    "signature": "Debug.PreSummon(c, sum_type, sum_location?)",
+    "returnType": "void",
+    "parameters": [
+      "Card c",
+      "integer sum_type",
+      "integer sum_location?"
+    ],
+    "description": "设置卡片c的召唤信息：以 sum_type 方法(通常召唤、特殊召唤等)[从 sum_location]出场",
+    "raw": "function Debug.PreSummon(c, sum_type, sum_location) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Debug.PreEquip",
+    "namespace": "Debug",
+    "shortName": "PreEquip",
+    "signature": "Debug.PreEquip(equip_card, target)",
+    "returnType": "boolean",
+    "parameters": [
+      "Card equip_card",
+      "Card target"
+    ],
+    "description": "为target添加装备equip_card ，返回值表示是否成功",
+    "raw": "function Debug.PreEquip(equip_card, target) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Debug.PreSetTarget",
+    "namespace": "Debug",
+    "shortName": "PreSetTarget",
+    "signature": "Debug.PreSetTarget(c, target)",
+    "returnType": "void",
+    "parameters": [
+      "Card c",
+      "Card target"
+    ],
+    "description": "把target选为c的永续对象",
+    "raw": "function Debug.PreSetTarget(c, target) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Debug.PreAddCounter",
+    "namespace": "Debug",
+    "shortName": "PreAddCounter",
+    "signature": "Debug.PreAddCounter(c, counter_type, count?)",
+    "returnType": "void",
+    "parameters": [
+      "Card c",
+      "integer counter_type",
+      "integer count?"
+    ],
+    "description": "为c添加count个counter_type的指示物",
+    "raw": "function Debug.PreAddCounter(c, counter_type, count) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Debug.ReloadFieldBegin",
+    "namespace": "Debug",
+    "shortName": "ReloadFieldBegin",
+    "signature": "Debug.ReloadFieldBegin(flag, rule?)",
+    "returnType": "void",
+    "parameters": [
+      "integer flag",
+      "integer rule?"
+    ],
+    "description": "以选项flag开始布局\nflag 残局： DUEL_ATTACK_FIRST_TURN|DUEL_SIMPLE_AI\n大师规则1： DUEL_OBSOLETE_RULING\nrule=5 是大师规则2020",
+    "raw": "function Debug.ReloadFieldBegin(flag, rule) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Debug.ReloadFieldEnd",
+    "namespace": "Debug",
+    "shortName": "ReloadFieldEnd",
+    "signature": "Debug.ReloadFieldEnd()",
+    "returnType": "void",
+    "parameters": [],
+    "description": "布局结束",
+    "raw": "function Debug.ReloadFieldEnd() end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Debug.SetAIName",
+    "namespace": "Debug",
+    "shortName": "SetAIName",
+    "signature": "Debug.SetAIName(name)",
+    "returnType": "void",
+    "parameters": [
+      "string name"
+    ],
+    "description": "设置AI的名字，最大长度 100 个字符（1个汉字2个字符）",
+    "raw": "function Debug.SetAIName(name) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Debug.ShowHint",
+    "namespace": "Debug",
+    "shortName": "ShowHint",
+    "signature": "Debug.ShowHint(msg)",
+    "returnType": "void",
+    "parameters": [
+      "string msg"
+    ],
+    "description": "显示消息提示框，最大长度 1024 个字符（1个汉字2个字符）\n注意，只会在本地生效，在服务器端不会生效。",
+    "raw": "function Debug.ShowHint(msg) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "bit.band",
+    "namespace": "bit",
+    "shortName": "band",
+    "signature": "bit.band(int a, int b)",
+    "returnType": "int",
+    "parameters": [
+      "int a",
+      "int b"
+    ],
+    "description": "把 a 和 b 进行按位与的操作， a 和 b 本身不会发生变化，等同于 a&b\n按位与规则是：2个数转成二进制进行比较，相同位置的有0则为0\n比如：7&8 的结果就是 0 ，7&10 的结果就是 2\n7 ==0b 0111\n8 ==0b 1000\n10==0b 1010\n0 ==0b 0000\n2 ==0b 0010",
+    "raw": "int bit.band(int a, int b)",
+    "category": "bit"
+  },
+  {
+    "name": "bit.bor",
+    "namespace": "bit",
+    "shortName": "bor",
+    "signature": "bit.bor(int a, int b)",
+    "returnType": "int",
+    "parameters": [
+      "int a",
+      "int b"
+    ],
+    "description": "把 a 和 b 进行按位或的操作， a 和 b 本身不会发生变化，等同于 a|b\n按位或规则是：2个数转成二进制进行比较，相同位置的有1则为1\n比如：7|8 的结果就是 15 ，7|10 的结果就是 15\n7 ==0b 0111\n8 ==0b 1000\n10==0b 1010\n15==0b 1111",
+    "raw": "int bit.bor(int a, int b)",
+    "category": "bit"
+  },
+  {
+    "name": "bit.bxor",
+    "namespace": "bit",
+    "shortName": "bxor",
+    "signature": "bit.bxor(int a, int b)",
+    "returnType": "int",
+    "parameters": [
+      "int a",
+      "int b"
+    ],
+    "description": "把 a 和 b 进行按位异或的操作， a 和 b 本身不会发生变化，等同于 a~b\n按位异或规则是：2个数转成二进制进行比较，相同位置的值相同则为0，不同则为1\n比如：7~8 的结果就是 15 ，7~10 的结果就是 13\n7 ==0b 0111\n8 ==0b 1000\n10==0b 1010\n15==0b 1111\n13==0b 1101",
+    "raw": "int bit.bxor(int a, int b)",
+    "category": "bit"
+  },
+  {
+    "name": "bit.lshift",
+    "namespace": "bit",
+    "shortName": "lshift",
+    "signature": "bit.lshift(int a, int b)",
+    "returnType": "int",
+    "parameters": [
+      "int a",
+      "int b"
+    ],
+    "description": "把 a 按位左移 b 的位数，等同于 a<<b\n按位左移规则是：把1个数(<<符号左边的数字)转成二进制，然后把整个数据向左移动一定位数(<<符号右边的数字)，并用相同数量的0补上由于位移空出的低位的位置。\n如果高位因为位移超出数据类型的表示范围，则那部分会被舍弃\n对于 int 类型，一般是32位，计算机一般采用补码，最高位为1表示负数。1个负数的补码表示形式 就是 把这个数的正数按位取反，最后数值+1。\n比如 -2 ，把 2 (00000000000000000000000000000010) 按位取反，得到 11111111111111111111111111111101，最后+1， 就是 11111111111111111111111111111110\n如果对此数 0b 11110000101001010110100111000011 (十进制为 -257594941) 左移4位，则结果为 0b 1010010101101001110000110000 (十进制为 173448240)",
+    "raw": "int bit.lshift(int a, int b)",
+    "category": "bit"
+  },
+  {
+    "name": "bit.rshift",
+    "namespace": "bit",
+    "shortName": "rshift",
+    "signature": "bit.rshift(int a, int b)",
+    "returnType": "int",
+    "parameters": [
+      "int a",
+      "int b"
+    ],
+    "description": "把 a 按位右移 b 的位数，等同于 a>>b\n按位右移规则是：把1个数(<<符号左边的数字)转成二进制，然后把整个数据向右移动一定位数(<<符号右边的数字)，并用相同数量的0补上由于位移空出的高位的位置。\n如果低位因为位移超出数据类型的表示范围，则那部分会被舍弃\n对于 int 类型，一般是32位，计算机一般采用补码，最高位为1表示负数。1个负数的补码表示形式 就是 把这个数的正数按位取反，最后数值+1。\n比如 -2 ，把 2 (00000000000000000000000000000010) 按位取反，得到 11111111111111111111111111111101，最后+1， 就是 11111111111111111111111111111110\n如果对此数 0b 11110000101001010110100111000011 (十进制为 -257594941) 右移4位，则结果为 0b 1111000010100101011010011100 (十进制为 252335772)",
+    "raw": "int bit.rshift(int a, int b)",
+    "category": "bit"
+  },
+  {
+    "name": "bit.bnot",
+    "namespace": "bit",
+    "shortName": "bnot",
+    "signature": "bit.bnot(int a)",
+    "returnType": "int",
+    "parameters": [
+      "int a"
+    ],
+    "description": "对 a 进行按位取反操作， a 本身不会发生变化，等同于 ~a\n按位取反规则是：把1个数转成二进制，对每一位取另一个值，就是1变成0, 0变成1 。\n比如： ~65535 (0b 1111111111111111) 的结果就是 0b 11111111111111110000000000000000 (十进制为 -65536)",
+    "raw": "int bit.bnot(int a)",
+    "category": "bit"
+  },
+  {
+    "name": "bit.extract",
+    "namespace": "bit",
+    "shortName": "extract",
+    "signature": "bit.extract(int r, int field[, int width=1])",
+    "returnType": "int",
+    "parameters": [
+      "int r",
+      "int field[, int width=1]"
+    ],
+    "description": "从整数 r 中提取从第 field 位开始、长度为 width 位的一段二进制位，并返回这段位所表示的数值，r 本身不会发生变化。\nfield 表示起始位序号（最低位为第 0 位），width 表示要提取的位数，默认值为 1。\nfield 不能为负数，width 必须为正数，并且 field+width 不能超过 32，否则会报错。\n提取方向是向高位方向取，即取第 field、field+1、…、field+width-1 位。\n比如：r = 0b10110110 (十进制为 182)，位序号从低到高为：\n位序号: 7 6 5 4 3 2 1 0\n二进制: 1 0 1 1 0 1 1 0\nbit.extract(r,1,4) 表示从第 1 位开始提取 4 位，即提取第 1、2、3、4 位，得到 0b1011，结果为 11\nbit.extract(r,2,3) 表示从第 2 位开始提取 3 位，即提取第 2、3、4 位，得到 0b110，结果为 6\nbit.extract(r,0) 表示从第 0 位开始提取 1 位，即提取第 0 位，得到 0b0，结果为 0\nbit.extract(r,1) 表示从第 1 位开始提取 1 位，即提取第 1 位，得到 0b1，结果为 1",
+    "raw": "int bit.extract(int r, int field[, int width=1])",
+    "category": "bit"
+  },
+  {
+    "name": "bit.replace",
+    "namespace": "bit",
+    "shortName": "replace",
+    "signature": "bit.replace(int r, int v, int field[, int width=1])",
+    "returnType": "int",
+    "parameters": [
+      "int r",
+      "int v",
+      "int field[, int width=1]"
+    ],
+    "description": "把整数 r 中从第 field 位开始、长度为 width 位的一段二进制位，替换成整数 v 的最低 width 位，并返回替换后的新整数，r 和 v 本身不会发生变化。\nfield 表示起始位序号（最低位为第 0 位），width 表示要替换的位数，默认值为 1。\nfield 不能为负数，width 必须为正数，并且 field+width 不能超过 32，否则会报错。\n替换方向是向高位方向替换，即替换第 field、field+1、…、field+width-1 位。\n如果 v 的位数不足 width 位，则高位补 0；如果 v 的位数超过 width 位，则只取最低 width 位，超出部分会被舍弃。\n比如：r = 0b10110110 (十进制为 182)，v = 0b1111 (十进制为 15)，位序号从低到高为：\n位序号: 7 6 5 4 3 2 1 0\n二进制: 1 0 1 1 0 1 1 0\nbit.replace(r,0b1111,1,4) 表示把第 1、2、3、4 位替换成 0b1111，得到 0b10111110，结果为 190\nbit.replace(r,0b1111,2,3) 表示把第 2、3、4 位替换成 0b111 (只取 v 的最低 3 位)，得到 0b10111110，结果为 190\n(因为 0b1111 的最低 3 位也是 0b111，所以结果和上面相同)\nbit.replace(r,0b1,0) 表示把第 0 位替换成 0b1，得到 0b10110111，结果为 183\nbit.replace(r,0b0,1) 表示把第 1 位替换成 0b0，得到 0b10110100，结果为 180",
+    "raw": "int bit.replace(int r, int v, int field[, int width=1])",
+    "category": "bit"
+  },
+  {
     "name": "GetID",
     "namespace": "global",
     "shortName": "GetID",
@@ -9232,7 +9431,7 @@
       "int lv",
       "int ct[, function alterf|nil, int desc|nil, int maxc=ct, function op|nil]"
     ],
-    "description": "为卡片 c 添加超量召唤手续\n用满足条件 f 的等级为 lv 的 ct[-maxc] 只怪兽进行叠放\n或者在单个怪兽（通常是超量怪兽）上叠放\nalterf 为这个怪兽满足的条件，desc 为描述，op 为叠放时需要的操作（比如 希望皇龙）",
+    "description": "为卡片 c 添加超量召唤手续\n用满足条件 f 的等级为 lv 的 ct[-maxc] 只怪兽进行叠放\n或者在单个怪兽（通常是超量怪兽）上叠放\nalterf 为这个怪兽满足的条件，desc 为描述，op 为叠放时需要的操作（比如 No.99 希望皇龙 霍普德拉古恩）",
     "raw": "void aux.AddXyzProcedure(Card c, function f|nil, int lv, int ct[, function alterf|nil, int desc|nil, int maxc=ct, function op|nil])",
     "category": "aux"
   },
@@ -9249,7 +9448,7 @@
       "int minc",
       "int maxc[, function alterf|nil, int desc|nil, function op|nil]"
     ],
-    "description": "为卡片 c 添加超量召唤手续\n用满足条件 f 的卡片组里，满足 gf 的 minc[-maxc] 只怪兽进行叠放，f 为必要条件，gf 为额外条件\n或者在单个怪兽（通常是超量怪兽）上叠放\nalterf为这个怪兽满足的条件，desc为描述，op为叠放时需要的操作（比如 闪光No.0 希望之异热同心）\n参数 f 的函数原型为 function f(Card c, Card xyzc) end **** c 为各个超量素材要满足的条件， xyzc 表示要超量召唤的卡\n参数 gf 的函数原型为 function gf(Croup g) end",
+    "description": "为卡片 c 添加超量召唤手续\n用满足条件 f 的卡片组里，满足 gf 的 minc[-maxc] 只怪兽进行叠放，f 为必要条件，gf 为额外条件\n或者在单个怪兽（通常是超量怪兽）上叠放\nalterf为这个怪兽满足的条件，desc为描述，op为叠放时需要的操作（比如 闪光No.0 霍普·异热同心）\n参数 f 的函数原型为 function f(Card c, Card xyzc) end **** c 为各个超量素材要满足的条件， xyzc 表示要超量召唤的卡\n参数 gf 的函数原型为 function gf(Croup g) end",
     "raw": "void aux.AddXyzProcedureLevelFree(Card c, function f|nil, function gf|nil, int minc, int maxc[, function alterf|nil, int desc|nil, function op|nil])",
     "category": "aux"
   },
@@ -11297,161 +11496,30 @@
     "category": "aux"
   },
   {
-    "name": "Debug.Message",
-    "namespace": "Debug",
-    "shortName": "Message",
-    "signature": "Debug.Message(msg)",
+    "name": "aux.GetCappedXyzLevel",
+    "namespace": "aux",
+    "shortName": "GetCappedXyzLevel",
+    "signature": "aux.GetCappedXyzLevel(Card c)",
+    "returnType": "int",
+    "parameters": [
+      "Card c"
+    ],
+    "description": "返回卡片 c 的等级。如果等级超过了 constant.lua 里定义的 MAX_XYZ_LEVEL ，就返回 MAX_XYZ_LEVEL(目前是4059)",
+    "raw": "int aux.GetCappedXyzLevel(Card c)",
+    "category": "aux"
+  },
+  {
+    "name": "aux.AddBanishRedirect",
+    "namespace": "aux",
+    "shortName": "AddBanishRedirect",
+    "signature": "aux.AddBanishRedirect(Card c[, function condition])",
     "returnType": "void",
     "parameters": [
-      "any msg"
+      "Card c[, function condition]"
     ],
-    "description": "显示消息。\n注意，只会在本地生效，在服务器端不会生效。",
-    "raw": "function Debug.Message(msg) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Debug.AddCard",
-    "namespace": "Debug",
-    "shortName": "AddCard",
-    "signature": "Debug.AddCard(code, owner, player, location, seq, pos, proc?)",
-    "returnType": "Card",
-    "parameters": [
-      "integer code",
-      "integer owner",
-      "integer player",
-      "integer location",
-      "integer seq",
-      "integer pos",
-      "boolean proc?"
-    ],
-    "description": "添加卡片，将卡号为code的卡片的持有者设置为owner，以表示形式pos放置在player的场上位于location上序号为seq的格子处\nproc=true则完成正规召唤程序(即解除苏生限制)",
-    "raw": "function Debug.AddCard(code, owner, player, location, seq, pos, proc) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Debug.SetPlayerInfo",
-    "namespace": "Debug",
-    "shortName": "SetPlayerInfo",
-    "signature": "Debug.SetPlayerInfo(playerid, lp, startcount, drawcount)",
-    "returnType": "void",
-    "parameters": [
-      "integer playerid",
-      "integer lp",
-      "integer startcount",
-      "integer drawcount"
-    ],
-    "description": "设置玩家信息，基本分为lp，初始手卡为startcount张，每回合抽drawcount张\n在残局当中， playerid ：自己=0,对方=1",
-    "raw": "function Debug.SetPlayerInfo(playerid, lp, startcount, drawcount) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Debug.PreSummon",
-    "namespace": "Debug",
-    "shortName": "PreSummon",
-    "signature": "Debug.PreSummon(c, sum_type, sum_location?)",
-    "returnType": "void",
-    "parameters": [
-      "Card c",
-      "integer sum_type",
-      "integer sum_location?"
-    ],
-    "description": "设置卡片c的召唤信息：以 sum_type 方法(通常召唤、特殊召唤等)[从 sum_location]出场",
-    "raw": "function Debug.PreSummon(c, sum_type, sum_location) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Debug.PreEquip",
-    "namespace": "Debug",
-    "shortName": "PreEquip",
-    "signature": "Debug.PreEquip(equip_card, target)",
-    "returnType": "boolean",
-    "parameters": [
-      "Card equip_card",
-      "Card target"
-    ],
-    "description": "为target添加装备equip_card ，返回值表示是否成功",
-    "raw": "function Debug.PreEquip(equip_card, target) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Debug.PreSetTarget",
-    "namespace": "Debug",
-    "shortName": "PreSetTarget",
-    "signature": "Debug.PreSetTarget(c, target)",
-    "returnType": "void",
-    "parameters": [
-      "Card c",
-      "Card target"
-    ],
-    "description": "把target选为c的永续对象",
-    "raw": "function Debug.PreSetTarget(c, target) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Debug.PreAddCounter",
-    "namespace": "Debug",
-    "shortName": "PreAddCounter",
-    "signature": "Debug.PreAddCounter(c, counter_type, count?)",
-    "returnType": "void",
-    "parameters": [
-      "Card c",
-      "integer counter_type",
-      "integer count?"
-    ],
-    "description": "为c添加count个counter_type的指示物",
-    "raw": "function Debug.PreAddCounter(c, counter_type, count) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Debug.ReloadFieldBegin",
-    "namespace": "Debug",
-    "shortName": "ReloadFieldBegin",
-    "signature": "Debug.ReloadFieldBegin(flag, rule?)",
-    "returnType": "void",
-    "parameters": [
-      "integer flag",
-      "integer rule?"
-    ],
-    "description": "以选项flag开始布局\nflag 残局： DUEL_ATTACK_FIRST_TURN|DUEL_SIMPLE_AI\n大师规则1： DUEL_OBSOLETE_RULING\nrule=5 是大师规则2020",
-    "raw": "function Debug.ReloadFieldBegin(flag, rule) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Debug.ReloadFieldEnd",
-    "namespace": "Debug",
-    "shortName": "ReloadFieldEnd",
-    "signature": "Debug.ReloadFieldEnd()",
-    "returnType": "void",
-    "parameters": [],
-    "description": "布局结束",
-    "raw": "function Debug.ReloadFieldEnd() end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Debug.SetAIName",
-    "namespace": "Debug",
-    "shortName": "SetAIName",
-    "signature": "Debug.SetAIName(name)",
-    "returnType": "void",
-    "parameters": [
-      "string name"
-    ],
-    "description": "设置AI的名字，最大长度 100 个字符（1个汉字2个字符）",
-    "raw": "function Debug.SetAIName(name) end",
-    "category": "Typed Definitions"
-  },
-  {
-    "name": "Debug.ShowHint",
-    "namespace": "Debug",
-    "shortName": "ShowHint",
-    "signature": "Debug.ShowHint(msg)",
-    "returnType": "void",
-    "parameters": [
-      "string msg"
-    ],
-    "description": "显示消息提示框，最大长度 1024 个字符（1个汉字2个字符）\n注意，只会在本地生效，在服务器端不会生效。",
-    "raw": "function Debug.ShowHint(msg) end",
-    "category": "Typed Definitions"
+    "description": "为卡片 c 注册表侧表示的这张卡从场上离开的场合除外\n随风旅鸟②效果的效果注册",
+    "raw": "void aux.AddBanishRedirect(Card c[, function condition])",
+    "category": "aux"
   },
   {
     "name": "Card.GetPreviousOverlayCountOnField",
@@ -11467,16 +11535,44 @@
     "category": "Typed Definitions"
   },
   {
-    "name": "Duel.RevealSelectDeckSequence",
-    "namespace": "Duel",
-    "shortName": "RevealSelectDeckSequence",
-    "signature": "Duel.RevealSelectDeckSequence(enabled?)",
-    "returnType": "void",
+    "name": "Card.GetCardType",
+    "namespace": "Card",
+    "shortName": "GetCardType",
+    "signature": "Card.GetCardType(c)",
+    "returnType": "integer",
     "parameters": [
-      "boolean enabled?"
+      "Card c"
     ],
-    "description": "启用选择卡组时显示真实序号",
-    "raw": "function Duel.RevealSelectDeckSequence(enabled) end",
+    "description": "返回c的卡片类型",
+    "raw": "function Card.GetCardType(c) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Card.IsCardType",
+    "namespace": "Card",
+    "shortName": "IsCardType",
+    "signature": "Card.IsCardType(c, type)",
+    "returnType": "boolean",
+    "parameters": [
+      "Card c",
+      "integer type"
+    ],
+    "description": "检查c是否包含type之中任何卡片类型",
+    "raw": "function Card.IsCardType(c, type) end",
+    "category": "Typed Definitions"
+  },
+  {
+    "name": "Card.IsAllCardTypes",
+    "namespace": "Card",
+    "shortName": "IsAllCardTypes",
+    "signature": "Card.IsAllCardTypes(c, type)",
+    "returnType": "boolean",
+    "parameters": [
+      "Card c",
+      "integer type"
+    ],
+    "description": "检查c是否包含type之中全部卡片类型",
+    "raw": "function Card.IsAllCardTypes(c, type) end",
     "category": "Typed Definitions"
   },
   {

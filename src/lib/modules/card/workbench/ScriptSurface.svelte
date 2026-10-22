@@ -20,6 +20,8 @@
     setScriptTabViewState,
   } from '$lib/stores/scriptEditor.svelte';
   import { openCardScriptWorkspace } from '$lib/services/cardScriptService';
+  import { getScriptTabTitle } from '$lib/domain/script/workspace';
+  import { pathExists } from '$lib/native/assetApi';
   import {
     getScriptSurfaceState,
     setScriptSurfaceState,
@@ -27,6 +29,7 @@
   } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
   import {
     getScriptTabKey,
+    isSameCdbPath,
     isScriptTabOwnedByCdb,
   } from '$lib/domain/script/tabIdentity';
   import { getWorkspaceDocument } from '$lib/core/workspace/store.svelte';
@@ -128,20 +131,25 @@
     const surfaceState = getScriptSurfaceState();
     const openTabs = surfaceState?.openTabs ?? [];
     const activeCode = surfaceState?.activeCardCode ?? openTabs[0]?.cardCode ?? null;
+    const activeScriptPath = surfaceState?.activeScriptPath ?? null;
     lastPersistedScriptKey = JSON.stringify({
       openTabs,
       activeCardCode: activeCode,
+      activeScriptPath,
     });
 
     void (async () => {
       try {
         for (const tab of openTabs) {
+          if (tab.cardCode === 0 && (!tab.scriptPath || !await pathExists(tab.scriptPath))) continue;
+          if (!isCurrentRestoration()) return;
           const tabId = await openExistingScriptTab({
             cdbPath: path,
             sourceTabId,
             cardCode: tab.cardCode,
             cardName: tab.cardName ?? '',
             activate: false,
+            scriptPath: tab.cardCode === 0 ? tab.scriptPath : undefined,
           });
           if (sequence !== restorationSequence || workspaceKey !== key) return;
           if (tabId && tab.viewState) {
@@ -154,9 +162,10 @@
         const alreadyActive = currentActive
           && isScriptTabOwnedByCdb(currentActive, { tabId: sourceTabId, path })
           && currentCdbScriptTabs.some((tab) => tab.id === currentActive.id);
-        const active = alreadyActive ? currentActive : $scriptTabs.find((tab) => (
-          isScriptTabOwnedByCdb(tab, { tabId: sourceTabId, path }) && tab.cardCode === activeCode
-        ));
+        const owned = $scriptTabs.filter((tab) => isScriptTabOwnedByCdb(tab, { tabId: sourceTabId, path }));
+        const active = alreadyActive ? currentActive
+          : owned.find((tab) => activeScriptPath && isSameCdbPath(tab.scriptPath, activeScriptPath))
+            ?? owned.find((tab) => activeCode && tab.cardCode === activeCode);
         if (active) {
           await activateScriptTab(active.id, undefined, isCurrentRestoration);
           if (!isCurrentRestoration()) return;
@@ -255,11 +264,12 @@
       && isScriptTabOwnedByCdb($activeScriptTab, { tabId: sourceTabId, path })
       ? $activeScriptTab.cardCode
       : null;
-    const nextKey = JSON.stringify({ openTabs, activeCardCode });
+    const activeScriptPath = surfaceScriptTab?.scriptPath ?? null;
+    const nextKey = JSON.stringify({ openTabs, activeCardCode, activeScriptPath });
     if (nextKey === lastPersistedScriptKey) return;
 
     lastPersistedScriptKey = nextKey;
-    setScriptSurfaceState({ openTabs, activeCardCode });
+    setScriptSurfaceState({ openTabs, activeCardCode, activeScriptPath });
   });
 </script>
 
@@ -274,14 +284,14 @@
           class="script-tab"
         >
           {#each group as tab (tab.id)}
-            <div role="group" aria-label={`c${tab.cardCode}.lua`} class="script-tab-half" class:focused={$activeScriptTab?.id === tab.id}
+            <div role="group" aria-label={getScriptTabTitle(tab)} class="script-tab-half" class:focused={$activeScriptTab?.id === tab.id}
               oncontextmenu={(event) => openScriptTabMenu(event, { tab, tabs: currentCdbScriptTabs, activeId: surfaceScriptTab?.id ?? null, onSplit: openSplit, onClose: closeSurfaceScriptTab })}
               onauxclick={(event) => { if (event.button === 1) { event.preventDefault(); void closeSurfaceScriptTab(tab.id); } }}>
               <button type="button" class="script-tab-main" onclick={() => activateScriptTab(tab.id)}>
-                c{tab.cardCode}.lua{tab.isDirty ? ' *' : ''}
+                {getScriptTabTitle(tab)}{tab.isDirty ? ' *' : ''}
               </button>
               <button type="button" class="script-tab-close" data-tab-close
-                aria-label={`${$_('editor.script_reference_close')} c${tab.cardCode}.lua`}
+                aria-label={`${$_('editor.script_reference_close')} ${getScriptTabTitle(tab)}`}
                 title={$_('editor.script_reference_close')} onclick={() => void closeSurfaceScriptTab(tab.id)}>×</button>
             </div>
           {/each}

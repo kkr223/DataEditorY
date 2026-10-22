@@ -2,6 +2,10 @@ export function buildScriptFileName(cardCode: number) {
   return `c${cardCode}.lua`;
 }
 
+export function getScriptTabTitle(tab: { scriptPath: string; cardCode: number }) {
+  return tab.scriptPath.split(/[\\/]/).at(-1) || buildScriptFileName(tab.cardCode);
+}
+
 export function buildScriptImagePath(cdbPath: string, cardCode: number) {
   const normalized = cdbPath.trim();
   if (!normalized) return '';

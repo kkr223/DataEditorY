@@ -1,9 +1,10 @@
 import { tauriBridge } from '$lib/infrastructure/tauri';
-import { readTextFile } from '$lib/native/assetApi';
+import { readTextFile, resolveResourceFile } from '$lib/native/assetApi';
 import { luaCatalog as generatedLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
+import bundledFunctionText from '../../../../../static/resources/_functions.txt?raw';
 import type { LuaCatalog, LuaConstantItem, LuaFunctionItem, LuaSnippetItem } from '$lib/types';
 
-const LUA_INTEL_RESOURCE_DIR = 'resources/lua-intel';
+const LUA_INTEL_RESOURCE_DIR = 'lua-intel';
 
 function normalizeLine(raw: string) {
   return raw.replace(/\r/g, '');
@@ -346,25 +347,46 @@ function buildBuiltinSnippets(): LuaSnippetItem[] {
 }
 
 function buildLuaCatalog(source: {
-  constants: string;
-  typedDefinitions: string;
-  functions: string;
+  constants: string | null;
+  typedDefinitions: string | null;
+  functions: string | null;
 }): LuaCatalog {
+  const manualFunctions = parseFunctions(source.functions ?? bundledFunctionText);
+  const functions = mergeFunctions(
+    source.typedDefinitions === null
+      ? generatedLuaCatalog.functions
+      : parseTypedDefinitions(source.typedDefinitions),
+    manualFunctions,
+  );
+  const functionsByName = new Map(functions.map((item) => [item.name, item]));
+  const bundledFunctions = new Map(parseFunctions(bundledFunctionText).map((item) => [item.name, item]));
+
+  for (const item of new Map(manualFunctions.map((item) => [item.name, item])).values()) {
+    const bundled = bundledFunctions.get(item.name);
+    if (bundled?.raw === item.raw && bundled.description === item.description && bundled.category === item.category) continue;
+
+    // Keep richer annotations for unchanged signatures, while honoring installed edits.
+    const annotated = bundled?.raw === item.raw ? functionsByName.get(item.name) : undefined;
+    functionsByName.set(item.name, { ...(annotated ?? item), description: item.description, category: item.category });
+  }
+
   return {
-    constants: parseConstants(source.constants),
-    functions: mergeFunctions(
-      parseTypedDefinitions(source.typedDefinitions),
-      parseFunctions(source.functions),
-    ),
+    constants: source.constants === null ? generatedLuaCatalog.constants : parseConstants(source.constants),
+    functions: Array.from(functionsByName.values()),
     snippets: buildBuiltinSnippets(),
     keywords: [...generatedLuaCatalog.keywords],
   };
 }
 
 async function readLuaIntelResource(filename: string) {
-  const resourcePath = `${LUA_INTEL_RESOURCE_DIR}/${filename}`;
-  const absolutePath = await tauriBridge.resolveResource(resourcePath);
-  return readTextFile(absolutePath);
+  try {
+    const absolutePath = await resolveResourceFile(`${LUA_INTEL_RESOURCE_DIR}/${filename}`)
+      .catch(() => resolveResourceFile(filename));
+    return await readTextFile(absolutePath);
+  } catch (error) {
+    console.warn(`Failed to load Lua intel resource ${filename}; using its bundled fallback.`, error);
+    return null;
+  }
 }
 
 export async function loadExternalLuaCatalog() {
@@ -372,17 +394,13 @@ export async function loadExternalLuaCatalog() {
     return null;
   }
 
-  try {
-    const [constants, typedDefinitions, functions] = await Promise.all([
-      readLuaIntelResource('constant.lua'),
-      readLuaIntelResource('def.lua'),
-      readLuaIntelResource('_functions.txt'),
-    ]);
+  const [constants, typedDefinitions, functions] = await Promise.all([
+    readLuaIntelResource('constant.lua'),
+    readLuaIntelResource('def.lua'),
+    readLuaIntelResource('_functions.txt'),
+  ]);
 
-    return buildLuaCatalog({ constants, typedDefinitions, functions });
-  } catch (error) {
-    console.warn('Failed to load external Lua intel resources, falling back to generated catalog.', error);
-    return null;
-  }
+  if (constants === null && typedDefinitions === null && functions === null) return null;
+  return buildLuaCatalog({ constants, typedDefinitions, functions });
 }
 

@@ -38,6 +38,7 @@ export type WorkspaceScriptSurfaceState = {
     viewState?: unknown;
   }>;
   activeCardCode?: number | null;
+  activeScriptPath?: string | null;
 };
 
 export type WorkspaceTaskHistoryRecord = {
@@ -161,7 +162,7 @@ export function setScriptSurfaceState(input: WorkspaceScriptSurfaceState) {
       ...(metadata.scripts ?? {}),
       surface: {
         openTabs: (input.openTabs ?? [])
-          .filter((tab) => Number.isInteger(tab.cardCode) && tab.cardCode > 0)
+          .filter((tab) => Number.isInteger(tab.cardCode) && (tab.cardCode > 0 || (tab.cardCode === 0 && !!tab.scriptPath)))
           .map((tab) => ({
             cardCode: tab.cardCode,
             cardName: tab.cardName ?? '',
@@ -169,6 +170,7 @@ export function setScriptSurfaceState(input: WorkspaceScriptSurfaceState) {
             viewState: tab.viewState ?? null,
           })),
         activeCardCode: Number.isInteger(input.activeCardCode) ? input.activeCardCode : null,
+        activeScriptPath: input.activeScriptPath ?? null,
       },
     },
   }));

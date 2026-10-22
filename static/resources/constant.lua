@@ -611,6 +611,10 @@ EFFECT_SYNCHRO_LEVEL_EX			=373	--支持使用没有等级的怪兽作为同调�
 EFFECT_RITUAL_LEVEL_EX			=374	--支持使用没有等级的怪兽作为仪式素材
 EFFECT_DOUBLE_XMATERIAL			=375	--召唤需3只以上作素材的超量怪兽时可以作为2只数量的素材
 EFFECT_REVEAL_ONFIELD			=376	--场上里侧表示卡片处于可以确认信息状态（看透心灵之眼）
+EFFECT_ADD_CARD_TYPE			=377	--增加卡片种类（当作通常怪兽与当作通常怪兽卡是不同的，CARD_TYPE系列EFFECT为后者）
+EFFECT_REMOVE_CARD_TYPE			=378	--删除卡片种类
+EFFECT_CHANGE_CARD_TYPE			=379	--改变卡片种类
+
 EFFECT_FLAG_EFFECT				=0x20000000	--标记类效果，即RegisterFlagEffect()创建的效果
 
 --下面是诱发效果的诱发事件、时点 （如果是TYPE_SINGLE则自己发生以下事件后触发，如果TYPE_FIELD则场上任何卡发生以下事件都触发）
@@ -813,8 +817,10 @@ HINTMSG_POSITION		=561	--请选择表示形式
 HINTMSG_ATTRIBUTE		=562	--请选择要宣言的属性
 HINTMSG_RACE			=563	--请选择要宣言的种族
 HINTMSG_CODE			=564	--请宣言一个卡名
-HINGMSG_NUMBER			=565	--请选择一个数字
-HINGMSG_LVRANK			=567	--请宣言一个等级
+HINTMSG_NUMBER			=565	--请选择一个数字
+HINTMSG_LVRANK			=567	--请宣言一个等级
+HINGMSG_NUMBER			=565	--for compat, deprecated
+HINGMSG_LVRANK			=567	--for compat, deprecated
 HINTMSG_RESOLVECARD		=568	--请选择要处理效果的卡
 HINTMSG_ZONE			=569	--请选择[%ls]的位置
 HINTMSG_DISABLEZONE		=570	--请选择要变成不能使用的卡片区域

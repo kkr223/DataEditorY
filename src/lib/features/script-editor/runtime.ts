@@ -87,7 +87,7 @@ export function buildScriptEditorMonacoOptions(fontSize = DEFAULT_SCRIPT_EDITOR_
   return {
     automaticLayout: true,
     contextmenu: true,
-    links: false,
+    links: true,
     minimap: { enabled: false },
     fontSize: normalizeScriptEditorFontSize(fontSize),
     // Monaco treats values below 8 as a ratio, so spacing follows every font-size change.

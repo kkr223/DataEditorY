@@ -21,7 +21,7 @@ export async function loadScriptCardContextFlow(input: {
   dbTabs: Array<{ id: string; path: string }>;
   loadToken: number;
 }) {
-  if (!input.tab) {
+  if (!input.tab || input.tab.cardCode <= 0) {
     return {
       loadToken: input.loadToken,
       cardContext: null,
@@ -246,7 +246,7 @@ export async function shareScriptImageFlow(input: {
     return false;
   }
 
-  const outputPath = buildScriptImagePath(tab.cdbPath, tab.cardCode);
+  const outputPath = tab.cardCode > 0 ? buildScriptImagePath(tab.cdbPath, tab.cardCode) : tab.scriptPath.replace(/\.lua$/i, '.png');
   if (appSettingsState.values.saveScriptImageToLocal && !outputPath) {
     showToast(input.t('editor.script_export_image_failed'), 'error');
     return false;
