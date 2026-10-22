@@ -31,6 +31,23 @@ function createModel(source: string, versionId = 1, uri = `inmemory://semantic-t
 }
 
 describe('lua semantic document', () => {
+  test('rebuilds cached hints when the catalog changes without a text edit', () => {
+    const model = createModel('Duel.Destroy(nil, 0)', 1, 'inmemory://semantic-catalog-replacement.lua');
+    const original = luaCatalog.functions.find((item) => item.name === 'Duel.Destroy')!;
+    const first = getLuaSemanticDocument(model, luaCatalog);
+    const replacement = {
+      ...luaCatalog,
+      functions: luaCatalog.functions.map((item) => item.name === original.name
+        ? { ...item, description: 'Installed function documentation.' }
+        : item),
+    };
+    const second = getLuaSemanticDocument(model, replacement);
+    expect(second === first).toBe(false);
+    const hover = getHoverInfoAt(second, { lineNumber: 1, column: 8 });
+    expect(hover?.kind === 'catalog-function' ? hover.item.description : '')
+      .toBe('Installed function documentation.');
+  });
+
   test('reuses catalog indexes across document versions', () => {
     const uri = 'inmemory://semantic-cache-test.lua';
     const first = getLuaSemanticDocument(createModel('local a=1', 1, uri), luaCatalog);

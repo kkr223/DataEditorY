@@ -935,7 +935,7 @@ export function getLuaSemanticDocument(model: LuaSemanticTextModel, catalog: Lua
   const versionId = model.getVersionId();
   const cacheKey = `${uri}::${versionId}`;
   const cached = strictDocumentCache.get(cacheKey);
-  if (cached) return cached;
+  if (cached?.catalog === catalog) return cached;
 
   const source = model.getValue();
   const sourceLines = source.split('\n');

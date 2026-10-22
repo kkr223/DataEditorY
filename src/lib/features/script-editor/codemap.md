@@ -15,7 +15,7 @@ The script editor is structured in three layers:
 
 ### Lua Analysis (`lua/`)
 
-- **`catalog.ts`** — loads and indexes the Lua intellisense catalog (functions, constants, snippets) from generated data
+- **`catalog.ts`** — loads the Lua intellisense catalog from generated data and installed resources; edited function entries override bundled definitions, with independent fallback for missing companion files
 - **`calls.ts`** — extracts function call sites from Lua AST (via `luaparse`)
 - **`semantic.ts`** — semantic analysis: scope chain, symbol extraction, call/hover resolution, token classification
 - **`diagnostics.ts`** — basic Lua diagnostics: undefined variables, unused locals, type mismatches

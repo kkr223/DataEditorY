@@ -1474,7 +1474,7 @@ export function getCurrentFunctionHint(
     column: position.column,
   });
   if (activeCall?.target) {
-    if (activeCall.target.kind !== 'catalog' || activeCall.target.item.category !== 'Typed Definitions') {
+    if (activeCall.target.kind !== 'catalog') {
       return null;
     }
 

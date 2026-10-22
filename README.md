@@ -392,6 +392,8 @@ AI 对话记录保存在 `.dey` 元数据中，关闭重开不会丢失。
 
 **Lua 智能提示**的源文件位于 `static/resources/`，包括 `_functions.txt`、`constant.lua`、`snippets.json` 等。日常维护只需要修改这些源文件，构建时自动生成到 `src/lib/data/lua-intel/`。
 
+桌面版也会读取安装目录下的 `resources/lua-intel/`。替换 `_functions.txt` 后重启程序，修改过的同名函数说明和签名会覆盖内置提示；只改说明时仍保留 `def.lua` 的参数类型注解。未修改的条目继续使用原有类型定义，缺少某个配套文件时仅对该文件回退，不影响其他已替换的资源。
+
 ### .dey 元数据
 
 编辑器专用的运行状态保存在 `.dey/{cdb名称}.workspace.json` 中，放在 `.cdb` 同目录下，不影响数据库文件本身。
