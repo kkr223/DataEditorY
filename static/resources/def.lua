@@ -645,6 +645,23 @@ function Card.IsType(c,type) end
 ---@param type integer
 function Card.IsAllTypes(c,type) end
 
+---返回c的卡片类型
+---@return integer
+---@param c Card
+function Card.GetCardType(c) end
+
+---检查c是否包含type之中任何卡片类型
+---@return boolean
+---@param c Card
+---@param type integer
+function Card.IsCardType(c,type) end
+
+---检查c是否包含type之中全部卡片类型
+---@return boolean
+---@param c Card
+---@param type integer
+function Card.IsAllCardTypes(c,type) end
+
 ---检查c用作融合素材时是否属于类型type（与IsType的区别在于对于魔陷区的怪兽卡，用其原本类型作判断）
 ---@return boolean
 ---@param c Card
