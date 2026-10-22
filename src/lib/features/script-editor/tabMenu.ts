@@ -27,7 +27,7 @@ export function openScriptTabMenu(event: MouseEvent, input: {
     { id: 'reload', label: label('reload_script'), action: run((tab) => reloadScriptEditorFlow({ tab, isReloading: false, t })) },
     { id: 'external', label: label('external_editor'), action: run((tab) => openScriptExternallyFlow({ tab, t })) },
     { id: 'copy-path', label: label('copy_path'), action: run((tab) => navigator.clipboard.writeText(tab.scriptPath)) }, null,
-    { id: 'card', label: label('edit_card'), action: run((tab) => ownerId && navigateToCard(ownerId, tab.cardCode, 'card')) },
+    ...(input.tab.cardCode > 0 ? [{ id: 'card', label: label('edit_card'), action: run((tab) => ownerId && navigateToCard(ownerId, tab.cardCode, 'card')) }] : []),
     ...(input.activeId && input.activeId !== tabId ? [{ id: 'split', label: label('split_script'), action: run(() => input.onSplit(tabId)) }] : []), null,
     { id: 'close-others', label: label('close_other_scripts'), disabled: input.tabs.length < 2, action: run(async () => {
       for (const other of input.tabs) {

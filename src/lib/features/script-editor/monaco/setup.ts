@@ -42,6 +42,9 @@ import 'monaco-editor/esm/vs/editor/contrib/links/browser/links';
 import 'monaco-editor/esm/vs/editor/contrib/format/browser/formatActions';
 import 'monaco-editor/esm/vs/editor/contrib/contextmenu/browser/contextmenu';
 import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
+import 'monaco-editor/esm/vs/editor/contrib/gotoSymbol/browser/goToCommands';
+import 'monaco-editor/esm/vs/editor/contrib/gotoSymbol/browser/link/goToDefinitionAtPosition';
+import { registerLuaNavigation } from './navigation';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { getCompletionInsertParameters, shouldInsertFunctionArguments } from './completion';
 import { loadExternalLuaCatalog } from '../lua/catalog';
@@ -1393,6 +1396,7 @@ function provideSignatureHelp(model: monaco.editor.ITextModel, position: monaco.
 
 function registerProviders() {
   if (providersRegistered) return;
+  registerLuaNavigation(monaco, getSemanticDocument);
 
   monaco.languages.registerCompletionItemProvider('lua', {
     triggerCharacters: ['.', ':', '(', '#'],

@@ -6,7 +6,7 @@
     activeScriptTab,
   } from '$lib/stores/scriptEditor.svelte';
   import type { CardDataEntry } from '$lib/types';
-  import { buildScriptFileName } from '$lib/domain/script/workspace';
+  import { getScriptTabTitle as getScriptFileTitle } from '$lib/domain/script/workspace';
   import {
     openScriptExternallyFlow,
     reloadScriptEditorFlow,
@@ -80,7 +80,7 @@
   function getScriptTabTitle() {
     const tab = $activeScriptTab;
     if (!tab) return '';
-    return buildScriptFileName(tab.cardCode);
+    return getScriptFileTitle(tab);
   }
 
   async function handleOpenSelectedScript() {
@@ -191,7 +191,7 @@
   <section class="script-page">
     <ScriptToolbar
       title={getScriptTabTitle()}
-      cardCodeLabel={$_('editor.script_workspace_card', { values: { code: String($activeScriptTab.cardCode) } })}
+      cardCodeLabel={$activeScriptTab.cardCode > 0 ? $_('editor.script_workspace_card', { values: { code: String($activeScriptTab.cardCode) } }) : $_('surface.script')}
       cardName={cardContext?.name || $activeScriptTab.cardName || '-'}
       cdbPath={$activeScriptTab.cdbPath}
       isReloading={isReloading}

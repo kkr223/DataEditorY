@@ -60,6 +60,82 @@ async function closeCdb(input: { sourceTabId: string; cdbPath: string }) {
   tabs.set([]);
 }
 
+test('dependency scripts have distinct paths and reopening preserves unsaved content', async () => {
+  const input = await createCdb();
+  const first = await scripts.openExistingScriptTab({ ...input, cardCode: 0, scriptPath: 'script/helper.lua' });
+  const second = await scripts.openExistingScriptTab({ ...input, cardCode: 0, scriptPath: 'script/other.lua' });
+  if (!first || !second) throw new Error('Expected dependency tabs');
+  scripts.updateScriptTabContent(first, '-- unsaved helper');
+  const reopened = await scripts.openExistingScriptTab({ ...input, cardCode: 0, scriptPath: 'script/helper.lua' });
+  expect(reopened).toBe(first);
+  expect(get(scripts.scriptTabs)).toHaveLength(2);
+  expect(get(scripts.scriptTabs).find((tab) => tab.id === first)?.content).toBe('-- unsaved helper');
+  expect(scripts.getScriptTabDisplayName(get(scripts.scriptTabs)[0])).toBe('helper.lua');
+  await scripts.saveScriptTab(first);
+  expect(writtenPaths.at(-1)).toBe('script/helper.lua');
+  await closeCdb(input);
+  expect(get(scripts.scriptTabs)).toHaveLength(0);
+});
+
+test('concurrent dependency opens read once and late activation guards remain effective', async () => {
+  const input = await createCdb();
+  const reading = deferred<string>();
+  const started = deferred<void>();
+  const original = readText;
+  let reads = 0;
+  let current = true;
+  readText = () => { reads += 1; started.resolve(); return reading.promise; };
+  try {
+    const options = { ...input, cardCode: 0, scriptPath: 'script/concurrent.lua', activate: true, canActivate: () => current };
+    const first = scripts.openExistingScriptTab(options);
+    await started.promise;
+    const second = scripts.openExistingScriptTab(options);
+    current = false;
+    reading.resolve('-- dependency');
+    expect(await first).toBe(await second);
+    expect(reads).toBe(1);
+    expect(runtime.snapshot.activeDocumentId).toBe(input.sourceTabId);
+  } finally { readText = original; await closeCdb(input); }
+});
+
+test('two CDBs loading the same dependency keep separate owned buffers', async () => {
+  const first = await createCdb();
+  const firstId = await scripts.openExistingScriptTab({ ...first, cardCode: 0, scriptPath: '/shared/helper.lua' });
+  if (!firstId) throw new Error('Expected first dependency');
+  scripts.updateScriptTabContent(firstId, '-- first workspace edits');
+  const secondOwner = await runtime.createDocument({ typeId: CARD_COLLECTION_TYPE, providerId: 'test-cdb', title: 'B' });
+  const second = { ...first, sourceTabId: secondOwner.id, cdbPath: 'B.cdb' };
+  tabs.update((current) => [...current, { id: secondOwner.id, path: 'B.cdb' } as CdbTab]);
+  const secondId = await scripts.openExistingScriptTab({ ...second, cardCode: 0, scriptPath: '/shared/helper.lua' });
+  expect(firstId === secondId).toBe(false);
+  expect(get(scripts.scriptTabs).find((tab) => tab.id === firstId)?.content).toBe('-- first workspace edits');
+  expect(get(scripts.scriptTabs).find((tab) => tab.id === firstId)?.sourceTabId).toBe(first.sourceTabId);
+  expect(get(scripts.scriptTabs).find((tab) => tab.id === secondId)?.sourceTabId).toBe(second.sourceTabId);
+  await scripts.closeScriptTabsForCdb({ tabId: first.sourceTabId, path: first.cdbPath });
+  await runtime.close(first.sourceTabId, true);
+  tabs.update((current) => current.filter((tab) => tab.id !== first.sourceTabId));
+  expect(get(scripts.scriptTabs).map((tab) => tab.id)).toEqual([secondId!]);
+  await closeCdb(second);
+});
+
+test('a card script opened through LoadScript shares an in-flight card navigation', async () => {
+  const input = await createCdb();
+  const reading = deferred<string>();
+  const started = deferred<void>();
+  const original = readText;
+  let reads = 0;
+  readText = () => { reads += 1; started.resolve(); return reading.promise; };
+  try {
+    const fromCard = scripts.openExistingScriptTab(input);
+    await started.promise;
+    const fromLink = scripts.openExistingScriptTab({ ...input, scriptPath: 'script/c1.lua' });
+    reading.resolve('-- card script');
+    expect(await fromCard).toBe(await fromLink);
+    expect(reads).toBe(1);
+    expect(get(scripts.scriptTabs)).toHaveLength(1);
+  } finally { readText = original; await closeCdb(input); }
+});
+
 test('closing a CDB cancels a script lookup before a document is opened', async () => {
   const input = await createCdb();
   const info = deferred<{ exists: boolean; path: string }>();

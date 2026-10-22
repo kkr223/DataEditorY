@@ -11,6 +11,8 @@ Lua Analysis Engine — pure Lua code analysis functions with no Monaco dependen
 | `semantic.ts` | Semantic analysis: scope chain, symbol extraction, call/hover resolution, diagnostics source |
 | `diagnostics.ts` | Basic diagnostics: undefined variables, unused locals, type hints |
 | `reference.ts` | Reference manual: function signatures, parameter docs, hover content |
+| `navigation.ts` | File-local function definition lookup with lexical scopes, function assignments and method calls; cached literal LoadScript links |
+| `navigationToken.ts` | Lexer recovery for references in incomplete calls; skips comments and strings |
 
 ## Runtime Resources
 

@@ -2,6 +2,7 @@ import { derived, get, writable } from 'svelte/store';
 import { tick } from 'svelte';
 import { clearScriptPair, scriptSplitPairs } from '$lib/features/script-editor/splitState';
 import type { ScriptWorkspaceState } from '$lib/types';
+import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
 import { activeTabId, tabs } from '$lib/stores/db';
 import {
   activateEditorView,
@@ -14,6 +15,7 @@ import {
 import { readTextFile } from '$lib/native/assetApi';
 import {
   buildScriptFileName,
+  getScriptTabTitle,
   normalizeScriptContent,
 } from '$lib/domain/script/workspace';
 import {
@@ -52,6 +54,7 @@ type ScriptTabContext = Pick<
 >;
 
 const inflightOpenRequests = new Map<string, Promise<OpenScriptTabResult | null>>();
+const inflightExistingScriptOpens = new Map<string, Promise<string | null>>();
 const pendingScriptOpens = new Map<AbortController, string>();
 const scriptEditGenerations = new Map<string, number>();
 let disposeScriptModelHook: ((tabId: string) => void) | null = null;
@@ -110,7 +113,7 @@ export const getOpenScriptTab = (
 };
 
 const buildReferences = (input: ScriptTabContext) => [{
-  relation: 'card-script',
+  relation: input.cardCode > 0 ? 'card-script' : 'script-dependency',
   typeId: CARD_COLLECTION_TYPE,
   documentId: input.sourceTabId ?? undefined,
   sourceUri: input.cdbPath,
@@ -142,11 +145,11 @@ const hydrateScriptTab = async (
   signal: AbortSignal,
 ) => {
   signal.throwIfAborted();
-  attachScriptMetadata(documentId, { ...input, createdFromTemplate });
+  const { cdbPath, sourceTabId, cardCode, cardName } = input;
+  attachScriptMetadata(documentId, { cdbPath, sourceTabId, cardCode, cardName, createdFromTemplate });
   const snapshot = await documentRuntime.query<LuaScriptDocument>(documentId, {});
   signal.throwIfAborted();
   const content = normalizeScriptContent(snapshot.content);
-  const { cdbPath, sourceTabId, cardCode, cardName } = input;
   scriptEditGenerations.set(documentId, 0);
   addOrUpdateScriptTab({
     id: documentId,
@@ -330,39 +333,58 @@ export const openOrCreateScriptTab = async (input: ScriptTabContext & {
 
 export const openExistingScriptTab = async (input: ScriptTabContext & {
   activate?: boolean;
+  scriptPath?: string;
+  canActivate?: () => boolean;
 }): Promise<string | null> => {
   const isLatestActivation = input.activate ? scriptActivation.begin() : null;
-  const existing = getOpenScriptTab(input.cdbPath, input.cardCode, input.sourceTabId);
+  const canActivate = input.canActivate ?? (() => true);
+  const existing = input.scriptPath
+    ? get(scriptTabs).find((tab) => isScriptTabOwnedByCdb(tab, { tabId: input.sourceTabId ?? '', path: input.cdbPath }) && isSameCdbPath(tab.scriptPath, input.scriptPath!))
+    : getOpenScriptTab(input.cdbPath, input.cardCode, input.sourceTabId);
   if (existing) {
-    if (isLatestActivation) await activateScriptTab(existing.id, isLatestActivation);
+    if (isLatestActivation) await activateScriptTab(existing.id, isLatestActivation, canActivate);
     return existing.id;
   }
 
+  const targetKey = input.cardCode > 0 ? input.cardCode : getCdbPathIdentity(input.scriptPath ?? '');
+  const key = `${input.sourceTabId ?? getCdbPathIdentity(input.cdbPath)}:${targetKey}`;
+  const inflight = inflightExistingScriptOpens.get(key);
+  if (inflight) {
+    const id = await inflight;
+    if (id && isLatestActivation) await activateScriptTab(id, isLatestActivation, canActivate);
+    return id;
+  }
   const controller = beginScriptOpen(input);
   const { signal } = controller;
   let documentId: string | null = null;
-  try {
-    signal.throwIfAborted();
-    const info = await getCardScriptInfo(input.cdbPath, input.cardCode);
-    signal.throwIfAborted();
-    if (!info.exists) return null;
+  const opening = (async () => {
+    try {
+      signal.throwIfAborted();
+      const info = input.scriptPath ? { path: input.scriptPath, exists: true } : await getCardScriptInfo(input.cdbPath, input.cardCode);
+      signal.throwIfAborted();
+      if (!info.exists) return null;
 
-    const document = await documentRuntime.openSource({
-      uri: info.path,
-      path: info.path,
-      name: buildScriptFileName(input.cardCode),
-    }, { activate: false, signal });
-    documentId = document.id;
-    await hydrateScriptTab(document.id, input, info.path, false, signal);
-    if (isLatestActivation) await activateScriptTab(document.id, () => !signal.aborted && isLatestActivation());
-    return document.id;
-  } catch (error) {
-    if (!signal.aborted) throw error;
-    await discardCancelledScript(documentId);
-    return null;
-  } finally {
-    pendingScriptOpens.delete(controller);
-  }
+      const document = await documentRuntime.openSource({
+        // Dependencies may be shared by multiple CDBs; keep their buffers owned independently.
+        uri: input.scriptPath ? `workspace-script:/?${new URLSearchParams({ owner: input.sourceTabId ?? getCdbPathIdentity(input.cdbPath), path: getCdbPathIdentity(info.path) })}` : info.path,
+        path: info.path,
+        name: info.path.split(/[\\/]/).at(-1) || buildScriptFileName(input.cardCode),
+      }, { activate: false, signal });
+      documentId = document.id;
+      await hydrateScriptTab(document.id, input, info.path, false, signal);
+      if (isLatestActivation) await activateScriptTab(document.id, () => !signal.aborted && isLatestActivation(), canActivate);
+      return document.id;
+    } catch (error) {
+      if (!signal.aborted) throw error;
+      await discardCancelledScript(documentId);
+      return null;
+    } finally {
+      pendingScriptOpens.delete(controller);
+      inflightExistingScriptOpens.delete(key);
+    }
+  })();
+  inflightExistingScriptOpens.set(key, opening);
+  return opening;
 };
 
 export const updateScriptTabContent = (tabId: string, content: string) => {
@@ -529,5 +551,5 @@ export const closeScriptTabsForCdb = async (cdb: { tabId: string; path: string }
 };
 
 export const getScriptTabDisplayName = (tab: ScriptWorkspaceState) => (
-  buildScriptFileName(tab.cardCode)
+  getScriptTabTitle(tab)
 );
