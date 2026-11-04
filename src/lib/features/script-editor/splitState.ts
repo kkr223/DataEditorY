@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { ScriptPair } from '$lib/domain/script/splitTabs';
+import type { ScriptPair } from '#lib/domain/script/splitTabs.ts';
 
 export const scriptSplitPairs = writable<Record<string, ScriptPair | undefined>>({});
 

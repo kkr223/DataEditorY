@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { openContextMenu as showMenu, updateContextMenu, type ContextMenuItem } from '$lib/features/context-menu/menu.svelte';
-  import { getTabsToClose } from '$lib/features/context-menu/cardTargets';
-  import { pathExists, revealFile } from '$lib/native/assetApi';
+  import { openContextMenu as showMenu, updateContextMenu, type ContextMenuItem } from '#lib/features/context-menu/menu.svelte.ts';
+  import { getTabsToClose } from '#lib/features/context-menu/cardTargets.ts';
+  import { pathExists, revealFile } from '#lib/native/assetApi.ts';
   import { _ } from 'svelte-i18n';
-  import type { WorkspaceDocument } from '$lib/core/workspace/types';
-  import { tabDrag } from '$lib/components/tabDrag';
-  import type { DocumentPlacement } from '$lib/platform/runtime';
+  import type { WorkspaceDocument } from '#lib/core/workspace/types.ts';
+  import { tabDrag } from '#lib/components/tabDrag.ts';
+  import type { DocumentPlacement } from '#lib/platform/runtime.ts';
 
   let {
     workspaces = [],

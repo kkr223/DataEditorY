@@ -1,4 +1,4 @@
-import type { ExtensionModule } from '$lib/platform';
+import type { ExtensionModule } from '#lib/platform/index.ts';
 import {
   CARD_COLLECTION_TYPE,
   validateCardCollectionSnapshot,
@@ -21,7 +21,7 @@ export const cardModule: ExtensionModule = {
     labelKey: 'nav.tools_showcase_image',
     order: 20,
     requiresActiveCdb: true,
-    component: () => import('$lib/features/shell/components/dialogs/CardShowcaseImageDialog.svelte'),
+    component: () => import('#lib/features/shell/components/dialogs/CardShowcaseImageDialog.svelte'),
   }],
 };
 

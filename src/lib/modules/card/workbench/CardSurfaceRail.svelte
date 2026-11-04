@@ -5,12 +5,12 @@
     cardSurfaceState,
     toggleCardExplorerPinned,
     type CardSurfaceId,
-  } from '$lib/modules/card/workbench/surfaceState.svelte';
-  import { activeTab } from '$lib/stores/db';
-  import { activeScriptTab } from '$lib/stores/scriptEditor.svelte';
-  import { activateEditorView, activateScriptView } from '$lib/stores/appShell.svelte';
-  import { documentRuntime } from '$lib/platform/appRuntime';
-  import { isScriptTabOwnedByCdb } from '$lib/domain/script/tabIdentity';
+  } from '#lib/modules/card/workbench/surfaceState.svelte.ts';
+  import { activeTab } from '#lib/stores/db.ts';
+  import { activeScriptTab } from '#lib/stores/scriptEditor.svelte.ts';
+  import { activateEditorView, activateScriptView } from '#lib/stores/appShell.svelte.ts';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
+  import { isScriptTabOwnedByCdb } from '#lib/domain/script/tabIdentity.ts';
 
   let { onSelectSurface }: { onSelectSurface?: (surface: CardSurfaceId) => void } = $props();
 

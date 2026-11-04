@@ -1,19 +1,19 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
-  import { activeTab } from '$lib/stores/db';
-  import { getSelectedCardIds } from '$lib/stores/editor.svelte';
-  import { getAllCardsInTab, getCardsByIdsInTab } from '$lib/stores/cardOperations';
-  import { parseCachedFiltersJson, queryCardsByFiltersInTab } from '$lib/stores/search';
-  import type { CardDataEntry, SelectOption } from '$lib/types';
-  import { getPackedLevel } from '$lib/domain/card/draft';
-  import { ATTRIBUTE_OPTIONS, RACE_OPTIONS, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
-  import { resolveCardImageSrc } from '$lib/services/cardImageService';
-  import { writeBinaryFile } from '$lib/native/assetApi';
-  import { tauriBridge } from '$lib/infrastructure/tauri';
-  import { showToast } from '$lib/stores/toast.svelte';
-  import { writeErrorLog } from '$lib/utils/errorLog';
-  import { writeImageBlobToClipboard } from '$lib/utils/imageClipboard';
+  import { activeTab } from '#lib/stores/db.ts';
+  import { getSelectedCardIds } from '#lib/stores/editor.svelte.ts';
+  import { getAllCardsInTab, getCardsByIdsInTab } from '#lib/stores/cardOperations.ts';
+  import { parseCachedFiltersJson, queryCardsByFiltersInTab } from '#lib/stores/search.ts';
+  import type { CardDataEntry, SelectOption } from '#lib/types/index.ts';
+  import { getPackedLevel } from '#lib/domain/card/draft.ts';
+  import { ATTRIBUTE_OPTIONS, RACE_OPTIONS, SUBTYPE_MAP, TYPE_MAP } from '#lib/domain/card/taxonomy.ts';
+  import { resolveCardImageSrc } from '#lib/services/cardImageService.ts';
+  import { writeBinaryFile } from '#lib/native/assetApi.ts';
+  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
+  import { writeErrorLog } from '#lib/utils/errorLog.ts';
+  import { writeImageBlobToClipboard } from '#lib/utils/imageClipboard.ts';
   import {
     appendWorkspaceTaskHistory,
     getCardShowcaseOutputDir,
@@ -21,7 +21,7 @@
     getCardGroups,
     setCardShowcaseOutputDir,
     workspaceMetadataState,
-  } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+  } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
   import {
     chunkShowcaseCards,
     getShowcaseLinkCount,
@@ -29,7 +29,7 @@
     getShowcaseTypeKeys,
     renderCardShowcasePage,
     type CardShowcaseItem,
-  } from '$lib/features/shell/cardShowcaseRenderer';
+  } from '#lib/features/shell/cardShowcaseRenderer.ts';
 
   type ShowcaseTarget = 'cdb' | 'selection' | 'filter' | 'group';
 

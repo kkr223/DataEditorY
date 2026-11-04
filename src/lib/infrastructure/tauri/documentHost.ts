@@ -5,7 +5,7 @@ import type {
   DocumentSource,
   ProviderCreateRequest,
   ProviderOpenRequest,
-} from '$lib/platform';
+} from '#lib/platform/index.ts';
 
 export type ProviderHostRequest = {
   providerId: string;

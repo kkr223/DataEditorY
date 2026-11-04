@@ -1,17 +1,17 @@
 <script lang="ts">
   import { _, locale } from "svelte-i18n";
-  import SetcodeField from "$lib/components/SetcodeField.svelte";
-  import { disableAutofill } from "$lib/actions/disableAutofill";
-  import CardCategoryPopover from "$lib/features/card-editor/components/CardCategoryPopover.svelte";
-  import type { CardDataEntry } from "$lib/types";
+  import SetcodeField from "#lib/components/SetcodeField.svelte";
+  import { disableAutofill } from "#lib/actions/disableAutofill.ts";
+  import CardCategoryPopover from "#lib/features/card-editor/components/CardCategoryPopover.svelte";
+  import type { CardDataEntry } from "#lib/types/index.ts";
   import {
     formatEditableScaleValue,
     formatEditableStatValue,
     getPackedLevel,
     parseEditableScaleInput,
     parseEditableStatInput,
-  } from "$lib/domain/card/draft";
-  import { ATTRIBUTE_OPTIONS, LINK_MARKERS, PERMISSION_OPTIONS, RACE_OPTIONS, SUBTYPE_MAP, TYPE_MAP } from "$lib/domain/card/taxonomy";
+  } from "#lib/domain/card/draft.ts";
+  import { ATTRIBUTE_OPTIONS, LINK_MARKERS, PERMISSION_OPTIONS, RACE_OPTIONS, SUBTYPE_MAP, TYPE_MAP } from "#lib/domain/card/taxonomy.ts";
 
   export let draftCard: CardDataEntry;
   export let imageSrc = "";

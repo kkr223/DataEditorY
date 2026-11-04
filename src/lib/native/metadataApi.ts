@@ -1,4 +1,4 @@
-import { invokeCommand } from '$lib/infrastructure/tauri';
+import { invokeCommand } from '#lib/infrastructure/tauri/index.ts';
 
 export type WorkspaceMetadata = {
   version: number;

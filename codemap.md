@@ -25,7 +25,7 @@ Top-level app tabs represent CDB workspaces only. Lua scripts, card images, and 
 
 | Layer | Technology |
 |-------|------------|
-| Frontend Framework | Svelte 5 + SvelteKit SPA |
+| Frontend Framework | Svelte 5 + SvelteKit 3 SPA |
 | Frontend Language | TypeScript |
 | Build Tool | Vite 8 |
 | Desktop Runtime | Tauri 2 |
@@ -170,6 +170,8 @@ Use AI
 | `src-tauri/src/models/` | Rust DTOs shared by commands/services | [View](src-tauri/src/models/codemap.md) |
 
 ### Build System
+
+SvelteKit configuration lives in `vite.config.js`: static SPA fallback, selected production assets, and disabled deployment polling for desktop bundles. Internal absolute imports use `#lib/*` from `package.json` with actual source extensions (`.ts`, `.svelte`, etc.) so Bun and Vite resolve the same files; TypeScript extends the generated `$app/tsconfig`. Node.js 22.17+ is required (CI uses Node.js 24).
 
 | Directory | Responsibility | Detailed Map |
 |-----------|----------------|--------------|

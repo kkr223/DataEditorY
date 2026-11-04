@@ -1,5 +1,5 @@
 import { loadExternalLuaCatalog } from './catalog';
-import type { LuaConstantItem, LuaFunctionItem } from '$lib/types';
+import type { LuaConstantItem, LuaFunctionItem } from '#lib/types/index.ts';
 
 export type LuaReferenceManualKind = 'constants' | 'functions';
 export type LuaReferenceManualItem = {
@@ -196,9 +196,9 @@ async function loadLuaCatalog() {
   if (!catalogPromise) {
     catalogPromise = (async () => {
       const [constantsModule, functionsModule, snippetsModule] = await Promise.all([
-        import('$lib/data/lua-intel/constants.generated.json'),
-        import('$lib/data/lua-intel/functions.generated.json'),
-        import('$lib/data/lua-intel/snippets.generated.json'),
+        import('#lib/data/lua-intel/constants.generated.json'),
+        import('#lib/data/lua-intel/functions.generated.json'),
+        import('#lib/data/lua-intel/snippets.generated.json'),
       ]);
 
       let catalog: LuaCatalog = {

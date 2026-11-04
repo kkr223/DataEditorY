@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { luaCatalog } from '$lib/data/lua-intel/catalog.generated';
+import { luaCatalog } from '#lib/data/lua-intel/catalog.generated.ts';
 import {
   clearLuaSemanticDocumentCache,
   getCallInfoAt,

@@ -1,8 +1,8 @@
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { readTextFile, resolveResourceFile } from '$lib/native/assetApi';
-import { luaCatalog as generatedLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { readTextFile, resolveResourceFile } from '#lib/native/assetApi.ts';
+import { luaCatalog as generatedLuaCatalog } from '#lib/data/lua-intel/catalog.generated.ts';
 import bundledFunctionText from '../../../../../static/resources/_functions.txt?raw';
-import type { LuaCatalog, LuaConstantItem, LuaFunctionItem, LuaSnippetItem } from '$lib/types';
+import type { LuaCatalog, LuaConstantItem, LuaFunctionItem, LuaSnippetItem } from '#lib/types/index.ts';
 
 const LUA_INTEL_RESOURCE_DIR = 'lua-intel';
 

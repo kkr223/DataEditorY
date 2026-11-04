@@ -1,4 +1,4 @@
-import type { SettingsFormState } from '$lib/features/settings/controller';
+import type { SettingsFormState } from '#lib/features/settings/controller.ts';
 
 export type SettingsWorkbenchContext = {
   form: SettingsFormState;

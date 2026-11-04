@@ -1,7 +1,7 @@
-import en from "$lib/i18n/locales/en.json";
-import zh from "$lib/i18n/locales/zh.json";
-import type { CardDataEntry } from "$lib/types";
-import { LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from "$lib/domain/card/taxonomy";
+import en from "#lib/i18n/locales/en.json";
+import zh from "#lib/i18n/locales/zh.json";
+import type { CardDataEntry } from "#lib/types/index.ts";
+import { LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from "#lib/domain/card/taxonomy.ts";
 
 // Unicode fullwidth ↔ halfwidth conversion constants
 const FULLWIDTH_DIGIT_ZERO = 0xff10; // ０ (65296)

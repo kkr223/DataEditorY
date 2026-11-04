@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { disableAutofill } from '$lib/actions/disableAutofill';
+  import { disableAutofill } from '#lib/actions/disableAutofill.ts';
 
   export let descriptionTitle = '';
   export let stringsTitle = '';

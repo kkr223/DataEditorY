@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isNewOutputPath } from '$lib/features/shell/dialogsHelpers';
+import { isNewOutputPath } from '#lib/features/shell/dialogsHelpers.ts';
 
 describe('shell dialog helpers', () => {
   test('detects whether an output path is still available', () => {

@@ -34,7 +34,7 @@
   },
   "license": "MIT",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.17.0"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
@@ -49,8 +49,8 @@
     "yugioh-card-ts": "github:kkr223/yugioh-card#package/v2.0.0"
   },
   "devDependencies": {
-    "@sveltejs/adapter-static": "^3.0.10",
-    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/adapter-static": "^4.0.1",
+    "@sveltejs/kit": "^3.1.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tauri-apps/cli": "^2.12.4",
     "@types/luaparse": "^0.2.13",
@@ -62,5 +62,8 @@
   "overrides": {
     "picomatch": "4.0.5",
     "postcss": "8.5.19"
+  },
+  "imports": {
+    "#lib/*": "./src/lib/*"
   }
 }

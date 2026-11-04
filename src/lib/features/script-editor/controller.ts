@@ -1,8 +1,8 @@
-import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
-import type { LuaInlineHighlight } from '$lib/features/script-editor/lua/calls';
-import type { LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
-import { toPersistableCard } from '$lib/domain/card/draft';
-import { isShortcutEvent } from '$lib/features/shortcuts/registry';
+import type { CardDataEntry, ScriptWorkspaceState } from '#lib/types/index.ts';
+import type { LuaInlineHighlight } from '#lib/features/script-editor/lua/calls.ts';
+import type { LuaScriptDiagnostic } from '#lib/features/script-editor/lua/diagnostics.ts';
+import { toPersistableCard } from '#lib/domain/card/draft.ts';
+import { isShortcutEvent } from '#lib/features/shortcuts/registry.ts';
 
 export type HintPlacement = 'top' | 'bottom';
 export type ScriptReferenceManualKind = 'constants' | 'functions';

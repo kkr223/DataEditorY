@@ -56,4 +56,4 @@ Pure helpers for CDB batch edit previews and apply semantics. Operation groups a
 ## Integration
 
 - **Consumed by**: search query builder, card editor features, AI service, stores
-- **Depends on**: `$lib/types` (CardDataEntry, BitOption, SelectOption)
+- **Depends on**: `#lib/types/index.ts` (CardDataEntry, BitOption, SelectOption)

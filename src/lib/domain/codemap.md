@@ -16,5 +16,5 @@ All modules are pure functions and types — no side effects, no store subscript
 ## Integration
 
 - **Consumed by**: stores, features, services, modules
-- **Depends on**: `$lib/types` (shared type definitions)
+- **Depends on**: `#lib/types/index.ts` (shared type definitions)
 - **Sub-maps**: [card/](card/codemap.md) | [search/](search/codemap.md) | [script/](script/codemap.md)

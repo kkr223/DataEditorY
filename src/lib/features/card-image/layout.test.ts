@@ -11,7 +11,7 @@ import {
   reloadCardImageFormFromCdb,
   serializeCardImageConfigDocument,
 } from "./layout";
-import type { CardDataEntry } from "$lib/types";
+import type { CardDataEntry } from "#lib/types/index.ts";
 
 describe("card image config document", () => {
   test("reloads CDB fields while preserving artwork and appearance settings", () => {

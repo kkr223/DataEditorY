@@ -1,11 +1,11 @@
 import { get } from 'svelte/store';
-import { activeTab } from '$lib/stores/db';
-import { getSelectedCard } from '$lib/stores/editor.svelte';
-import { activeScriptTab, openExistingScriptTab } from '$lib/stores/scriptEditor.svelte';
-import { navigateToCard } from '$lib/features/card-editor/cardNavigation';
-import { scriptLocationRequest } from '$lib/features/script-editor/revealLocation';
-import { clearScriptPair } from '$lib/features/script-editor/splitState';
-import { activateCardSurface, cardSurfaceState } from '$lib/modules/card/workbench/surfaceState.svelte';
+import { activeTab } from '#lib/stores/db.ts';
+import { getSelectedCard } from '#lib/stores/editor.svelte.ts';
+import { activeScriptTab, openExistingScriptTab } from '#lib/stores/scriptEditor.svelte.ts';
+import { navigateToCard } from '#lib/features/card-editor/cardNavigation.ts';
+import { scriptLocationRequest } from '#lib/features/script-editor/revealLocation.ts';
+import { clearScriptPair } from '#lib/features/script-editor/splitState.ts';
+import { activateCardSurface, cardSurfaceState } from '#lib/modules/card/workbench/surfaceState.svelte.ts';
 import type { WorkspaceSearchGroup, WorkspaceSearchMatch } from './types';
 
 export const openWorkspaceSearchMatch = async (

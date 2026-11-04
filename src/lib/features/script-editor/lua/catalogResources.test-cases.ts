@@ -1,6 +1,6 @@
 import * as bunTest from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { luaCatalog as bundledCatalog } from '$lib/data/lua-intel/catalog.generated';
+import { luaCatalog as bundledCatalog } from '#lib/data/lua-intel/catalog.generated.ts';
 
 const { expect, test } = bunTest;
 const mock = (bunTest as unknown as {
@@ -12,13 +12,13 @@ let resources = new Map<string, string>();
 let resolvedPaths: string[] = [];
 let desktop = true;
 
-mock.module('$lib/infrastructure/tauri', () => ({
+mock.module('#lib/infrastructure/tauri/index.ts', () => ({
   tauriBridge: {
     isTauri: () => desktop,
     resolveResource: async (path: string) => path.replace(/^resources\//, ''),
   },
 }));
-mock.module('$lib/native/assetApi', () => ({
+mock.module('#lib/native/assetApi.ts', () => ({
   resolveResourceFile: async (path: string) => {
     resolvedPaths.push(path);
     if (!resources.has(path)) throw new Error(`Missing resource: ${path}`);

@@ -1,15 +1,15 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { disableAutofill } from '$lib/actions/disableAutofill';
-  import type { CardDataEntry } from '$lib/types';
-  import type { CardImageConfigDocument } from '$lib/features/card-image/layout';
+  import { disableAutofill } from '#lib/actions/disableAutofill.ts';
+  import type { CardDataEntry } from '#lib/types/index.ts';
+  import type { CardImageConfigDocument } from '#lib/features/card-image/layout.ts';
   import {
     createCardImageController,
     NAME_COLOR_PRESETS,
-  } from '$lib/features/card-image/controller.svelte';
-  import CardImageCanvas from '$lib/features/card-image/components/CardImageCanvas.svelte';
-  import CardImageControls from '$lib/features/card-image/components/CardImageControls.svelte';
-  import CardImageFieldEditor from '$lib/features/card-image/components/CardImageFieldEditor.svelte';
+  } from '#lib/features/card-image/controller.svelte.ts';
+  import CardImageCanvas from '#lib/features/card-image/components/CardImageCanvas.svelte';
+  import CardImageControls from '#lib/features/card-image/components/CardImageControls.svelte';
+  import CardImageFieldEditor from '#lib/features/card-image/components/CardImageFieldEditor.svelte';
 
   let {
     open = false,

@@ -1,14 +1,14 @@
 <script lang="ts">
-  import SplitScriptEditor from '$lib/features/script-editor/components/SplitScriptEditor.svelte';
-  import { clearScriptPair, scriptSplitPairs, setScriptPair } from '$lib/features/script-editor/splitState';
-  import { groupScriptTabs, getPairSurvivor } from '$lib/domain/script/splitTabs';
-  import { openScriptTabMenu } from '$lib/features/script-editor/tabMenu';
+  import SplitScriptEditor from '#lib/features/script-editor/components/SplitScriptEditor.svelte';
+  import { clearScriptPair, scriptSplitPairs, setScriptPair } from '#lib/features/script-editor/splitState.ts';
+  import { groupScriptTabs, getPairSurvivor } from '#lib/domain/script/splitTabs.ts';
+  import { openScriptTabMenu } from '#lib/features/script-editor/tabMenu.ts';
   import { onDestroy, tick } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import LuaScriptEditor from '$lib/components/LuaScriptEditor.svelte';
-  import { tabDrag } from '$lib/components/tabDrag';
-  import { activeTab } from '$lib/stores/db';
-  import { getSelectedCard } from '$lib/stores/editor.svelte';
+  import LuaScriptEditor from '#lib/components/LuaScriptEditor.svelte';
+  import { tabDrag } from '#lib/components/tabDrag.ts';
+  import { activeTab } from '#lib/stores/db.ts';
+  import { getSelectedCard } from '#lib/stores/editor.svelte.ts';
   import {
     activateScriptTab,
     activeScriptTab,
@@ -18,23 +18,23 @@
     moveScriptTab,
     scriptTabs,
     setScriptTabViewState,
-  } from '$lib/stores/scriptEditor.svelte';
-  import { openCardScriptWorkspace } from '$lib/services/cardScriptService';
-  import { getScriptTabTitle } from '$lib/domain/script/workspace';
-  import { pathExists } from '$lib/native/assetApi';
+  } from '#lib/stores/scriptEditor.svelte.ts';
+  import { openCardScriptWorkspace } from '#lib/services/cardScriptService.ts';
+  import { getScriptTabTitle } from '#lib/domain/script/workspace.ts';
+  import { pathExists } from '#lib/native/assetApi.ts';
   import {
     getScriptSurfaceState,
     setScriptSurfaceState,
     workspaceMetadataState,
-  } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+  } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
   import {
     getScriptTabKey,
     isSameCdbPath,
     isScriptTabOwnedByCdb,
-  } from '$lib/domain/script/tabIdentity';
-  import { getWorkspaceDocument } from '$lib/core/workspace/store.svelte';
-  import { confirmWorkspaceClose } from '$lib/application/workspace/lifecycle';
-  import { showToast } from '$lib/stores/toast.svelte';
+  } from '#lib/domain/script/tabIdentity.ts';
+  import { getWorkspaceDocument } from '#lib/core/workspace/store.svelte.ts';
+  import { confirmWorkspaceClose } from '#lib/application/workspace/lifecycle.ts';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
   import { cardSurfaceState } from './surfaceState.svelte';
 
   let {

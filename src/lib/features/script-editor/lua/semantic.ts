@@ -1,5 +1,5 @@
 import * as luaparse from 'luaparse';
-import type { LuaCatalog, LuaConstantItem, LuaFunctionItem } from '$lib/types';
+import type { LuaCatalog, LuaConstantItem, LuaFunctionItem } from '#lib/types/index.ts';
 
 type LuaNode = {
   type?: string;

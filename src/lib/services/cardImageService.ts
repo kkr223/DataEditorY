@@ -1,6 +1,6 @@
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { importCardImageFile, readImageFile } from '$lib/native/assetApi';
-import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { importCardImageFile, readImageFile } from '#lib/native/assetApi.ts';
+import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 
 const BASE64_CHUNK_SIZE = 0x8000;
 

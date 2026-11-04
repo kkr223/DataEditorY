@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { appSettingsState } from '$lib/stores/appSettings.svelte';
-  import { isShortcutEvent } from '$lib/features/shortcuts/registry';
-  import type { ScriptWorkspaceState } from '$lib/types';
+  import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
+  import { isShortcutEvent } from '#lib/features/shortcuts/registry.ts';
+  import type { ScriptWorkspaceState } from '#lib/types/index.ts';
 
   let {
     tabs = [] as ScriptWorkspaceState[],

@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
-import type { CardDataEntry } from '$lib/types';
-import { tauriBridge } from '$lib/infrastructure/tauri';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import {
   activeTabId,
   deleteCardsInTab,
@@ -8,21 +8,21 @@ import {
   modifyCardsInTab,
   refreshSearchAfterMutation,
   replaceCardIdInTab,
-} from '$lib/stores/db';
-import { appSettingsState } from '$lib/stores/appSettings.svelte';
-import { getAllCardsMap, setSingleSelectedCard, updateVisibleCards } from '$lib/stores/editor.svelte';
-import { showToast } from '$lib/stores/toast.svelte';
-import { writeErrorLog } from '$lib/utils/errorLog';
-import { cloneEditableCard } from '$lib/domain/card/draft';
-import { createCardSnapshot, toPersistableDraftCard } from '$lib/domain/card/draft';
-import { getValidCardCode, validateCardDraft } from '$lib/domain/card/validation';
+} from '#lib/stores/db.ts';
+import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
+import { getAllCardsMap, setSingleSelectedCard, updateVisibleCards } from '#lib/stores/editor.svelte.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { writeErrorLog } from '#lib/utils/errorLog.ts';
+import { cloneEditableCard } from '#lib/domain/card/draft.ts';
+import { createCardSnapshot, toPersistableDraftCard } from '#lib/domain/card/draft.ts';
+import { getValidCardCode, validateCardDraft } from '#lib/domain/card/validation.ts';
 import {
   ensureCardScriptFile,
   getExistingCardScriptInfo,
   openCardScriptWorkspace,
   openScriptWithDefaultApp,
-} from '$lib/services/cardScriptService';
-import { activateCardSurface } from '$lib/modules/card/workbench/surfaceState.svelte';
+} from '#lib/services/cardScriptService.ts';
+import { activateCardSurface } from '#lib/modules/card/workbench/surfaceState.svelte.ts';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 

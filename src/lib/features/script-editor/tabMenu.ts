@@ -1,10 +1,10 @@
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import type { ScriptWorkspaceState } from '$lib/types';
-import { activeTabId } from '$lib/stores/db';
-import { scriptTabs } from '$lib/stores/scriptEditor.svelte';
-import { navigateToCard } from '$lib/features/card-editor/cardNavigation';
-import { openContextMenu, type ContextMenuItem } from '$lib/features/context-menu/menu.svelte';
+import type { ScriptWorkspaceState } from '#lib/types/index.ts';
+import { activeTabId } from '#lib/stores/db.ts';
+import { scriptTabs } from '#lib/stores/scriptEditor.svelte.ts';
+import { navigateToCard } from '#lib/features/card-editor/cardNavigation.ts';
+import { openContextMenu, type ContextMenuItem } from '#lib/features/context-menu/menu.svelte.ts';
 import { openScriptExternallyFlow, reloadScriptEditorFlow, saveScriptEditorFlow } from './useCases';
 
 export function openScriptTabMenu(event: MouseEvent, input: {

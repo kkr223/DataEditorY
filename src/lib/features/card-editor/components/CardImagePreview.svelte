@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { appSettingsState } from '$lib/stores/appSettings.svelte';
-  import { isShortcutEvent } from '$lib/features/shortcuts/registry';
+  import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
+  import { isShortcutEvent } from '#lib/features/shortcuts/registry.ts';
 
   export let open = false;
   export let imageSrc = "";

@@ -3,10 +3,10 @@ import {
   connectAiProvider,
   saveAppSettings,
   type AppSettingsPayload,
-} from '$lib/stores/appSettings.svelte';
-import { showToast } from '$lib/stores/toast.svelte';
-import { writeErrorLog } from '$lib/utils/errorLog';
-import { getNormalizedAgentMaxSteps, getNormalizedSettingsTemperature, type SettingsFormState } from '$lib/features/settings/controller';
+} from '#lib/stores/appSettings.svelte.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { writeErrorLog } from '#lib/utils/errorLog.ts';
+import { getNormalizedAgentMaxSteps, getNormalizedSettingsTemperature, type SettingsFormState } from '#lib/features/settings/controller.ts';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 

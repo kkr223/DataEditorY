@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
 
 export interface RecentCdbEntry {
   path: string;

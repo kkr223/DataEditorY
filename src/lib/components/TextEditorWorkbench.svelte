@@ -10,18 +10,18 @@
     saveTextTabAs,
     setTextTabViewState,
     updateTextTabContent,
-  } from '$lib/stores/textEditor.svelte';
-  import { showToast } from '$lib/stores/toast.svelte';
-  import { attachFontZoomActions } from '$lib/features/script-editor/runtime';
+  } from '#lib/stores/textEditor.svelte.ts';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
+  import { attachFontZoomActions } from '#lib/features/script-editor/runtime.ts';
   import {
     setWorkspaceLifecycleMetadata,
-  } from '$lib/application/workspace/lifecycle';
-  import { registerTextTabModel } from '$lib/features/script-editor/monaco/textModels';
-  import { buildCallHighlightDecorations } from '$lib/features/script-editor/controller';
-  import { collectLuaInlineHighlights } from '$lib/features/script-editor/lua/calls';
+  } from '#lib/application/workspace/lifecycle.ts';
+  import { registerTextTabModel } from '#lib/features/script-editor/monaco/textModels.ts';
+  import { buildCallHighlightDecorations } from '#lib/features/script-editor/controller.ts';
+  import { collectLuaInlineHighlights } from '#lib/features/script-editor/lua/calls.ts';
   import type { editor as MonacoEditor } from 'monaco-editor';
 
-  type MonacoModule = typeof import('$lib/features/script-editor/monaco/setup');
+  type MonacoModule = typeof import('#lib/features/script-editor/monaco/setup.ts');
   type MonacoApi = typeof import('monaco-editor');
 
   const LUA_MARKER_OWNER = 'dataeditory-lua';
@@ -37,7 +37,7 @@
   let isApplyingModel = false;
   let validateTimer: ReturnType<typeof setTimeout> | null = null;
   let lastHighlightSource = '';
-  let lastHighlightDecorations: import('$lib/features/script-editor/controller').MonacoDecoration[] = [];
+  let lastHighlightDecorations: import('#lib/features/script-editor/controller.ts').MonacoDecoration[] = [];
   let themeObserver: MutationObserver | null = null;
   let windowKeydownHandler: ((event: KeyboardEvent) => void) | null = null;
   let disposeFontZoom: (() => void) | null = null;
@@ -196,7 +196,7 @@
     let destroyed = false;
     onDestroy(() => { destroyed = true; });
 
-    const loadedModule = await import('$lib/features/script-editor/monaco/setup');
+    const loadedModule = await import('#lib/features/script-editor/monaco/setup.ts');
     const loadedMonaco = await loadedModule.loadMonaco();
 
     if (destroyed) return;

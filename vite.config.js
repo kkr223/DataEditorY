@@ -1,3 +1,9 @@
+// Tauri doesn't have a Node.js server to do proper SSR
+// so we use adapter-static with a fallback to index.html to put the site in SPA mode
+// See: https://svelte.dev/docs/kit/single-page-apps
+// See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
+import adapter from "@sveltejs/adapter-static";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 
@@ -20,7 +26,19 @@ export default defineConfig(async () => ({
         };
       },
     },
-    sveltekit(),
+    sveltekit({
+      preprocess: vitePreprocess(),
+      adapter: adapter({ fallback: "index.html" }),
+      files: {
+        assets:
+          process.env.DATAEDITORY_WEB_BUILD === "1" ||
+          process.env.npm_lifecycle_event === "build:web:raw"
+            ? "static-web"
+            : "static",
+      },
+      // Desktop bundles only change when installed; avoid hourly deployment polling.
+      version: { pollInterval: 0 },
+    }),
   ],
   optimizeDeps: {
     include: ["yugioh-card-ts", "yugioh-card-ts/document"],

@@ -1,7 +1,7 @@
-import type { CardDataEntry } from '$lib/types';
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { pathExists, writeBinaryFile } from '$lib/native/assetApi';
-import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { pathExists, writeBinaryFile } from '#lib/native/assetApi.ts';
+import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 import {
   applyCardImageRarityDefaults,
   createCardImageFormData,

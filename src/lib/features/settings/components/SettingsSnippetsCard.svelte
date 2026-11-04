@@ -1,10 +1,10 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { disableAutofill } from '$lib/actions/disableAutofill';
+  import { disableAutofill } from '#lib/actions/disableAutofill.ts';
   import {
     getScriptSnippetIssue, readScriptSnippetEntries, serializeScriptSnippetEntries,
     type ScriptSnippetEntry,
-  } from '$lib/features/script-editor/snippetPreferences';
+  } from '#lib/features/script-editor/snippetPreferences.ts';
 
   let { value, onChange }: { value: string; onChange: (value: string) => void } = $props();
   let selectedIndex = $state(0);

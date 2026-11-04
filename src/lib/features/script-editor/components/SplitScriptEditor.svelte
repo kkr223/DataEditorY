@@ -1,8 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import type { ScriptWorkspaceState } from '$lib/types';
-  import { showToast } from '$lib/stores/toast.svelte';
+  import type { ScriptWorkspaceState } from '#lib/types/index.ts';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
   import { createSplitScriptRuntime } from '../splitRuntime';
   let { left, right }: { left: ScriptWorkspaceState; right: ScriptWorkspaceState } = $props();
   let compare = $state(false);

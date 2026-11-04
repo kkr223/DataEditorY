@@ -1,8 +1,8 @@
-import type { CdbTab } from '$lib/stores/db';
-import type { DocumentRecord } from '$lib/platform';
-import type { ScriptWorkspaceState } from '$lib/types';
-import type { TextTab } from '$lib/stores/textEditor.svelte';
-import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
+import type { CdbTab } from '#lib/stores/db.ts';
+import type { DocumentRecord } from '#lib/platform/index.ts';
+import type { ScriptWorkspaceState } from '#lib/types/index.ts';
+import type { TextTab } from '#lib/stores/textEditor.svelte.ts';
+import { CARD_IMAGE_CONFIG_TYPE } from '#lib/modules/card-image/constants.ts';
 import type {
   CardImageWorkspaceDocument,
   DbWorkspaceDocument,
@@ -10,7 +10,7 @@ import type {
   SettingsWorkspaceDocument,
   TextWorkspaceDocument,
   WorkspaceDocument,
-} from '$lib/core/workspace/types';
+} from '#lib/core/workspace/types.ts';
 
 export const SETTINGS_WORKSPACE_ID = 'workspace:settings';
 

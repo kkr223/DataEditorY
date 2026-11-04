@@ -1,10 +1,10 @@
-import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import type { CardDataEntry, SearchFilters } from '$lib/types';
-import type { ScriptGenerationStage } from '$lib/features/script-editor/generationStages';
-import { cloneEditableCard, cloneLoadedCardForEditing, createEmptyCard } from '$lib/domain/card/draft';
-import { createCardSnapshot } from '$lib/domain/card/draft';
-import { ATTRIBUTE_MAP, LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
-import { isShortcutEvent } from '$lib/features/shortcuts/registry';
+import { DEFAULT_SEARCH_FILTERS } from '#lib/types/index.ts';
+import type { CardDataEntry, SearchFilters } from '#lib/types/index.ts';
+import type { ScriptGenerationStage } from '#lib/features/script-editor/generationStages.ts';
+import { cloneEditableCard, cloneLoadedCardForEditing, createEmptyCard } from '#lib/domain/card/draft.ts';
+import { createCardSnapshot } from '#lib/domain/card/draft.ts';
+import { ATTRIBUTE_MAP, LINK_MARKER_NAME_TO_BIT, RACE_MAP, SUBTYPE_MAP, TYPE_MAP } from '#lib/domain/card/taxonomy.ts';
+import { isShortcutEvent } from '#lib/features/shortcuts/registry.ts';
 
 export const CARD_LIST_PAGE_SIZE = 50;
 const MAX_DRAFT_UNDO_HISTORY = 100;

@@ -1,14 +1,14 @@
-import { handleCopySelection, handlePasteSelection, handleDeleteSelection } from '$lib/features/card-editor/selectionActions';
-import { handleTextContextMenu } from '$lib/features/context-menu/textMenu';
+import { handleCopySelection, handlePasteSelection, handleDeleteSelection } from '#lib/features/card-editor/selectionActions.ts';
+import { handleTextContextMenu } from '#lib/features/context-menu/textMenu.ts';
 import { get, fromStore } from 'svelte/store';
 import { createListenerScope } from './listenerScope';
 import { closeDocumentsForWindowExit } from './workspaceShutdown';
-import { documentRuntime } from '$lib/platform/appRuntime';
-import { flushAllWorkspaceMetadataSaves } from '$lib/features/workspace-metadata/state.svelte';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
+import { flushAllWorkspaceMetadataSaves } from '#lib/features/workspace-metadata/state.svelte.ts';
 import { _, locale } from 'svelte-i18n';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { consumePendingOpenCdbPaths } from '$lib/native/cdbApi';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { consumePendingOpenCdbPaths } from '#lib/native/cdbApi.ts';
 import {
   getLastUndoLabel,
   hasUndoableAction,
@@ -22,16 +22,16 @@ import {
   undoLastOperationInTab,
   type RecentCdbEntry,
   activeTabId,
-} from '$lib/stores/db';
+} from '#lib/stores/db.ts';
 import {
   scriptTabs,
-} from '$lib/stores/scriptEditor.svelte';
-import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
-import { isShortcutEvent } from '$lib/features/shortcuts/registry';
-import { handleSearch } from '$lib/stores/editor.svelte';
-import { showToast } from '$lib/stores/toast.svelte';
-import { dispatchAppShortcut } from '$lib/utils/shortcuts';
-import { isExpectedCancellationError, writeErrorLog } from '$lib/utils/errorLog';
+} from '#lib/stores/scriptEditor.svelte.ts';
+import { appSettingsState, loadAppSettings } from '#lib/stores/appSettings.svelte.ts';
+import { isShortcutEvent } from '#lib/features/shortcuts/registry.ts';
+import { handleSearch } from '#lib/stores/editor.svelte.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { dispatchAppShortcut } from '#lib/utils/shortcuts.ts';
+import { isExpectedCancellationError, writeErrorLog } from '#lib/utils/errorLog.ts';
 import {
   type DragDropPayload,
   isCdbFilePath,
@@ -39,20 +39,20 @@ import {
   isNativeTextUndoTarget,
   normalizeExternalOpenPaths,
   normalizeExternalTextPaths,
-} from '$lib/features/shell/controller';
+} from '#lib/features/shell/controller.ts';
 import {
   activateWorkspaceDocument,
   closeWorkspaceDocument,
   createDbWorkspace,
   openDbWorkspace,
   saveActiveWorkspaceDocument,
-} from '$lib/application/workspace/commandBus';
+} from '#lib/application/workspace/commandBus.ts';
 import {
   confirmWorkspaceClose,
   hasDirtyWorkspaceDocuments,
-} from '$lib/application/workspace/lifecycle';
-import { SETTINGS_WORKSPACE_ID, workspaceState } from '$lib/core/workspace/store.svelte';
-import { hasWorkspaceCardDraftUndo } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
+} from '#lib/application/workspace/lifecycle.ts';
+import { SETTINGS_WORKSPACE_ID, workspaceState } from '#lib/core/workspace/store.svelte.ts';
+import { hasWorkspaceCardDraftUndo } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
 
 const PRELOAD_RETRY_KEY = 'dataeditory:preload-retry';
 const OPEN_HISTORY_HIDE_DELAY_MS = 180;
@@ -172,7 +172,7 @@ export function createShellLayoutController() {
     }
 
     if (textPaths.length > 0) {
-      const { openTextFile } = await import('$lib/stores/textEditor.svelte');
+      const { openTextFile } = await import('#lib/stores/textEditor.svelte.ts');
       for (const path of textPaths) {
         const openedId = await openTextFile(path);
         if (openedId && !firstOpenedId) {

@@ -1,4 +1,4 @@
-import type { ExtensionModule } from '$lib/platform';
+import type { ExtensionModule } from '#lib/platform/index.ts';
 
 export const workspaceSearchModule: ExtensionModule = {
   id: 'workspace-search',
@@ -9,6 +9,6 @@ export const workspaceSearchModule: ExtensionModule = {
     slot: 'surface',
     order: 35,
     metadata: { surfaceId: 'search', labelKey: 'surface.search', icon: '⌕' },
-    component: () => import('$lib/features/workspace-search/SearchSurface.svelte'),
+    component: () => import('#lib/features/workspace-search/SearchSurface.svelte'),
   }],
 };

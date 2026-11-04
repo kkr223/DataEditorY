@@ -1,13 +1,13 @@
-import type { CardDataEntry } from '$lib/types';
+import type { CardDataEntry } from '#lib/types/index.ts';
 import {
   CARD_IMAGE_FORM_KEYS,
   normalizeCardImageFormData,
   type CardImageFormData,
-} from '$lib/features/card-image/layout';
+} from '#lib/features/card-image/layout.ts';
 import type {
   WorkspaceAiContextRef,
   WorkspaceAiProposal,
-} from '$lib/features/ai/types';
+} from '#lib/features/ai/types.ts';
 
 export type AiProposalPayload = {
   text: string;

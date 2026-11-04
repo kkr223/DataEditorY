@@ -1,7 +1,7 @@
 import {
   PersistentMemoryProvider,
   type ExtensionModule,
-} from '$lib/platform';
+} from '#lib/platform/index.ts';
 import { AI_SESSION_TYPE, validateAiSession } from './types';
 
 export const AI_SESSION_PROVIDER_ID = 'ai.session-provider';

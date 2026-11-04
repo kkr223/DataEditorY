@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { CardDataEntry } from "$lib/types";
-  import { disableAutofill } from "$lib/actions/disableAutofill";
+  import type { CardDataEntry } from "#lib/types/index.ts";
+  import { disableAutofill } from "#lib/actions/disableAutofill.ts";
 
   export let draftCard: CardDataEntry;
   export let saveLabel = "";

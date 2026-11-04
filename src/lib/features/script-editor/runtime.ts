@@ -2,7 +2,7 @@ import { attachScriptContextMenu } from './contextMenu';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, normalizeScriptEditorFontSize } from './fontPreferences';
 
-export type ScriptMonacoModule = typeof import('$lib/features/script-editor/monaco/setup');
+export type ScriptMonacoModule = typeof import('#lib/features/script-editor/monaco/setup.ts');
 export type ScriptMonacoApi = typeof import('monaco-editor');
 
 export type ScriptMonacoRuntime = {
@@ -135,7 +135,7 @@ export async function createScriptMonacoRuntime(input: {
   onWindowBlur: () => void;
   onCopySelectionImage?: () => unknown | Promise<unknown>;
 }) {
-  const loadedModule = await import('$lib/features/script-editor/monaco/setup');
+  const loadedModule = await import('#lib/features/script-editor/monaco/setup.ts');
   const loadedMonaco = await loadedModule.loadMonaco();
 
   const editor = loadedMonaco.editor.create(input.host, buildScriptEditorMonacoOptions(input.getDefaultFontSize?.()));

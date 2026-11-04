@@ -4,6 +4,8 @@
 
 Build System — Node.js scripts for managing the variant build pipeline (base/extra), Lua intellisense data generation, and production web assets.
 
+SvelteKit 3 configuration lives in `vite.config.js`. Production builds use the minimal `static-web/` directory before `prepare-build-assets.mjs` copies browser-consumed resources; development serves `static/`. Generated TypeScript imports must use the project's `#lib/*` subpath imports with explicit file extensions.
+
 ## Scripts
 
 | Script | Purpose |

@@ -1,11 +1,11 @@
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import type { editor as MonacoEditor } from 'monaco-editor';
-import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
-import { appSettingsState } from '$lib/stores/appSettings.svelte';
-import { scriptTabs, focusScriptTab, registerScriptModelDisposer, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
-import { getCardByIdInTab } from '$lib/stores/db';
-import { getScriptTabTitle, normalizeScriptContent } from '$lib/domain/script/workspace';
+import type { CardDataEntry, ScriptWorkspaceState } from '#lib/types/index.ts';
+import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
+import { scriptTabs, focusScriptTab, registerScriptModelDisposer, setScriptTabViewState, updateScriptTabContent } from '#lib/stores/scriptEditor.svelte.ts';
+import { getCardByIdInTab } from '#lib/stores/db.ts';
+import { getScriptTabTitle, normalizeScriptContent } from '#lib/domain/script/workspace.ts';
 import { attachFontZoomActions, attachSnippetTabNavigation, buildScriptEditorMonacoOptions } from './runtime';
 import { attachScriptContextMenu } from './contextMenu';
 import { shareScriptImageFlow } from './useCases';

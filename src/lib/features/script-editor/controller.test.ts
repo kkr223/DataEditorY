@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   resolveScriptReferenceShortcut,
   shouldCloseScriptReferenceOverlay,
-} from '$lib/features/script-editor/controller';
+} from '#lib/features/script-editor/controller.ts';
 
 function createKeyboardEventLike(
   input: Partial<Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'>>,

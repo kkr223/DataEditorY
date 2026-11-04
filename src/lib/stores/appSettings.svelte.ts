@@ -1,9 +1,9 @@
-import { invokeCommand, tauriBridge } from '$lib/infrastructure/tauri';
-import { normalizeShortcutBindingMap } from '$lib/features/shortcuts/registry';
-import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
-import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
-import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, normalizeScriptEditorFontSize } from '$lib/features/script-editor/fontPreferences';
-import { DEFAULT_SCRIPT_SNIPPETS } from '$lib/features/script-editor/snippetPreferences';
+import { invokeCommand, tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { normalizeShortcutBindingMap } from '#lib/features/shortcuts/registry.ts';
+import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '#lib/features/ai/agentLimits.ts';
+import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
+import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, normalizeScriptEditorFontSize } from '#lib/features/script-editor/fontPreferences.ts';
+import { DEFAULT_SCRIPT_SNIPPETS } from '#lib/features/script-editor/snippetPreferences.ts';
 
 export interface AppSettingsPayload {
   apiBaseUrl: string;

@@ -1,18 +1,18 @@
 import { get } from 'svelte/store';
-import type { CardDataEntry } from '$lib/types';
-import { tauriBridge } from '$lib/infrastructure/tauri';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import {
   activeTabId,
   getCardsByIdsInTab,
   modifyCardsInTab,
   refreshSearchAfterMutation,
-} from '$lib/stores/db';
-import { getAllCardsMap, setSingleSelectedCard } from '$lib/stores/editor.svelte';
-import { showToast } from '$lib/stores/toast.svelte';
-import { cloneEditableCard, createEmptyCard } from '$lib/domain/card/draft';
-import { toPersistableCard } from '$lib/domain/card/draft';
-import { importCardImage } from '$lib/services/cardImageService';
-import { getValidatedCardCode } from '$lib/features/card-editor/useCases';
+} from '#lib/stores/db.ts';
+import { getAllCardsMap, setSingleSelectedCard } from '#lib/stores/editor.svelte.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { cloneEditableCard, createEmptyCard } from '#lib/domain/card/draft.ts';
+import { toPersistableCard } from '#lib/domain/card/draft.ts';
+import { importCardImage } from '#lib/services/cardImageService.ts';
+import { getValidatedCardCode } from '#lib/features/card-editor/useCases.ts';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 

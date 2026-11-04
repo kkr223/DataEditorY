@@ -1,30 +1,30 @@
 <script lang="ts">
   import { onMount, type Component } from 'svelte';
   import '../app.css';
-  import { setupI18n } from '$lib/i18n';
+  import { setupI18n } from '#lib/i18n/index.ts';
   import { _, isLoading } from 'svelte-i18n';
-  import { activeTab } from '$lib/stores/db';
-  import CardMenuTools from '$lib/features/context-menu/CardMenuTools.svelte';
-  import ContextMenu from '$lib/features/context-menu/ContextMenu.svelte';
-  import Toast from '$lib/components/Toast.svelte';
-  import AppTopBar from '$lib/features/shell/components/AppTopBar.svelte';
-  import AppTabBar from '$lib/features/shell/components/AppTabBar.svelte';
-  import FileDragOverlay from '$lib/features/shell/components/FileDragOverlay.svelte';
-  import AssetCheckDialog from '$lib/features/shell/components/dialogs/AssetCheckDialog.svelte';
-  import BatchCdbEditDialog from '$lib/features/shell/components/dialogs/BatchCdbEditDialog.svelte';
-  import CreateFilteredCdbDialog from '$lib/features/shell/components/dialogs/CreateFilteredCdbDialog.svelte';
-  import LuaReplaceDialog from '$lib/features/shell/components/dialogs/LuaReplaceDialog.svelte';
-  import MergeCdbDialog from '$lib/features/shell/components/dialogs/MergeCdbDialog.svelte';
-  import { createShellLayoutController } from '$lib/features/shell/layoutController.svelte';
-  import { createShellDialogsController } from '$lib/features/shell/dialogsController.svelte';
-  import { workspaceState } from '$lib/core/workspace/store.svelte';
+  import { activeTab } from '#lib/stores/db.ts';
+  import CardMenuTools from '#lib/features/context-menu/CardMenuTools.svelte';
+  import ContextMenu from '#lib/features/context-menu/ContextMenu.svelte';
+  import Toast from '#lib/components/Toast.svelte';
+  import AppTopBar from '#lib/features/shell/components/AppTopBar.svelte';
+  import AppTabBar from '#lib/features/shell/components/AppTabBar.svelte';
+  import FileDragOverlay from '#lib/features/shell/components/FileDragOverlay.svelte';
+  import AssetCheckDialog from '#lib/features/shell/components/dialogs/AssetCheckDialog.svelte';
+  import BatchCdbEditDialog from '#lib/features/shell/components/dialogs/BatchCdbEditDialog.svelte';
+  import CreateFilteredCdbDialog from '#lib/features/shell/components/dialogs/CreateFilteredCdbDialog.svelte';
+  import LuaReplaceDialog from '#lib/features/shell/components/dialogs/LuaReplaceDialog.svelte';
+  import MergeCdbDialog from '#lib/features/shell/components/dialogs/MergeCdbDialog.svelte';
+  import { createShellLayoutController } from '#lib/features/shell/layoutController.svelte.ts';
+  import { createShellDialogsController } from '#lib/features/shell/dialogsController.svelte.ts';
+  import { workspaceState } from '#lib/core/workspace/store.svelte.ts';
   import {
     openSettingsWorkspace,
     saveWorkspaceDocument,
     saveWorkspaceDocumentAs,
-  } from '$lib/application/workspace/commandBus';
-  import { startDocumentStateSync } from '$lib/platform/store.svelte';
-  import { documentRuntime } from '$lib/platform/appRuntime';
+  } from '#lib/application/workspace/commandBus.ts';
+  import { startDocumentStateSync } from '#lib/platform/store.svelte.ts';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
 
   setupI18n();
 

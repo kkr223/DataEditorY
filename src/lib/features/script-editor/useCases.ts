@@ -1,18 +1,18 @@
-import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { getCardByIdInTab, modifyCardsInTab } from '$lib/stores/db';
-import { reloadScriptTab, saveScriptTab } from '$lib/stores/scriptEditor.svelte';
-import { showToast } from '$lib/stores/toast.svelte';
-import { updateVisibleCards } from '$lib/stores/editor.svelte';
-import { writeErrorLog } from '$lib/utils/errorLog';
-import { writeImageBlobToClipboard } from '$lib/utils/imageClipboard';
-import { normalizeCardStrings } from '$lib/domain/card/draft';
-import { buildScriptImagePath } from '$lib/domain/script/workspace';
-import { appSettingsState } from '$lib/stores/appSettings.svelte';
-import { openScriptExternally } from '$lib/services/cardScriptService';
-import { writeBinaryFile } from '$lib/native/assetApi';
-import { normalizeScriptCardContext } from '$lib/features/script-editor/controller';
-import { isSameCdbPath } from '$lib/domain/script/tabIdentity';
+import type { CardDataEntry, ScriptWorkspaceState } from '#lib/types/index.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { getCardByIdInTab, modifyCardsInTab } from '#lib/stores/db.ts';
+import { reloadScriptTab, saveScriptTab } from '#lib/stores/scriptEditor.svelte.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { updateVisibleCards } from '#lib/stores/editor.svelte.ts';
+import { writeErrorLog } from '#lib/utils/errorLog.ts';
+import { writeImageBlobToClipboard } from '#lib/utils/imageClipboard.ts';
+import { normalizeCardStrings } from '#lib/domain/card/draft.ts';
+import { buildScriptImagePath } from '#lib/domain/script/workspace.ts';
+import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
+import { openScriptExternally } from '#lib/services/cardScriptService.ts';
+import { writeBinaryFile } from '#lib/native/assetApi.ts';
+import { normalizeScriptCardContext } from '#lib/features/script-editor/controller.ts';
+import { isSameCdbPath } from '#lib/domain/script/tabIdentity.ts';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -224,7 +224,7 @@ async function buildScriptImageBlob(input: {
   lineNumberStart?: number;
   renderInfo: ScriptImageRenderInfo;
 }) {
-  const imageRenderer = await import('$lib/features/card-image/scriptRenderer');
+  const imageRenderer = await import('#lib/features/card-image/scriptRenderer.ts');
   return imageRenderer.renderLuaCodeImageBlob(input.content, {
     title: input.renderInfo.title,
     metaLines: input.renderInfo.metaLines,

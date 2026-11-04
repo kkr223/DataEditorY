@@ -1,4 +1,4 @@
-import type { CardDataEntry } from '$lib/types';
+import type { CardDataEntry } from '#lib/types/index.ts';
 import { cloneCard } from './cardUtils';
 
 let clipboardCards = $state.raw<CardDataEntry[]>([]);

@@ -5,8 +5,8 @@ import {
   resolveWorkspaceLifecycleDocument,
   setWorkspaceLifecycleMetadata,
   shouldConfirmWorkspaceClose,
-} from '$lib/application/workspace/lifecycle';
-import type { DbWorkspaceDocument } from '$lib/core/workspace/types';
+} from '#lib/application/workspace/lifecycle.ts';
+import type { DbWorkspaceDocument } from '#lib/core/workspace/types.ts';
 
 function createWorkspaceDocument(overrides: Partial<DbWorkspaceDocument> = {}): DbWorkspaceDocument {
   return {

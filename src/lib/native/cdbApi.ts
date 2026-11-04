@@ -1,10 +1,10 @@
-import type { CardDataEntry, SearchFilters } from '$lib/types';
-import { documentRuntime } from '$lib/platform/appRuntime';
+import type { CardDataEntry, SearchFilters } from '#lib/types/index.ts';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
 import {
   compileBatchOperationChanges,
   type BatchFieldOperation,
   type BatchOperationGroup,
-} from '$lib/domain/card/batchOperations';
+} from '#lib/domain/card/batchOperations.ts';
 import {
   closeTab,
   createCdbFile,
@@ -17,19 +17,19 @@ import {
   saveCdbTabAs,
   searchCardsPageInTab,
   undoLastOperationInTab,
-} from '$lib/stores/db';
+} from '#lib/stores/db.ts';
 
 export {
   consumePendingOpenCdbPaths,
   createCdbFromCards,
-} from '$lib/infrastructure/tauri/commands';
+} from '#lib/infrastructure/tauri/commands.ts';
 
 export type CardPatch = {
   id: number;
   fields: Partial<CardDataEntry>;
 };
 
-export type { BatchFieldOperation, BatchOperationGroup } from '$lib/domain/card/batchOperations';
+export type { BatchFieldOperation, BatchOperationGroup } from '#lib/domain/card/batchOperations.ts';
 
 export type BatchOperationPreview = {
   previewId: string;

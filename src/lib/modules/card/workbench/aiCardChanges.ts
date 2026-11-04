@@ -1,5 +1,5 @@
-import type { CardDataEntry } from '$lib/types';
-import { cloneEditableCard } from '$lib/domain/card/draft';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import { cloneEditableCard } from '#lib/domain/card/draft.ts';
 import { normalizeCardPatch } from './aiProposalPayload';
 
 type CardChange = { cardCode: number; before: unknown; patch: unknown };

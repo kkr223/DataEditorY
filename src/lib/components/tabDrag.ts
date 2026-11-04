@@ -1,4 +1,4 @@
-import type { DocumentPlacement } from '$lib/platform/runtime';
+import type { DocumentPlacement } from '#lib/platform/runtime.ts';
 
 type TabDragOptions = {
   id: string;

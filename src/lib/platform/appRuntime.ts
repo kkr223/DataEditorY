@@ -3,8 +3,8 @@ import {
   readTextFile,
   writeBinaryFile,
   writeTextFile,
-} from '$lib/native/assetApi';
-import { builtInModules } from '$lib/modules/active';
+} from '#lib/native/assetApi.ts';
+import { builtInModules } from '#lib/modules/active.ts';
 import { DocumentRuntime } from './runtime';
 
 const codecContext = {

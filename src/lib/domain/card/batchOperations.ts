@@ -1,4 +1,4 @@
-import type { CardDataEntry } from '$lib/types';
+import type { CardDataEntry } from '#lib/types/index.ts';
 import { toPersistableCard } from './draft';
 
 export type BatchOperationGroup = {

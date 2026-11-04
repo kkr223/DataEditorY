@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ , locale } from 'svelte-i18n';
-  import type { RecentCdbEntry } from '$lib/stores/db';
-  import RecentHistoryPopover from '$lib/features/shell/components/RecentHistoryPopover.svelte';
+  import type { RecentCdbEntry } from '#lib/stores/db.ts';
+  import RecentHistoryPopover from '#lib/features/shell/components/RecentHistoryPopover.svelte';
 
   let {
     theme = 'dark',

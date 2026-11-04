@@ -1,6 +1,6 @@
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution.js';
-import { collectLuaInlineHighlights, type LuaInlineHighlightClassName } from '$lib/features/script-editor/lua/calls';
+import { collectLuaInlineHighlights, type LuaInlineHighlightClassName } from '#lib/features/script-editor/lua/calls.ts';
 
 type LuaEditorThemeSpec = {
   base: 'vs' | 'vs-dark';

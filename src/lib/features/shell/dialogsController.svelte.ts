@@ -1,17 +1,17 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { tauriBridge } from '$lib/infrastructure/tauri';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import {
   type BackgroundTaskProgressEvent,
   type MergeSourceItem,
   type AnalyzeCdbMergeResponse,
-} from '$lib/native/taskApi';
-import { activeTab } from '$lib/stores/db';
-import { showToast } from '$lib/stores/toast.svelte';
-import { createFilterCdbController } from '$lib/features/shell/filterCdbController';
-import { createMergeController } from '$lib/features/shell/mergeController';
-import { createPackageController } from '$lib/features/shell/packageController';
+} from '#lib/native/taskApi.ts';
+import { activeTab } from '#lib/stores/db.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { createFilterCdbController } from '#lib/features/shell/filterCdbController.ts';
+import { createMergeController } from '#lib/features/shell/mergeController.ts';
+import { createPackageController } from '#lib/features/shell/packageController.ts';
 import { createListenerScope } from './listenerScope';
 
 const activeTabState = fromStore(activeTab);

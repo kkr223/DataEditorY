@@ -1,14 +1,14 @@
 import { writable, get, derived } from 'svelte/store';
-import type { CardDataEntry, DbWorkspaceState, SearchFilters } from '$lib/types';
-import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import { tauriBridge } from '$lib/infrastructure/tauri';
+import type { CardDataEntry, DbWorkspaceState, SearchFilters } from '#lib/types/index.ts';
+import { DEFAULT_SEARCH_FILTERS } from '#lib/types/index.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { pushRecentCdbEntry } from './recentHistory';
 import { parseCachedFiltersJson, clearSourceFilterCacheForTab, refreshCachedSearchForTab } from './search';
-import { documentRuntime } from '$lib/platform/appRuntime';
-import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
-import { CDB_PROVIDER_ID } from '$lib/modules/cdb';
-import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
-import { writeErrorLog } from '$lib/utils/errorLog';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
+import { CARD_COLLECTION_TYPE } from '#lib/modules/card/index.ts';
+import { CDB_PROVIDER_ID } from '#lib/modules/cdb/index.ts';
+import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { writeErrorLog } from '#lib/utils/errorLog.ts';
 import {
   popUndoLabel,
   pushUndoLabel,
@@ -328,7 +328,7 @@ export async function undoLastOperationInTab(tabId: string, refreshCachedSearch 
     const result = await documentRuntime.undo(tab.id);
     if (!result.changed) return false;
 
-    const change = (result.value as import('$lib/modules/card').CardIdChangeResult | undefined)?.cardIdChange;
+    const change = (result.value as import('#lib/modules/card/index.ts').CardIdChangeResult | undefined)?.cardIdChange;
     if (change) {
       const { syncScriptTabsAfterCardIdChange } = await import('./scriptEditor.svelte');
       syncScriptTabsAfterCardIdChange(tab.id, change);
@@ -373,7 +373,7 @@ export async function saveCdbTabAs(tabId: string, path: string): Promise<boolean
     // Save As does not leave orphaned .dey files at the destination.
     if (sourcePath) {
       try {
-        const { copyWorkspaceMetadataForSaveAs } = await import('$lib/features/workspace-metadata/state.svelte');
+        const { copyWorkspaceMetadataForSaveAs } = await import('#lib/features/workspace-metadata/state.svelte.ts');
         await copyWorkspaceMetadataForSaveAs(sourcePath, targetPath);
       } catch (metadataError) {
         console.error('Failed to copy workspace metadata for Save As:', metadataError);

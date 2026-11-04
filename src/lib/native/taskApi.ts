@@ -1,18 +1,18 @@
-import { tauriBridge } from '$lib/infrastructure/tauri';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import {
   analyzeCdbMerge,
   collectMergeSourcesFromFolder,
   executeCdbMerge,
   packageCdbAssetsAsZip,
   type BackgroundTaskProgressEvent,
-} from '$lib/infrastructure/tauri/commands';
+} from '#lib/infrastructure/tauri/commands.ts';
 
 export type {
   AnalyzeCdbMergeResponse,
   BackgroundTaskProgressEvent,
   MergeSourceItem,
-} from '$lib/infrastructure/tauri/commands';
-import { documentRuntime } from '$lib/platform/appRuntime';
+} from '#lib/infrastructure/tauri/commands.ts';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
 import { applyBatchOperations } from './cdbApi';
 import { checkAssets } from './assetApi';
 import {

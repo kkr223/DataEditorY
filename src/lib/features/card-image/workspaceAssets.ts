@@ -1,5 +1,5 @@
-import { readImageFile } from '$lib/native/assetApi';
-import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
+import { readImageFile } from '#lib/native/assetApi.ts';
+import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 
 const WORKSPACE_ASSET_PREFIX = 'workspace-asset:';
 const WORKSPACE_ASSET_PATTERN = /^workspace-asset:(card-image\/\d+\/(?:art|foreground|rarity-mask)(?:-[a-f0-9]{64})?\.(png|jpg|webp|gif|bmp))$/;

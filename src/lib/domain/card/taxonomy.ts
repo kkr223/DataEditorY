@@ -1,4 +1,4 @@
-import type { BitOption, LinkMarkerOption, SelectOption } from '$lib/types';
+import type { BitOption, LinkMarkerOption, SelectOption } from '#lib/types/index.ts';
 
 export const TYPE_MAP: Record<string, number> = {
   monster: 0x1,

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { appShellState } from '$lib/stores/appShell.svelte';
-  import WorkbenchHost from '$lib/platform/components/WorkbenchHost.svelte';
+  import { appShellState } from '#lib/stores/appShell.svelte.ts';
+  import WorkbenchHost from '#lib/platform/components/WorkbenchHost.svelte';
 
-  let textEditorWorkbenchPromise: Promise<typeof import('$lib/components/TextEditorWorkbench.svelte')> | null = null;
+  let textEditorWorkbenchPromise: Promise<typeof import('#lib/components/TextEditorWorkbench.svelte')> | null = null;
 
   function loadTextEditorWorkbench() {
-    return textEditorWorkbenchPromise ??= import('$lib/components/TextEditorWorkbench.svelte');
+    return textEditorWorkbenchPromise ??= import('#lib/components/TextEditorWorkbench.svelte');
   }
 </script>
 

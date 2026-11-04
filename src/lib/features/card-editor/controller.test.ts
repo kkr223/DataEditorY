@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { CardDataEntry } from '$lib/types';
+import type { CardDataEntry } from '#lib/types/index.ts';
 import {
   buildSearchFiltersFromDraft,
   buildLoadedDraftState,
@@ -13,10 +13,10 @@ import {
   resolveSelectionNavigationTarget,
   shouldAutoCommitDraftForSelectionChange,
   stepBackDraftUndoHistory,
-} from '$lib/features/card-editor/controller';
-import { createCardSnapshot } from '$lib/domain/card/draft';
-import { LINK_MARKER_NAME_TO_BIT, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
-import { setPackedLevel } from '$lib/domain/card/draft';
+} from '#lib/features/card-editor/controller.ts';
+import { createCardSnapshot } from '#lib/domain/card/draft.ts';
+import { LINK_MARKER_NAME_TO_BIT, SUBTYPE_MAP, TYPE_MAP } from '#lib/domain/card/taxonomy.ts';
+import { setPackedLevel } from '#lib/domain/card/draft.ts';
 
 function createCard(overrides: Partial<CardDataEntry> = {}): CardDataEntry {
   return {

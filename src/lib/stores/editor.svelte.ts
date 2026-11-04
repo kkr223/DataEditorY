@@ -1,10 +1,10 @@
 import { get } from 'svelte/store';
 import { locale } from 'svelte-i18n';
-import { activeTabId, cacheActiveTabSelection, clearSourceFilterCacheForTab, onCachedSearchRefreshed, searchCardsPage } from '$lib/stores/db';
-import { getRuleExpressionErrorMessage, RuleExpressionError } from '$lib/domain/search/ruleExpression';
-import { showToast } from '$lib/stores/toast.svelte';
-import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import type { CardDataEntry, SearchFilters } from '$lib/types';
+import { activeTabId, cacheActiveTabSelection, clearSourceFilterCacheForTab, onCachedSearchRefreshed, searchCardsPage } from '#lib/stores/db.ts';
+import { getRuleExpressionErrorMessage, RuleExpressionError } from '#lib/domain/search/ruleExpression.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { DEFAULT_SEARCH_FILTERS } from '#lib/types/index.ts';
+import type { CardDataEntry, SearchFilters } from '#lib/types/index.ts';
 
 // allCards is a large array (potentially 10k+ items) that is only used for
 // read-only rendering in CardList. Using $state.raw avoids Svelte 5's deep

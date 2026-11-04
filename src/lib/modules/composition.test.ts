@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { ExtensionRegistry } from '$lib/platform';
+import { ExtensionRegistry } from '#lib/platform/index.ts';
 import { builtInModules as baseModules } from './base';
 import { builtInModules as extraModules } from './extra';
 

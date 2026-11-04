@@ -1,5 +1,5 @@
-import { loadWorkspaceMetadata, saveWorkspaceMetadata, type WorkspaceMetadata } from '$lib/native/metadataApi';
-import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+import { loadWorkspaceMetadata, saveWorkspaceMetadata, type WorkspaceMetadata } from '#lib/native/metadataApi.ts';
+import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
 
 const METADATA_SAVE_DELAY_MS = 700;
 

@@ -1,42 +1,42 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { activeTabId, tabs } from '$lib/stores/db';
-  import { editorState, getSelectedCard } from '$lib/stores/editor.svelte';
+  import { activeTabId, tabs } from '#lib/stores/db.ts';
+  import { editorState, getSelectedCard } from '#lib/stores/editor.svelte.ts';
   import {
     activeScriptTab,
-  } from '$lib/stores/scriptEditor.svelte';
-  import type { CardDataEntry } from '$lib/types';
-  import { getScriptTabTitle as getScriptFileTitle } from '$lib/domain/script/workspace';
+  } from '#lib/stores/scriptEditor.svelte.ts';
+  import type { CardDataEntry } from '#lib/types/index.ts';
+  import { getScriptTabTitle as getScriptFileTitle } from '#lib/domain/script/workspace.ts';
   import {
     openScriptExternallyFlow,
     reloadScriptEditorFlow,
     saveScriptEditorFlow,
     shareScriptImageFlow,
-  } from '$lib/features/script-editor/useCases';
-  import { buildScriptImageRenderInfo } from '$lib/features/script-editor/view';
-  import { openCardScriptWorkspace } from '$lib/services/cardScriptService';
-  import { sortLuaDiagnosticsByLocation } from '$lib/features/script-editor/controller';
-  import ScriptEmptyState from '$lib/features/script-editor/components/ScriptEmptyState.svelte';
-  import ScriptDiagnosticsOverlay from '$lib/features/script-editor/components/ScriptDiagnosticsOverlay.svelte';
-  import ScriptHintOverlays from '$lib/features/script-editor/components/ScriptHintOverlays.svelte';
-  import ScriptReferenceOverlay from '$lib/features/script-editor/components/ScriptReferenceOverlay.svelte';
-  import ScriptSidePanel from '$lib/features/script-editor/components/ScriptSidePanel.svelte';
-  import ScriptToolbar from '$lib/features/script-editor/components/ScriptToolbar.svelte';
+  } from '#lib/features/script-editor/useCases.ts';
+  import { buildScriptImageRenderInfo } from '#lib/features/script-editor/view.ts';
+  import { openCardScriptWorkspace } from '#lib/services/cardScriptService.ts';
+  import { sortLuaDiagnosticsByLocation } from '#lib/features/script-editor/controller.ts';
+  import ScriptEmptyState from '#lib/features/script-editor/components/ScriptEmptyState.svelte';
+  import ScriptDiagnosticsOverlay from '#lib/features/script-editor/components/ScriptDiagnosticsOverlay.svelte';
+  import ScriptHintOverlays from '#lib/features/script-editor/components/ScriptHintOverlays.svelte';
+  import ScriptReferenceOverlay from '#lib/features/script-editor/components/ScriptReferenceOverlay.svelte';
+  import ScriptSidePanel from '#lib/features/script-editor/components/ScriptSidePanel.svelte';
+  import ScriptToolbar from '#lib/features/script-editor/components/ScriptToolbar.svelte';
   import ScriptEditorCore, {
     type ScriptEditorCoreHintState,
     type ScriptEditorCoreReferenceState,
-  } from '$lib/features/script-editor/components/ScriptEditorCore.svelte';
-  import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded, type LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
-  import WorkbenchContributions from '$lib/platform/components/WorkbenchContributions.svelte';
-  import type { LuaWorkbenchContext } from '$lib/modules/lua/workbench/context';
+  } from '#lib/features/script-editor/components/ScriptEditorCore.svelte';
+  import { analyzeLuaScript, ensureLuaDiagnosticsCatalogLoaded, type LuaScriptDiagnostic } from '#lib/features/script-editor/lua/diagnostics.ts';
+  import WorkbenchContributions from '#lib/platform/components/WorkbenchContributions.svelte';
+  import type { LuaWorkbenchContext } from '#lib/modules/lua/workbench/context.ts';
 
   type ScriptEditorCoreHandle = {
-    getScriptImageSelection: () => import('$lib/features/script-editor/useCases').ScriptImageSelection | null;
+    getScriptImageSelection: () => import('#lib/features/script-editor/useCases.ts').ScriptImageSelection | null;
     insertStringId: (index: number) => void;
     updateStringInput: (index: number, value: string) => void;
     persistString: (index: number) => Promise<void>;
     closeReferenceOverlay: () => void;
-    insertReferenceItem: (item: import('$lib/features/script-editor/lua/reference').LuaReferenceManualItem) => void;
+    insertReferenceItem: (item: import('#lib/features/script-editor/lua/reference.ts').LuaReferenceManualItem) => void;
     revealDiagnosticLocation: (diagnostic: Pick<LuaScriptDiagnostic, 'startLineNumber' | 'startColumn' | 'endLineNumber' | 'endColumn'>) => void;
   };
 

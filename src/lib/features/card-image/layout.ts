@@ -1,4 +1,4 @@
-import type { CardDataEntry } from "$lib/types";
+import type { CardDataEntry } from "#lib/types/index.ts";
 import { getRarityFramePreset, resolveRarityEffect, YUGIOH_FRAME_STYLES, YUGIOH_RARITY_EFFECTS, type YugiohFrameStyle, type YugiohRarityEffect } from "yugioh-card-ts/document";
 import { YUGIOH_LEVEL_ALIGNS, YUGIOH_LEVEL_STYLES, type YugiohLevelAlign, type YugiohLevelStyle } from "yugioh-card-ts/document";
 import {

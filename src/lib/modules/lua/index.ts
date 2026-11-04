@@ -1,4 +1,4 @@
-import { MemoryDocumentProvider, type ExtensionModule } from '$lib/platform';
+import { MemoryDocumentProvider, type ExtensionModule } from '#lib/platform/index.ts';
 import { LUA_SCRIPT_TYPE, validateLuaScriptDocument } from './types';
 
 export const LUA_MEMORY_PROVIDER_ID = 'lua.memory-provider';

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { createScriptDocumentSync } from '$lib/features/script-editor/documentSync';
+import { createScriptDocumentSync } from '#lib/features/script-editor/documentSync.ts';
 
 const wait = (duration: number) => new Promise((resolve) => setTimeout(resolve, duration));
 

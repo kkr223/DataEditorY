@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { showToast } from '$lib/stores/toast.svelte';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
   import { getWorkspaceSearchController } from './state';
   import { openWorkspaceSearchMatch } from './navigation';
   import SearchResults from './SearchResults.svelte';

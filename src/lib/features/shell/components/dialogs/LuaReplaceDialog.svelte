@@ -1,17 +1,17 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
-  import { activeTab } from '$lib/stores/db';
-  import { showToast } from '$lib/stores/toast.svelte';
-  import { tauriBridge } from '$lib/infrastructure/tauri';
+  import { activeTab } from '#lib/stores/db.ts';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
+  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
   import {
     type LuaReplacePreview,
     type LuaReplaceRequest,
-  } from '$lib/native/scriptApi';
-  import { startTask } from '$lib/native/taskApi';
-  import { appendWorkspaceTaskHistory } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
-  import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
-  import { getScriptTabsForCdb, reloadScriptTab } from '$lib/stores/scriptEditor.svelte';
+  } from '#lib/native/scriptApi.ts';
+  import { startTask } from '#lib/native/taskApi.ts';
+  import { appendWorkspaceTaskHistory } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
+  import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+  import { getScriptTabsForCdb, reloadScriptTab } from '#lib/stores/scriptEditor.svelte.ts';
 
   let {
     open = false,

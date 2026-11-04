@@ -6,29 +6,29 @@
     clearWorkspaceSaveHandler,
     setWorkspaceLifecycleMetadata,
     setWorkspaceSaveHandler,
-  } from '$lib/application/workspace/lifecycle';
+  } from '#lib/application/workspace/lifecycle.ts';
   import {
     createSettingsFormState,
     hydrateSettingsForm,
     isSettingsFormDirty,
-  } from '$lib/features/settings/controller';
+  } from '#lib/features/settings/controller.ts';
   import {
     clearCoverImageFlow,
     openErrorLogFlow,
     pickCoverImageFlow,
     saveSettingsFlow,
-  } from '$lib/features/settings/useCases';
-  import SettingsCoverAndLog from '$lib/features/settings/components/SettingsCoverAndLog.svelte';
-  import SettingsHeader from '$lib/features/settings/components/SettingsHeader.svelte';
-  import SettingsPackageCard from '$lib/features/settings/components/SettingsPackageCard.svelte';
-  import SettingsShortcutsCard from '$lib/features/settings/components/SettingsShortcutsCard.svelte';
-  import SettingsTemplateCard from '$lib/features/settings/components/SettingsTemplateCard.svelte';
-  import SettingsSnippetsCard from '$lib/features/settings/components/SettingsSnippetsCard.svelte';
-  import SettingsSections from '$lib/platform/components/SettingsSections.svelte';
-  import type { SettingsWorkbenchContext } from '$lib/modules/settings/workbench/context';
-  import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
-  import { showToast } from '$lib/stores/toast.svelte';
-  import { SETTINGS_WORKSPACE_ID } from '$lib/core/workspace/store.svelte';
+  } from '#lib/features/settings/useCases.ts';
+  import SettingsCoverAndLog from '#lib/features/settings/components/SettingsCoverAndLog.svelte';
+  import SettingsHeader from '#lib/features/settings/components/SettingsHeader.svelte';
+  import SettingsPackageCard from '#lib/features/settings/components/SettingsPackageCard.svelte';
+  import SettingsShortcutsCard from '#lib/features/settings/components/SettingsShortcutsCard.svelte';
+  import SettingsTemplateCard from '#lib/features/settings/components/SettingsTemplateCard.svelte';
+  import SettingsSnippetsCard from '#lib/features/settings/components/SettingsSnippetsCard.svelte';
+  import SettingsSections from '#lib/platform/components/SettingsSections.svelte';
+  import type { SettingsWorkbenchContext } from '#lib/modules/settings/workbench/context.ts';
+  import { appSettingsState, loadAppSettings } from '#lib/stores/appSettings.svelte.ts';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
+  import { SETTINGS_WORKSPACE_ID } from '#lib/core/workspace/store.svelte.ts';
 
   const form = $state(createSettingsFormState());
   let isHydrated = $state(false);

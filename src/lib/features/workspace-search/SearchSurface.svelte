@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { activeTab } from '$lib/stores/db';
+  import { activeTab } from '#lib/stores/db.ts';
   import SearchPanel from './SearchPanel.svelte';
 </script>
 

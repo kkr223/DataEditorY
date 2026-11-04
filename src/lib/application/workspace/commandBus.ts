@@ -6,7 +6,7 @@ import {
   activateEditorView,
   closeSettingsView,
   openSettingsView,
-} from '$lib/stores/appShell.svelte';
+} from '#lib/stores/appShell.svelte.ts';
 import {
   activeTabId,
   closeTab,
@@ -15,7 +15,7 @@ import {
   saveCdbTab,
   saveCdbTabAs,
   tabs,
-} from '$lib/stores/db';
+} from '#lib/stores/db.ts';
 import {
   activateScriptTab,
   closeScriptTab,
@@ -24,32 +24,32 @@ import {
   saveScriptTab,
   scriptTabs,
   activeScriptTabId,
-} from '$lib/stores/scriptEditor.svelte';
-import { tauriBridge } from '$lib/infrastructure/tauri';
+} from '#lib/stores/scriptEditor.svelte.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import {
   SETTINGS_WORKSPACE_ID,
   getActiveWorkspaceDocument,
   getWorkspaceDocument,
-} from '$lib/core/workspace/store.svelte';
+} from '#lib/core/workspace/store.svelte.ts';
 import {
   clearWorkspaceLifecycleMetadata,
   confirmWorkspaceClose,
   tryRunWorkspaceSaveHandler,
-} from '$lib/application/workspace/lifecycle';
-import { documentRuntime } from '$lib/platform/appRuntime';
+} from '#lib/application/workspace/lifecycle.ts';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
 import {
   SETTINGS_PROVIDER_ID,
   SETTINGS_TYPE,
-} from '$lib/modules/settings';
-import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
-import { clearWorkspaceCardDraft } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
+} from '#lib/modules/settings/index.ts';
+import { CARD_IMAGE_CONFIG_TYPE } from '#lib/modules/card-image/constants.ts';
+import { clearWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
 import {
   activateTextTab,
   closeTextTab,
   isTextWorkspace,
   saveTextTab,
   saveTextTabAs,
-} from '$lib/stores/textEditor.svelte';
+} from '#lib/stores/textEditor.svelte.ts';
 
 function isScriptWorkspace(id: string) {
   return get(scriptTabs).some((tab) => tab.id === id);

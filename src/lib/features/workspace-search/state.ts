@@ -1,11 +1,11 @@
 import { get } from 'svelte/store';
-import { activeTab } from '$lib/stores/db';
-import { scriptTabs } from '$lib/stores/scriptEditor.svelte';
-import { documentRuntime } from '$lib/platform/appRuntime';
-import { isScriptTabOwnedByCdb } from '$lib/domain/script/tabIdentity';
-import { commitWorkspaceCardDraft } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
-import { cardSurfaceState } from '$lib/modules/card/workbench/surfaceState.svelte';
-import { searchWorkspace } from '$lib/native/workspaceSearchApi';
+import { activeTab } from '#lib/stores/db.ts';
+import { scriptTabs } from '#lib/stores/scriptEditor.svelte.ts';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
+import { isScriptTabOwnedByCdb } from '#lib/domain/script/tabIdentity.ts';
+import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
+import { cardSurfaceState } from '#lib/modules/card/workbench/surfaceState.svelte.ts';
+import { searchWorkspace } from '#lib/native/workspaceSearchApi.ts';
 import { createWorkspaceSearchController } from './controller';
 
 const sessions = new Map<string, { path: string; controller: ReturnType<typeof createWorkspaceSearchController> }>();

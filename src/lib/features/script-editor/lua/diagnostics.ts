@@ -1,4 +1,4 @@
-import { luaCatalog as defaultLuaCatalog } from '$lib/data/lua-intel/catalog.generated';
+import { luaCatalog as defaultLuaCatalog } from '#lib/data/lua-intel/catalog.generated.ts';
 import { loadExternalLuaCatalog } from './catalog';
 import {
   getDiagnostics,
@@ -6,7 +6,7 @@ import {
   type LuaScriptDiagnostic,
   type LuaSemanticTextModel,
 } from './semantic';
-import type { LuaCatalog } from '$lib/types';
+import type { LuaCatalog } from '#lib/types/index.ts';
 
 let luaCatalog: LuaCatalog = defaultLuaCatalog;
 let catalogLoadPromise: Promise<void> | null = null;

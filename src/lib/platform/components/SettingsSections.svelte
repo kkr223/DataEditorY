@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Component } from 'svelte';
-  import { documentRuntime } from '$lib/platform/appRuntime';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
   import { loadExtensionComponents } from './loadExtensionComponents';
 
   let { context }: { context: unknown } = $props();

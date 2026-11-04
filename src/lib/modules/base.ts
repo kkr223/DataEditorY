@@ -1,4 +1,4 @@
-import type { ExtensionModule } from '$lib/platform';
+import type { ExtensionModule } from '#lib/platform/index.ts';
 import { aiModule } from './ai';
 import { cardModule } from './card';
 import { cdbModule } from './cdb';

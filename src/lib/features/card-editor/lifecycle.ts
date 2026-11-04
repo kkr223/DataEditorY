@@ -1,16 +1,16 @@
-import { showToast } from '$lib/stores/toast.svelte';
-import { loadPopularSetcodes } from '$lib/services/setcodeCatalog';
-import { getSetcode } from '$lib/domain/card/setcode';
-import { cloneEditableCard, cloneLoadedCardForEditing, createCardSnapshot } from '$lib/domain/card/draft';
-import { APP_SHORTCUT_EVENT } from '$lib/utils/shortcuts';
-import { resolveCardImageSrc } from '$lib/services/cardImageService';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { loadPopularSetcodes } from '#lib/services/setcodeCatalog.ts';
+import { getSetcode } from '#lib/domain/card/setcode.ts';
+import { cloneEditableCard, cloneLoadedCardForEditing, createCardSnapshot } from '#lib/domain/card/draft.ts';
+import { APP_SHORTCUT_EVENT } from '#lib/utils/shortcuts.ts';
+import { resolveCardImageSrc } from '#lib/services/cardImageService.ts';
 import {
   clearWorkspaceSaveHandler,
   confirmDirtyPrompt,
   setWorkspaceLifecycleMetadata,
   setWorkspaceSaveHandler,
-} from '$lib/application/workspace/lifecycle';
-import type { CardDataEntry } from '$lib/types';
+} from '#lib/application/workspace/lifecycle.ts';
+import type { CardDataEntry } from '#lib/types/index.ts';
 import {
   buildEmptyDraftState,
   buildLoadedDraftState,

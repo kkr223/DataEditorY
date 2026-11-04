@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import type { WorkspaceAiPatch, WorkspaceAiProposal } from '$lib/features/ai/types';
+  import type { WorkspaceAiPatch, WorkspaceAiProposal } from '#lib/features/ai/types.ts';
 
   let { proposals, cdbName, onApply }: {
     proposals: WorkspaceAiProposal[];

@@ -1,18 +1,18 @@
-import type { CardDataEntry } from '$lib/types';
+import type { CardDataEntry } from '#lib/types/index.ts';
 import type {
   CardCollectionQuery,
   CardSearchPage,
-} from '$lib/modules/card';
+} from '#lib/modules/card/index.ts';
 import type {
   WorkspaceAiMessage,
   WorkspaceAiPatch,
   WorkspaceAiProposal,
   WorkspaceAiToolRun,
-} from '$lib/features/ai/types';
-import { pathExists, readTextFile, writeTextFile } from '$lib/native/assetApi';
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
-import { normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
+} from '#lib/features/ai/types.ts';
+import { pathExists, readTextFile, writeTextFile } from '#lib/native/assetApi.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { normalizeAgentMaxSteps } from '#lib/features/ai/agentLimits.ts';
 import { createScriptBaseline } from './scriptBaseline';
 
 type AiRole = 'system' | 'user' | 'assistant' | 'tool';

@@ -1,16 +1,16 @@
 import { get } from 'svelte/store';
-import type { CardDataEntry, SearchFilters } from '$lib/types';
-import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import { parseDeckTextToCardIds, splitSourceTerms } from '$lib/domain/search/sourceFilters';
-import { RuleExpressionError } from '$lib/domain/search/ruleExpression';
-import { listImageFolderEntries } from '$lib/native/assetApi';
-import { documentRuntime } from '$lib/platform/appRuntime';
-import { refreshAfterMutation } from '$lib/features/card-editor/mutationRefresh';
+import type { CardDataEntry, SearchFilters } from '#lib/types/index.ts';
+import { DEFAULT_SEARCH_FILTERS } from '#lib/types/index.ts';
+import { parseDeckTextToCardIds, splitSourceTerms } from '#lib/domain/search/sourceFilters.ts';
+import { RuleExpressionError } from '#lib/domain/search/ruleExpression.ts';
+import { listImageFolderEntries } from '#lib/native/assetApi.ts';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
+import { refreshAfterMutation } from '#lib/features/card-editor/mutationRefresh.ts';
 import {
   buildCardSearchExpression,
   type CardCollectionQuery,
   type CardSearchPage,
-} from '$lib/modules/card';
+} from '#lib/modules/card/index.ts';
 import { cloneCards } from './cardUtils';
 import { activeTab, tabs } from './tabs';
 

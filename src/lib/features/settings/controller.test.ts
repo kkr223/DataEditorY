@@ -7,8 +7,8 @@ import {
   isSettingsFormDirty,
   shouldAutoConnectSettings,
   validateSettingsForm,
-} from '$lib/features/settings/controller';
-import { createDefaultShortcutBindingMap } from '$lib/features/shortcuts/registry';
+} from '#lib/features/settings/controller.ts';
+import { createDefaultShortcutBindingMap } from '#lib/features/shortcuts/registry.ts';
 
 const DEFAULT_SHORTCUT_BINDINGS = createDefaultShortcutBindingMap();
 

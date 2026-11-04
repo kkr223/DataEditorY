@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { openCardMenu } from "$lib/features/context-menu/cardMenu";
+  import { openCardMenu } from "#lib/features/context-menu/cardMenu.ts";
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { isDbLoaded } from '$lib/stores/db';
-  import { readTextFile } from '$lib/native/assetApi';
-  import { tauriBridge } from '$lib/infrastructure/tauri';
+  import { isDbLoaded } from '#lib/stores/db.ts';
+  import { readTextFile } from '#lib/native/assetApi.ts';
+  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
   import {
     clearSearchError,
     editorState,
@@ -15,13 +15,13 @@
     selectCardRange,
     setSingleSelectedCard,
     toggleCardSelection
-  } from '$lib/stores/editor.svelte';
-  import { getCardTypeKey, RACE_OPTIONS } from '$lib/domain/card/taxonomy';
-  import { SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
-  import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from '$lib/utils/shortcuts';
-  import { disableAutofill } from '$lib/actions/disableAutofill';
-  import { appSettingsState } from '$lib/stores/appSettings.svelte';
-  import { isShortcutEvent } from '$lib/features/shortcuts/registry';
+  } from '#lib/stores/editor.svelte.ts';
+  import { getCardTypeKey, RACE_OPTIONS } from '#lib/domain/card/taxonomy.ts';
+  import { SUBTYPE_MAP, TYPE_MAP } from '#lib/domain/card/taxonomy.ts';
+  import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from '#lib/utils/shortcuts.ts';
+  import { disableAutofill } from '#lib/actions/disableAutofill.ts';
+  import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
+  import { isShortcutEvent } from '#lib/features/shortcuts/registry.ts';
 
   const PAGE_SIZE = 50;
   const VIRTUAL_ROW_HEIGHT = 30;

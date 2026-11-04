@@ -1,4 +1,4 @@
-import { MemoryDocumentProvider, type ExtensionModule } from '$lib/platform';
+import { MemoryDocumentProvider, type ExtensionModule } from '#lib/platform/index.ts';
 
 export const SETTINGS_TYPE = 'dataeditory.settings';
 export const SETTINGS_PROVIDER_ID = 'settings.memory-provider';

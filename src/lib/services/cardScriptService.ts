@@ -1,13 +1,13 @@
-import { buildScriptFileName, normalizeScriptContent } from '$lib/domain/script/workspace';
+import { buildScriptFileName, normalizeScriptContent } from '#lib/domain/script/workspace.ts';
 import {
   getCardScriptInfo,
   openInDefaultApp,
   openInSystemEditor,
   readCardScriptDocument,
   saveCardScriptDocument,
-} from '$lib/native/scriptApi';
-import { getOpenScriptTab, openOrCreateScriptTab, saveScriptTab } from '$lib/stores/scriptEditor.svelte';
-import { buildTemplateContent } from '$lib/features/script-editor/template';
+} from '#lib/native/scriptApi.ts';
+import { getOpenScriptTab, openOrCreateScriptTab, saveScriptTab } from '#lib/stores/scriptEditor.svelte.ts';
+import { buildTemplateContent } from '#lib/features/script-editor/template.ts';
 
 export async function getExistingCardScriptInfo(
   cdbPath: string,

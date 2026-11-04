@@ -455,7 +455,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 **环境要求**：
 
-- Node.js 20.19+ 或 22.12+
+- Node.js 22.17+（SvelteKit 3 的最低要求，推荐与 CI 一样使用 Node.js 24）
 - Bun（包管理器和运行环境）
 - Rust 1.90+ 工具链（Tauri 2.12 的最低要求）
 - Tauri 2 系统依赖（参考 [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)）
@@ -565,7 +565,7 @@ DataEditorY/
 
 | 层 | 技术 |
 |----|------|
-| 前端框架 | Svelte 5 + SvelteKit (SPA) |
+| 前端框架 | Svelte 5 + SvelteKit 3 (SPA) |
 | 前端语言 | TypeScript 6 |
 | 构建工具 | Vite 8 |
 | 桌面框架 | Tauri 2.12 |

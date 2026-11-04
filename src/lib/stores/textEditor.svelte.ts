@@ -1,12 +1,12 @@
 import { writable, derived, get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { readTextFile, writeTextFile } from '$lib/native/assetApi';
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { activateTextView, activateEditorView } from '$lib/stores/appShell.svelte';
-import { showToast } from '$lib/stores/toast.svelte';
-import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
-import { disposeWorkspaceLifecycle, setWorkspaceSaveHandler } from '$lib/application/workspace/lifecycle';
-import { disposeTextTabModel } from '$lib/features/script-editor/monaco/textModels';
+import { readTextFile, writeTextFile } from '#lib/native/assetApi.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { activateTextView, activateEditorView } from '#lib/stores/appShell.svelte.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { disposeWorkspaceLifecycle, setWorkspaceSaveHandler } from '#lib/application/workspace/lifecycle.ts';
+import { disposeTextTabModel } from '#lib/features/script-editor/monaco/textModels.ts';
 
 export type TextTab = {
   id: string;

@@ -4,7 +4,7 @@
     flushAllWorkspaceMetadataSaves,
     loadWorkspaceMetadataForPath,
     workspaceMetadataState,
-  } from '$lib/features/workspace-metadata/state.svelte';
+  } from '#lib/features/workspace-metadata/state.svelte.ts';
 
   let retrying = $state(false);
   const saveErrors = $derived(Object.values(workspaceMetadataState.saveErrors));

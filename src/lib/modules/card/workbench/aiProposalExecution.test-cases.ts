@@ -1,7 +1,7 @@
 import * as bunTest from 'bun:test';
-import { createEmptyCard } from '$lib/domain/card/draft';
-import { createScriptBaseline } from '$lib/features/ai/scriptBaseline';
-import type { WorkspaceAiPatch } from '$lib/features/ai/types';
+import { createEmptyCard } from '#lib/domain/card/draft.ts';
+import { createScriptBaseline } from '#lib/features/ai/scriptBaseline.ts';
+import type { WorkspaceAiPatch } from '#lib/features/ai/types.ts';
 
 const { test, expect } = bunTest;
 const mock = (bunTest as unknown as {
@@ -16,7 +16,7 @@ const savedScripts: string[] = [];
 let diskReads = 0;
 let diskWrites = 0;
 let scriptOwner: unknown[] = [];
-mock.module('$lib/platform/appRuntime', () => ({
+mock.module('#lib/platform/appRuntime.ts', () => ({
   documentRuntime: {
     snapshot: { documents },
     query: async (id: string) => { expect(id).toBe('reopened'); return card; },
@@ -24,9 +24,9 @@ mock.module('$lib/platform/appRuntime', () => ({
     getDocument: () => ({ revision: 7 }),
   },
 }));
-mock.module('$lib/stores/tabs', () => ({ recordUndoLabel() {} }));
-mock.module('$lib/stores/search', () => ({ refreshCachedSearchForTab: async () => true }));
-mock.module('$lib/stores/scriptEditor.svelte', () => ({
+mock.module('#lib/stores/tabs.ts', () => ({ recordUndoLabel() {} }));
+mock.module('#lib/stores/search.ts', () => ({ refreshCachedSearchForTab: async () => true }));
+mock.module('#lib/stores/scriptEditor.svelte.ts', () => ({
   getOpenScriptTab: (...args: unknown[]) => { scriptOwner = args; return scriptTab; },
   getScriptTabsForCdb: () => [scriptTab],
   updateScriptTabContent: (id: string, content: string) => {
@@ -35,7 +35,7 @@ mock.module('$lib/stores/scriptEditor.svelte', () => ({
   },
   saveScriptTab: async (id: string) => { savedScripts.push(id); return true; },
 }));
-mock.module('$lib/native/assetApi', () => ({
+mock.module('#lib/native/assetApi.ts', () => ({
   pathExists: async () => true,
   readTextFile: async () => { diskReads++; return '-- disk'; },
   writeTextFile: async () => { diskWrites++; },

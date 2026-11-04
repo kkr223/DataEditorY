@@ -1,18 +1,18 @@
 <script lang="ts">
-  import { registerCardDraftCommitter } from "$lib/modules/card/workbench/cardDraftWorkspaceState.svelte";
+  import { registerCardDraftCommitter } from "#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts";
   import { onDestroy, onMount, untrack } from "svelte";
   import { _ } from "svelte-i18n";
-  import { activeTab, activeTabId, isDbLoaded, saveCdbTab, saveCdbTabAs } from "$lib/stores/db";
-  import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleReset, handleSearch, setSingleSelectedCard } from "$lib/stores/editor.svelte";
-  import { showToast } from "$lib/stores/toast.svelte";
-  import type { CardDataEntry } from "$lib/types";
-  import { normalizeSetcodeHex, updateSetcode } from "$lib/domain/card/setcode";
-  import { cloneEditableCard, createCardSnapshot, createEmptyCard, getPackedLevel, normalizeEditableScaleValue, setPackedLevel } from "$lib/domain/card/draft";
-  import { dispatchAppShortcut } from "$lib/utils/shortcuts";
-  import { isEditableTarget, isNativeTextUndoTarget } from "$lib/features/shell/controller";
-  import { shellBackgroundTaskState } from "$lib/features/shell/dialogsController.svelte";
-  import { appSettingsState } from "$lib/stores/appSettings.svelte";
-  import { isShortcutEvent } from "$lib/features/shortcuts/registry";
+  import { activeTab, activeTabId, isDbLoaded, saveCdbTab, saveCdbTabAs } from "#lib/stores/db.ts";
+  import { clearSelection, editorState, getAllCards, getAllCardsMap, getTotalCards, handleReset, handleSearch, setSingleSelectedCard } from "#lib/stores/editor.svelte.ts";
+  import { showToast } from "#lib/stores/toast.svelte.ts";
+  import type { CardDataEntry } from "#lib/types/index.ts";
+  import { normalizeSetcodeHex, updateSetcode } from "#lib/domain/card/setcode.ts";
+  import { cloneEditableCard, createCardSnapshot, createEmptyCard, getPackedLevel, normalizeEditableScaleValue, setPackedLevel } from "#lib/domain/card/draft.ts";
+  import { dispatchAppShortcut } from "#lib/utils/shortcuts.ts";
+  import { isEditableTarget, isNativeTextUndoTarget } from "#lib/features/shell/controller.ts";
+  import { shellBackgroundTaskState } from "#lib/features/shell/dialogsController.svelte.ts";
+  import { appSettingsState } from "#lib/stores/appSettings.svelte.ts";
+  import { isShortcutEvent } from "#lib/features/shortcuts/registry.ts";
   import {
     CARD_LIST_PAGE_SIZE,
     createCardImageInteractionController,
@@ -23,24 +23,24 @@
     shouldAutoCommitDraftForSelectionChange,
     stepBackDraftUndoHistory,
     type DraftUndoEntry,
-  } from "$lib/features/card-editor/controller";
-  import { deleteDraftCardFlow, modifyDraftCardFlow, saveAsDraftCardFlow, saveDraftCardFlow } from "$lib/features/card-editor/useCases";
-  import { pickCardImageFlow } from "$lib/features/card-editor/extraUseCases";
-  import { createCardEditorLifecycleController, setupCardEditorOnMount, syncDefaultCoverSourceEffect, syncLoadedDraftEffect, syncWorkspaceLifecycleEffect, teardownCardEditorOnDestroy, trackDraftUndoEffect } from "$lib/features/card-editor/lifecycle";
-  import { handleResetSearch, handleSearchFromDraft } from "$lib/features/card-editor/searchController";
-  import CardEditorFooter from "$lib/features/card-editor/components/CardEditorFooter.svelte";
-  import CardEditorForm from "$lib/features/card-editor/components/CardEditorForm.svelte";
-  import CardEditorHeader from "$lib/features/card-editor/components/CardEditorHeader.svelte";
-  import CardImagePreview from "$lib/features/card-editor/components/CardImagePreview.svelte";
-  import WorkbenchContributions from "$lib/platform/components/WorkbenchContributions.svelte";
-  import { documentRuntime } from "$lib/platform/appRuntime";
-  import type { CardWorkbenchContext } from "$lib/modules/card/workbench/context";
-  import { aiProposalApplicationState, consumeAiCardDraftPatch } from "$lib/modules/card/workbench/aiProposalApplication.svelte";
+  } from "#lib/features/card-editor/controller.ts";
+  import { deleteDraftCardFlow, modifyDraftCardFlow, saveAsDraftCardFlow, saveDraftCardFlow } from "#lib/features/card-editor/useCases.ts";
+  import { pickCardImageFlow } from "#lib/features/card-editor/extraUseCases.ts";
+  import { createCardEditorLifecycleController, setupCardEditorOnMount, syncDefaultCoverSourceEffect, syncLoadedDraftEffect, syncWorkspaceLifecycleEffect, teardownCardEditorOnDestroy, trackDraftUndoEffect } from "#lib/features/card-editor/lifecycle.ts";
+  import { handleResetSearch, handleSearchFromDraft } from "#lib/features/card-editor/searchController.ts";
+  import CardEditorFooter from "#lib/features/card-editor/components/CardEditorFooter.svelte";
+  import CardEditorForm from "#lib/features/card-editor/components/CardEditorForm.svelte";
+  import CardEditorHeader from "#lib/features/card-editor/components/CardEditorHeader.svelte";
+  import CardImagePreview from "#lib/features/card-editor/components/CardImagePreview.svelte";
+  import WorkbenchContributions from "#lib/platform/components/WorkbenchContributions.svelte";
+  import { documentRuntime } from "#lib/platform/appRuntime.ts";
+  import type { CardWorkbenchContext } from "#lib/modules/card/workbench/context.ts";
+  import { aiProposalApplicationState, consumeAiCardDraftPatch } from "#lib/modules/card/workbench/aiProposalApplication.svelte.ts";
   import {
     getWorkspaceCardDraft,
     setWorkspaceCardDraft,
-  } from "$lib/modules/card/workbench/cardDraftWorkspaceState.svelte";
-  import { setWorkspaceLifecycleMetadata } from "$lib/application/workspace/lifecycle";
+  } from "#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts";
+  import { setWorkspaceLifecycleMetadata } from "#lib/application/workspace/lifecycle.ts";
 
   const SETCODE_SLOT_INDICES = [0, 1, 2, 3] as const;
   const initialDraftCard = createEmptyCard();

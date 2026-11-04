@@ -1,12 +1,12 @@
-import en from '$lib/i18n/locales/en.json';
-import zh from '$lib/i18n/locales/zh.json';
+import en from '#lib/i18n/locales/en.json';
+import zh from '#lib/i18n/locales/zh.json';
 import {
   ATTRIBUTE_MAP,
   LINK_MARKER_NAME_TO_BIT,
   RACE_MAP,
   SUBTYPE_MAP,
   TYPE_MAP,
-} from '$lib/domain/card/taxonomy';
+} from '#lib/domain/card/taxonomy.ts';
 
 type RuleToken =
   | { type: 'identifier'; value: string }

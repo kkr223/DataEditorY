@@ -1,5 +1,5 @@
-import generatedSnippets from '$lib/data/lua-intel/snippets.generated.json';
-import type { LuaSnippetItem } from '$lib/types';
+import generatedSnippets from '#lib/data/lua-intel/snippets.generated.json';
+import type { LuaSnippetItem } from '#lib/types/index.ts';
 
 export const DEFAULT_SCRIPT_SNIPPETS = JSON.stringify(Object.fromEntries(
   generatedSnippets.filter((item) => item.sortText.startsWith('1'))

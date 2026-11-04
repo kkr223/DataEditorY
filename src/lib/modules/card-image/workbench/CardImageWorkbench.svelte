@@ -1,15 +1,15 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import CardImageDrawer from '$lib/components/CardImageDrawer.svelte';
-  import { documentRuntime } from '$lib/platform/appRuntime';
-  import { documentState, getActiveDataDocument } from '$lib/platform/store.svelte';
-  import type { CardDataEntry } from '$lib/types';
+  import CardImageDrawer from '#lib/components/CardImageDrawer.svelte';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
+  import { documentState, getActiveDataDocument } from '#lib/platform/store.svelte.ts';
+  import type { CardDataEntry } from '#lib/types/index.ts';
   import {
     normalizeCardImageConfigDocument,
     normalizeCardImageFormData,
     type CardImageConfigDocument,
-  } from '$lib/features/card-image/layout';
-  import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
+  } from '#lib/features/card-image/layout.ts';
+  import { CARD_IMAGE_CONFIG_TYPE } from '#lib/modules/card-image/constants.ts';
 
   const EMPTY_CARD: CardDataEntry = {
     code: 0,

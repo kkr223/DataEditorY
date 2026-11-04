@@ -1,11 +1,11 @@
 import { get } from 'svelte/store';
-import type { CardDataEntry } from '$lib/types';
-import { documentRuntime } from '$lib/platform/appRuntime';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
 import type {
   CardCollectionCommand,
   CardCollectionQuery,
   CardIdChangeResult,
-} from '$lib/modules/card';
+} from '#lib/modules/card/index.ts';
 import { cloneCard } from './cardUtils';
 import { clearSourceFilterCacheForTab, refreshCachedSearchForTab } from './search';
 import { tabs, activeTab, recordUndoLabel } from './tabs';

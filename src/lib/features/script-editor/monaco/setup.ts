@@ -49,7 +49,7 @@ import { suppressFindCloseTooltip } from './findWidget';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { getCompletionInsertParameters, shouldInsertFunctionArguments } from './completion';
 import { loadExternalLuaCatalog } from '../lua/catalog';
-import { appSettingsState } from '$lib/stores/appSettings.svelte';
+import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
 import { getConfiguredScriptSnippets } from '../snippetPreferences';
 import {
   clearLuaSemanticDocumentCache,
@@ -63,7 +63,7 @@ import {
   type LuaSemanticTextModel,
   type LuaVisibleSymbol,
 } from '../lua/semantic';
-import type { CardDataEntry, LuaConstantItem, LuaFunctionItem } from '$lib/types';
+import type { CardDataEntry, LuaConstantItem, LuaFunctionItem } from '#lib/types/index.ts';
 
 monaco.editor.onDidCreateEditor(suppressFindCloseTooltip);
 
@@ -183,9 +183,9 @@ async function ensureLuaCatalogLoaded() {
   if (!catalogLoadPromise) {
     catalogLoadPromise = (async () => {
       const [constantsModule, functionsModule, snippetsModule] = await Promise.all([
-        import('$lib/data/lua-intel/constants.generated.json'),
-        import('$lib/data/lua-intel/functions.generated.json'),
-        import('$lib/data/lua-intel/snippets.generated.json'),
+        import('#lib/data/lua-intel/constants.generated.json'),
+        import('#lib/data/lua-intel/functions.generated.json'),
+        import('#lib/data/lua-intel/snippets.generated.json'),
       ]);
       luaCatalog = {
         constants: constantsModule.default,
