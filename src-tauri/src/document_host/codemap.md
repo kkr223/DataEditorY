@@ -11,6 +11,7 @@ Document Host Protocol — structured protocol for CDB document operations (open
 Generic document host handlers that dispatch by provider ID:
 - `provider_open` — opens or creates a CDB session, returns initial card data
 - `provider_query` — dispatches `CardCollectionQuery` variants (Search, GetById, GetByIds, FindByNames, All)
+- `WorkspaceSearch` queries snapshot cards from the live working copy, then search all card fields and corresponding scripts through `services/workspace_search`, without holding the SQLite lock during file reads.
 - `provider_execute` — dispatches `CardCollectionCommand` variants (Upsert, Delete, ReplaceCardId) with undo recording
 - `provider_save` — saves working copy to destination path
 - `provider_undo` — pops and reverses the last undo entry

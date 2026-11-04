@@ -27,7 +27,7 @@
       const labelKey = contribution.metadata?.labelKey;
       const icon = contribution.metadata?.icon;
       if (
-        (id !== 'image' && id !== 'ai')
+        (id !== 'image' && id !== 'search' && id !== 'ai')
         || typeof labelKey !== 'string'
         || typeof icon !== 'string'
       ) {
@@ -71,7 +71,13 @@
         aria-label={$_(surface.labelKey)}
         onclick={() => selectSurface(surface.id)}
       >
-        <span class="surface-icon">{surface.icon}</span>
+        {#if surface.id === 'search'}
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" />
+          </svg>
+        {:else}
+          <span class="surface-icon">{surface.icon}</span>
+        {/if}
       </button>
     {/each}
   </div>

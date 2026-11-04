@@ -84,6 +84,9 @@ pub struct CodecExportRequest {
     rename_all_fields = "camelCase"
 )]
 pub enum CardCollectionQuery {
+    WorkspaceSearch {
+        request: crate::services::workspace_search::WorkspaceSearchRequest,
+    },
     Search {
         expression: CardSearchExpression,
         page: u32,

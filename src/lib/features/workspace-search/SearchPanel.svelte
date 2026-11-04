@@ -1,0 +1,97 @@
+<script lang="ts">
+  import { onDestroy, untrack } from 'svelte';
+  import { _ } from 'svelte-i18n';
+  import { showToast } from '$lib/stores/toast.svelte';
+  import { getWorkspaceSearchController } from './state';
+  import { openWorkspaceSearchMatch } from './navigation';
+  import SearchResults from './SearchResults.svelte';
+  import type { WorkspaceSearchGroup, WorkspaceSearchMatch } from './types';
+
+  let { tab }: { tab: { id: string; name: string; path: string } } = $props();
+  const controller = untrack(() => getWorkspaceSearchController(tab));
+  const search = controller.state;
+  let opening = $state(false);
+  let navigationError = $state('');
+  const matchCount = $derived(($search.result?.cards ?? []).concat($search.result?.scripts ?? [])
+    .reduce((count, group) => count + group.matches.length, 0));
+  onDestroy(controller.cancel);
+
+  async function openResult(group: WorkspaceSearchGroup, match: WorkspaceSearchMatch) {
+    if (opening) return;
+    opening = true;
+    navigationError = '';
+    try { await openWorkspaceSearchMatch(tab, group, match); }
+    catch (error) {
+      navigationError = error instanceof Error ? error.message : String(error);
+      showToast(navigationError, 'error');
+    }
+    finally { opening = false; }
+  }
+</script>
+
+<section class="search-surface" aria-label={$_('surface.search')}>
+  <header>
+    <div class="heading"><h2>{$_('surface.search')}</h2><span title={tab.path}>{tab.name}</span></div>
+    <form onsubmit={(event) => { event.preventDefault(); void controller.run(); }}>
+      <div class="query-row">
+        <input type="search" aria-label={$_('workspace_search.query')} placeholder={$_('workspace_search.placeholder')}
+          value={$search.text} oninput={(event) => controller.change({ text: event.currentTarget.value })} />
+        <button type="button" class="option" class:active={$search.caseSensitive} aria-pressed={$search.caseSensitive}
+          title={$_('workspace_search.case_sensitive')} aria-label={$_('workspace_search.case_sensitive')}
+          onclick={() => controller.change({ caseSensitive: !$search.caseSensitive })}>Aa</button>
+        <button type="button" class="option" class:active={$search.regex} aria-pressed={$search.regex}
+          title={$_('workspace_search.regex')} aria-label={$_('workspace_search.regex')}
+          onclick={() => controller.change({ regex: !$search.regex })}>.*</button>
+        <button type="submit" class="search-button" disabled={$search.busy || !$search.text || (!$search.searchCards && !$search.searchScripts)}>{$_('workspace_search.run')}</button>
+        {#if $search.busy}<button type="button" class="option" onclick={controller.cancel}>{$_('workspace_search.cancel')}</button>{/if}
+      </div>
+      <div class="scope-row">
+        <label><input type="checkbox" checked={$search.searchCards} onchange={(event) => controller.change({ searchCards: event.currentTarget.checked })} />{$_('workspace_search.cards')}</label>
+        <label><input type="checkbox" checked={$search.searchScripts} onchange={(event) => controller.change({ searchScripts: event.currentTarget.checked })} />{$_('workspace_search.scripts')}</label>
+        {#if $search.result}<span role="status">{$_('workspace_search.matches', { values: { count: matchCount } })}</span>{/if}
+      </div>
+    </form>
+    <p class="scope-hint">{$_('workspace_search.scope_hint')}</p>
+  </header>
+  {#if $search.error || navigationError}
+    <p class="error" role="alert">{['draftBlocked', 'changed'].includes($search.error) ? $_(`workspace_search.${$search.error}`) : $search.error || navigationError}</p>
+  {/if}
+  <div class="results" aria-busy={$search.busy}>
+    {#if $search.busy}
+      <p class="empty" role="status">{$_('workspace_search.searching')}</p>
+    {:else if $search.result}
+      {#if $search.result.limited}<p class="notice">{$_('workspace_search.limited')}</p>{/if}
+      {#if $search.result.warnings.length}
+        <details class="warnings"><summary>{$_('workspace_search.warnings')}</summary>{#each $search.result.warnings as warning}<p>{warning}</p>{/each}</details>
+      {/if}
+      {#if $search.searchCards}<SearchResults groups={$search.result.cards} disabled={opening} onOpen={openResult} />{/if}
+      {#if $search.searchScripts}<SearchResults groups={$search.result.scripts} scripts disabled={opening} onOpen={openResult} />{/if}
+    {:else}<p class="empty">{$_('workspace_search.initial')}</p>{/if}
+  </div>
+</section>
+
+<style>
+  .search-surface { height: 100%; display: flex; flex-direction: column; min-height: 0; background: var(--bg-base); }
+  header { padding: 18px 20px 12px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface); }
+  .heading { display: flex; align-items: baseline; gap: 16px; margin-bottom: 14px; }
+  h2 { margin: 0; font-size: var(--text-lg); font-weight: 600; }
+  .heading span { color: var(--text-disabled); font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .query-row { display: flex; gap: 6px; }
+  input[type='search'] { flex: 1; min-width: 90px; padding: 8px 10px; }
+  button { padding: 7px 10px; border: 1px solid var(--border-color); border-radius: var(--control-radius); }
+  button:hover { background: var(--bg-surface-hover); }
+  .option.active { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-soft-bg); }
+  .search-button { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--text-on-accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  .scope-row { display: flex; align-items: center; gap: 18px; margin-top: 12px; font-size: var(--text-sm); color: var(--text-secondary); }
+  label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  input[type='checkbox'] { accent-color: var(--accent-primary); }
+  .scope-row > span { margin-left: auto; color: var(--text-disabled); }
+  .scope-hint { margin: 10px 0 0; font-size: var(--text-xs); color: var(--text-disabled); line-height: 1.5; }
+  .results { flex: 1; min-height: 0; overflow: auto; }
+  .empty { margin: 0; padding: 48px 24px; text-align: center; color: var(--text-disabled); }
+  .error, .notice, .warnings { margin: 12px 16px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--control-radius); font-size: var(--text-sm); overflow-wrap: anywhere; }
+  .error { color: var(--state-danger-fg); }
+  .notice, .warnings { color: var(--state-warning-fg); }
+  @media (max-width: 850px) { header { padding: 12px; } .query-row { flex-wrap: wrap; } .scope-row { gap: 10px; } }
+</style>

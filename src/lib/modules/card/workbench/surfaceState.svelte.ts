@@ -1,4 +1,4 @@
-export type CardSurfaceId = 'card' | 'script' | 'image' | 'ai';
+export type CardSurfaceId = 'card' | 'script' | 'image' | 'search' | 'ai';
 
 export const cardSurfaceState = $state({
   activeSurface: 'card' as CardSurfaceId,

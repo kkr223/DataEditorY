@@ -22,6 +22,7 @@
 
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { scriptLocationRequest } from '$lib/features/script-editor/revealLocation';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { activeScriptTab, getActiveScriptTab, registerScriptModelDisposer, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
   import { activeTabId, tabs } from '$lib/stores/db';
@@ -410,7 +411,20 @@
 
     currentBoundTabId = tab.id;
     syncSelectionState();
+    applyRequestedLocation();
   }
+
+  function applyRequestedLocation() {
+    const request = $scriptLocationRequest;
+    if (!request || !editorInstance || currentBoundTabId !== request.tabId) return;
+    revealDiagnosticLocation(request);
+    scriptLocationRequest.set(null);
+  }
+
+  $effect(() => {
+    $scriptLocationRequest;
+    if (isMonacoReady) untrack(applyRequestedLocation);
+  });
 
   function handleHintSuppressKeydown(event: KeyboardEvent) {
     if (!shouldHandleHintSuppressShortcut(event, Boolean(editorInstance?.hasTextFocus()))) return;

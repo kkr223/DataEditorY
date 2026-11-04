@@ -32,13 +32,13 @@
 
   const focusMode = $derived(cardSurfaceState.activeSurface !== 'card');
   const extensionSurfaces: Array<{
-    surfaceId: Extract<CardSurfaceId, 'image' | 'ai'>;
+    surfaceId: Extract<CardSurfaceId, 'image' | 'search' | 'ai'>;
     contribution: ReturnType<typeof documentRuntime.registry.findWorkbenchContributions>[number];
   }> = documentRuntime.registry
     .findWorkbenchContributions('card.workbench', 'surface')
     .flatMap((contribution) => {
       const surfaceId = contribution.metadata?.surfaceId;
-      return surfaceId === 'image' || surfaceId === 'ai'
+      return surfaceId === 'image' || surfaceId === 'search' || surfaceId === 'ai'
         ? [{ surfaceId, contribution }]
         : [];
     });

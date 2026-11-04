@@ -14,3 +14,6 @@ pub mod package;
 pub mod script_snippets;
 pub mod scripts;
 pub mod settings;
+pub mod workspace_search;
+#[cfg(test)]
+mod workspace_search_tests;

@@ -24,5 +24,7 @@ describe('built-in module composition', () => {
     expect(registry.findGlobalTools().map((tool) => tool.id))
       .toContain('card.showcase-image');
     expect(registry.taskRunners.has('batch.image.export-card')).toBe(true);
+    expect(registry.findWorkbenchContributions('card.workbench', 'surface').map((item) => item.metadata?.surfaceId))
+      .toEqual(['image', 'search', 'ai']);
   });
 });

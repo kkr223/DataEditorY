@@ -7,6 +7,7 @@ import { luaModule } from './lua';
 import { mergeModule } from './merge';
 import { packageModule } from './package';
 import { settingsModule } from './settings';
+import { workspaceSearchModule } from './workspace-search';
 
 export const builtInModules: ExtensionModule[] = [
   settingsModule,
@@ -17,6 +18,7 @@ export const builtInModules: ExtensionModule[] = [
   packageModule,
   mergeModule,
   aiModule,
+  workspaceSearchModule,
 ];
 
 export const builtInModuleIds = builtInModules.map((module) => module.id);

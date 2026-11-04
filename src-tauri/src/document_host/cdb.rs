@@ -89,6 +89,24 @@ pub fn query(
     query: CardCollectionQuery,
 ) -> Result<Value, String> {
     match query {
+        CardCollectionQuery::WorkspaceSearch { request } => {
+            let (cards, path) = with_session_meta(sessions, &document_id, |session| {
+                let path = session
+                    .path
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .clone();
+                let cdb = session.cdb.lock().unwrap_or_else(|p| p.into_inner());
+                let cards = cdb
+                    .query_raw("1=1 ORDER BY datas.id", &HashMap::new())
+                    .map_err(|err| err.to_string())?;
+                Ok((cards, path))
+            })?;
+            to_value(crate::services::workspace_search::search(
+                cards, &path, request,
+            )?)
+            .map_err(|err| err.to_string())
+        }
         CardCollectionQuery::Search {
             expression,
             page,
@@ -448,6 +466,59 @@ mod tests {
         services::cdb_session::open_cdb_tab_in_dir,
         test_helpers::{create_test_cdb, make_temp_dir},
     };
+
+    #[test]
+    fn workspace_search_uses_unsaved_working_copy_and_original_script_directory() {
+        let root = make_temp_dir("workspace-search-host");
+        let source = root.join("cards.cdb");
+        create_test_cdb(&source, &[(10, 1)]);
+        fs::create_dir(root.join("script")).unwrap();
+        fs::write(root.join("script/c10.lua"), "-- needle").unwrap();
+        let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+        open_cdb_tab_in_dir(
+            &sessions,
+            &root.join("sessions"),
+            "search".into(),
+            source.to_string_lossy().into(),
+        )
+        .unwrap();
+        execute(
+            &DocumentHostState::new(),
+            &sessions,
+            "search".into(),
+            CardCollectionCommand::Upsert {
+                cards: vec![CardDto {
+                    code: 10,
+                    name: "needle".into(),
+                    ..Default::default()
+                }],
+                expected_cards: None,
+            },
+        )
+        .unwrap();
+        let result = query(
+            &sessions,
+            "search".into(),
+            CardCollectionQuery::WorkspaceSearch {
+                request: crate::services::workspace_search::WorkspaceSearchRequest {
+                    text: "needle".into(),
+                    case_sensitive: false,
+                    regex: false,
+                    search_cards: true,
+                    search_scripts: true,
+                    buffers: vec![],
+                },
+            },
+        )
+        .unwrap();
+        assert_eq!(result["cards"][0]["cardId"], 10);
+        assert_eq!(result["scripts"][0]["cardId"], 10);
+        let original = ygopro_cdb_encode_rs::YgoProCdb::from_path(&source).unwrap();
+        assert_ne!(original.find_by_id(10).unwrap().unwrap().name, "needle");
+        drop(original);
+        drop(sessions);
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn search_all_returns_every_matching_card_in_id_order() {

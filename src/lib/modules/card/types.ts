@@ -38,6 +38,7 @@ export type CardSearchExpression =
 export type CardRuleOperand = RuleOperand;
 
 export type CardCollectionQuery =
+  | { kind: 'workspaceSearch'; request: import('$lib/features/workspace-search/types').WorkspaceSearchRequest }
   | {
       kind: 'search';
       expression: CardSearchExpression;
