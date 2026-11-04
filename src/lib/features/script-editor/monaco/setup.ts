@@ -45,6 +45,7 @@ import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/
 import 'monaco-editor/esm/vs/editor/contrib/gotoSymbol/browser/goToCommands';
 import 'monaco-editor/esm/vs/editor/contrib/gotoSymbol/browser/link/goToDefinitionAtPosition';
 import { registerLuaNavigation } from './navigation';
+import { suppressFindCloseTooltip } from './findWidget';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { getCompletionInsertParameters, shouldInsertFunctionArguments } from './completion';
 import { loadExternalLuaCatalog } from '../lua/catalog';
@@ -63,6 +64,8 @@ import {
   type LuaVisibleSymbol,
 } from '../lua/semantic';
 import type { CardDataEntry, LuaConstantItem, LuaFunctionItem } from '$lib/types';
+
+monaco.editor.onDidCreateEditor(suppressFindCloseTooltip);
 
 type LuaModelContext = {
   cardCode: number;
