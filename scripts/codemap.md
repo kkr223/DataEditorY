@@ -13,6 +13,7 @@ Build System — Node.js scripts for managing the variant build pipeline (base/e
 | `write-tauri-config.mjs` | Writes a variant-specific `tauri.conf.json` (used by CI to prepare config before `tauri-action`) |
 | `build-lua-intel.mjs` | Parses `_functions.txt`, `constant.lua`, `snippets.json`, and `def.lua` from `static/resources/` to generate `src/lib/data/lua-intel/catalog.generated.ts` — the Lua intellisense catalog |
 | `prepare-build-assets.mjs` | Copies only browser-consumed static resources into the production web build |
+| `clean-build.mjs` | Scoped all/frontend/Rust cleanup with `--dry-run`; checks resolved paths before deleting project-local artifacts and uses an explicit Cargo target directory. Does not clean `dist/` exports or installed npm packages |
 
 ## Variant System Flow
 

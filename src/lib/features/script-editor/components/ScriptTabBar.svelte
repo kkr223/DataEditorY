@@ -13,7 +13,7 @@
     onClose = (_tabId: string) => {},
     onNew = () => {},
     getTabTitle = (tab: ScriptWorkspaceState) => tab.cardName,
-  } = $props<{
+  }: {
     tabs?: ScriptWorkspaceState[];
     activeTabId?: string | null;
     newTabTitle?: string;
@@ -23,7 +23,7 @@
     onClose?: (tabId: string) => void;
     onNew?: () => void;
     getTabTitle?: (tab: ScriptWorkspaceState) => string;
-  }>();
+  } = $props();
 
   function handleCloseClick(event: MouseEvent, tabId: string) {
     event.stopPropagation();

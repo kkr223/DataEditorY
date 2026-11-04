@@ -210,7 +210,11 @@ bun run check:base             # Svelte/TS check for base variant
 bun run check:extra            # Svelte/TS check for extra variant
 bun test                       # Frontend/domain tests
 cargo test --manifest-path src-tauri/Cargo.toml
+bun run clean -- --dry-run      # Preview generated-artifact cleanup
+bun run clean                  # Clean Rust + frontend outputs/caches
 ```
+
+Rust dev/test builds use line-table debug information and disable incremental compilation to limit cache growth; native debugging can opt into full symbols using Cargo profile environment overrides.
 
 Dev server: `127.0.0.1:43127` (HMR port: `43128`)
 

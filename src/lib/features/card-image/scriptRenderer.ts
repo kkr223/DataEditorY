@@ -1,5 +1,5 @@
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
-import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution';
+import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution.js';
 import { collectLuaInlineHighlights, type LuaInlineHighlightClassName } from '$lib/features/script-editor/lua/calls';
 
 type LuaEditorThemeSpec = {

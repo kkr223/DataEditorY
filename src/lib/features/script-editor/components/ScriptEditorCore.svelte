@@ -89,14 +89,14 @@
     referenceState = $bindable<ScriptEditorCoreReferenceState>(createDefaultReferenceState()),
     children,
     onCopySelectionImage,
-  } = $props<{
+  }: {
     cardContext?: CardDataEntry | null;
     hasSelectedCode?: boolean;
     hintState?: ScriptEditorCoreHintState;
     referenceState?: ScriptEditorCoreReferenceState;
     children?: Snippet;
     onCopySelectionImage?: () => unknown | Promise<unknown>;
-  }>();
+  } = $props();
 
   let editorHost = $state<HTMLDivElement | null>(null);
   let monacoModule = $state<MonacoModule | null>(null);
