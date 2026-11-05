@@ -12,6 +12,7 @@ CDB-scoped global text search. The middle rail places this surface after Image a
 - `controller.ts` — draft commit, request generations, cancellation and CDB revision checks. New input or leaving a workspace prevents late responses from replacing the current results.
 - `state.ts` — in-memory controllers keyed by CDB session/path; closing a document releases its controller. Queries/results are not persisted to `.dey`.
 - `navigation.ts` — uses the guarded card navigation flow, opens existing scripts without creating missing files, and queues a Monaco selection through `script-editor/revealLocation.ts`.
+- `contextMenu.ts` — shared popup actions for result rows and group headers: draft-safe navigation, captured result text/card identity/path copying, and file reveal. Actions stay scoped to the originating CDB, search surface, and result snapshot; file-existence updates use menu tokens.
 
 ## Native boundary
 

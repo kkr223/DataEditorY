@@ -4,6 +4,7 @@
   import { showToast } from '#lib/stores/toast.svelte.ts';
   import { getWorkspaceSearchController } from './state';
   import { openWorkspaceSearchMatch } from './navigation';
+  import { openWorkspaceSearchMenu } from './contextMenu';
   import SearchResults from './SearchResults.svelte';
   import type { WorkspaceSearchGroup, WorkspaceSearchMatch } from './types';
 
@@ -15,6 +16,14 @@
   const matchCount = $derived(($search.result?.cards ?? []).concat($search.result?.scripts ?? [])
     .reduce((count, group) => count + group.matches.length, 0));
   onDestroy(controller.cancel);
+
+  function openResultMenu(event: MouseEvent, group: WorkspaceSearchGroup, match?: WorkspaceSearchMatch) {
+    const result = $search.result;
+    openWorkspaceSearchMenu(event, {
+      owner: { id: tab.id, path: tab.path }, group, match, onOpen: openResult,
+      isCurrent: () => !opening && result !== null && $search.result === result,
+    });
+  }
 
   async function openResult(group: WorkspaceSearchGroup, match: WorkspaceSearchMatch) {
     if (opening) return;
@@ -64,8 +73,8 @@
       {#if $search.result.warnings.length}
         <details class="warnings"><summary>{$_('workspace_search.warnings')}</summary>{#each $search.result.warnings as warning}<p>{warning}</p>{/each}</details>
       {/if}
-      {#if $search.searchCards}<SearchResults groups={$search.result.cards} disabled={opening} onOpen={openResult} />{/if}
-      {#if $search.searchScripts}<SearchResults groups={$search.result.scripts} scripts disabled={opening} onOpen={openResult} />{/if}
+      {#if $search.searchCards}<SearchResults groups={$search.result.cards} disabled={opening} onOpen={openResult} onContextMenu={openResultMenu} />{/if}
+      {#if $search.searchScripts}<SearchResults groups={$search.result.scripts} scripts disabled={opening} onOpen={openResult} onContextMenu={openResultMenu} />{/if}
     {:else}<p class="empty">{$_('workspace_search.initial')}</p>{/if}
   </div>
 </section>

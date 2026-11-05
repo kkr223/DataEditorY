@@ -1,11 +1,12 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import type { WorkspaceSearchGroup, WorkspaceSearchMatch } from './types';
-  let { groups, scripts = false, disabled = false, onOpen }: {
+  let { groups, scripts = false, disabled = false, onOpen, onContextMenu }: {
     groups: WorkspaceSearchGroup[];
     scripts?: boolean;
     disabled?: boolean;
     onOpen: (group: WorkspaceSearchGroup, match: WorkspaceSearchMatch) => void;
+    onContextMenu: (event: MouseEvent, group: WorkspaceSearchGroup, match?: WorkspaceSearchMatch) => void;
   } = $props();
 </script>
 
@@ -13,13 +14,14 @@
   <h3>{$_(scripts ? 'workspace_search.scripts' : 'workspace_search.cards')} <span>{groups.length}</span></h3>
   {#each groups as group (group.cardId)}
     <details open>
-      <summary title={group.path ?? group.cardName}>
+      <summary tabindex="0" title={group.path ?? group.cardName} oncontextmenu={(event) => onContextMenu(event, group)}>
         <span class="kind">{scripts ? 'LUA' : 'CDB'}</span>
         <strong>{scripts ? `c${group.cardId}.lua` : group.cardId}</strong>
         <span class="name">{group.cardName}</span><span class="count">{group.matches.length}</span>
       </summary>
       {#each group.matches as match}
         <button type="button" class="match" {disabled} onclick={() => onOpen(group, match)}
+          oncontextmenu={(event) => onContextMenu(event, group, match)}
           title={`${$_('workspace_search.open_result')} · ${group.path ?? group.cardId}:${match.line}:${match.column}`}>
           <span class="location">{scripts ? `${match.line}:${match.column}` : `${match.field}:${match.line}`}</span>
           <code>{match.before}<mark>{match.matched || '│'}</mark>{match.after}</code>
