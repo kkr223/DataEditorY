@@ -12,6 +12,7 @@ export const openWorkspaceSearchMenu = (event: MouseEvent, input: {
   match?: WorkspaceSearchMatch;
   isCurrent: () => boolean;
   onOpen: (group: WorkspaceSearchGroup, match: WorkspaceSearchMatch) => unknown | Promise<unknown>;
+  onExclude?: () => void;
 }) => {
   const { owner, group, match } = input;
   const current = () => get(activeTab)?.id === owner.id && get(activeTab)?.path === owner.path
@@ -38,6 +39,7 @@ export const openWorkspaceSearchMenu = (event: MouseEvent, input: {
     { id: 'copy-path', label: t('context_menu.copy_path'), action: copy(path) },
     { id: 'reveal', label: t(group.path ? 'context_menu.reveal_script' : 'context_menu.reveal_database'),
       disabled: !exists, action: guard(() => revealFile(path)) },
+    ...(input.onExclude ? [null, { id: 'exclude', label: t('workspace_search.exclude_result'), action: guard(input.onExclude) }] : []),
   ];
   const token = openContextMenu(event, items());
   void pathExists(path).then((value) => {

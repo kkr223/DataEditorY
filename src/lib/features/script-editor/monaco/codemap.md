@@ -5,6 +5,7 @@ Monaco Editor Integration — bridges the Lua analysis engine into Monaco editor
 
 ## Files
 - `setup.ts` — Monaco editor configuration: Lua language registration, custom theme, keybindings (F9/F10 manual toggles), editor options
+- `setup.ts` also applies external script-buffer replacement as a Monaco undo group and supplies a guarded rollback for failed CDB replacement commits.
 - `findWidget.ts` — suppresses the find/replace close button's mouse tooltip while preserving clicks, keyboard dismissal, and other button hints; listeners follow editor disposal.
 - `navigation.ts` — file-local definition provider and LoadScript document-link opener. Definitions stay within the source model; dependency links resolve files on click and open CDB-owned script tabs without requiring a preloaded Monaco target model.
 - `completion.ts` — function completion helpers; `setup.ts` registers completion providers, merging built-in snippets with the current saved `scriptSnippets` user preference on each completion request

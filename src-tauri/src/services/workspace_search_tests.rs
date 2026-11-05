@@ -13,7 +13,7 @@ fn request(text: &str) -> WorkspaceSearchRequest {
 }
 
 #[test]
-fn searches_all_fields_and_only_scripts_owned_by_cdb_card_ids() {
+fn searches_name_description_and_only_scripts_owned_by_cdb_card_ids() {
     let dir = make_temp_dir("workspace-search");
     std::fs::create_dir(dir.join("script")).unwrap();
     std::fs::write(dir.join("script/c10.lua"), "-- alpha\nlocal a = 'Alpha'").unwrap();
@@ -21,6 +21,7 @@ fn searches_all_fields_and_only_scripts_owned_by_cdb_card_ids() {
     let card = CardDto {
         code: 10,
         name: "Alpha Card".into(),
+        desc: "alpha description".into(),
         strings: vec!["alpha hint".into()],
         attack: 2300,
         ..Default::default()
@@ -32,11 +33,15 @@ fn searches_all_fields_and_only_scripts_owned_by_cdb_card_ids() {
     assert!(result.cards[0]
         .matches
         .iter()
-        .any(|item| item.field == "str1"));
+        .any(|item| item.field == "desc"));
+    assert!(result.cards[0]
+        .matches
+        .iter()
+        .all(|item| item.field != "str1"));
     assert_eq!(result.scripts.len(), 1);
     assert_eq!(result.scripts[0].matches[1].line, 2);
     let result = search(vec![card], &path, request("2300")).unwrap();
-    assert_eq!(result.cards[0].matches[0].field, "atk");
+    assert!(result.cards.is_empty());
     std::fs::remove_dir_all(dir).unwrap();
 }
 

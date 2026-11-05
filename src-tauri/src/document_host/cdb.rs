@@ -83,6 +83,24 @@ impl DocumentHostState {
     }
 }
 
+fn workspace_search_snapshot(
+    sessions: &OpenCdbSessions,
+    document_id: &str,
+) -> Result<(Vec<CardDto>, String), String> {
+    with_session_meta(sessions, document_id, |session| {
+        let path = session
+            .path
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
+        let cdb = session.cdb.lock().unwrap_or_else(|p| p.into_inner());
+        let cards = cdb
+            .query_raw("1=1 ORDER BY datas.id", &HashMap::new())
+            .map_err(|err| err.to_string())?;
+        Ok((cards, path))
+    })
+}
+
 pub fn query(
     sessions: &OpenCdbSessions,
     document_id: String,
@@ -90,19 +108,15 @@ pub fn query(
 ) -> Result<Value, String> {
     match query {
         CardCollectionQuery::WorkspaceSearch { request } => {
-            let (cards, path) = with_session_meta(sessions, &document_id, |session| {
-                let path = session
-                    .path
-                    .lock()
-                    .unwrap_or_else(|p| p.into_inner())
-                    .clone();
-                let cdb = session.cdb.lock().unwrap_or_else(|p| p.into_inner());
-                let cards = cdb
-                    .query_raw("1=1 ORDER BY datas.id", &HashMap::new())
-                    .map_err(|err| err.to_string())?;
-                Ok((cards, path))
-            })?;
+            let (cards, path) = workspace_search_snapshot(sessions, &document_id)?;
             to_value(crate::services::workspace_search::search(
+                cards, &path, request,
+            )?)
+            .map_err(|err| err.to_string())
+        }
+        CardCollectionQuery::WorkspaceReplacePreview { request } => {
+            let (cards, path) = workspace_search_snapshot(sessions, &document_id)?;
+            to_value(crate::services::workspace_replace::preview(
                 cards, &path, request,
             )?)
             .map_err(|err| err.to_string())
@@ -513,6 +527,48 @@ mod tests {
         .unwrap();
         assert_eq!(result["cards"][0]["cardId"], 10);
         assert_eq!(result["scripts"][0]["cardId"], 10);
+        let mut target = result["cards"][0]["matches"][0].clone();
+        target["cardId"] = json!(10);
+        target["script"] = json!(false);
+        let preview = query(
+            &sessions,
+            "search".into(),
+            CardCollectionQuery::WorkspaceReplacePreview {
+                request: serde_json::from_value(json!({
+                    "text": "needle", "replacement": "updated", "regex": false,
+                    "caseSensitive": false, "targets": [target], "buffers": [],
+                }))
+                .unwrap(),
+            },
+        )
+        .unwrap();
+        assert_eq!(preview["cards"][0]["after"]["name"], "updated");
+        let unchanged = query(
+            &sessions,
+            "search".into(),
+            CardCollectionQuery::GetById { card_id: 10 },
+        )
+        .unwrap();
+        assert_eq!(unchanged["name"], "needle");
+        execute(
+            &DocumentHostState::new(),
+            &sessions,
+            "search".into(),
+            CardCollectionCommand::Upsert {
+                cards: vec![serde_json::from_value(preview["cards"][0]["after"].clone()).unwrap()],
+                expected_cards: Some(vec![Some(
+                    serde_json::from_value(preview["cards"][0]["before"].clone()).unwrap(),
+                )]),
+            },
+        )
+        .unwrap();
+        let changed = query(
+            &sessions,
+            "search".into(),
+            CardCollectionQuery::GetById { card_id: 10 },
+        )
+        .unwrap();
+        assert_eq!(changed["name"], "updated");
         let original = ygopro_cdb_encode_rs::YgoProCdb::from_path(&source).unwrap();
         assert_ne!(original.find_by_id(10).unwrap().unwrap().name, "needle");
         drop(original);

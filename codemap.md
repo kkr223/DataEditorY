@@ -189,7 +189,7 @@ SvelteKit configuration lives in `vite.config.js`: static SPA fallback, selected
 - **Batch tools**: CDB field batch edit, Lua search/replace with diff preview, asset check, merge, package, and showcase image generation.
 - **Showcase images**: generate PNG strips from the current CDB, selection, filter result, or card group; each row combines card art, YGO card details, and effect text, with optional attribution removal and image header text.
 - **Script surface**: active card opens `c{id}.lua`; internal script tabs stay inside the CDB workspace.
-- **Global Search surface**: searches every field of current-CDB cards and their corresponding scripts, prioritizes open script buffers, and opens card or script-line matches. Registered between Image and AI.
+- **Global Search surface**: searches current-CDB card names, effect descriptions and corresponding scripts, prioritizes open script buffers, and opens card or script-line matches. Individual matches/groups can be excluded before previewing and applying replacements to the working copy and script buffers. Registered between Image and AI.
 - **AI surface**: workspace agent with visible tool calls, `@card` context mentions, auditable proposals, and optional full-access auto-apply.
 - **Metadata**: `.dey/{cdb-stem}.workspace.json` persists editor-only state without polluting `.cdb`.
 - **Internationalization**: Chinese and English UI.

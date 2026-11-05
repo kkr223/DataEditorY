@@ -16,7 +16,8 @@ Rust Business Services — service functions implementing CDB sessions, metadata
 | `scripts.rs` | Script file management: resolve script path from CDB location, read/write/save `.lua` files, template-based creation |
 | `metadata.rs` | Workspace metadata: load/save `.dey/{cdb-stem}.workspace.json`; externalize images to immutable SHA-256-named files under `.dey/card-image/` with legacy-reference compatibility; copy referenced assets on Save As |
 | `lua_replace.rs` | Lua search/replace preview and apply support for CDB-level migration tasks |
-| `workspace_search.rs` | Read-only CDB-field/card-script search, open-buffer precedence, bounded match previews, per-category limits and UTF-16 locations; invoked through the document host |
+| `workspace_search.rs` | Read-only name/description/card-script search, open-buffer precedence, bounded match previews, per-category limits, source hashes and UTF-16 locations; invoked through the document host |
+| `workspace_replace.rs` | Read-only replacement planning for retained search matches with the same regex engine, source-hash checks, capture expansion and a 16 MiB preview budget. Card writes reuse document-host upsert; script changes remain frontend buffers |
 | `assets_check.rs` | Resource validation for CDB-related pics/scripts/assets |
 | `settings.rs` | App settings: load/save JSON settings, API key encryption/decryption, cover image management |
 | `script_snippets.rs` | Custom Lua snippet validation and one-time migration from installed resources to user settings; existing preferences and intentionally empty lists survive version updates |

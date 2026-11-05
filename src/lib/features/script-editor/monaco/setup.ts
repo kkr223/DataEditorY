@@ -1431,6 +1431,21 @@ export function createScriptModelUri(tabId: string) {
   return monaco.Uri.parse(`inmemory://dataeditory/script-${tabId}.lua`);
 }
 
+export function replaceScriptModelContent(tabId: string, before: string, after: string) {
+  const uri = createScriptModelUri(tabId);
+  const model = monaco.editor.getModel(uri) ?? monaco.editor.createModel(before, 'lua', uri);
+  if (model.getValue() !== before) throw new Error('changed');
+  model.pushStackElement();
+  model.pushEditOperations([], [{ range: model.getFullModelRange(), text: after }], () => null);
+  model.pushStackElement();
+  return () => {
+    if (model.isDisposed()) return;
+    if (model.getValue() !== after) throw new Error('replacementPartial');
+    model.undo();
+    if (model.getValue() !== before) throw new Error('replacementPartial');
+  };
+}
+
 export function setModelContext(model: monaco.editor.ITextModel, context: LuaModelContext) {
   modelContexts.set(model.uri.toString(), context);
 }

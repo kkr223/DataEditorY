@@ -87,6 +87,9 @@ pub enum CardCollectionQuery {
     WorkspaceSearch {
         request: crate::services::workspace_search::WorkspaceSearchRequest,
     },
+    WorkspaceReplacePreview {
+        request: crate::services::workspace_replace::WorkspaceReplaceRequest,
+    },
     Search {
         expression: CardSearchExpression,
         page: u32,

@@ -7,7 +7,7 @@ use std::{
 
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::models::cdb::CardDto;
 
@@ -43,6 +43,7 @@ pub struct SearchMatch {
     pub before: String,
     pub matched: String,
     pub after: String,
+    pub source_hash: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -71,6 +72,7 @@ fn collect_matches(
     limited: &mut bool,
 ) -> Vec<SearchMatch> {
     let mut matches = Vec::new();
+    let source_hash = content_hash(content);
     for (index, line) in content.lines().enumerate() {
         for found in regex.find_iter(line) {
             if *count >= MATCH_LIMIT {
@@ -95,6 +97,7 @@ fn collect_matches(
                 },
                 matched: found.as_str().chars().take(120).collect(),
                 after: suffix.chars().take(100).collect(),
+                source_hash: source_hash.clone(),
             });
             *count += 1;
         }
@@ -102,47 +105,11 @@ fn collect_matches(
     matches
 }
 
-fn card_fields(card: &CardDto) -> Result<Vec<(String, String)>, String> {
-    let Value::Object(fields) = serde_json::to_value(card).map_err(|err| err.to_string())? else {
-        return Ok(Vec::new());
-    };
-    let mut result = Vec::new();
-    for (field, value) in fields {
-        let field = match field.as_str() {
-            "code" => "id",
-            "attack" => "atk",
-            "defense" => "def",
-            other => other,
-        };
-        if let Value::Array(values) = value {
-            for (index, value) in values.into_iter().enumerate() {
-                let label = if field == "strings" {
-                    format!("str{}", index + 1)
-                } else {
-                    format!("{field}[{index}]")
-                };
-                result.push((
-                    label,
-                    value
-                        .as_str()
-                        .map(str::to_owned)
-                        .unwrap_or_else(|| value.to_string()),
-                ));
-            }
-        } else {
-            result.push((
-                field.to_string(),
-                value
-                    .as_str()
-                    .map(str::to_owned)
-                    .unwrap_or_else(|| value.to_string()),
-            ));
-        }
-    }
-    Ok(result)
+pub(crate) fn content_hash(content: &str) -> String {
+    format!("{:x}", Sha256::digest(content.as_bytes()))
 }
 
-fn read_script(path: &Path) -> Result<Option<String>, String> {
+pub(crate) fn read_script(path: &Path) -> Result<Option<String>, String> {
     let file = match fs::File::open(path) {
         Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
         other => other.map_err(|error| error.to_string())?,
@@ -160,24 +127,32 @@ fn read_script(path: &Path) -> Result<Option<String>, String> {
     Ok(Some(crate::normalize_script_content(content)))
 }
 
+pub(crate) fn build_regex(
+    text: &str,
+    case_sensitive: bool,
+    is_regex: bool,
+) -> Result<Regex, String> {
+    if text.is_empty() {
+        return Err("Search text cannot be empty".to_string());
+    }
+    let pattern = if is_regex {
+        text.to_owned()
+    } else {
+        regex::escape(text)
+    };
+    RegexBuilder::new(&pattern)
+        .case_insensitive(!case_sensitive)
+        .size_limit(2 * 1024 * 1024)
+        .build()
+        .map_err(|err| err.to_string())
+}
+
 pub fn search(
     cards: Vec<CardDto>,
     cdb_path: &str,
     request: WorkspaceSearchRequest,
 ) -> Result<WorkspaceSearchResult, String> {
-    if request.text.is_empty() {
-        return Err("Search text cannot be empty".to_string());
-    }
-    let pattern = if request.regex {
-        request.text
-    } else {
-        regex::escape(&request.text)
-    };
-    let regex = RegexBuilder::new(&pattern)
-        .case_insensitive(!request.case_sensitive)
-        .size_limit(2 * 1024 * 1024)
-        .build()
-        .map_err(|err| err.to_string())?;
+    let regex = build_regex(&request.text, request.case_sensitive, request.regex)?;
     let buffers: HashMap<_, _> = request
         .buffers
         .into_iter()
@@ -189,11 +164,11 @@ pub fn search(
     for card in cards {
         if request.search_cards && card_count <= MATCH_LIMIT {
             let mut matches = Vec::new();
-            for (field, value) in card_fields(&card)? {
+            for (field, value) in [("name", card.name.as_str()), ("desc", card.desc.as_str())] {
                 matches.extend(collect_matches(
                     &regex,
-                    &value,
-                    &field,
+                    value,
+                    field,
                     &mut card_count,
                     &mut result.limited,
                 ));
