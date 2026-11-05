@@ -8,6 +8,7 @@
     connectSettingsAiFlow,
   } from '#lib/features/settings/extraUseCases.ts';
   import SettingsAiCard from '#lib/features/settings/components/SettingsAiCard.svelte';
+  import { shouldAutoConnectSettings } from '#lib/features/settings/controller.ts';
   import {
     loadAiPromptFiles,
     loadAiSkillFiles,
@@ -140,13 +141,13 @@
 
   onMount(() => {
     void refreshLists();
-    if (
-      triedAutoConnect
-      || appSettingsState.loading
-      || !appSettingsState.loaded
-      || !appSettingsState.values.hasSecretKey
-      || !appSettingsState.values.apiBaseUrl.trim()
-    ) {
+    if (!shouldAutoConnectSettings({
+      hasAiCapability: true,
+      triedAutoConnect,
+      loading: appSettingsState.loading,
+      loaded: appSettingsState.loaded,
+      apiBaseUrl: appSettingsState.values.apiBaseUrl,
+    })) {
       return;
     }
     triedAutoConnect = true;

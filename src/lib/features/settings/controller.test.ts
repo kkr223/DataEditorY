@@ -272,13 +272,19 @@ describe('settings controller helpers', () => {
   });
 
   test('only auto-connects when the lifecycle guards are satisfied', () => {
+    expect(shouldAutoConnectSettings({
+      hasAiCapability: true,
+      triedAutoConnect: false,
+      loading: false,
+      loaded: true,
+      apiBaseUrl: 'http://127.0.0.1:2048/v1',
+    })).toBe(true);
     expect(
       shouldAutoConnectSettings({
         hasAiCapability: true,
         triedAutoConnect: false,
         loading: false,
         loaded: true,
-        hasSecretKey: true,
         apiBaseUrl: 'https://api.openai.com/v1',
       }),
     ).toBe(true);
@@ -289,7 +295,6 @@ describe('settings controller helpers', () => {
         triedAutoConnect: true,
         loading: false,
         loaded: true,
-        hasSecretKey: true,
         apiBaseUrl: 'https://api.openai.com/v1',
       }),
     ).toBe(false);
@@ -300,7 +305,6 @@ describe('settings controller helpers', () => {
         triedAutoConnect: false,
         loading: false,
         loaded: true,
-        hasSecretKey: true,
         apiBaseUrl: 'https://api.openai.com/v1',
       }),
     ).toBe(false);

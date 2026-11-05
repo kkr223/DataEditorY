@@ -139,7 +139,6 @@ export function shouldAutoConnectSettings(input: {
   triedAutoConnect: boolean;
   loading: boolean;
   loaded: boolean;
-  hasSecretKey: boolean;
   apiBaseUrl: string;
 }) {
   return (
@@ -147,7 +146,6 @@ export function shouldAutoConnectSettings(input: {
     && !input.triedAutoConnect
     && !input.loading
     && input.loaded
-    && input.hasSecretKey
     && input.apiBaseUrl.trim().length > 0
   );
 }
