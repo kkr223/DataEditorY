@@ -45,28 +45,23 @@ export default defineConfig(async () => ({
   },
   build: {
     chunkSizeWarningLimit: 3900,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        /** @param {string} id */
-        manualChunks(id) {
-          const normalizedId = id.replaceAll("\\", "/");
-
-          if (!normalizedId.includes("/node_modules/")) {
-            return;
-          }
-
-          if (normalizedId.includes("/node_modules/yugioh-card-ts/")) {
-            return "vendor-yugioh-card-ts";
-          }
-
-          if (normalizedId.includes("/node_modules/@tauri-apps/")) {
-            return "vendor-tauri";
-          }
-
-          if (normalizedId.includes("/node_modules/svelte-i18n/")) {
-            return "vendor-i18n";
-          }
-
+        codeSplitting: {
+          groups: [
+            {
+              name: "vendor-yugioh-card-ts",
+              test: /[/\\]node_modules[/\\]yugioh-card-ts[/\\]/,
+            },
+            {
+              name: "vendor-tauri",
+              test: /[/\\]node_modules[/\\]@tauri-apps[/\\]/,
+            },
+            {
+              name: "vendor-i18n",
+              test: /[/\\]node_modules[/\\]svelte-i18n[/\\]/,
+            },
+          ],
         },
       },
     },

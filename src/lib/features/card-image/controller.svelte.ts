@@ -27,6 +27,7 @@ import {
   resolveWorkspaceCardImageAssetSrc,
 } from '#lib/features/card-image/workspaceAssets.ts';
 import { createCardImageOperations } from './imageOperations';
+import { destroyCardImageRenderer } from './rendererLifecycle';
 import {
   getOpenTextTab,
   saveTextTab,
@@ -282,17 +283,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     return yugiohCardConstructorPromise;
   }
 
-  function destroyRenderer(card: InstanceType<YugiohCardConstructor> | null | undefined) {
-    if (!card) return;
-    if (card.destroy) {
-      card.destroy();
-      return;
-    }
-    card.leafer?.destroy?.();
-  }
-
   function destroyPreview() {
-    destroyRenderer(state.previewCard);
+    destroyCardImageRenderer(state.previewCard);
     state.previewCard = null;
     lastPreviewRendererSignature = '';
     if (state.previewHost) {
@@ -301,7 +293,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function destroyForegroundPreview() {
-    destroyRenderer(state.foregroundPreviewCard);
+    destroyCardImageRenderer(state.foregroundPreviewCard);
     state.foregroundPreviewCard = null;
     lastForegroundRendererSignature = '';
     if (state.foregroundPreviewHost) {
@@ -310,7 +302,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function destroyRarityMaskPreview() {
-    destroyRenderer(state.rarityMaskPreviewCard);
+    destroyCardImageRenderer(state.rarityMaskPreviewCard);
     state.rarityMaskPreviewCard = null;
     lastRarityMaskRendererSignature = '';
     if (state.rarityMaskPreviewHost) {
@@ -1731,7 +1723,7 @@ export function createCardImageController(source: CardImageControllerSource) {
 
       throw new Error('Export did not return a Blob');
     } finally {
-      destroyRenderer(exportCard);
+      destroyCardImageRenderer(exportCard);
       host.remove();
     }
   }

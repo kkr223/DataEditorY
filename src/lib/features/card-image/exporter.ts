@@ -2,6 +2,7 @@ import type { CardDataEntry } from '#lib/types/index.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { pathExists, writeBinaryFile } from '#lib/native/assetApi.ts';
 import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
+import { destroyCardImageRenderer } from './rendererLifecycle';
 import {
   applyCardImageRarityDefaults,
   createCardImageFormData,
@@ -76,15 +77,6 @@ async function getResourcePath() {
   }
 
   return resourcePathPromise;
-}
-
-function destroyRenderer(card: InstanceType<YugiohCardConstructor> | null | undefined) {
-  if (!card) return;
-  if (card.destroy) {
-    card.destroy();
-    return;
-  }
-  card.leafer?.destroy?.();
 }
 
 function applyAutoRarityStyle(data: CardImageFormData): CardImageFormData {
@@ -168,7 +160,7 @@ async function renderCardBlob(data: CardImageFormData, type: 'png' | 'jpg', qual
 
     throw new Error('Export did not return a Blob');
   } finally {
-    destroyRenderer(exportCard);
+    destroyCardImageRenderer(exportCard);
     host.remove();
   }
 }
