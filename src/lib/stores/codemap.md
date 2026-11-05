@@ -11,6 +11,7 @@ Uses a mix of Svelte `writable` stores and Svelte 5 `$state` runes (files ending
 ### Database Stores
 
 - **`tabs.ts`** — CDB workspace tab management: open/close/activate tabs, track dirty state, cached search results per CDB
+  New CDB creation shares one pending save dialog, reserves its path against concurrent opens/creates, and publishes the workspace after its first save.
 - **`db.ts`** — barrel export aggregating all DB-related stores (tabs, search, undo, cardUtils, cardOperations, recentHistory)
 - **`search.ts`** — Card Explorer search execution: builds queries from filters via `domain/search/query.ts`, executes via document host, caches paginated results
 - **`cardOperations.ts`** — CRUD operations on cards: modify, delete, upsert via document host provider

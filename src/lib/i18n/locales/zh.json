@@ -963,6 +963,7 @@
     "create_filtered_cdb_creating": "创建中...",
     "create_filtered_cdb_empty": "当前筛选结果为空，无法创建新 cdb",
     "create_filtered_cdb_success": "已根据当前筛选结果创建新 cdb，共 {count} 张卡片",
+    "create_cdb_failed": "新建数据库失败，请查看错误日志",
     "create_filtered_cdb_failed": "创建筛选结果 cdb 失败",
     "create_filtered_cdb_copying_assets": "正在后台复制脚本和卡图...",
     "create_filtered_cdb_assets_copied": "脚本和卡图已复制完成",

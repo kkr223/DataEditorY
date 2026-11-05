@@ -1,4 +1,5 @@
 import { writable, get, derived } from 'svelte/store';
+import { _ } from 'svelte-i18n';
 import type { CardDataEntry, DbWorkspaceState, SearchFilters } from '#lib/types/index.ts';
 import { DEFAULT_SEARCH_FILTERS } from '#lib/types/index.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
@@ -9,6 +10,7 @@ import { CARD_COLLECTION_TYPE } from '#lib/modules/card/index.ts';
 import { CDB_PROVIDER_ID } from '#lib/modules/cdb/index.ts';
 import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
 import { writeErrorLog } from '#lib/utils/errorLog.ts';
+import { showToast } from './toast.svelte';
 import {
   popUndoLabel,
   pushUndoLabel,
@@ -30,6 +32,7 @@ export const isDbLoaded = derived(activeTab, ($activeTab) => $activeTab !== null
 
 let syncingRuntime = false;
 const inflightCdbOpens = new Map<string, Promise<string | null>>();
+let pendingCdbCreationDialog: Promise<string | null> | null = null;
 
 documentRuntime.subscribe((snapshot) => {
   syncingRuntime = true;
@@ -154,42 +157,72 @@ export async function openCdbHistoryEntry(path: string): Promise<string | null> 
   return openCdbPath(path);
 }
 
-export async function createCdbFile(path?: string): Promise<string | null> {
-  const selected = path?.trim() || await tauriBridge.save({
-    title: 'Create New CDB',
-    filters: [{
-      name: 'YGOPro CDB Database',
-      extensions: ['cdb']
-    }]
-  });
+function reportCdbCreationError(error: unknown, path?: string) {
+  console.error('Failed to create CDB:', error);
+  void writeErrorLog({ source: 'tabs.create', error, extra: { path } });
+  showToast(get(_)('editor.create_cdb_failed'), 'error');
+}
 
-  if (selected && typeof selected === 'string') {
-    const selectedIdentity = getCdbPathIdentity(selected);
-    const existing = get(tabs).find((tab) => getCdbPathIdentity(tab.path) === selectedIdentity);
-    if (existing || inflightCdbOpens.has(selectedIdentity)) {
-      console.error(`Cannot create a CDB over an already open path: ${selected}`);
-      return null;
-    }
+async function createCdbAtPath(selected: string): Promise<string | null> {
+  const selectedIdentity = getCdbPathIdentity(selected);
+  const existing = get(tabs).find((tab) => getCdbPathIdentity(tab.path) === selectedIdentity);
+  if (existing || inflightCdbOpens.has(selectedIdentity)) {
+    reportCdbCreationError(new Error('Cannot create a CDB over an open or opening path'), selected);
+    return null;
+  }
+
+  const previousActiveId = documentRuntime.snapshot.activeDocumentId;
+  const request = (async () => {
     try {
       const document = await documentRuntime.createDocument({
         typeId: CARD_COLLECTION_TYPE,
         providerId: CDB_PROVIDER_ID,
         title: selected.split(/[\\/]/).pop() || 'Untitled.cdb',
         initialData: [],
-      });
-      const saved = await documentRuntime.save(document.id, {
-        uri: selected,
-        path: selected,
-        name: selected.split(/[\\/]/).pop() || 'Untitled.cdb',
-      });
-      pushRecentCdbEntry({ path: selected, name: saved.title });
-      return saved.id;
+        destination: {
+          uri: selected,
+          path: selected,
+          name: selected.split(/[\\/]/).pop() || 'Untitled.cdb',
+        },
+      }, { activate: false });
+      if (documentRuntime.snapshot.activeDocumentId === previousActiveId) {
+        documentRuntime.activate(document.id);
+      }
+      pushRecentCdbEntry({ path: selected, name: document.title });
+      return document.id;
     } catch (err) {
-      console.error('Failed to create CDB:', err);
+      reportCdbCreationError(err, selected);
+      return null;
+    } finally {
+      inflightCdbOpens.delete(selectedIdentity);
+    }
+  })();
+  inflightCdbOpens.set(selectedIdentity, request);
+  return request;
+}
+
+export function createCdbFile(path?: string): Promise<string | null> {
+  if (path?.trim()) return createCdbAtPath(path.trim());
+  if (pendingCdbCreationDialog) return pendingCdbCreationDialog;
+
+  const request = (async () => {
+    try {
+      const selected = await tauriBridge.save({
+        title: 'Create New CDB',
+        filters: [{ name: 'YGOPro CDB Database', extensions: ['cdb'] }],
+      });
+      return typeof selected === 'string' && selected.trim()
+        ? await createCdbAtPath(selected.trim())
+        : null;
+    } catch (error) {
+      reportCdbCreationError(error);
       return null;
     }
-  }
-  return null;
+  })();
+  pendingCdbCreationDialog = request;
+  const clearPendingDialog = () => { pendingCdbCreationDialog = null; };
+  void request.then(clearPendingDialog, clearPendingDialog);
+  return request;
 }
 
 export async function closeTab(tabId: string) {

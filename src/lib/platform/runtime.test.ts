@@ -54,6 +54,67 @@ const modules: ExtensionModule[] = [{
 }];
 
 describe('document runtime', () => {
+  for (const cancel of [false, true]) {
+    test(`initial save can query unpublished data and ${cancel ? 'disposes it on cancellation' : 'publishes only after writing'}`, async () => {
+      let started!: () => void;
+      let finish!: () => void;
+      const writing = new Promise<void>((resolve) => { started = resolve; });
+      const blocked = new Promise<void>((resolve) => { finish = resolve; });
+      let disposed = 0;
+      let persisted = '';
+      class Provider extends MemoryDocumentProvider {
+        async dispose(id: string) {
+          disposed++;
+          await super.dispose(id);
+        }
+      }
+      const runtime = new DocumentRuntime([...modules, {
+        id: 'initial',
+        providers: [{ id: 'initial', typeIds: ['test.note'], create: () => new Provider() }],
+        codecs: [{
+          id: 'initial', typeId: 'test.note', filePatterns: ['.initial'],
+          decode: async () => ({ typeId: 'test.note', schemaVersion: 1, title: 'Initial', providerId: 'initial' }),
+          encode: async (document, destination, context) => {
+            expect(await document.query({})).toEqual({ value: 7 });
+            expect(await document.snapshot()).toEqual({ value: 7 });
+            await context.writeText(destination.uri, JSON.stringify(await document.snapshot()));
+          },
+        }],
+      }], {
+        ...codecContext,
+        writeText: async (_path, content) => {
+          started();
+          await blocked;
+          persisted = content;
+        },
+      });
+      const controller = new AbortController();
+      const pending = runtime.createDocument({
+        typeId: 'test.note', providerId: 'initial', title: 'Initial', initialData: { value: 7 },
+        destination: { uri: 'saved.initial', name: 'saved.initial' },
+      }, { signal: controller.signal });
+      await writing;
+      try {
+        expect(runtime.snapshot.documents).toHaveLength(0);
+        expect(runtime.snapshot.activeDocumentId).toBeNull();
+        if (cancel) controller.abort();
+      } finally { finish(); }
+      if (cancel) {
+        expect(await pending.catch((error: unknown) => error)).toBeInstanceOf(DOMException);
+        expect(disposed).toBe(1);
+        expect(runtime.snapshot.documents).toHaveLength(0);
+        expect(runtime.snapshot.activeDocumentId).toBeNull();
+      } else {
+        const document = await pending;
+        expect(document.source?.uri).toBe('saved.initial');
+        expect(document.dirty).toBe(false);
+        expect(runtime.snapshot.activeDocumentId).toBe(document.id);
+        await runtime.close(document.id);
+      }
+      expect(persisted).toBe('{"value":7}');
+    });
+  }
+
   test('concurrent saves run in order and close waits for the final write', async () => {
     let release!: () => void;
     let started!: () => void;

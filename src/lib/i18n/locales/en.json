@@ -963,6 +963,7 @@
     "create_filtered_cdb_creating": "Creating...",
     "create_filtered_cdb_empty": "The current filter returned no cards, so a new cdb cannot be created",
     "create_filtered_cdb_success": "Created a new cdb from the current filter with {count} card(s)",
+    "create_cdb_failed": "Failed to create the database. See the error log for details.",
     "create_filtered_cdb_failed": "Failed to create the filtered cdb",
     "create_filtered_cdb_copying_assets": "Copying scripts and images in the background...",
     "create_filtered_cdb_assets_copied": "Scripts and images copied",
