@@ -587,7 +587,7 @@ async function requestChatCompletion(
     signal,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.secretKey}`,
+      ...(config.secretKey.trim() ? { Authorization: `Bearer ${config.secretKey.trim()}` } : {}),
     },
     body: JSON.stringify(body),
   });

@@ -23,6 +23,7 @@ export type CreateDocumentRequest = {
   initialData?: unknown;
   references?: DocumentRef[];
   metadata?: Record<string, unknown>;
+  destination?: DocumentSource;
 };
 
 export class DocumentRuntime {
@@ -188,6 +189,15 @@ export class DocumentRuntime {
         ...(providerMetadata ?? {}),
       },
     };
+    if (request.destination) {
+      try {
+        await this.saveRecord(record, request.destination);
+        options.signal?.throwIfAborted();
+      } catch (error) {
+        await provider.dispose(id);
+        throw error;
+      }
+    }
     this.documents.set(id, record);
     if (options.activate !== false) this.activeDocumentId = id;
     this.emit();
@@ -251,6 +261,12 @@ export class DocumentRuntime {
 
   private async saveDocument(documentId: string, destination?: DocumentSource) {
     const document = this.requireDocument(documentId);
+    await this.saveRecord(document, destination);
+    this.emit();
+    return this.cloneRecord(document);
+  }
+
+  private async saveRecord(document: DocumentRecord, destination?: DocumentSource) {
     const target = destination ?? document.source;
     if (!target) {
       throw new Error(`Document ${document.title} needs a destination`);
@@ -276,8 +292,6 @@ export class DocumentRuntime {
     document.codecId = codec.id;
     document.savedRevision = savedRevision;
     document.dirty = document.revision !== savedRevision;
-    this.emit();
-    return this.cloneRecord(document);
   }
 
   async close(documentId: string, force = false) {
@@ -326,11 +340,11 @@ export class DocumentRuntime {
   }
 
   private createAccess(document: DocumentRecord): DocumentAccess {
+    const provider = this.requireProvider(document.providerId, document.typeId);
     return {
       record: this.cloneRecord(document),
-      query: (query) => this.query(document.id, query),
+      query: <T = unknown>(query: unknown) => provider.query(document.id, query) as Promise<T>,
       snapshot: async <T = unknown>() => {
-        const provider = this.requireProvider(document.providerId, document.typeId);
         if (!provider.snapshot) {
           throw new Error(`Provider ${document.providerId} does not support snapshots`);
         }

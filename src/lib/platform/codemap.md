@@ -41,6 +41,8 @@ Each feature registers as an `ExtensionModule` (`types.ts:148`) containing:
 
 Saves are serialized per document and acknowledge the revision captured before encoding. Edits made during a save remain dirty; close waits for queued saves before disposing the provider.
 
+`createDocument` accepts an optional destination for an initial save. It publishes the document after that save succeeds and disposes provider data if saving fails or creation is cancelled.
+
 ## Files
 
 | File | Purpose |

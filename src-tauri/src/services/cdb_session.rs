@@ -257,6 +257,38 @@ mod tests {
     }
 
     #[test]
+    fn repeatedly_creates_saves_and_reopens_empty_cdbs_with_unicode_paths() {
+        let root = make_temp_dir("empty-create-stress");
+        let session_dir = root.join("sessions");
+        let sessions = make_sessions();
+
+        for index in 0..32 {
+            let name = if index % 2 == 0 {
+                "cards"
+            } else {
+                "新建卡片"
+            };
+            let target = root.join(format!("{name}-{index}.cdb"));
+            let target_text = target.to_string_lossy().into_owned();
+            let id = format!("create-{index}");
+            let created =
+                create_unsaved_cdb_tab_in_dir(&sessions, &session_dir, id.clone(), vec![]).unwrap();
+            assert_eq!(created.cached_total, 0);
+            save_cdb_tab_to(&sessions, id.clone(), Some(target_text.clone())).unwrap();
+            close_cdb_tab(&sessions, id.clone()).unwrap();
+
+            let reopened =
+                open_cdb_tab_in_dir(&sessions, &session_dir, id.clone(), target_text).unwrap();
+            assert_eq!(reopened.cached_total, 0);
+            assert!(reopened.cached_cards.is_empty());
+            close_cdb_tab(&sessions, id).unwrap();
+            assert_eq!(fs::read_dir(&session_dir).unwrap().count(), 0);
+        }
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn saves_working_copy_back_to_original_path() {
         let root = make_temp_dir("save");
         let session_dir = root.join("sessions");

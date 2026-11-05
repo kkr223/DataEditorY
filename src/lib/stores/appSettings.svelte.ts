@@ -363,15 +363,8 @@ export async function connectAiProvider(input: {
     }
 
     const secretKey = await resolveSecretKey(input.secretKey);
-    if (!secretKey) {
-      throw new Error('Secret key is required');
-    }
-
     const response = await fetch(getModelsEndpoint(apiBaseUrl), {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${secretKey}`,
-      },
+      headers: secretKey ? { Authorization: `Bearer ${secretKey}` } : undefined,
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {

@@ -20,10 +20,7 @@ export function createAiAppContext(ownerDocumentId?: string): AiAppContext {
   return {
     async getAiConfig() {
       await loadAppSettings();
-      const secretKey = await loadSecretKey();
-      if (!secretKey) {
-        throw new Error('Secret key is not configured');
-      }
+      const secretKey = (await loadSecretKey())?.trim() || '';
 
       return {
         apiBaseUrl: appSettingsState.values.apiBaseUrl || DEFAULT_API_BASE_URL,
