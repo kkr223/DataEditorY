@@ -1,9 +1,9 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { disableAutofill } from '$lib/actions/disableAutofill';
-  import { appSettingsState } from '$lib/stores/appSettings.svelte';
-  import { isShortcutEvent } from '$lib/features/shortcuts/registry';
-  import type { LuaReferenceManualItem, LuaReferenceManualKind } from '$lib/features/script-editor/lua/reference';
+  import { disableAutofill } from '#lib/actions/disableAutofill.ts';
+  import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
+  import { isShortcutEvent } from '#lib/features/shortcuts/registry.ts';
+  import type { LuaReferenceManualItem, LuaReferenceManualKind } from '#lib/features/script-editor/lua/reference.ts';
 
   export let open = false;
   export let kind: LuaReferenceManualKind = 'constants';

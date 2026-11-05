@@ -8,7 +8,7 @@ import {
   removeCardMentionRange,
   replaceCardMention,
 } from './aiMentions';
-import type { CardDataEntry } from '$lib/types';
+import type { CardDataEntry } from '#lib/types/index.ts';
 
 const card = {
   code: 1001,

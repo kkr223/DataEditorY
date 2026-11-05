@@ -1,4 +1,4 @@
-import { invokeCommand } from '$lib/infrastructure/tauri';
+import { invokeCommand } from '#lib/infrastructure/tauri/index.ts';
 
 type ErrorLogInput = {
   source: string;

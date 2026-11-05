@@ -1,4 +1,4 @@
-import type { CardDataEntry, CardDraftState } from '$lib/types';
+import type { CardDataEntry, CardDraftState } from '#lib/types/index.ts';
 
 export const CARD_TEXT_SLOT_COUNT = 16;
 

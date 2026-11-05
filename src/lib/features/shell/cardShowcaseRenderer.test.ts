@@ -7,7 +7,7 @@ import {
   getShowcaseWrapUnits,
   stripCardAttribution,
 } from './cardShowcaseRenderer';
-import { LINK_MARKER_NAME_TO_BIT, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
+import { LINK_MARKER_NAME_TO_BIT, SUBTYPE_MAP, TYPE_MAP } from '#lib/domain/card/taxonomy.ts';
 
 describe('card showcase renderer helpers', () => {
   test('removes attribution after a blank line or a custom marker', () => {

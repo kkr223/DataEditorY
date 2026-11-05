@@ -10,6 +10,7 @@ Typed Native API Boundary — frontend-facing wrappers around Tauri/document-hos
 |------|---------|
 | `cdbApi.ts` | Product-level CDB session operations: open/create/search/get/commit/undo/save/close and batch operation preview/apply |
 | `scriptApi.ts` | Script file read/write/save/open helpers |
+| `workspaceSearchApi.ts` | Typed `workspaceSearch` query through the CDB document host, including owned open-buffer snapshots |
 | `assetApi.ts` | Asset checks, file helpers, and `revealFile` (opens the file manager with an existing file selected) |
 | `metadataApi.ts` | `.dey/{cdb-stem}.workspace.json` load/save and Save As source-path handoff |
 | `taskApi.ts` | Long-running task execution/progress boundary |

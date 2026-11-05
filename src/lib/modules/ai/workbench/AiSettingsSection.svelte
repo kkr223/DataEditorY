@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { SettingsWorkbenchContext } from '$lib/modules/settings/workbench/context';
-  import { appSettingsState } from '$lib/stores/appSettings.svelte';
+  import type { SettingsWorkbenchContext } from '#lib/modules/settings/workbench/context.ts';
+  import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
   import {
     autoConnectSettingsFlow,
     clearSecretKeyFlow,
     connectSettingsAiFlow,
-  } from '$lib/features/settings/extraUseCases';
-  import SettingsAiCard from '$lib/features/settings/components/SettingsAiCard.svelte';
+  } from '#lib/features/settings/extraUseCases.ts';
+  import SettingsAiCard from '#lib/features/settings/components/SettingsAiCard.svelte';
   import {
     loadAiPromptFiles,
     loadAiSkillFiles,
@@ -16,10 +16,10 @@
     createUserAiSkillPath,
     registerUserAiSkillFile,
     buildSkillTemplate,
-  } from '$lib/features/ai/service';
-  import { getOpenTextTab, openTextFile } from '$lib/stores/textEditor.svelte';
-  import { readTextFile, writeTextFile } from '$lib/native/assetApi';
-  import { showToast } from '$lib/stores/toast.svelte';
+  } from '#lib/features/ai/service.ts';
+  import { getOpenTextTab, openTextFile } from '#lib/stores/textEditor.svelte.ts';
+  import { readTextFile, writeTextFile } from '#lib/native/assetApi.ts';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
 
   let { context }: { context: SettingsWorkbenchContext } = $props();
   let triedAutoConnect = $state(false);

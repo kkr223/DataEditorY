@@ -1,15 +1,15 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { tauriBridge } from '$lib/infrastructure/tauri';
-  import { activeTab } from '$lib/stores/db';
-  import { showToast } from '$lib/stores/toast.svelte';
-  import { createAiAppContext } from '$lib/features/ai/context';
-  import { runWorkspaceAgent, type AgentStage } from '$lib/native/aiApi';
-  import { appSettingsState, connectAiProvider, loadAppSettings, saveAppSettings } from '$lib/stores/appSettings.svelte';
-  import { documentRuntime } from '$lib/platform/appRuntime';
-  import type { CardDataEntry } from '$lib/types';
-  import type { CardSearchExpression, CardSearchPage } from '$lib/modules/card';
+  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+  import { activeTab } from '#lib/stores/db.ts';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
+  import { createAiAppContext } from '#lib/features/ai/context.ts';
+  import { runWorkspaceAgent, type AgentStage } from '#lib/native/aiApi.ts';
+  import { appSettingsState, connectAiProvider, loadAppSettings, saveAppSettings } from '#lib/stores/appSettings.svelte.ts';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
+  import type { CardDataEntry } from '#lib/types/index.ts';
+  import type { CardSearchExpression, CardSearchPage } from '#lib/modules/card/index.ts';
   import { mergeWorkspaceAiContextRefs } from './aiContextRefs';
   import {
     buildMentionContextPrompt,
@@ -34,10 +34,10 @@
     updateAiProposalStatus,
     upsertAiToolRun,
     upsertAiThread,
-  } from '$lib/features/ai/workspaceState';
-  import { workspaceMetadataState, captureWorkspaceMetadataScope } from '$lib/features/workspace-metadata/state.svelte';
-  import type { WorkspaceAiPatch, WorkspaceAiMessage, WorkspaceAiProposal } from '$lib/features/ai/types';
-  import { createAiProposalApplier } from '$lib/features/ai/proposalApplication';
+  } from '#lib/features/ai/workspaceState.ts';
+  import { workspaceMetadataState, captureWorkspaceMetadataScope } from '#lib/features/workspace-metadata/state.svelte.ts';
+  import type { WorkspaceAiPatch, WorkspaceAiMessage, WorkspaceAiProposal } from '#lib/features/ai/types.ts';
+  import { createAiProposalApplier } from '#lib/features/ai/proposalApplication.ts';
   import { createAiPatchApplier } from './aiProposalExecution';
   import AiProposalInspector from './AiProposalInspector.svelte';
   import { renderMarkdown } from './markdown';

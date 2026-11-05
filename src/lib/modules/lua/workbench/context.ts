@@ -1,4 +1,4 @@
-import type { CardDataEntry, ScriptWorkspaceState } from '$lib/types';
+import type { CardDataEntry, ScriptWorkspaceState } from '#lib/types/index.ts';
 
 export type LuaWorkbenchContext = {
   activeScript: ScriptWorkspaceState | null;

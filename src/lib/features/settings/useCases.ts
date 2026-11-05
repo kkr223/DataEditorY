@@ -1,14 +1,14 @@
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { openInSystemEditor } from '$lib/native/scriptApi';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { openInSystemEditor } from '#lib/native/scriptApi.ts';
 import {
   clearCustomCoverImage,
   saveAppSettings,
   setCustomCoverImage,
-} from '$lib/stores/appSettings.svelte';
-import { showToast } from '$lib/stores/toast.svelte';
-import { writeErrorLog } from '$lib/utils/errorLog';
-import type { SettingsFormState } from '$lib/features/settings/controller';
-import { getNormalizedAgentMaxSteps, getNormalizedSettingsTemperature, parsePackageIncludePatternsText, validateSettingsForm } from '$lib/features/settings/controller';
+} from '#lib/stores/appSettings.svelte.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { writeErrorLog } from '#lib/utils/errorLog.ts';
+import type { SettingsFormState } from '#lib/features/settings/controller.ts';
+import { getNormalizedAgentMaxSteps, getNormalizedSettingsTemperature, parsePackageIncludePatternsText, validateSettingsForm } from '#lib/features/settings/controller.ts';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 

@@ -1,12 +1,12 @@
 import * as bunTest from 'bun:test';
-import { createCardSnapshot, createEmptyCard } from '$lib/domain/card/draft';
+import { createCardSnapshot, createEmptyCard } from '#lib/domain/card/draft.ts';
 
 const { describe, expect, test } = bunTest;
 const mock = (bunTest as unknown as {
   mock: { module: (specifier: string, factory: () => unknown) => void };
 }).mock;
 
-mock.module('$lib/stores/toast.svelte', () => ({
+mock.module('#lib/stores/toast.svelte.ts', () => ({
   showToast: () => undefined,
 }));
 

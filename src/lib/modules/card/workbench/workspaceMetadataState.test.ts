@@ -1,5 +1,5 @@
 import * as bunTest from 'bun:test';
-import type { WorkspaceMetadata } from '$lib/native/metadataApi';
+import type { WorkspaceMetadata } from '#lib/native/metadataApi.ts';
 
 const { test, expect } = bunTest;
 const mock = (bunTest as unknown as {
@@ -13,7 +13,7 @@ let save = async (path: string, metadata: WorkspaceMetadata) => {
   writes.push(path);
   return metadata;
 };
-mock.module('$lib/native/metadataApi', () => ({
+mock.module('#lib/native/metadataApi.ts', () => ({
   loadWorkspaceMetadata: (path: string) => load(path),
   saveWorkspaceMetadata: (path: string, metadata: WorkspaceMetadata) => save(path, metadata),
 }));

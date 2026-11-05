@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { disableAutofill } from '$lib/actions/disableAutofill';
-  import type { LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
+  import { disableAutofill } from '#lib/actions/disableAutofill.ts';
+  import type { LuaScriptDiagnostic } from '#lib/features/script-editor/lua/diagnostics.ts';
 
   export let open = false;
   export let title = '';

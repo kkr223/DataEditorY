@@ -11,7 +11,7 @@ export {
   type AgentStage,
   type AgentToolCallEvent,
   type AgentToolResultEvent,
-} from '$lib/features/ai/service';
+} from '#lib/features/ai/service.ts';
 
 export type AiProposal = {
   id: string;

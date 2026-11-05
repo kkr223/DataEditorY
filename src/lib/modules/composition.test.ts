@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { ExtensionRegistry } from '$lib/platform';
+import { ExtensionRegistry } from '#lib/platform/index.ts';
 import { builtInModules as baseModules } from './base';
 import { builtInModules as extraModules } from './extra';
 
@@ -24,5 +24,7 @@ describe('built-in module composition', () => {
     expect(registry.findGlobalTools().map((tool) => tool.id))
       .toContain('card.showcase-image');
     expect(registry.taskRunners.has('batch.image.export-card')).toBe(true);
+    expect(registry.findWorkbenchContributions('card.workbench', 'surface').map((item) => item.metadata?.surfaceId))
+      .toEqual(['image', 'search', 'ai']);
   });
 });

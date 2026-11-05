@@ -1,12 +1,12 @@
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { activeTabId, getCardsByIdsInTab, isDbLoaded, modifyCardsInTab, refreshSearchAfterMutation } from '$lib/stores/db';
-import { getCardClipboard, hasCardClipboard, setCardClipboard } from '$lib/stores/cardClipboard.svelte';
-import { clearSelection, editorState, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '$lib/stores/editor.svelte';
-import { showToast } from '$lib/stores/toast.svelte';
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { deleteDraftCardFlow } from '$lib/features/card-editor/useCases';
-import { dispatchAppShortcut } from '$lib/utils/shortcuts';
+import { activeTabId, getCardsByIdsInTab, isDbLoaded, modifyCardsInTab, refreshSearchAfterMutation } from '#lib/stores/db.ts';
+import { getCardClipboard, hasCardClipboard, setCardClipboard } from '#lib/stores/cardClipboard.svelte.ts';
+import { clearSelection, editorState, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '#lib/stores/editor.svelte.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { deleteDraftCardFlow } from '#lib/features/card-editor/useCases.ts';
+import { dispatchAppShortcut } from '#lib/utils/shortcuts.ts';
 
 export async function handleCopySelection() {
   const selectedCards = getSelectedCards();

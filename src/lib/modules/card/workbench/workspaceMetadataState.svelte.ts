@@ -1,17 +1,17 @@
-import type { CardImageConfigDocument } from '$lib/features/card-image/layout';
-import { DEFAULT_SEARCH_FILTERS, type SearchFilters } from '$lib/types';
-import { loadWorkspaceMetadata, type WorkspaceMetadata } from '$lib/native/metadataApi';
-import { isCurrentMetadataPath, workspaceMetadataState, updateWorkspaceMetadata, updateWorkspaceMetadataForPath } from '$lib/features/workspace-metadata/state.svelte';
+import type { CardImageConfigDocument } from '#lib/features/card-image/layout.ts';
+import { DEFAULT_SEARCH_FILTERS, type SearchFilters } from '#lib/types/index.ts';
+import { loadWorkspaceMetadata, type WorkspaceMetadata } from '#lib/native/metadataApi.ts';
+import { isCurrentMetadataPath, workspaceMetadataState, updateWorkspaceMetadata, updateWorkspaceMetadataForPath } from '#lib/features/workspace-metadata/state.svelte.ts';
 
 // Compatibility exports keep existing workbench consumers on the same state instance.
 export { workspaceMetadataState, updateWorkspaceMetadata, captureWorkspaceMetadataScope,
   loadWorkspaceMetadataForPath, copyWorkspaceMetadataForSaveAs, flushAllWorkspaceMetadataSaves,
-} from '$lib/features/workspace-metadata/state.svelte';
-export type * from '$lib/features/ai/types';
+} from '#lib/features/workspace-metadata/state.svelte.ts';
+export type * from '#lib/features/ai/types.ts';
 export { getAiThreads, getActiveAiThread, getAiProposals, getAiProposalsForThread,
   upsertAiThread, deleteAiThread, accumulateAiThreadTokenUsage, resetAiThreadTokenUsage,
   appendAiMessage, compactAiThreadMessages, upsertAiToolRun, addAiProposal, updateAiProposalStatus,
-} from '$lib/features/ai/workspaceState';
+} from '#lib/features/ai/workspaceState.ts';
 
 export type WorkspaceCardGroup = {
   id: string;

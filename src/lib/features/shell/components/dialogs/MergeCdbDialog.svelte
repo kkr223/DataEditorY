@@ -3,7 +3,7 @@
   import type {
     AnalyzeCdbMergeResponse,
     MergeSourceItem,
-  } from '$lib/native/taskApi';
+  } from '#lib/native/taskApi.ts';
 
   /* ── drag-sort state ── */
   let draggedIndex = $state(-1);

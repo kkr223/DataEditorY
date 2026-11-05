@@ -1,5 +1,5 @@
-import type { SelectOption } from '$lib/types';
-import { loadStringsConfContent } from '$lib/native/assetApi';
+import type { SelectOption } from '#lib/types/index.ts';
+import { loadStringsConfContent } from '#lib/native/assetApi.ts';
 
 export type SetcodeOption = SelectOption<string> & { label: string };
 export type SetcodeCatalogLoadResult = {

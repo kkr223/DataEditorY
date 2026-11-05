@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { disableAutofill } from '$lib/actions/disableAutofill';
-  import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, SCRIPT_EDITOR_FONT_SIZE_MIN, SCRIPT_EDITOR_FONT_SIZE_MAX } from '$lib/features/script-editor/fontPreferences';
+  import { disableAutofill } from '#lib/actions/disableAutofill.ts';
+  import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, SCRIPT_EDITOR_FONT_SIZE_MIN, SCRIPT_EDITOR_FONT_SIZE_MAX } from '#lib/features/script-editor/fontPreferences.ts';
 
   export let title = '';
   export let description = '';

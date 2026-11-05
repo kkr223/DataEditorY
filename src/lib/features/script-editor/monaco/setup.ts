@@ -1,54 +1,55 @@
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
-import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution';
-import 'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution';
-import 'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution';
-import 'monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution';
-import 'monaco-editor/esm/vs/basic-languages/css/css.contribution';
-import 'monaco-editor/esm/vs/basic-languages/html/html.contribution';
-import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution';
-import 'monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution';
-import 'monaco-editor/esm/vs/basic-languages/python/python.contribution';
-import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution';
-import 'monaco-editor/esm/vs/basic-languages/shell/shell.contribution';
-import 'monaco-editor/esm/vs/basic-languages/ini/ini.contribution';
-import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution';
-import 'monaco-editor/esm/vs/basic-languages/bat/bat.contribution';
-import 'monaco-editor/esm/vs/basic-languages/java/java.contribution';
-import 'monaco-editor/esm/vs/basic-languages/go/go.contribution';
-import 'monaco-editor/esm/vs/basic-languages/cpp/cpp.contribution';
-import 'monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.contribution';
-import 'monaco-editor/esm/vs/basic-languages/restructuredtext/restructuredtext.contribution';
-import 'monaco-editor/esm/vs/basic-languages/scss/scss.contribution';
-import 'monaco-editor/esm/vs/basic-languages/less/less.contribution';
-import 'monaco-editor/esm/vs/basic-languages/powershell/powershell.contribution';
-import 'monaco-editor/esm/vs/basic-languages/php/php.contribution';
-import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution';
-import 'monaco-editor/esm/vs/basic-languages/swift/swift.contribution';
-import 'monaco-editor/esm/vs/basic-languages/kotlin/kotlin.contribution';
-import 'monaco-editor/esm/vs/basic-languages/csharp/csharp.contribution';
-import 'monaco-editor/esm/vs/basic-languages/graphql/graphql.contribution';
-import 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
-import 'monaco-editor/esm/vs/editor/contrib/clipboard/browser/clipboard';
-import 'monaco-editor/esm/vs/editor/contrib/find/browser/findController';
-import 'monaco-editor/esm/vs/editor/contrib/multicursor/browser/multicursor';
-import 'monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching';
-import 'monaco-editor/esm/vs/editor/contrib/caretOperations/browser/caretOperations';
-import 'monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperations';
-import 'monaco-editor/esm/vs/editor/contrib/wordOperations/browser/wordOperations';
-import 'monaco-editor/esm/vs/editor/contrib/comment/browser/comment';
-import 'monaco-editor/esm/vs/editor/contrib/folding/browser/folding';
-import 'monaco-editor/esm/vs/editor/contrib/indentation/browser/indentation';
-import 'monaco-editor/esm/vs/editor/contrib/links/browser/links';
-import 'monaco-editor/esm/vs/editor/contrib/format/browser/formatActions';
-import 'monaco-editor/esm/vs/editor/contrib/contextmenu/browser/contextmenu';
+import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/css/css.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/html/html.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/python/python.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/shell/shell.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/ini/ini.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/bat/bat.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/java/java.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/go/go.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/cpp/cpp.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/restructuredtext/restructuredtext.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/scss/scss.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/less/less.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/powershell/powershell.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/php/php.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/swift/swift.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/kotlin/kotlin.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/csharp/csharp.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/graphql/graphql.contribution.js';
+import 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2.js';
+import 'monaco-editor/esm/vs/editor/contrib/clipboard/browser/clipboard.js';
+import 'monaco-editor/esm/vs/editor/contrib/find/browser/findController.js';
+import 'monaco-editor/esm/vs/editor/contrib/multicursor/browser/multicursor.js';
+import 'monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching.js';
+import 'monaco-editor/esm/vs/editor/contrib/caretOperations/browser/caretOperations.js';
+import 'monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperations.js';
+import 'monaco-editor/esm/vs/editor/contrib/wordOperations/browser/wordOperations.js';
+import 'monaco-editor/esm/vs/editor/contrib/comment/browser/comment.js';
+import 'monaco-editor/esm/vs/editor/contrib/folding/browser/folding.js';
+import 'monaco-editor/esm/vs/editor/contrib/indentation/browser/indentation.js';
+import 'monaco-editor/esm/vs/editor/contrib/links/browser/links.js';
+import 'monaco-editor/esm/vs/editor/contrib/format/browser/formatActions.js';
+import 'monaco-editor/esm/vs/editor/contrib/contextmenu/browser/contextmenu.js';
 import { SnippetController2 } from 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2';
-import 'monaco-editor/esm/vs/editor/contrib/gotoSymbol/browser/goToCommands';
-import 'monaco-editor/esm/vs/editor/contrib/gotoSymbol/browser/link/goToDefinitionAtPosition';
+import 'monaco-editor/esm/vs/editor/contrib/gotoSymbol/browser/goToCommands.js';
+import 'monaco-editor/esm/vs/editor/contrib/gotoSymbol/browser/link/goToDefinitionAtPosition.js';
 import { registerLuaNavigation } from './navigation';
+import { suppressFindCloseTooltip } from './findWidget';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { getCompletionInsertParameters, shouldInsertFunctionArguments } from './completion';
 import { loadExternalLuaCatalog } from '../lua/catalog';
-import { appSettingsState } from '$lib/stores/appSettings.svelte';
+import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
 import { getConfiguredScriptSnippets } from '../snippetPreferences';
 import {
   clearLuaSemanticDocumentCache,
@@ -62,7 +63,9 @@ import {
   type LuaSemanticTextModel,
   type LuaVisibleSymbol,
 } from '../lua/semantic';
-import type { CardDataEntry, LuaConstantItem, LuaFunctionItem } from '$lib/types';
+import type { CardDataEntry, LuaConstantItem, LuaFunctionItem } from '#lib/types/index.ts';
+
+monaco.editor.onDidCreateEditor(suppressFindCloseTooltip);
 
 type LuaModelContext = {
   cardCode: number;
@@ -180,9 +183,9 @@ async function ensureLuaCatalogLoaded() {
   if (!catalogLoadPromise) {
     catalogLoadPromise = (async () => {
       const [constantsModule, functionsModule, snippetsModule] = await Promise.all([
-        import('$lib/data/lua-intel/constants.generated.json'),
-        import('$lib/data/lua-intel/functions.generated.json'),
-        import('$lib/data/lua-intel/snippets.generated.json'),
+        import('#lib/data/lua-intel/constants.generated.json'),
+        import('#lib/data/lua-intel/functions.generated.json'),
+        import('#lib/data/lua-intel/snippets.generated.json'),
       ]);
       luaCatalog = {
         constants: constantsModule.default,
@@ -1426,6 +1429,21 @@ export async function loadMonaco() {
 
 export function createScriptModelUri(tabId: string) {
   return monaco.Uri.parse(`inmemory://dataeditory/script-${tabId}.lua`);
+}
+
+export function replaceScriptModelContent(tabId: string, before: string, after: string) {
+  const uri = createScriptModelUri(tabId);
+  const model = monaco.editor.getModel(uri) ?? monaco.editor.createModel(before, 'lua', uri);
+  if (model.getValue() !== before) throw new Error('changed');
+  model.pushStackElement();
+  model.pushEditOperations([], [{ range: model.getFullModelRange(), text: after }], () => null);
+  model.pushStackElement();
+  return () => {
+    if (model.isDisposed()) return;
+    if (model.getValue() !== after) throw new Error('replacementPartial');
+    model.undo();
+    if (model.getValue() !== before) throw new Error('replacementPartial');
+  };
 }
 
 export function setModelContext(model: monaco.editor.ITextModel, context: LuaModelContext) {

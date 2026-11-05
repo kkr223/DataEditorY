@@ -54,7 +54,7 @@ export type WorkspaceAiPatch =
       cardCode?: number;
       path: string;
       content: string;
-      baseline?: import('$lib/features/ai/scriptBaseline').ScriptProposalBaseline;
+      baseline?: import('#lib/features/ai/scriptBaseline.ts').ScriptProposalBaseline;
     }
   | {
       id: string;

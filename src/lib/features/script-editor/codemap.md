@@ -40,6 +40,7 @@ The script editor is structured in three layers:
 - **`fontPreferences.ts`** — default font size (14 px), shared 8–32 px bounds, and preference normalization
 - **`snippetPreferences.ts`** — custom snippet parsing/validation, settings editing format, and live merging with built-in snippets; user settings replace bundled custom entries, including an intentionally empty list
 - **`view.ts`** — view state serialization for tab switching
+- **`revealLocation.ts`** — pending tab-scoped selection for global search; `ScriptEditorCore` applies it after model binding and clears it after use.
 - **`scriptRenderer.ts`** — code-to-image export: renders Lua code with syntax highlighting as PNG
 
 ### Components

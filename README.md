@@ -455,15 +455,31 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 **环境要求**：
 
-- Node.js 20.19+ 或 22.12+
+- Node.js 22.17+（SvelteKit 3 的最低要求，推荐与 CI 一样使用 Node.js 24）
 - Bun（包管理器和运行环境）
-- Rust 工具链
+- Rust 1.90+ 工具链（Tauri 2.12 的最低要求）
 - Tauri 2 系统依赖（参考 [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)）
 
 Rust 依赖 `ygopro-cdb-encode-rs` 会由 Cargo 自动从
 `https://github.com/kkr223/ygopro-cdb-encode-rs` 获取，不需要手动克隆到仓库同级目录。
 
 桌面构建产物通常位于 `src-tauri/target/release/bundle/`。
+
+### 构建缓存与清理
+
+```bash
+bun run clean -- --dry-run  # 预览将清理的项目目录
+bun run clean              # 清理 Rust 和前端构建产物
+bun run clean:rust         # 仅清理 src-tauri/target
+bun run clean:frontend     # 仅清理 .svelte-kit、build、node_modules/.vite
+```
+
+清理前关闭开发/构建进程。Rust 清理会同时删除 `target` 内的可执行文件和安装包，
+需要保留的版本请先复制到 `dist/` 等导出目录。清理不会删除源码、已安装的 npm 依赖或应用数据目录中的 CDB 工作副本。
+
+开发和测试构建默认只生成回溯需要的行号信息，并关闭 Rust 增量缓存，避免长期积累大量 PDB 和增量文件。
+需要完整原生调试信息时，可临时设置 `CARGO_PROFILE_DEV_DEBUG=2`；需要增量编译时，可设置 `CARGO_PROFILE_DEV_INCREMENTAL=true`。
+测试构建可使用对应的 `CARGO_PROFILE_TEST_*` 环境变量覆盖。
 
 ### Linux / Arch Linux 注意事项
 
@@ -549,10 +565,10 @@ DataEditorY/
 
 | 层 | 技术 |
 |----|------|
-| 前端框架 | Svelte 5 + SvelteKit (SPA) |
-| 前端语言 | TypeScript |
-| 构建工具 | Vite 6 |
-| 桌面框架 | Tauri 2 |
+| 前端框架 | Svelte 5 + SvelteKit 3 (SPA) |
+| 前端语言 | TypeScript 6 |
+| 构建工具 | Vite 8 |
+| 桌面框架 | Tauri 2.12 |
 | 后端语言 | Rust 2021 |
 | Lua 编辑器 | Monaco Editor |
 | 卡图渲染 | `yugioh-card-ts` + Leafer |

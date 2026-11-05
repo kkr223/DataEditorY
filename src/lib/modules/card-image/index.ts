@@ -1,8 +1,8 @@
-import { MemoryDocumentProvider, type ExtensionModule } from '$lib/platform';
+import { MemoryDocumentProvider, type ExtensionModule } from '#lib/platform/index.ts';
 import {
   normalizeCardImageConfigDocument,
   type CardImageConfigDocument,
-} from '$lib/features/card-image/layout';
+} from '#lib/features/card-image/layout.ts';
 import {
   CARD_IMAGE_CONFIG_TYPE,
   CARD_IMAGE_PROVIDER_ID,
@@ -84,12 +84,12 @@ export const cardImageModule: ExtensionModule = {
     labelKey: 'nav.tools_batch_image_export',
     order: 30,
     requiresActiveCdb: true,
-    component: () => import('$lib/features/shell/components/dialogs/BatchImageExportDialog.svelte'),
+    component: () => import('#lib/features/shell/components/dialogs/BatchImageExportDialog.svelte'),
   }],
   taskRunners: [{
     kind: 'batch.image.export-card',
     async run(input) {
-      const { exportBatchCardImage } = await import('$lib/features/card-image/exporter');
+      const { exportBatchCardImage } = await import('#lib/features/card-image/exporter.ts');
       return exportBatchCardImage(input as Parameters<typeof exportBatchCardImage>[0]);
     },
   }],

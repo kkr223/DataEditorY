@@ -1,5 +1,5 @@
-import type { CardDataEntry } from '$lib/types';
-import { LINK_MARKER_NAME_TO_BIT, SUBTYPE_MAP, TYPE_MAP } from '$lib/domain/card/taxonomy';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import { LINK_MARKER_NAME_TO_BIT, SUBTYPE_MAP, TYPE_MAP } from '#lib/domain/card/taxonomy.ts';
 
 export type CardShowcaseItem = {
   card: CardDataEntry;

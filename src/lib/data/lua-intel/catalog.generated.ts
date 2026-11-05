@@ -1,7 +1,7 @@
 import constants from './constants.generated.json';
 import functions from './functions.generated.json';
 import snippets from './snippets.generated.json';
-import type { LuaCatalog } from '$lib/types';
+import type { LuaCatalog } from '#lib/types/index.ts';
 
 const keywords = [
   "and",

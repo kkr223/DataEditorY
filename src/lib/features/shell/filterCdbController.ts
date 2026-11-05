@@ -1,21 +1,21 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { copyCardAssets } from '$lib/native/assetApi';
-import { createCdbFromCards } from '$lib/native/cdbApi';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { copyCardAssets } from '#lib/native/assetApi.ts';
+import { createCdbFromCards } from '#lib/native/cdbApi.ts';
 import {
   activeTab,
   getCachedFilters,
   openCdbPath,
   queryCardsByFiltersInTab,
   tabs,
-} from '$lib/stores/db';
-import { showToast } from '$lib/stores/toast.svelte';
-import { writeErrorLog } from '$lib/utils/errorLog';
-import type { CardDataEntry } from '$lib/types';
-import { isNewOutputPath } from '$lib/features/shell/dialogsHelpers';
-import { activateWorkspaceDocument } from '$lib/application/workspace/commandBus';
-import { commitWorkspaceCardDraft } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
+} from '#lib/stores/db.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { writeErrorLog } from '#lib/utils/errorLog.ts';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import { isNewOutputPath } from '#lib/features/shell/dialogsHelpers.ts';
+import { activateWorkspaceDocument } from '#lib/application/workspace/commandBus.ts';
+import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
 
 const activeTabState = fromStore(activeTab);
 const tabsState = fromStore(tabs);

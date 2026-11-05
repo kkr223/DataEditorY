@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ , locale } from 'svelte-i18n';
-  import type { RecentCdbEntry } from '$lib/stores/db';
-  import RecentHistoryPopover from '$lib/features/shell/components/RecentHistoryPopover.svelte';
+  import type { RecentCdbEntry } from '#lib/stores/db.ts';
+  import RecentHistoryPopover from '#lib/features/shell/components/RecentHistoryPopover.svelte';
 
   let {
     theme = 'dark',
@@ -65,11 +65,27 @@
     onRemoveRecent: (path: string) => void;
   } = $props();
 
+  let openHistoryHost = $state<HTMLDivElement | null>(null);
+  let packageMenuHost = $state<HTMLDivElement | null>(null);
+
+  function handleOutsidePointerDown(event: PointerEvent) {
+    if (!(event.target instanceof Node)) return;
+
+    if (isOpenHistoryVisible && !openHistoryHost?.contains(event.target)) {
+      onHideOpenHistoryImmediately();
+    }
+    if (isPackageMenuVisible && !packageMenuHost?.contains(event.target)) {
+      onHidePackageMenu();
+    }
+  }
+
   function runToolAction(action: () => void | Promise<void>) {
     onHidePackageMenu();
     void action();
   }
 </script>
+
+<svelte:window onpointerdowncapture={handleOutsidePointerDown} />
 
 <header class="topbar">
   <div class="topbar-left">
@@ -78,6 +94,7 @@
     </div>
     <nav>
       <div
+        bind:this={openHistoryHost}
         class="nav-item-group open-nav-group"
         role="group"
         aria-label={$_('nav.open_recent')}
@@ -103,6 +120,7 @@
         {$_('nav.create')}
       </button>
       <div
+        bind:this={packageMenuHost}
         class="nav-item-group package-nav-group"
         role="group"
         aria-label={$_('nav.tools')}

@@ -1,7 +1,7 @@
 import * as bunTest from 'bun:test';
 import { writable } from 'svelte/store';
-import { cloneEditableCard, createCardSnapshot, createEmptyCard } from '$lib/domain/card/draft';
-import type { CardDataEntry } from '$lib/types';
+import { cloneEditableCard, createCardSnapshot, createEmptyCard } from '#lib/domain/card/draft.ts';
+import type { CardDataEntry } from '#lib/types/index.ts';
 
 const { test, expect } = bunTest;
 const mock = (bunTest as unknown as {
@@ -16,10 +16,10 @@ let targetCard: CardDataEntry | undefined;
 let queryError: Error | undefined;
 let questions: string[] = [];
 let mutate = async () => true;
-mock.module('$lib/infrastructure/tauri', () => ({
+mock.module('#lib/infrastructure/tauri/index.ts', () => ({
   tauriBridge: { ask: async (question: string) => { questions.push(question); return confirmed; } }, invokeCommand: async () => undefined,
 }));
-mock.module('$lib/stores/db', () => ({
+mock.module('#lib/stores/db.ts', () => ({
   activeTabId: activeId,
   deleteCardsInTab: async (_id: string, ids: number[]) => { deleted = ids; return true; },
   queryCardByIdInTab: async () => { if (queryError) throw queryError; return targetCard; },
@@ -27,15 +27,15 @@ mock.module('$lib/stores/db', () => ({
   replaceCardIdInTab: async (...args: unknown[]) => { replacement = args; return true; },
   refreshSearchAfterMutation: async (_id: string, search: () => Promise<boolean>) => search(),
 }));
-mock.module('$lib/stores/appSettings.svelte', () => ({ appSettingsState: { values: {} } }));
-mock.module('$lib/stores/editor.svelte', () => ({
+mock.module('#lib/stores/appSettings.svelte.ts', () => ({ appSettingsState: { values: {} } }));
+mock.module('#lib/stores/editor.svelte.ts', () => ({
   getAllCardsMap: () => new Map(), setSingleSelectedCard() {}, updateVisibleCards() {},
 }));
-mock.module('$lib/stores/toast.svelte', () => ({ showToast() {} }));
-mock.module('$lib/services/cardScriptService', () => ({
+mock.module('#lib/stores/toast.svelte.ts', () => ({ showToast() {} }));
+mock.module('#lib/services/cardScriptService.ts', () => ({
   ensureCardScriptFile() {}, getExistingCardScriptInfo() {}, openCardScriptWorkspace() {}, openScriptWithDefaultApp() {},
 }));
-mock.module('$lib/modules/card/workbench/surfaceState.svelte', () => ({ activateCardSurface() {} }));
+mock.module('#lib/modules/card/workbench/surfaceState.svelte.ts', () => ({ activateCardSurface() {} }));
 const { deleteDraftCardFlow, saveDraftCardFlow, modifyDraftCardFlow, saveAsDraftCardFlow } = await import('./useCases');
 
 test('the editor delete action removes the entire selected range in one operation', async () => {

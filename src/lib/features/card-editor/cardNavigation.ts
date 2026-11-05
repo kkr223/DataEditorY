@@ -1,14 +1,14 @@
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { activeTab, getCardByIdInTab } from '$lib/stores/db';
-import { editorState, getAllCardsMap, handleSearch, setSingleSelectedCard } from '$lib/stores/editor.svelte';
-import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import { commitWorkspaceCardDraft } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
-import { activateCardSurface, type CardSurfaceId } from '$lib/modules/card/workbench/surfaceState.svelte';
-import { activateEditorView } from '$lib/stores/appShell.svelte';
-import { openCardScriptWorkspace } from '$lib/services/cardScriptService';
-import { showToast } from '$lib/stores/toast.svelte';
+import { activeTab, getCardByIdInTab } from '#lib/stores/db.ts';
+import { editorState, getAllCardsMap, handleSearch, setSingleSelectedCard } from '#lib/stores/editor.svelte.ts';
+import { DEFAULT_SEARCH_FILTERS } from '#lib/types/index.ts';
+import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
+import { activateCardSurface, type CardSurfaceId } from '#lib/modules/card/workbench/surfaceState.svelte.ts';
+import { activateEditorView } from '#lib/stores/appShell.svelte.ts';
+import { openCardScriptWorkspace } from '#lib/services/cardScriptService.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
 
 export async function navigateToCard(tabId: string, cardId: number, surface: CardSurfaceId) {
   const tab = get(activeTab);
@@ -26,7 +26,7 @@ export async function navigateToCard(tabId: string, cardId: number, surface: Car
   if (surface === 'script') {
     const result = await openCardScriptWorkspace({ cdbPath: tab.path, sourceTabId: tabId, cardCode: cardId, cardName: card.name, activate: false });
     if (!result || get(activeTab)?.id !== tabId) return;
-    const { activateScriptTab } = await import('$lib/stores/scriptEditor.svelte');
+    const { activateScriptTab } = await import('#lib/stores/scriptEditor.svelte.ts');
     await activateScriptTab(result.tabId, undefined, () => get(activeTab)?.id === tabId);
   } else activateEditorView();
   if (get(activeTab)?.id === tabId) activateCardSurface(surface);

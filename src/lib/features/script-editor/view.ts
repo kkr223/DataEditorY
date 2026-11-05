@@ -4,14 +4,14 @@ import {
   LINK_MARKERS,
   RACE_OPTIONS,
   TYPE_BITS,
-} from '$lib/domain/card/taxonomy';
+} from '#lib/domain/card/taxonomy.ts';
 import {
   getPackedLScale,
   getPackedLevel,
   getPackedRScale,
-} from '$lib/domain/card/draft';
-import type { CardDataEntry } from '$lib/types';
-import type { ScriptImageRenderInfo } from '$lib/features/script-editor/useCases';
+} from '#lib/domain/card/draft.ts';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import type { ScriptImageRenderInfo } from '#lib/features/script-editor/useCases.ts';
 
 type Translate = (key: string) => string;
 

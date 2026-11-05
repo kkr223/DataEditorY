@@ -15,4 +15,4 @@ Shared context-menu presentation and card-list actions for both application vari
 
 ## Boundaries
 
-Registered by `modules/context-menu` and hosted by the shell layout. Card CRUD reuses `card-editor/selectionActions` and the document host. File reveal uses `native/assetApi`. Context menus for CDB tabs live in `shell/components/AppTabBar.svelte`; Lua tab/editor actions live in `script-editor/`. Card-maker actions are available only when the image surface is registered. Image-area and AI-specific menus are outside this feature.
+Registered by `modules/context-menu` and hosted by the shell layout. Card CRUD reuses `card-editor/selectionActions` and the document host. File reveal uses `native/assetApi`. Context menus for CDB tabs live in `shell/components/AppTabBar.svelte`; Lua tab/editor actions live in `script-editor/`; search result/group actions live in `workspace-search/contextMenu.ts`. Card-maker actions are available only when the image surface is registered. Image-area and AI-specific menus are outside this feature.

@@ -1,4 +1,4 @@
-import type { CardDataEntry } from '$lib/types';
+import type { CardDataEntry } from '#lib/types/index.ts';
 
 export type PendingAiCardDraftPatch = {
   id: string;

@@ -16,6 +16,7 @@ Card Collection Workbench — the CDB workspace UI. It composes Card Explorer, t
   Tab context menus can pair the active script with another script. The pair appears as one tab with two close buttons; closing either restores the survivor to the ordinary editor.
 - `ImageSurface.svelte` — current-card image preview/config/export surface backed by `yugioh-card-ts`.
   Uses only the selected card's matching draft, keys editors by CDB session and card, and rejects changes emitted by an old editor or a mismatched metadata workspace.
+- Global Search is registered by `modules/workspace-search` and loaded through the same extension-surface host. It is workspace-level and sits between Image and AI.
 - `AiSurface.svelte` — workspace AI surface showing `@card` context, tool calls, results, proposals, and diffs.
   Async runs are scoped to the CDB load generation and thread; late results cannot populate another workspace. Proposal apply logs retain their original metadata owner, and persisted targets resolve the live document by CDB path.
 - `AiProposalInspector.svelte` — proposal review/diff panel, including responsive layout; receives proposals and an apply callback without owning persistence.

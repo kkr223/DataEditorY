@@ -1,10 +1,10 @@
 import * as bunTest from 'bun:test';
 import { get, writable } from 'svelte/store';
-import { DocumentRuntime } from '$lib/platform/runtime';
-import { MemoryDocumentProvider } from '$lib/platform/memoryProvider';
-import { cardModule, CARD_COLLECTION_TYPE } from '$lib/modules/card';
-import { luaModule } from '$lib/modules/lua';
-import type { CdbTab } from '$lib/stores/tabs';
+import { DocumentRuntime } from '#lib/platform/runtime.ts';
+import { MemoryDocumentProvider } from '#lib/platform/memoryProvider.ts';
+import { cardModule, CARD_COLLECTION_TYPE } from '#lib/modules/card/index.ts';
+import { luaModule } from '#lib/modules/lua/index.ts';
+import type { CdbTab } from '#lib/stores/tabs.ts';
 
 const { test, expect } = bunTest;
 const mock = (bunTest as unknown as {
@@ -41,12 +41,12 @@ const runtime = new DocumentRuntime([
 });
 const tabs = writable<CdbTab[]>([]);
 const activeTabId = writable<string | null>(null);
-mock.module('$lib/platform/appRuntime', () => ({ documentRuntime: runtime }));
-mock.module('$lib/stores/db', () => ({ tabs, activeTabId }));
-mock.module('$lib/stores/appShell.svelte', () => ({
+mock.module('#lib/platform/appRuntime.ts', () => ({ documentRuntime: runtime }));
+mock.module('#lib/stores/db.ts', () => ({ tabs, activeTabId }));
+mock.module('#lib/stores/appShell.svelte.ts', () => ({
   appShellState: { mainView: 'editor' }, activateEditorView() {}, activateScriptView() {},
 }));
-mock.module('$lib/native/scriptApi', () => ({ getCardScriptInfo: (path: string, code: number) => getInfo(path, code) }));
+mock.module('#lib/native/scriptApi.ts', () => ({ getCardScriptInfo: (path: string, code: number) => getInfo(path, code) }));
 const scripts = await import('./scriptEditor.svelte');
 
 async function createCdb() {

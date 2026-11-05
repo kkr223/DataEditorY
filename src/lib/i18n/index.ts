@@ -1,5 +1,5 @@
 import { addMessages, init, getLocaleFromNavigator } from 'svelte-i18n';
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 import en from './locales/en.json';
 import zh from './locales/zh.json';

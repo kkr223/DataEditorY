@@ -1,16 +1,16 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { activeTab } from '$lib/stores/db';
-import { activeScriptTab } from '$lib/stores/scriptEditor.svelte';
-import { appShellState } from '$lib/stores/appShell.svelte';
-import { showToast } from '$lib/stores/toast.svelte';
-import { writeErrorLog } from '$lib/utils/errorLog';
-import { workspaceState } from '$lib/core/workspace/store.svelte';
-import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
-import { saveWorkspaceDocument } from '$lib/application/workspace/commandBus';
-import { startTask } from '$lib/native/taskApi';
-import { appendWorkspaceTaskHistoryForPath } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { activeTab } from '#lib/stores/db.ts';
+import { activeScriptTab } from '#lib/stores/scriptEditor.svelte.ts';
+import { appShellState } from '#lib/stores/appShell.svelte.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { writeErrorLog } from '#lib/utils/errorLog.ts';
+import { workspaceState } from '#lib/core/workspace/store.svelte.ts';
+import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { saveWorkspaceDocument } from '#lib/application/workspace/commandBus.ts';
+import { startTask } from '#lib/native/taskApi.ts';
+import { appendWorkspaceTaskHistoryForPath } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
 
 const activeTabState = fromStore(activeTab);
 const activeScriptTabState = fromStore(activeScriptTab);

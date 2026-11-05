@@ -1,5 +1,5 @@
-import type { ScriptWorkspaceState } from '$lib/types';
-import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+import type { ScriptWorkspaceState } from '#lib/types/index.ts';
+import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
 
 export const isSameCdbPath = (left: string, right: string) => (
   getCdbPathIdentity(left) === getCdbPathIdentity(right)

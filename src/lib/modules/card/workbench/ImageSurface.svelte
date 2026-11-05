@@ -1,17 +1,17 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import CardImageDrawer from '$lib/components/CardImageDrawer.svelte';
-  import { documentRuntime } from '$lib/platform/appRuntime';
-  import { activeTab } from '$lib/stores/db';
-  import { editorState, getAllCardsMap } from '$lib/stores/editor.svelte';
-  import type { CardDataEntry } from '$lib/types';
-  import type { CardImageConfigDocument } from '$lib/features/card-image/layout';
+  import CardImageDrawer from '#lib/components/CardImageDrawer.svelte';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
+  import { activeTab } from '#lib/stores/db.ts';
+  import { editorState, getAllCardsMap } from '#lib/stores/editor.svelte.ts';
+  import type { CardDataEntry } from '#lib/types/index.ts';
+  import type { CardImageConfigDocument } from '#lib/features/card-image/layout.ts';
   import {
     getCardImageDocument,
     setCardImageDocument,
     workspaceMetadataState,
-  } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
-  import { getWorkspaceCardDraft } from '$lib/modules/card/workbench/cardDraftWorkspaceState.svelte';
+  } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
+  import { getWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
 
   const selectedCard = $derived.by(() => {
     const draft = getWorkspaceCardDraft($activeTab?.id);

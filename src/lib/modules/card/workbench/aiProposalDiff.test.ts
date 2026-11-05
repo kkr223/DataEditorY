@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { createEmptyCard } from '$lib/domain/card/draft';
+import { createEmptyCard } from '#lib/domain/card/draft.ts';
 import type { AiProposalPayload } from './aiProposalPayload';
 import {
   buildAiProposalDiffRows,

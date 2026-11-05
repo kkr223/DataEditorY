@@ -1,4 +1,4 @@
-import { showToast } from '$lib/stores/toast.svelte';
+import { showToast } from '#lib/stores/toast.svelte.ts';
 
 export type ContextMenuItem = {
   id: string;

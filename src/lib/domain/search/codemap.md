@@ -40,4 +40,4 @@ Handles image-folder and deck-text filter pre-processing:
 ## Integration
 
 - **Consumed by**: `modules/card/searchExpression.ts`, `stores/search.ts`, card editor search controller
-- **Depends on**: `$lib/types` (SearchFilters)
+- **Depends on**: `#lib/types/index.ts` (SearchFilters)

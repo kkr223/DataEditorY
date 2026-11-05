@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { activeTabId } from '$lib/stores/db';
-  import BatchCdbEditDialog from '$lib/features/shell/components/dialogs/BatchCdbEditDialog.svelte';
-  import CardShowcaseImageDialog from '$lib/features/shell/components/dialogs/CardShowcaseImageDialog.svelte';
+  import { activeTabId } from '#lib/stores/db.ts';
+  import BatchCdbEditDialog from '#lib/features/shell/components/dialogs/BatchCdbEditDialog.svelte';
+  import CardShowcaseImageDialog from '#lib/features/shell/components/dialogs/CardShowcaseImageDialog.svelte';
   import { cardToolState } from './cardTools.svelte';
   $effect(() => {
     if (cardToolState.request && cardToolState.request.tabId !== $activeTabId) cardToolState.request = null;

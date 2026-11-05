@@ -1,5 +1,5 @@
-import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import type { DbWorkspaceState, SearchFilters } from '$lib/types';
+import { DEFAULT_SEARCH_FILTERS } from '#lib/types/index.ts';
+import type { DbWorkspaceState, SearchFilters } from '#lib/types/index.ts';
 
 export type CdbEditorSnapshot = {
   cards: DbWorkspaceState['cachedCards'];

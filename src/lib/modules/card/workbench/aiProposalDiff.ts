@@ -1,7 +1,7 @@
-import type { CardDataEntry } from '$lib/types';
-import type { CardImageFormData } from '$lib/features/card-image/layout';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import type { CardImageFormData } from '#lib/features/card-image/layout.ts';
 import type { AiProposalPayload } from './aiProposalPayload';
-import { isSameCdbPath } from '$lib/domain/script/tabIdentity';
+import { isSameCdbPath } from '#lib/domain/script/tabIdentity.ts';
 
 export type AiProposalDiffRow = {
   field: string;

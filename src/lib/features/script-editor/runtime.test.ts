@@ -4,7 +4,7 @@ import {
   attachSnippetTabNavigation,
   attachFontZoomActions,
   type ScriptMonacoApi,
-} from '$lib/features/script-editor/runtime';
+} from '#lib/features/script-editor/runtime.ts';
 import { normalizeScriptEditorFontSize } from './fontPreferences';
 
 describe('script editor runtime helpers', () => {

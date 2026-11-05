@@ -1,5 +1,5 @@
-import type { CardDataEntry } from '$lib/types';
-import type { WorkspaceAiContextRef } from '$lib/features/ai/types';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import type { WorkspaceAiContextRef } from '#lib/features/ai/types.ts';
 
 export type CardMentionToken = {
   start: number;

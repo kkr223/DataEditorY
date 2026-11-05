@@ -1,33 +1,33 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
-  import { activeTab } from '$lib/stores/db';
-  import { getSelectedCardIds } from '$lib/stores/editor.svelte';
-  import { getCardsByIdsInTab } from '$lib/stores/cardOperations';
-  import { parseCachedFiltersJson, queryCardsByFiltersInTab } from '$lib/stores/search';
-  import { showToast } from '$lib/stores/toast.svelte';
-  import { tauriBridge } from '$lib/infrastructure/tauri';
-  import type { CardDataEntry } from '$lib/types';
+  import { activeTab } from '#lib/stores/db.ts';
+  import { getSelectedCardIds } from '#lib/stores/editor.svelte.ts';
+  import { getCardsByIdsInTab } from '#lib/stores/cardOperations.ts';
+  import { parseCachedFiltersJson, queryCardsByFiltersInTab } from '#lib/stores/search.ts';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
+  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+  import type { CardDataEntry } from '#lib/types/index.ts';
   import {
     CARD_IMAGE_COPYRIGHT_OPTIONS,
     CARD_IMAGE_LANGUAGE_OPTIONS,
     CARD_IMAGE_LASER_OPTIONS,
     CARD_IMAGE_RARE_OPTIONS,
     type CardImageLanguage,
-  } from '$lib/features/card-image/layout';
+  } from '#lib/features/card-image/layout.ts';
   import {
     findBatchCardArtPath,
     type BatchCardImageExportResult,
     type BatchCardImagePreset,
-  } from '$lib/features/card-image/exporter';
-  import { startTask } from '$lib/native/taskApi';
+  } from '#lib/features/card-image/exporter.ts';
+  import { startTask } from '#lib/native/taskApi.ts';
   import {
     getCardGroupById,
     getCardGroups,
     getCardImageDocument,
     appendWorkspaceTaskHistory,
     upsertCardGroup,
-  } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+  } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
 
   type BatchTarget = 'selection' | 'filter' | 'group';
 

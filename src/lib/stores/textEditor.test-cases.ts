@@ -14,17 +14,17 @@ function deferred<T>() {
 }
 let read = async (_path: string) => 'original';
 let write = async (_path: string, _content: string) => {};
-mock.module('$lib/native/assetApi', () => ({
+mock.module('#lib/native/assetApi.ts', () => ({
   readTextFile: (path: string) => read(path),
   writeTextFile: (path: string, content: string) => write(path, content),
 }));
 mock.module('svelte-i18n', () => ({ _: writable((key: string) => key) }));
-mock.module('$lib/infrastructure/tauri', () => ({ tauriBridge: {} }));
-mock.module('$lib/stores/appShell.svelte', () => ({ activateTextView() {}, activateEditorView() {} }));
-mock.module('$lib/stores/toast.svelte', () => ({ showToast() {} }));
+mock.module('#lib/infrastructure/tauri/index.ts', () => ({ tauriBridge: {} }));
+mock.module('#lib/stores/appShell.svelte.ts', () => ({ activateTextView() {}, activateEditorView() {} }));
+mock.module('#lib/stores/toast.svelte.ts', () => ({ showToast() {} }));
 const texts = await import('./textEditor.svelte');
-const lifecycle = await import('$lib/application/workspace/lifecycle');
-const models = await import('$lib/features/script-editor/monaco/textModels');
+const lifecycle = await import('#lib/application/workspace/lifecycle.ts');
+const models = await import('#lib/features/script-editor/monaco/textModels.ts');
 const tab = (id: string) => get(texts.textTabs).find(item => item.id === id)!;
 
 test('reloading a background tab updates only its own buffer and saved baseline', async () => {

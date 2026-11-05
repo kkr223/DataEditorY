@@ -1,39 +1,39 @@
 import { derived, get, writable } from 'svelte/store';
 import { tick } from 'svelte';
-import { clearScriptPair, scriptSplitPairs } from '$lib/features/script-editor/splitState';
-import type { ScriptWorkspaceState } from '$lib/types';
-import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
-import { activeTabId, tabs } from '$lib/stores/db';
+import { clearScriptPair, scriptSplitPairs } from '#lib/features/script-editor/splitState.ts';
+import type { ScriptWorkspaceState } from '#lib/types/index.ts';
+import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { activeTabId, tabs } from '#lib/stores/db.ts';
 import {
   activateEditorView,
   activateScriptView,
   appShellState,
-} from '$lib/stores/appShell.svelte';
+} from '#lib/stores/appShell.svelte.ts';
 import {
   getCardScriptInfo,
-} from '$lib/native/scriptApi';
-import { readTextFile } from '$lib/native/assetApi';
+} from '#lib/native/scriptApi.ts';
+import { readTextFile } from '#lib/native/assetApi.ts';
 import {
   buildScriptFileName,
   getScriptTabTitle,
   normalizeScriptContent,
-} from '$lib/domain/script/workspace';
+} from '#lib/domain/script/workspace.ts';
 import {
   findScriptTabByCard,
   getScriptTabKey,
   isSameCdbPath,
   isScriptTabOwnedByCdb,
-} from '$lib/domain/script/tabIdentity';
-import { documentRuntime } from '$lib/platform/appRuntime';
-import type { DocumentPlacement } from '$lib/platform/runtime';
-import { CARD_COLLECTION_TYPE, type CardIdChange } from '$lib/modules/card';
-import { createScriptDocumentSync } from '$lib/features/script-editor/documentSync';
-import { createLatestActivation } from '$lib/features/script-editor/activation';
+} from '#lib/domain/script/tabIdentity.ts';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
+import type { DocumentPlacement } from '#lib/platform/runtime.ts';
+import { CARD_COLLECTION_TYPE, type CardIdChange } from '#lib/modules/card/index.ts';
+import { createScriptDocumentSync } from '#lib/features/script-editor/documentSync.ts';
+import { createLatestActivation } from '#lib/features/script-editor/activation.ts';
 import {
   LUA_MEMORY_PROVIDER_ID,
   LUA_SCRIPT_TYPE,
   type LuaScriptDocument,
-} from '$lib/modules/lua';
+} from '#lib/modules/lua/index.ts';
 
 export const scriptTabs = writable<ScriptWorkspaceState[]>([]);
 export const activeScriptTabId = writable<string | null>(null);

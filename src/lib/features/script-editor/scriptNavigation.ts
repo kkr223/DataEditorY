@@ -1,5 +1,5 @@
-import type { ScriptWorkspaceState } from '$lib/types';
-import { isSameCdbPath } from '$lib/domain/script/tabIdentity';
+import type { ScriptWorkspaceState } from '#lib/types/index.ts';
+import { isSameCdbPath } from '#lib/domain/script/tabIdentity.ts';
 
 type ScriptSource = Pick<ScriptWorkspaceState, 'id' | 'cdbPath' | 'sourceTabId' | 'scriptPath'>;
 export type ScriptNavigationDependencies = {

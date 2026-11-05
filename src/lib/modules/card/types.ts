@@ -1,5 +1,5 @@
-import type { CardDataEntry } from '$lib/types';
-import type { RuleOperand, RuleSearchExpression } from '$lib/domain/search/ruleExpression';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import type { RuleOperand, RuleSearchExpression } from '#lib/domain/search/ruleExpression.ts';
 
 export const CARD_COLLECTION_TYPE = 'ygo.card-collection';
 
@@ -38,6 +38,8 @@ export type CardSearchExpression =
 export type CardRuleOperand = RuleOperand;
 
 export type CardCollectionQuery =
+  | { kind: 'workspaceSearch'; request: import('#lib/features/workspace-search/types.ts').WorkspaceSearchRequest }
+  | { kind: 'workspaceReplacePreview'; request: import('#lib/features/workspace-search/types.ts').WorkspaceReplaceRequest }
   | {
       kind: 'search';
       expression: CardSearchExpression;

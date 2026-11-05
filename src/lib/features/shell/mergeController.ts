@@ -1,20 +1,20 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { tauriBridge } from '$lib/infrastructure/tauri';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import {
   type AnalyzeCdbMergeResponse,
   type MergeSourceItem,
-} from '$lib/native/taskApi';
-import { activeTab, openCdbPath, tabs } from '$lib/stores/db';
-import { showToast } from '$lib/stores/toast.svelte';
-import { writeErrorLog } from '$lib/utils/errorLog';
+} from '#lib/native/taskApi.ts';
+import { activeTab, openCdbPath, tabs } from '#lib/stores/db.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { writeErrorLog } from '#lib/utils/errorLog.ts';
 import {
   buildMergeAnalysisKey,
   isNewOutputPath,
-} from '$lib/features/shell/dialogsHelpers';
-import { activateWorkspaceDocument } from '$lib/application/workspace/commandBus';
-import { startTask } from '$lib/native/taskApi';
-import { appendWorkspaceTaskHistoryForPath } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+} from '#lib/features/shell/dialogsHelpers.ts';
+import { activateWorkspaceDocument } from '#lib/application/workspace/commandBus.ts';
+import { startTask } from '#lib/native/taskApi.ts';
+import { appendWorkspaceTaskHistoryForPath } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
 
 const activeTabState = fromStore(activeTab);
 const tabsState = fromStore(tabs);

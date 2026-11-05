@@ -1,5 +1,5 @@
-import type { WorkspaceMetadata } from '$lib/native/metadataApi';
-import { workspaceMetadataState, updateWorkspaceMetadata, updateWorkspaceMetadataForPath } from '$lib/features/workspace-metadata/state.svelte';
+import type { WorkspaceMetadata } from '#lib/native/metadataApi.ts';
+import { workspaceMetadataState, updateWorkspaceMetadata, updateWorkspaceMetadataForPath } from '#lib/features/workspace-metadata/state.svelte.ts';
 import type { AiProposalStatusUpdate, WorkspaceAiContextRef, WorkspaceAiMessage, WorkspaceAiProposal, WorkspaceAiThread, WorkspaceAiToolRun } from './types';
 
 function createAiRecordId(prefix: string) {

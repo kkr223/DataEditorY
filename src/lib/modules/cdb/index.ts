@@ -1,6 +1,6 @@
-import type { CodecDescriptor, ExtensionModule } from '$lib/platform';
-import { TauriDocumentProvider, saveProviderDocument } from '$lib/infrastructure/tauri/documentHost';
-import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
+import type { CodecDescriptor, ExtensionModule } from '#lib/platform/index.ts';
+import { TauriDocumentProvider, saveProviderDocument } from '#lib/infrastructure/tauri/documentHost.ts';
+import { CARD_COLLECTION_TYPE } from '#lib/modules/card/index.ts';
 
 export const CDB_PROVIDER_ID = 'cdb.provider';
 export const CDB_CODEC_ID = 'cdb.codec';

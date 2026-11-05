@@ -1,4 +1,4 @@
-import { tauriBridge } from '$lib/infrastructure/tauri';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import {
   pathExists,
   readCdbFile,
@@ -6,7 +6,7 @@ import {
   readLuaHelperScripts,
   readTextFile,
   type LuaHelperScript,
-} from '$lib/native/assetApi';
+} from '#lib/native/assetApi.ts';
 import {
   normalizeScriptTestPlan,
   type ScriptTestCheck,

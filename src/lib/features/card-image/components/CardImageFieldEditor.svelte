@@ -19,8 +19,8 @@
     applyCardImageRarityDefaults,
     normalizeCardImageFormData,
     type CardImageFormData,
-  } from '$lib/features/card-image/layout';
-  import type { ColorPreset } from '$lib/features/card-image/controller.svelte';
+  } from '#lib/features/card-image/layout.ts';
+  import type { ColorPreset } from '#lib/features/card-image/controller.svelte.ts';
   import {
     FOREGROUND_EDITOR_CARD_HEIGHT,
     FOREGROUND_EDITOR_CARD_WIDTH,
@@ -28,7 +28,7 @@
     MAX_FOREGROUND_SCALE,
     MIN_EXPORT_SCALE_PERCENT,
     MIN_FOREGROUND_SCALE,
-  } from '$lib/features/card-image/controller.svelte';
+  } from '#lib/features/card-image/controller.svelte.ts';
 
   let {
     variant,

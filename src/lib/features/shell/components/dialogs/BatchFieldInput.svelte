@@ -1,8 +1,8 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import type { BatchEditableField } from '$lib/domain/card/batchInput';
-  import { ATTRIBUTE_OPTIONS, PERMISSION_OPTIONS, RACE_OPTIONS } from '$lib/domain/card/taxonomy';
-  import CardCategoryPopover from '$lib/features/card-editor/components/CardCategoryPopover.svelte';
+  import type { BatchEditableField } from '#lib/domain/card/batchInput.ts';
+  import { ATTRIBUTE_OPTIONS, PERMISSION_OPTIONS, RACE_OPTIONS } from '#lib/domain/card/taxonomy.ts';
+  import CardCategoryPopover from '#lib/features/card-editor/components/CardCategoryPopover.svelte';
 
   let { field, value, disabled = false, onChange }: {
     field: BatchEditableField; value: string; disabled?: boolean; onChange: (value: string) => void;

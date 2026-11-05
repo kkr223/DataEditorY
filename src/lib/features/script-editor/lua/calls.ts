@@ -1,5 +1,5 @@
 import * as luaparse from 'luaparse';
-import { luaCatalog } from '$lib/data/lua-intel/catalog.generated';
+import { luaCatalog } from '#lib/data/lua-intel/catalog.generated.ts';
 
 type LuaNode = {
   type?: string;

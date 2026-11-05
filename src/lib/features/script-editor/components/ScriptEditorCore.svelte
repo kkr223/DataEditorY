@@ -11,27 +11,28 @@
   };
 
   export type ScriptEditorCoreReferenceState = {
-    kind: import('$lib/features/script-editor/controller').ScriptReferenceManualKind | null;
+    kind: import('#lib/features/script-editor/controller.ts').ScriptReferenceManualKind | null;
     isLoading: boolean;
     items: Record<
-      import('$lib/features/script-editor/controller').ScriptReferenceManualKind,
-      import('$lib/features/script-editor/lua/reference').LuaReferenceManualItem[]
+      import('#lib/features/script-editor/controller.ts').ScriptReferenceManualKind,
+      import('#lib/features/script-editor/lua/reference.ts').LuaReferenceManualItem[]
     >;
   };
 </script>
 
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { scriptLocationRequest } from '#lib/features/script-editor/revealLocation.ts';
   import { onDestroy, onMount, untrack } from 'svelte';
-  import { activeScriptTab, getActiveScriptTab, registerScriptModelDisposer, setScriptTabViewState, updateScriptTabContent } from '$lib/stores/scriptEditor.svelte';
-  import { activeTabId, tabs } from '$lib/stores/db';
-  import { appSettingsState } from '$lib/stores/appSettings.svelte';
-  import { normalizeScriptEditorFontSize } from '$lib/features/script-editor/fontPreferences';
-  import { collectLuaInlineHighlights } from '$lib/features/script-editor/lua/calls';
-  import type { CardDataEntry } from '$lib/types';
+  import { activeScriptTab, getActiveScriptTab, registerScriptModelDisposer, setScriptTabViewState, updateScriptTabContent } from '#lib/stores/scriptEditor.svelte.ts';
+  import { activeTabId, tabs } from '#lib/stores/db.ts';
+  import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
+  import { normalizeScriptEditorFontSize } from '#lib/features/script-editor/fontPreferences.ts';
+  import { collectLuaInlineHighlights } from '#lib/features/script-editor/lua/calls.ts';
+  import type { CardDataEntry } from '#lib/types/index.ts';
   import type { editor as MonacoEditor } from 'monaco-editor';
-  import { normalizeCardStrings } from '$lib/domain/card/draft';
-  import { normalizeScriptContent } from '$lib/domain/script/workspace';
+  import { normalizeCardStrings } from '#lib/domain/card/draft.ts';
+  import { normalizeScriptContent } from '#lib/domain/script/workspace.ts';
   import {
     buildCallHighlightDecorations,
     buildScriptEditorContextKey,
@@ -42,20 +43,20 @@
     shouldCloseScriptReferenceOverlay,
     shouldHandleHintSuppressShortcut,
     type ScriptReferenceManualKind,
-  } from '$lib/features/script-editor/controller';
-  import { loadScriptCardContextFlow, saveScriptStringFlow, type ScriptImageSelection } from '$lib/features/script-editor/useCases';
-  import type { LuaScriptDiagnostic } from '$lib/features/script-editor/lua/diagnostics';
+  } from '#lib/features/script-editor/controller.ts';
+  import { loadScriptCardContextFlow, saveScriptStringFlow, type ScriptImageSelection } from '#lib/features/script-editor/useCases.ts';
+  import type { LuaScriptDiagnostic } from '#lib/features/script-editor/lua/diagnostics.ts';
   import {
     createScriptMonacoRuntime,
     type ScriptMonacoApi as MonacoApi,
     type ScriptMonacoModule as MonacoModule,
     type ScriptMonacoRuntime,
-  } from '$lib/features/script-editor/runtime';
+  } from '#lib/features/script-editor/runtime.ts';
   import {
     loadReferenceManualItems,
     resolveReferenceManualInsertText,
     type LuaReferenceManualItem,
-  } from '$lib/features/script-editor/lua/reference';
+  } from '#lib/features/script-editor/lua/reference.ts';
 
   function createDefaultHintState(): ScriptEditorCoreHintState {
     return {
@@ -88,14 +89,14 @@
     referenceState = $bindable<ScriptEditorCoreReferenceState>(createDefaultReferenceState()),
     children,
     onCopySelectionImage,
-  } = $props<{
+  }: {
     cardContext?: CardDataEntry | null;
     hasSelectedCode?: boolean;
     hintState?: ScriptEditorCoreHintState;
     referenceState?: ScriptEditorCoreReferenceState;
     children?: Snippet;
     onCopySelectionImage?: () => unknown | Promise<unknown>;
-  }>();
+  } = $props();
 
   let editorHost = $state<HTMLDivElement | null>(null);
   let monacoModule = $state<MonacoModule | null>(null);
@@ -410,7 +411,20 @@
 
     currentBoundTabId = tab.id;
     syncSelectionState();
+    applyRequestedLocation();
   }
+
+  function applyRequestedLocation() {
+    const request = $scriptLocationRequest;
+    if (!request || !editorInstance || currentBoundTabId !== request.tabId) return;
+    revealDiagnosticLocation(request);
+    scriptLocationRequest.set(null);
+  }
+
+  $effect(() => {
+    $scriptLocationRequest;
+    if (isMonacoReady) untrack(applyRequestedLocation);
+  });
 
   function handleHintSuppressKeydown(event: KeyboardEvent) {
     if (!shouldHandleHintSuppressShortcut(event, Boolean(editorInstance?.hasTextFocus()))) return;

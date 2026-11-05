@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import type { RecentCdbEntry } from '$lib/stores/db';
+  import type { RecentCdbEntry } from '#lib/stores/db.ts';
 
   let {
     visible = false,

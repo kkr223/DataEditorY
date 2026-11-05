@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { closeDocumentsForWindowExit } from './workspaceShutdown';
-import type { DocumentRuntime } from '$lib/platform/runtime';
+import type { DocumentRuntime } from '#lib/platform/runtime.ts';
 
 test('window exit closes native documents through their rollback protocol before returning', async () => {
   const calls: string[] = [];

@@ -12,11 +12,11 @@ export {
   resolveResourceFile,
   writeBinaryFile,
   writeTextFile,
-} from '$lib/infrastructure/tauri/commands';
+} from '#lib/infrastructure/tauri/commands.ts';
 
-export type { LuaHelperScript } from '$lib/infrastructure/tauri/commands';
+export type { LuaHelperScript } from '#lib/infrastructure/tauri/commands.ts';
 
-import { invokeCommand } from '$lib/infrastructure/tauri';
+import { invokeCommand } from '#lib/infrastructure/tauri/index.ts';
 
 export type AssetCheckMissingItem = {
   cardId: number;

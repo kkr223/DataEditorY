@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'bun:test';
-import type { CdbTab } from '$lib/stores/db';
-import type { DocumentRecord } from '$lib/platform';
-import type { ScriptWorkspaceState } from '$lib/types';
-import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
+import type { CdbTab } from '#lib/stores/db.ts';
+import type { DocumentRecord } from '#lib/platform/index.ts';
+import type { ScriptWorkspaceState } from '#lib/types/index.ts';
+import { CARD_IMAGE_CONFIG_TYPE } from '#lib/modules/card-image/constants.ts';
 import {
   SETTINGS_WORKSPACE_ID,
   buildWorkspaceDocuments,
   resolveActiveWorkspaceId,
-} from '$lib/core/workspace/projection';
+} from '#lib/core/workspace/projection.ts';
 
 function createDbTab(): CdbTab {
   return {

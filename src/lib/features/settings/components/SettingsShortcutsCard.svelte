@@ -10,7 +10,7 @@
     serializeKeyboardEvent,
     type ShortcutActionId,
     type ShortcutDefinition,
-  } from '$lib/features/shortcuts/registry';
+  } from '#lib/features/shortcuts/registry.ts';
 
   export let title = '';
   export let description = '';

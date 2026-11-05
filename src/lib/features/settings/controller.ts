@@ -1,8 +1,8 @@
-import type { AppSettingsPayload } from '$lib/stores/appSettings.svelte';
-import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '$lib/features/ai/agentLimits';
-import { hasShortcutConflicts, normalizeShortcutBindingMap } from '$lib/features/shortcuts/registry';
-import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, SCRIPT_EDITOR_FONT_SIZE_MIN, SCRIPT_EDITOR_FONT_SIZE_MAX, normalizeScriptEditorFontSize } from '$lib/features/script-editor/fontPreferences';
-import { DEFAULT_SCRIPT_SNIPPETS, getScriptSnippetIssue } from '$lib/features/script-editor/snippetPreferences';
+import type { AppSettingsPayload } from '#lib/stores/appSettings.svelte.ts';
+import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '#lib/features/ai/agentLimits.ts';
+import { hasShortcutConflicts, normalizeShortcutBindingMap } from '#lib/features/shortcuts/registry.ts';
+import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, SCRIPT_EDITOR_FONT_SIZE_MIN, SCRIPT_EDITOR_FONT_SIZE_MAX, normalizeScriptEditorFontSize } from '#lib/features/script-editor/fontPreferences.ts';
+import { DEFAULT_SCRIPT_SNIPPETS, getScriptSnippetIssue } from '#lib/features/script-editor/snippetPreferences.ts';
 
 export type SettingsFormState = {
   apiBaseUrl: string;

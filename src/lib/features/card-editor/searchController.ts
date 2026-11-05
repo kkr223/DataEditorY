@@ -1,4 +1,4 @@
-import type { CardDataEntry, SearchFilters } from '$lib/types';
+import type { CardDataEntry, SearchFilters } from '#lib/types/index.ts';
 import { buildSearchFiltersFromDraft } from './controller';
 
 type SearchFromDraftInput = {

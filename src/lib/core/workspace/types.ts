@@ -1,5 +1,5 @@
-import type { CdbTab } from '$lib/stores/db';
-import type { ScriptWorkspaceState } from '$lib/types';
+import type { CdbTab } from '#lib/stores/db.ts';
+import type { ScriptWorkspaceState } from '#lib/types/index.ts';
 
 export type WorkspaceKind = 'db' | 'script' | 'settings' | 'card-image' | 'text';
 export type WorkspaceStatus = 'ready' | 'busy';

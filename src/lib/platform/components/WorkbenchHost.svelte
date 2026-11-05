@@ -1,13 +1,13 @@
 <script lang="ts">
   import type { Component } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { documentRuntime } from '$lib/platform/appRuntime';
-  import { documentState, getActiveDataDocument } from '$lib/platform/store.svelte';
-  import { activeTabId } from '$lib/stores/db';
-  import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
-  import { LUA_SCRIPT_TYPE } from '$lib/modules/lua';
-  import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
-  import { AI_SESSION_TYPE } from '$lib/modules/ai/types';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
+  import { documentState, getActiveDataDocument } from '#lib/platform/store.svelte.ts';
+  import { activeTabId } from '#lib/stores/db.ts';
+  import { CARD_COLLECTION_TYPE } from '#lib/modules/card/index.ts';
+  import { LUA_SCRIPT_TYPE } from '#lib/modules/lua/index.ts';
+  import { CARD_IMAGE_CONFIG_TYPE } from '#lib/modules/card-image/constants.ts';
+  import { AI_SESSION_TYPE } from '#lib/modules/ai/types.ts';
 
   let loadedWorkbench = $state<{
     id: string;

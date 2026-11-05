@@ -1,12 +1,12 @@
 import { onDestroy, tick } from 'svelte';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import type { CardDataEntry } from '$lib/types';
-import { showToast } from '$lib/stores/toast.svelte';
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from '$lib/native/assetApi';
-import { getPicsDir } from '$lib/services/cardImageService';
-import { toMediaProtocolSrc } from '$lib/utils/mediaProtocol';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import { showToast } from '#lib/stores/toast.svelte.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from '#lib/native/assetApi.ts';
+import { getPicsDir } from '#lib/services/cardImageService.ts';
+import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 import {
   CARD_IMAGE_LANGUAGE_OPTIONS,
   createCardImageFormData,
@@ -18,20 +18,21 @@ import {
   type CardImageConfigDocument,
   type CardImageFormData,
   type CardImageLanguage,
-} from '$lib/features/card-image/layout';
-import { writeErrorLog } from '$lib/utils/errorLog';
+} from '#lib/features/card-image/layout.ts';
+import { writeErrorLog } from '#lib/utils/errorLog.ts';
 import {
   inlineWorkspaceCardImageAsset,
   isWorkspaceCardImageAssetReference,
   matchesWorkspaceCardImageAsset,
   resolveWorkspaceCardImageAssetSrc,
-} from '$lib/features/card-image/workspaceAssets';
+} from '#lib/features/card-image/workspaceAssets.ts';
 import { createCardImageOperations } from './imageOperations';
+import { destroyCardImageRenderer } from './rendererLifecycle';
 import {
   getOpenTextTab,
   saveTextTab,
   updateTextTabContent,
-} from '$lib/stores/textEditor.svelte';
+} from '#lib/stores/textEditor.svelte.ts';
 
 type CardImageRenderData = CardImageFormData & {
   effectBlockBorderStyle: 'none' | 'default' | 'colored';
@@ -282,17 +283,8 @@ export function createCardImageController(source: CardImageControllerSource) {
     return yugiohCardConstructorPromise;
   }
 
-  function destroyRenderer(card: InstanceType<YugiohCardConstructor> | null | undefined) {
-    if (!card) return;
-    if (card.destroy) {
-      card.destroy();
-      return;
-    }
-    card.leafer?.destroy?.();
-  }
-
   function destroyPreview() {
-    destroyRenderer(state.previewCard);
+    destroyCardImageRenderer(state.previewCard);
     state.previewCard = null;
     lastPreviewRendererSignature = '';
     if (state.previewHost) {
@@ -301,7 +293,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function destroyForegroundPreview() {
-    destroyRenderer(state.foregroundPreviewCard);
+    destroyCardImageRenderer(state.foregroundPreviewCard);
     state.foregroundPreviewCard = null;
     lastForegroundRendererSignature = '';
     if (state.foregroundPreviewHost) {
@@ -310,7 +302,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function destroyRarityMaskPreview() {
-    destroyRenderer(state.rarityMaskPreviewCard);
+    destroyCardImageRenderer(state.rarityMaskPreviewCard);
     state.rarityMaskPreviewCard = null;
     lastRarityMaskRendererSignature = '';
     if (state.rarityMaskPreviewHost) {
@@ -1731,7 +1723,7 @@ export function createCardImageController(source: CardImageControllerSource) {
 
       throw new Error('Export did not return a Blob');
     } finally {
-      destroyRenderer(exportCard);
+      destroyCardImageRenderer(exportCard);
       host.remove();
     }
   }

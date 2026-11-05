@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { activateCardSurface } from '$lib/modules/card/workbench/surfaceState.svelte';
+  import { activateCardSurface } from '#lib/modules/card/workbench/surfaceState.svelte.ts';
 </script>
 
 <button

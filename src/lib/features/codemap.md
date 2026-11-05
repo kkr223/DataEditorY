@@ -20,6 +20,7 @@ Features follow a consistent pattern:
 | Shell | `shell/` | App frame: top bar, CDB-only tab bar, file drag overlay, recent history, CDB-level tool dialogs |
 | Card Editor | `card-editor/` | Single-card editor, draft/search controller, validation, DEX-style draft search, image/script/AI surface entry points |
 | Script Editor | `script-editor/` | Lua editor with Monaco: completion, diagnostics, semantic tokens, symbol navigation, reference manual, script save flow |
+| Workspace Search | `workspace-search/` | CDB working-copy fields and owned card scripts, grouped matches and guarded card/script-line navigation |
 | Card Image | `card-image/` | `yugioh-card-ts` model mapping, canvas rendering, export helpers, layout logic (extra only) |
 | AI | `ai/` | Workspace AI service, context building, tool boundary, auditable proposal generation |
 | Workspace Metadata | `workspace-metadata/` | Shared `.dey` state, per-path persistence, failure recovery and Save As |

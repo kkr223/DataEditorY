@@ -16,7 +16,7 @@ Main area: Card / Script / Image / AI surface
 
 Top-level app tabs represent CDB workspaces only. Lua scripts, card images, and AI are surfaces under the active CDB and active card context.
 
-**Version**: 3.4.0
+**Version**: 3.4.2
 **Author**: kkr223
 **License**: MIT
 **Variants**: `base` (CDB editing + AI) | `extra` (+ card image maker)
@@ -25,7 +25,7 @@ Top-level app tabs represent CDB workspaces only. Lua scripts, card images, and 
 
 | Layer | Technology |
 |-------|------------|
-| Frontend Framework | Svelte 5 + SvelteKit SPA |
+| Frontend Framework | Svelte 5 + SvelteKit 3 SPA |
 | Frontend Language | TypeScript |
 | Build Tool | Vite 8 |
 | Desktop Runtime | Tauri 2 |
@@ -171,6 +171,8 @@ Use AI
 
 ### Build System
 
+SvelteKit configuration lives in `vite.config.js`: static SPA fallback, selected production assets, and disabled deployment polling for desktop bundles. Internal absolute imports use `#lib/*` from `package.json` with actual source extensions (`.ts`, `.svelte`, etc.) so Bun and Vite resolve the same files; TypeScript extends the generated `$app/tsconfig`. Node.js 22.17+ is required (CI uses Node.js 24).
+
 | Directory | Responsibility | Detailed Map |
 |-----------|----------------|--------------|
 | `scripts/` | Variant switching, builds, Lua intellisense generation, CI helpers | [View](scripts/codemap.md) |
@@ -187,6 +189,7 @@ Use AI
 - **Batch tools**: CDB field batch edit, Lua search/replace with diff preview, asset check, merge, package, and showcase image generation.
 - **Showcase images**: generate PNG strips from the current CDB, selection, filter result, or card group; each row combines card art, YGO card details, and effect text, with optional attribution removal and image header text.
 - **Script surface**: active card opens `c{id}.lua`; internal script tabs stay inside the CDB workspace.
+- **Global Search surface**: searches current-CDB card names, effect descriptions and corresponding scripts, prioritizes open script buffers, and opens card or script-line matches. Individual matches/groups can be excluded before previewing and applying replacements to the working copy and script buffers. Registered between Image and AI.
 - **AI surface**: workspace agent with visible tool calls, `@card` context mentions, auditable proposals, and optional full-access auto-apply.
 - **Metadata**: `.dey/{cdb-stem}.workspace.json` persists editor-only state without polluting `.cdb`.
 - **Internationalization**: Chinese and English UI.
@@ -209,7 +212,11 @@ bun run check:base             # Svelte/TS check for base variant
 bun run check:extra            # Svelte/TS check for extra variant
 bun test                       # Frontend/domain tests
 cargo test --manifest-path src-tauri/Cargo.toml
+bun run clean -- --dry-run      # Preview generated-artifact cleanup
+bun run clean                  # Clean Rust + frontend outputs/caches
 ```
+
+Rust dev/test builds use line-table debug information and disable incremental compilation to limit cache growth; native debugging can opt into full symbols using Cargo profile environment overrides.
 
 Dev server: `127.0.0.1:43127` (HMR port: `43128`)
 

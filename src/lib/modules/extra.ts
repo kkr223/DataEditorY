@@ -1,4 +1,4 @@
-import type { ExtensionModule } from '$lib/platform';
+import type { ExtensionModule } from '#lib/platform/index.ts';
 import { builtInModules as baseModules } from './base';
 import { cardImageModule } from './card-image';
 

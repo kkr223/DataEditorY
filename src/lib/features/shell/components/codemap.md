@@ -4,7 +4,7 @@
 App Shell UI Components — top-level app frame components for CDB workspace navigation and global/CDB-level commands.
 
 ## Components
-- `AppTopBar.svelte` — main toolbar with open/create/tools/settings/theme/language; save lives in CDB tab menu/shortcuts/dirty flow
+- `AppTopBar.svelte` — main toolbar with open/create/tools/settings/theme/language; open-history and tools dropdowns dismiss on outside pointer presses; save lives in CDB tab menu/shortcuts/dirty flow
 - `AppTabBar.svelte` — CDB workspace tab bar with close buttons, dirty indicators, and pointer drag sorting through the document runtime
 - `FileDragOverlay.svelte` — overlay shown when dragging `.cdb` files over the window
 - `RecentHistoryPopover.svelte` — dropdown showing recently opened CDB files

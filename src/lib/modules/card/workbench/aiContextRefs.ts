@@ -1,4 +1,4 @@
-import type { WorkspaceAiContextRef } from '$lib/features/ai/types';
+import type { WorkspaceAiContextRef } from '#lib/features/ai/types.ts';
 
 const getContextIdentity = (ref: WorkspaceAiContextRef) => {
   const value = ref.value && typeof ref.value === 'object'

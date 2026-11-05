@@ -1,17 +1,17 @@
-import { appSettingsState, loadAppSettings } from '$lib/stores/appSettings.svelte';
-import { getSelectedCards } from '$lib/stores/editor.svelte';
-import type { AiAppContext } from '$lib/features/ai/service';
-import { tauriBridge } from '$lib/infrastructure/tauri';
-import { readTextFile } from '$lib/native/assetApi';
-import { getCardScriptInfo } from '$lib/native/scriptApi';
-import { loadSecretKey } from '$lib/native/settingsApi';
-import { documentRuntime } from '$lib/platform/appRuntime';
-import { CARD_COLLECTION_TYPE } from '$lib/modules/card';
+import { appSettingsState, loadAppSettings } from '#lib/stores/appSettings.svelte.ts';
+import { getSelectedCards } from '#lib/stores/editor.svelte.ts';
+import type { AiAppContext } from '#lib/features/ai/service.ts';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { readTextFile } from '#lib/native/assetApi.ts';
+import { getCardScriptInfo } from '#lib/native/scriptApi.ts';
+import { loadSecretKey } from '#lib/native/settingsApi.ts';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
+import { CARD_COLLECTION_TYPE } from '#lib/modules/card/index.ts';
 import {
   getCardImageDocumentForPath,
-} from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
-import { getOpenScriptTab, getScriptTabsForCdb } from '$lib/stores/scriptEditor.svelte';
-import { getCdbPathIdentity } from '$lib/core/workspace/cdbPathIdentity';
+} from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
+import { getOpenScriptTab, getScriptTabsForCdb } from '#lib/stores/scriptEditor.svelte.ts';
+import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 

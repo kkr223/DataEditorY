@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { Component } from 'svelte';
   import { onDestroy } from 'svelte';
-  import CardList from '$lib/components/CardList.svelte';
-  import CardEditor from '$lib/components/CardEditor.svelte';
+  import CardList from '#lib/components/CardList.svelte';
+  import CardEditor from '#lib/components/CardEditor.svelte';
   import WorkspaceMetadataStatus from './WorkspaceMetadataStatus.svelte';
-  import { activeTab } from '$lib/stores/db';
+  import { activeTab } from '#lib/stores/db.ts';
   import {
     editorState,
     clearSearchError,
@@ -12,15 +12,15 @@
     setAllCards,
     setSelectedCards,
     setTotalCards,
-  } from '$lib/stores/editor.svelte';
-  import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-  import { createCdbEditorSnapshot } from '$lib/core/workspace/cdbEditorSnapshot';
-  import CardSurfaceRail from '$lib/modules/card/workbench/CardSurfaceRail.svelte';
+  } from '#lib/stores/editor.svelte.ts';
+  import { DEFAULT_SEARCH_FILTERS } from '#lib/types/index.ts';
+  import { createCdbEditorSnapshot } from '#lib/core/workspace/cdbEditorSnapshot.ts';
+  import CardSurfaceRail from '#lib/modules/card/workbench/CardSurfaceRail.svelte';
   import {
     cardSurfaceState,
     type CardSurfaceId,
-  } from '$lib/modules/card/workbench/surfaceState.svelte';
-  import { documentRuntime } from '$lib/platform/appRuntime';
+  } from '#lib/modules/card/workbench/surfaceState.svelte.ts';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
   import {
     getCardExplorerState,
     getCardWorkspaceUi,
@@ -28,17 +28,17 @@
     setCardExplorerState,
     setCardWorkspaceUi,
     workspaceMetadataState,
-  } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+  } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
 
   const focusMode = $derived(cardSurfaceState.activeSurface !== 'card');
   const extensionSurfaces: Array<{
-    surfaceId: Extract<CardSurfaceId, 'image' | 'ai'>;
+    surfaceId: Extract<CardSurfaceId, 'image' | 'search' | 'ai'>;
     contribution: ReturnType<typeof documentRuntime.registry.findWorkbenchContributions>[number];
   }> = documentRuntime.registry
     .findWorkbenchContributions('card.workbench', 'surface')
     .flatMap((contribution) => {
       const surfaceId = contribution.metadata?.surfaceId;
-      return surfaceId === 'image' || surfaceId === 'ai'
+      return surfaceId === 'image' || surfaceId === 'search' || surfaceId === 'ai'
         ? [{ surfaceId, contribution }]
         : [];
     });

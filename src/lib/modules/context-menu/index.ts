@@ -1,4 +1,4 @@
-import type { ExtensionModule } from '$lib/platform';
+import type { ExtensionModule } from '#lib/platform/index.ts';
 
 // The shell hosts the shared popup; card and Lua surfaces supply scoped actions.
 export const contextMenuModule: ExtensionModule = {

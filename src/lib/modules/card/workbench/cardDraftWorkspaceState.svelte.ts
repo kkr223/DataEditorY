@@ -1,6 +1,6 @@
-import type { DraftUndoEntry } from '$lib/features/card-editor/controller';
-import type { CardDataEntry } from '$lib/types';
-import { cloneEditableCard } from '$lib/domain/card/draft';
+import type { DraftUndoEntry } from '#lib/features/card-editor/controller.ts';
+import type { CardDataEntry } from '#lib/types/index.ts';
+import { cloneEditableCard } from '#lib/domain/card/draft.ts';
 
 export type WorkspaceCardDraftSnapshot = {
   draftCard: CardDataEntry;

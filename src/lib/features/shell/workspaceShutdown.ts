@@ -1,4 +1,4 @@
-import type { DocumentRuntime } from '$lib/platform/runtime';
+import type { DocumentRuntime } from '#lib/platform/runtime.ts';
 
 export async function closeDocumentsForWindowExit(
   runtime: Pick<DocumentRuntime, 'snapshot' | 'close'>,

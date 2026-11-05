@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { DEFAULT_SEARCH_FILTERS } from '$lib/types';
-import type { DbWorkspaceState } from '$lib/types';
+import { DEFAULT_SEARCH_FILTERS } from '#lib/types/index.ts';
+import type { DbWorkspaceState } from '#lib/types/index.ts';
 import { createCdbEditorSnapshot } from './cdbEditorSnapshot';
 
 const createTab = (overrides: Partial<DbWorkspaceState> = {}): DbWorkspaceState => ({

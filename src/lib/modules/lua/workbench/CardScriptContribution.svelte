@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import type { CardWorkbenchContext } from '$lib/modules/card/workbench/context';
-  import { openCardScriptFlow } from '$lib/features/card-editor/useCases';
+  import type { CardWorkbenchContext } from '#lib/modules/card/workbench/context.ts';
+  import { openCardScriptFlow } from '#lib/features/card-editor/useCases.ts';
 
   let { context }: { context: CardWorkbenchContext } = $props();
 

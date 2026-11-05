@@ -1,4 +1,4 @@
-import type { SearchFilters } from '$lib/types';
+import type { SearchFilters } from '#lib/types/index.ts';
 import {
   ATTRIBUTE_MAP,
   RACE_MAP,
@@ -6,9 +6,9 @@ import {
   SUBTYPE_MAP,
   TRAP_SUBTYPE_MASK,
   TYPE_MAP,
-} from '$lib/domain/card/taxonomy';
-import { parseSetcodeFilter } from '$lib/domain/search/query';
-import { parseRuleExpressionAst } from '$lib/domain/search/ruleExpression';
+} from '#lib/domain/card/taxonomy.ts';
+import { parseSetcodeFilter } from '#lib/domain/search/query.ts';
+import { parseRuleExpressionAst } from '#lib/domain/search/ruleExpression.ts';
 import type { CardSearchExpression } from './types';
 
 const and = (expressions: CardSearchExpression[]): CardSearchExpression => {

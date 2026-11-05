@@ -1,30 +1,30 @@
 import { fromStore } from 'svelte/store';
-import { appShellState } from '$lib/stores/appShell.svelte';
-import { activeTabId, tabs, type CdbTab } from '$lib/stores/db';
+import { appShellState } from '#lib/stores/appShell.svelte.ts';
+import { activeTabId, tabs, type CdbTab } from '#lib/stores/db.ts';
 import {
   activeScriptTabId,
   getScriptTabDisplayName,
   scriptTabs,
-} from '$lib/stores/scriptEditor.svelte';
+} from '#lib/stores/scriptEditor.svelte.ts';
 import {
   activeTextTabId,
   textTabs,
-} from '$lib/stores/textEditor.svelte';
-import { documentState } from '$lib/platform/store.svelte';
-import { CARD_IMAGE_CONFIG_TYPE } from '$lib/modules/card-image/constants';
+} from '#lib/stores/textEditor.svelte.ts';
+import { documentState } from '#lib/platform/store.svelte.ts';
+import { CARD_IMAGE_CONFIG_TYPE } from '#lib/modules/card-image/constants.ts';
 import type {
   WorkspaceDocument,
   WorkspaceSnapshot,
-} from '$lib/core/workspace/types';
+} from '#lib/core/workspace/types.ts';
 import {
   SETTINGS_WORKSPACE_ID,
   buildWorkspaceDocuments,
   resolveActiveWorkspaceId,
-} from '$lib/core/workspace/projection';
+} from '#lib/core/workspace/projection.ts';
 import {
   getWorkspaceLifecycleVersionStore,
   resolveWorkspaceLifecycleDocuments,
-} from '$lib/application/workspace/lifecycle';
+} from '#lib/application/workspace/lifecycle.ts';
 
 const tabsState = fromStore(tabs);
 const activeTabIdState = fromStore(activeTabId);

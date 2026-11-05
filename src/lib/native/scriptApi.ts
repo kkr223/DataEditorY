@@ -4,9 +4,9 @@ export {
   openInSystemEditor,
   readCardScriptDocument,
   saveCardScriptDocument,
-} from '$lib/infrastructure/tauri/commands';
+} from '#lib/infrastructure/tauri/commands.ts';
 
-import { invokeCommand } from '$lib/infrastructure/tauri';
+import { invokeCommand } from '#lib/infrastructure/tauri/index.ts';
 
 export type LuaReplaceRequest = {
   cdbPath: string;

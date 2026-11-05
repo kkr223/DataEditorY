@@ -1,12 +1,12 @@
 import { get, writable } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { tauriBridge } from '$lib/infrastructure/tauri';
+import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import type {
   WorkspaceCloseGuard,
   WorkspaceDocument,
   WorkspaceSavePolicy,
   WorkspaceStatus,
-} from '$lib/core/workspace/types';
+} from '#lib/core/workspace/types.ts';
 
 type WorkspaceLifecycleMetadata = {
   dirty?: boolean;

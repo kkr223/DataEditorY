@@ -1,12 +1,12 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import { _ } from 'svelte-i18n';
-  import { activeTab } from '$lib/stores/db';
-  import { getSelectedCardIds } from '$lib/stores/editor.svelte';
-  import { parseCachedFiltersJson, queryCardsByFiltersInTab } from '$lib/stores/search';
-  import type { AssetCheckResponse } from '$lib/native/assetApi';
-  import { startTask } from '$lib/native/taskApi';
-  import { appendWorkspaceTaskHistory } from '$lib/modules/card/workbench/workspaceMetadataState.svelte';
+  import { activeTab } from '#lib/stores/db.ts';
+  import { getSelectedCardIds } from '#lib/stores/editor.svelte.ts';
+  import { parseCachedFiltersJson, queryCardsByFiltersInTab } from '#lib/stores/search.ts';
+  import type { AssetCheckResponse } from '#lib/native/assetApi.ts';
+  import { startTask } from '#lib/native/taskApi.ts';
+  import { appendWorkspaceTaskHistory } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
 
   type Target = 'selection' | 'filter';
 

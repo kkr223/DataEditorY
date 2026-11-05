@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
-import { createEmptyCard } from '$lib/domain/card/draft';
+import { createEmptyCard } from '#lib/domain/card/draft.ts';
 import { applyAiCardChanges } from './aiCardChanges';
-import type { CardDataEntry } from '$lib/types';
+import type { CardDataEntry } from '#lib/types/index.ts';
 
 const card = (code = 100): CardDataEntry => ({
   ...createEmptyCard(), code, name: 'Original', attack: 1000,
