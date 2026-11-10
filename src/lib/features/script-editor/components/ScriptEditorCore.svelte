@@ -217,10 +217,6 @@
   }
 
   async function ensureReferenceManualItems(kind: ScriptReferenceManualKind) {
-    if (referenceState.items[kind].length > 0) {
-      return;
-    }
-
     updateReferenceState({ isLoading: true });
     try {
       updateReferenceState({

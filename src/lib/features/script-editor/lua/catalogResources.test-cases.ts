@@ -11,6 +11,7 @@ const originalDefinitions = readFileSync(new URL('../../../../../static/resource
 let resources = new Map<string, string>();
 let resolvedPaths: string[] = [];
 let desktop = true;
+let unreadablePaths = new Set<string>();
 
 mock.module('#lib/infrastructure/tauri/index.ts', () => ({
   tauriBridge: {
@@ -25,6 +26,7 @@ mock.module('#lib/native/assetApi.ts', () => ({
     return path;
   },
   readTextFile: async (path: string) => {
+    if (unreadablePaths.has(path)) throw new Error(`Unreadable resource: ${path}`);
     if (!resources.has(path)) throw new Error(`Missing resource: ${path}`);
     return resources.get(path)!;
   },
@@ -127,5 +129,71 @@ test('browser mode uses the generated fallback without native resource calls', a
     expect(resolvedPaths).toHaveLength(0);
   } finally {
     desktop = true;
+  }
+});
+
+
+test('installed lua-intel resources take precedence over legacy copies', async () => {
+  resources = new Map([
+    ['lua-intel/_functions.txt', '●void Duel.InstalledFunction()\nInstalled.'],
+    ['_functions.txt', '●void Duel.LegacyFunction()\nStale.'],
+  ]);
+  const catalog = await loadExternalLuaCatalog();
+  expect(catalog?.functions.some((item) => item.name === 'Duel.InstalledFunction')).toBe(true);
+  expect(catalog?.functions.some((item) => item.name === 'Duel.LegacyFunction')).toBe(false);
+});
+
+test('read failures try the legacy location before falling back to bundled data', async () => {
+  resources = new Map([
+    ['lua-intel/_functions.txt', 'unreadable'],
+    ['_functions.txt', '●void Duel.ReadableFallback()\nReadable.'],
+  ]);
+  unreadablePaths.add('lua-intel/_functions.txt');
+  try {
+    const catalog = await loadExternalLuaCatalog();
+    expect(catalog?.functions.some((item) => item.name === 'Duel.ReadableFallback')).toBe(true);
+  } finally {
+    unreadablePaths.clear();
+  }
+});
+
+test('replacing installed resources refreshes the shared catalog and manual without restarting', async () => {
+  const { loadLuaCatalog } = await import('./catalog');
+  const { loadReferenceManualItems } = await import('./reference');
+  resources = new Map([['lua-intel/_functions.txt', '●void Duel.BeforeReplacement()\nBefore.']]);
+  const before = await loadLuaCatalog(true);
+  expect(before.functions.some((item) => item.name === 'Duel.BeforeReplacement')).toBe(true);
+  expect(await loadLuaCatalog(true)).toBe(before);
+  resources.set('lua-intel/_functions.txt', '●string Duel.AfterReplacement(int player)\nAfter.');
+  const after = await loadLuaCatalog(true);
+  expect(after).not.toBe(before);
+  expect(after.functions.some((item) => item.name === 'Duel.BeforeReplacement')).toBe(false);
+  expect(after.functions.find((item) => item.name === 'Duel.AfterReplacement')?.parameters).toEqual(['int player']);
+  expect(await loadLuaCatalog()).toBe(after);
+  const manual = await loadReferenceManualItems('functions');
+  expect(manual.find((item) => item.title === 'Duel.AfterReplacement')?.description).toBe('After.');
+  resources.set('lua-intel/_functions.txt', '●void Duel.AfterSecondReplacement()\nSecond.');
+  expect((await loadReferenceManualItems('functions')).some((item) => item.title === 'Duel.AfterSecondReplacement')).toBe(true);
+});
+
+
+test('provider catalog requests recheck after the throttle and share concurrent reads', async () => {
+  const { loadLuaCatalog } = await import('./catalog');
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  try {
+    resources = new Map([['lua-intel/_functions.txt', '●void Duel.FirstVersion()\nFirst.']]);
+    const first = loadLuaCatalog(true);
+    expect(loadLuaCatalog()).toBe(first);
+    const catalog = await first;
+    resources.set('lua-intel/_functions.txt', '●void Duel.SecondVersion()\nSecond.');
+    expect(await loadLuaCatalog()).toBe(catalog);
+    now += 1001;
+    const updated = await loadLuaCatalog();
+    expect(updated.functions.some((item) => item.name === 'Duel.SecondVersion')).toBe(true);
+    expect(updated.functions.some((item) => item.name === 'Duel.FirstVersion')).toBe(false);
+  } finally {
+    Date.now = realNow;
   }
 });

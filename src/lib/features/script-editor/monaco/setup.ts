@@ -48,7 +48,7 @@ import { registerLuaNavigation } from './navigation';
 import { suppressFindCloseTooltip } from './findWidget';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { getCompletionInsertParameters, shouldInsertFunctionArguments } from './completion';
-import { loadExternalLuaCatalog } from '../lua/catalog';
+import { loadLuaCatalog } from '../lua/catalog';
 import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
 import { getConfiguredScriptSnippets } from '../snippetPreferences';
 import {
@@ -160,7 +160,6 @@ let functionsByShortName = new Map<string, LuaFunctionItem[]>();
 let constantDescriptionsByName = new Map<string, string>();
 
 let providersRegistered = false;
-let catalogLoadPromise: Promise<void> | null = null;
 
 function rebuildCatalogIndexes() {
   functionsByName = new Map(luaCatalog.functions.map((item) => [item.name, item]));
@@ -180,29 +179,10 @@ function rebuildCatalogIndexes() {
 }
 
 async function ensureLuaCatalogLoaded() {
-  if (!catalogLoadPromise) {
-    catalogLoadPromise = (async () => {
-      const [constantsModule, functionsModule, snippetsModule] = await Promise.all([
-        import('#lib/data/lua-intel/constants.generated.json'),
-        import('#lib/data/lua-intel/functions.generated.json'),
-        import('#lib/data/lua-intel/snippets.generated.json'),
-      ]);
-      luaCatalog = {
-        constants: constantsModule.default,
-        functions: functionsModule.default,
-        snippets: snippetsModule.default,
-        keywords: [...LUA_KEYWORDS],
-      };
-
-      const externalCatalog = await loadExternalLuaCatalog();
-      if (externalCatalog) {
-        luaCatalog = externalCatalog;
-      }
-      rebuildCatalogIndexes();
-    })();
-  }
-
-  await catalogLoadPromise;
+  const catalog = await loadLuaCatalog();
+  if (catalog === luaCatalog) return;
+  luaCatalog = catalog;
+  rebuildCatalogIndexes();
 }
 
 rebuildCatalogIndexes();
@@ -1104,7 +1084,9 @@ function getSnippetCompletionContext(model: monaco.editor.ITextModel, position: 
   };
 }
 
-function provideCompletionItems(model: monaco.editor.ITextModel, position: monaco.Position) {
+async function provideCompletionItems(model: monaco.editor.ITextModel, position: monaco.Position) {
+  await ensureLuaCatalogLoaded();
+  if (model.isDisposed()) return null;
   const semanticDocument = getSemanticDocument(model);
   const activeCall = getCallInfoAt(semanticDocument, {
     lineNumber: position.lineNumber,
@@ -1319,7 +1301,9 @@ function provideCompletionItems(model: monaco.editor.ITextModel, position: monac
   return { suggestions };
 }
 
-function provideHover(model: monaco.editor.ITextModel, position: monaco.Position) {
+async function provideHover(model: monaco.editor.ITextModel, position: monaco.Position) {
+  await ensureLuaCatalogLoaded();
+  if (model.isDisposed()) return null;
   const hoverInfo = getHoverInfoAt(getSemanticDocument(model), {
     lineNumber: position.lineNumber,
     column: position.column,
@@ -1370,7 +1354,9 @@ function provideHover(model: monaco.editor.ITextModel, position: monaco.Position
   return null;
 }
 
-function provideSignatureHelp(model: monaco.editor.ITextModel, position: monaco.Position) {
+async function provideSignatureHelp(model: monaco.editor.ITextModel, position: monaco.Position) {
+  await ensureLuaCatalogLoaded();
+  if (model.isDisposed()) return null;
   const callInfo = getCallInfoAt(getSemanticDocument(model), {
     lineNumber: position.lineNumber,
     column: position.column,

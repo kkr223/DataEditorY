@@ -1,4 +1,4 @@
-import { loadExternalLuaCatalog } from './catalog';
+import { loadLuaCatalog } from './catalog';
 import type { LuaConstantItem, LuaFunctionItem } from '#lib/types/index.ts';
 
 export type LuaReferenceManualKind = 'constants' | 'functions';
@@ -17,41 +17,6 @@ export type LuaReferenceManualItem = {
   shortName?: string;
   parameters?: string[];
 };
-
-const LUA_KEYWORDS = [
-  'and',
-  'break',
-  'do',
-  'else',
-  'elseif',
-  'end',
-  'false',
-  'for',
-  'function',
-  'goto',
-  'if',
-  'in',
-  'local',
-  'nil',
-  'not',
-  'or',
-  'repeat',
-  'return',
-  'then',
-  'true',
-  'until',
-  'while',
-] as const;
-
-type LuaCatalog = {
-  constants: LuaConstantItem[];
-  functions: LuaFunctionItem[];
-  snippets: Array<{ name: string; prefix: string; body: string[]; description: string; sortText: string }>;
-  keywords: string[];
-};
-
-let catalogPromise: Promise<LuaCatalog> | null = null;
-const referenceManualItemPromises = new Map<LuaReferenceManualKind, Promise<LuaReferenceManualItem[]>>();
 
 function normalizeCompletionHint(text: string, fallback = '') {
   const lines = text
@@ -192,44 +157,9 @@ export function resolveReferenceManualInsertText(
   );
 }
 
-async function loadLuaCatalog() {
-  if (!catalogPromise) {
-    catalogPromise = (async () => {
-      const [constantsModule, functionsModule, snippetsModule] = await Promise.all([
-        import('#lib/data/lua-intel/constants.generated.json'),
-        import('#lib/data/lua-intel/functions.generated.json'),
-        import('#lib/data/lua-intel/snippets.generated.json'),
-      ]);
-
-      let catalog: LuaCatalog = {
-        constants: constantsModule.default,
-        functions: functionsModule.default,
-        snippets: snippetsModule.default,
-        keywords: [...LUA_KEYWORDS],
-      };
-
-      const externalCatalog = await loadExternalLuaCatalog();
-      if (externalCatalog) {
-        catalog = externalCatalog;
-      }
-
-      return catalog;
-    })();
-  }
-
-  return catalogPromise;
-}
-
 export async function loadReferenceManualItems(kind: LuaReferenceManualKind) {
-  if (!referenceManualItemPromises.has(kind)) {
-    referenceManualItemPromises.set(kind, (async () => {
-      const catalog = await loadLuaCatalog();
-      return kind === 'constants'
-        ? catalog.constants.map(buildConstantReferenceManualItem)
-        : catalog.functions.map(buildFunctionReferenceManualItem);
-    })());
-  }
-
-  return referenceManualItemPromises.get(kind)!;
+  const catalog = await loadLuaCatalog(true);
+  return kind === 'constants'
+    ? catalog.constants.map(buildConstantReferenceManualItem)
+    : catalog.functions.map(buildFunctionReferenceManualItem);
 }
-

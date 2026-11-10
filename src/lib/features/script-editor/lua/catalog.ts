@@ -379,14 +379,16 @@ function buildLuaCatalog(source: {
 }
 
 async function readLuaIntelResource(filename: string) {
-  try {
-    const absolutePath = await resolveResourceFile(`${LUA_INTEL_RESOURCE_DIR}/${filename}`)
-      .catch(() => resolveResourceFile(filename));
-    return await readTextFile(absolutePath);
-  } catch (error) {
-    console.warn(`Failed to load Lua intel resource ${filename}; using its bundled fallback.`, error);
-    return null;
+  // Prefer installed resources, with flat source/legacy directories as a fallback.
+  for (const relativePath of [`${LUA_INTEL_RESOURCE_DIR}/${filename}`, filename]) {
+    try {
+      const absolutePath = await resolveResourceFile(relativePath);
+      return await readTextFile(absolutePath);
+    } catch {
+      // Try the next location on resolution AND read failure.
+    }
   }
+  return null;
 }
 
 export async function loadExternalLuaCatalog() {
@@ -404,3 +406,24 @@ export async function loadExternalLuaCatalog() {
   return buildLuaCatalog({ constants, typedDefinitions, functions });
 }
 
+let runtimeCatalog: LuaCatalog = generatedLuaCatalog;
+let runtimeSource = '';
+let runtimeLoad: Promise<LuaCatalog> | null = null;
+let lastResourceCheck = -Infinity;
+
+/** Recheck on demand, sharing concurrent requests and preserving semantic caches if unchanged. */
+export function loadLuaCatalog(refresh = false): Promise<LuaCatalog> {
+  if (runtimeLoad) return runtimeLoad;
+  if (!refresh && Date.now() - lastResourceCheck < 1000) return Promise.resolve(runtimeCatalog);
+  runtimeLoad = (async () => {
+    const catalog = await loadExternalLuaCatalog() ?? generatedLuaCatalog;
+    const source = JSON.stringify(catalog);
+    if (source !== runtimeSource) {
+      runtimeCatalog = catalog;
+      runtimeSource = source;
+    }
+    lastResourceCheck = Date.now();
+    return runtimeCatalog;
+  })().finally(() => { runtimeLoad = null; });
+  return runtimeLoad;
+}

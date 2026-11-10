@@ -18,5 +18,5 @@ Lua Analysis Engine — pure Lua code analysis functions with no Monaco dependen
 
 - `catalog.ts` resolves installed `lua-intel/` resources through the typed native API, with flat source/legacy resource directories as a fallback.
 - Installed `_functions.txt` entries are compared with the bundled source. Edited descriptions override `def.lua` documentation while retaining unchanged typed signatures; edited signatures override the same-name definition. Unchanged entries retain the richer typed definitions.
-- Missing companion files fall back independently, so a missing `def.lua` or `constant.lua` cannot discard installed function edits. Catalog consumers cache resources for the app session; restart after replacing resource files.
+- Missing companion files fall back independently, so a missing `def.lua` or `constant.lua` cannot discard installed function edits. Completion, hover and signature providers recheck resources on demand (at most once per second), sharing concurrent loads and retaining catalog identity when content is unchanged. The reference manual forces a fresh check each time it opens.
 - Semantic document caches check catalog identity, so loading external resources invalidates hints even when the script text/version is unchanged.
