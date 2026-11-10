@@ -12,6 +12,8 @@ Settings UI Feature — manages the settings panel with sections for AI configur
 
 ### Components
 
+- `SettingsCardImageCard.svelte` — persistent card image export size limit, with non-negative integer validation
+
 - `SettingsHeader.svelte` — settings panel header
 - `SettingsAiCard.svelte` — AI API URL/key/temperature configuration
 - `SettingsTemplateCard.svelte` — Lua script template and AI script directory editor

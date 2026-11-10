@@ -16,6 +16,7 @@ export type SettingsFormState = {
   saveScriptImageToLocal: boolean;
   autoCompleteFunctionParameters: boolean;
   scriptEditorFontSize: number;
+  cardImageMaxSizeKb: number;
   scriptSnippets: string;
   packageIncludePatternsText: string;
   shortcutBindings: Record<string, string>;
@@ -35,6 +36,7 @@ export function createSettingsFormState(): SettingsFormState {
     saveScriptImageToLocal: false,
     autoCompleteFunctionParameters: true,
     scriptEditorFontSize: DEFAULT_SCRIPT_EDITOR_FONT_SIZE,
+    cardImageMaxSizeKb: 0,
     scriptSnippets: DEFAULT_SCRIPT_SNIPPETS,
     packageIncludePatternsText: '',
     shortcutBindings: normalizeShortcutBindingMap(undefined),
@@ -88,6 +90,7 @@ export function hydrateSettingsForm(
   form.saveScriptImageToLocal = values.saveScriptImageToLocal;
   form.autoCompleteFunctionParameters = values.autoCompleteFunctionParameters;
   form.scriptEditorFontSize = normalizeScriptEditorFontSize(values.scriptEditorFontSize);
+  form.cardImageMaxSizeKb = values.cardImageMaxSizeKb ?? 0;
   form.scriptSnippets = values.scriptSnippets ?? DEFAULT_SCRIPT_SNIPPETS;
   form.packageIncludePatternsText = formatPackageIncludePatternsText(values.packageIncludePatterns);
   form.shortcutBindings = normalizeShortcutBindingMap(values.shortcutBindings);
@@ -116,6 +119,7 @@ export function isSettingsFormDirty(
     || form.saveScriptImageToLocal !== values.saveScriptImageToLocal
     || form.autoCompleteFunctionParameters !== values.autoCompleteFunctionParameters
     || form.scriptEditorFontSize !== normalizeScriptEditorFontSize(values.scriptEditorFontSize)
+    || form.cardImageMaxSizeKb !== (values.cardImageMaxSizeKb ?? 0)
     || form.scriptSnippets !== (values.scriptSnippets ?? DEFAULT_SCRIPT_SNIPPETS)
     || formatPackageIncludePatternsText(parsePackageIncludePatternsText(form.packageIncludePatternsText)) !== formatPackageIncludePatternsText(values.packageIncludePatterns)
     || formatShortcutBindings(form.shortcutBindings) !== formatShortcutBindings(values.shortcutBindings)
@@ -123,6 +127,7 @@ export function isSettingsFormDirty(
 }
 
 export function validateSettingsForm(form: SettingsFormState) {
+  if (!Number.isInteger(form.cardImageMaxSizeKb) || form.cardImageMaxSizeKb < 0 || form.cardImageMaxSizeKb > 4294967295) return 'image-size' as const;
   if (getScriptSnippetIssue(form.scriptSnippets)) return 'snippets' as const;
   if (!Number.isInteger(form.scriptEditorFontSize) || form.scriptEditorFontSize < SCRIPT_EDITOR_FONT_SIZE_MIN || form.scriptEditorFontSize > SCRIPT_EDITOR_FONT_SIZE_MAX) {
     return 'font-size' as const;

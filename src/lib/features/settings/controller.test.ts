@@ -310,3 +310,22 @@ describe('settings controller helpers', () => {
     ).toBe(false);
   });
 });
+
+
+test('card image export size setting defaults to zero, hydrates and tracks edits', () => {
+  const form = createSettingsFormState();
+  const values = { ...form, packageIncludePatterns: [], hasSecretKey: false, coverImagePath: null, errorLogPath: '' };
+  expect(form.cardImageMaxSizeKb).toBe(0);
+  form.cardImageMaxSizeKb = 200;
+  expect(isSettingsFormDirty(form, values)).toBe(true);
+  values.cardImageMaxSizeKb = 200;
+  hydrateSettingsForm(form, values, { isHydrated: true });
+  expect(form.cardImageMaxSizeKb).toBe(200);
+  expect(isSettingsFormDirty(form, values)).toBe(false);
+  for (const invalid of [-1, 0.5, NaN, 4294967296]) {
+    form.cardImageMaxSizeKb = invalid;
+    expect(validateSettingsForm(form)).toBe('image-size');
+  }
+  form.cardImageMaxSizeKb = 0;
+  expect(validateSettingsForm(form)).toBeNull();
+});

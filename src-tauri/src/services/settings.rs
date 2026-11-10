@@ -48,6 +48,9 @@ pub fn save_app_settings(
             .script_editor_font_size
             .or(Some(settings.script_editor_font_size)),
     );
+    settings.card_image_max_size_kb = request
+        .card_image_max_size_kb
+        .unwrap_or(settings.card_image_max_size_kb);
     if let Some(package_include_patterns) = request.package_include_patterns {
         settings.package_include_patterns =
             normalize_package_include_patterns(Some(package_include_patterns));

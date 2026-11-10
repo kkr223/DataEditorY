@@ -222,6 +222,7 @@ pub(crate) fn to_settings_payload(
         script_editor_font_size: normalize_script_editor_font_size(Some(
             settings.script_editor_font_size,
         )),
+        card_image_max_size_kb: settings.card_image_max_size_kb,
         script_snippets: settings.script_snippets.unwrap_or_else(|| "{}".into()),
         package_include_patterns: normalize_package_include_patterns(Some(
             settings.package_include_patterns,

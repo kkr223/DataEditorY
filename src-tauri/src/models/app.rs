@@ -20,6 +20,7 @@ pub(crate) struct PersistedAppSettings {
     pub(crate) save_script_image_to_local: bool,
     pub(crate) auto_complete_function_parameters: bool,
     pub(crate) script_editor_font_size: u32,
+    pub(crate) card_image_max_size_kb: u32,
     pub(crate) script_snippets: Option<String>,
     pub(crate) package_include_patterns: Vec<String>,
     pub(crate) shortcut_bindings: HashMap<String, String>,
@@ -40,6 +41,7 @@ impl Default for PersistedAppSettings {
             save_script_image_to_local: false,
             auto_complete_function_parameters: true,
             script_editor_font_size: DEFAULT_SCRIPT_EDITOR_FONT_SIZE,
+            card_image_max_size_kb: 0,
             script_snippets: None,
             package_include_patterns: DEFAULT_PACKAGE_INCLUDE_PATTERNS
                 .iter()
@@ -65,6 +67,7 @@ pub(crate) struct AppSettingsPayload {
     pub(crate) save_script_image_to_local: bool,
     pub(crate) auto_complete_function_parameters: bool,
     pub(crate) script_editor_font_size: u32,
+    pub(crate) card_image_max_size_kb: u32,
     pub(crate) script_snippets: String,
     pub(crate) package_include_patterns: Vec<String>,
     pub(crate) shortcut_bindings: HashMap<String, String>,
@@ -87,6 +90,7 @@ pub(crate) struct SaveAppSettingsRequest {
     pub(crate) save_script_image_to_local: Option<bool>,
     pub(crate) auto_complete_function_parameters: Option<bool>,
     pub(crate) script_editor_font_size: Option<u32>,
+    pub(crate) card_image_max_size_kb: Option<u32>,
     pub(crate) script_snippets: Option<String>,
     pub(crate) package_include_patterns: Option<Vec<String>>,
     pub(crate) shortcut_bindings: Option<HashMap<String, String>>,
@@ -181,6 +185,7 @@ mod tests {
         assert!(settings.auto_complete_function_parameters);
         assert_eq!(settings.agent_max_steps, DEFAULT_AI_MAX_STEPS);
         assert_eq!(settings.script_editor_font_size, 14);
+        assert_eq!(settings.card_image_max_size_kb, 0);
     }
 
     #[test]
@@ -191,4 +196,13 @@ mod tests {
         let restored: PersistedAppSettings = serde_json::from_str(&stored).unwrap();
         assert_eq!(restored.script_editor_font_size, 20);
     }
+    #[test]
+    fn card_image_export_size_survives_settings_round_trip() {
+        let settings: PersistedAppSettings =
+            serde_json::from_str(r#"{"cardImageMaxSizeKb":200}"#).unwrap();
+        let stored = serde_json::to_string(&settings).unwrap();
+        let restored: PersistedAppSettings = serde_json::from_str(&stored).unwrap();
+        assert_eq!(restored.card_image_max_size_kb, 200);
+    }
+
 }

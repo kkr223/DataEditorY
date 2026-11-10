@@ -1,3 +1,5 @@
+import { compressCardImageForExport } from './exportCompression';
+import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
 import type { CardDataEntry } from '#lib/types/index.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { pathExists, writeBinaryFile } from '#lib/native/assetApi.ts';
@@ -251,13 +253,16 @@ export async function exportBatchCardImage(input: {
   }
 
   const data = buildBatchCardImageForm(input);
-  const blob = await renderCardBlob(data, 'jpg', DEFAULT_JPG_QUALITY);
+  const maxSizeKb = appSettingsState.values.cardImageMaxSizeKb ?? 0;
+  const rendered = await renderCardBlob(data, 'jpg', DEFAULT_JPG_QUALITY);
+  const blob = await compressCardImageForExport(rendered, 'jpg', maxSizeKb);
   const bytes = await blobToUint8Array(blob);
   await writeBinaryFile(outputPath, Array.from(bytes));
 
   let fieldOutputPath: string | undefined;
   if (isFieldSpellCard(data)) {
-    const fieldBlob = await renderSquareJpgBlob(data.image, FIELD_SPELL_ART_SIZE, DEFAULT_JPG_QUALITY);
+    const renderedField = await renderSquareJpgBlob(data.image, FIELD_SPELL_ART_SIZE, DEFAULT_JPG_QUALITY);
+    const fieldBlob = await compressCardImageForExport(renderedField, 'jpg', maxSizeKb);
     const fieldBytes = await blobToUint8Array(fieldBlob);
     fieldOutputPath = await tauriBridge.join(input.outputDir, 'field', `${input.card.code}.jpg`);
     await writeBinaryFile(fieldOutputPath, Array.from(fieldBytes));

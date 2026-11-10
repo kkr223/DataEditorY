@@ -1,3 +1,5 @@
+import { compressCardImageForExport } from './exportCompression';
+import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
 import { onDestroy, tick } from 'svelte';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
@@ -14,6 +16,7 @@ import {
   normalizeCardImageFormData,
   parseCardImageConfigDocument,
   reloadCardImageFormFromCdb,
+  upgradeCardImageMonsterType,
   serializeCardImageConfigDocument,
   type CardImageConfigDocument,
   type CardImageFormData,
@@ -394,7 +397,7 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   function hydrateFromConfigDocument(document: CardImageConfigDocument) {
-    const persistedForm = normalizeCardImageFormData(document.form ?? {});
+    const persistedForm = upgradeCardImageMonsterType(normalizeCardImageFormData(document.form ?? {}), source.card());
     const form = normalizeCardImageFormData({
       ...persistedForm,
       image: resolveWorkspaceCardImageAssetSrc(source.cdbPath(), persistedForm.image),
@@ -2151,7 +2154,9 @@ export function createCardImageController(source: CardImageControllerSource) {
     state.isDownloading = true;
 
     try {
-      const pngBlob = await renderCardBlob(buildPngData(), 'png');
+      const maxSizeKb = appSettingsState.values.cardImageMaxSizeKb ?? 0;
+      const renderedPng = await renderCardBlob(buildPngData(), 'png');
+      const pngBlob = await compressCardImageForExport(renderedPng, 'png', maxSizeKb);
 
       const targetPath = await tauriBridge.save({
         defaultPath: `${state.form.password || card.code || 'card'}.png`,
@@ -2208,12 +2213,15 @@ export function createCardImageController(source: CardImageControllerSource) {
 
       if (!shouldOverwrite) return;
 
-      const jpgBlob = await renderCardBlob(jpgData, 'jpg', 0.92);
+      const maxSizeKb = appSettingsState.values.cardImageMaxSizeKb ?? 0;
+      const renderedJpg = await renderCardBlob(jpgData, 'jpg', 0.92);
+      const jpgBlob = await compressCardImageForExport(renderedJpg, 'jpg', maxSizeKb);
       const bytes = await blobToUint8Array(jpgBlob);
 
       let fieldArtBytes: Uint8Array | null = null;
       if (isFieldSpellCard(jpgData) && state.croppedImageDataUrl) {
-        const fieldArtBlob = await renderSquareJpgBlob(state.croppedImageDataUrl, FIELD_SPELL_ART_SIZE, 0.92);
+        const renderedFieldArt = await renderSquareJpgBlob(state.croppedImageDataUrl, FIELD_SPELL_ART_SIZE, 0.92);
+        const fieldArtBlob = await compressCardImageForExport(renderedFieldArt, 'jpg', maxSizeKb);
         fieldArtBytes = await blobToUint8Array(fieldArtBlob);
       }
 

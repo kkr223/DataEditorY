@@ -20,6 +20,8 @@
   } from '#lib/features/settings/useCases.ts';
   import SettingsCoverAndLog from '#lib/features/settings/components/SettingsCoverAndLog.svelte';
   import SettingsHeader from '#lib/features/settings/components/SettingsHeader.svelte';
+  import SettingsCardImageCard from '#lib/features/settings/components/SettingsCardImageCard.svelte';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
   import SettingsPackageCard from '#lib/features/settings/components/SettingsPackageCard.svelte';
   import SettingsShortcutsCard from '#lib/features/settings/components/SettingsShortcutsCard.svelte';
   import SettingsTemplateCard from '#lib/features/settings/components/SettingsTemplateCard.svelte';
@@ -190,6 +192,10 @@
           form.autoCompleteFunctionParameters = value;
         }}
       />
+
+      {#if documentRuntime.registry.modules.has('card-image')}
+        <SettingsCardImageCard bind:maxSizeKb={form.cardImageMaxSizeKb} />
+      {/if}
 
       <SettingsPackageCard
         title={$_('settings.package_include_title')}

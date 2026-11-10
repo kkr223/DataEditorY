@@ -17,6 +17,7 @@ export interface AppSettingsPayload {
   saveScriptImageToLocal: boolean;
   autoCompleteFunctionParameters: boolean;
   scriptEditorFontSize: number;
+  cardImageMaxSizeKb?: number;
   scriptSnippets?: string;
   packageIncludePatterns: string[];
   shortcutBindings: Record<string, string>;
@@ -68,6 +69,7 @@ function createDefaultSettings(): AppSettingsPayload {
     saveScriptImageToLocal: false,
     autoCompleteFunctionParameters: true,
     scriptEditorFontSize: DEFAULT_SCRIPT_EDITOR_FONT_SIZE,
+    cardImageMaxSizeKb: 0,
     scriptSnippets: DEFAULT_SCRIPT_SNIPPETS,
     packageIncludePatterns: [...DEFAULT_PACKAGE_INCLUDE_PATTERNS],
     shortcutBindings: normalizeShortcutBindingMap(undefined),
@@ -178,6 +180,7 @@ function applySettings(payload: AppSettingsPayload) {
     saveScriptImageToLocal: Boolean(payload.saveScriptImageToLocal),
     autoCompleteFunctionParameters: payload.autoCompleteFunctionParameters !== false,
     scriptEditorFontSize: normalizeScriptEditorFontSize(payload.scriptEditorFontSize),
+    cardImageMaxSizeKb: payload.cardImageMaxSizeKb ?? 0,
     scriptSnippets: payload.scriptSnippets ?? DEFAULT_SCRIPT_SNIPPETS,
     packageIncludePatterns: normalizePackageIncludePatterns(payload.packageIncludePatterns),
     shortcutBindings: normalizeShortcutBindingMap(payload.shortcutBindings),
@@ -284,6 +287,7 @@ export async function saveAppSettings(input: {
   saveScriptImageToLocal?: boolean;
   autoCompleteFunctionParameters?: boolean;
   scriptEditorFontSize?: number;
+  cardImageMaxSizeKb?: number;
   scriptSnippets?: string;
   packageIncludePatterns?: string[];
   shortcutBindings?: Record<string, string>;
@@ -305,6 +309,7 @@ export async function saveAppSettings(input: {
         saveScriptImageToLocal: input.saveScriptImageToLocal,
         autoCompleteFunctionParameters: input.autoCompleteFunctionParameters,
         scriptEditorFontSize: input.scriptEditorFontSize === undefined ? undefined : normalizeScriptEditorFontSize(input.scriptEditorFontSize),
+        cardImageMaxSizeKb: input.cardImageMaxSizeKb,
         scriptSnippets: input.scriptSnippets,
         packageIncludePatterns: input.packageIncludePatterns
           ? normalizePackageIncludePatterns(input.packageIncludePatterns)
