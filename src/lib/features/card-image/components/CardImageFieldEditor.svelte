@@ -207,8 +207,8 @@
           </div>
           <label class="field"><span>{$_('editor.card_image_level_style')}</span><select value={frameOptions.levelStyle} onchange={(event) => form.levelStyle = event.currentTarget.value as YugiohLevelStyle}>{#each CARD_IMAGE_LEVEL_STYLE_OPTIONS as option}<option value={option.value}>{getOptionLabel(option)}</option>{/each}</select></label>
         {/if}
-        <label class="field"><span>{$_('editor.card_image_description_zoom')}</span><input type="number" min="0.5" step="0.1" bind:value={form.descriptionZoom} /></label>
-        <label class="field"><span>{$_('editor.card_image_description_weight')}</span><input type="number" min="0" step="100" bind:value={form.descriptionWeight} /></label>
+        <label class="field"><span>{$_('editor.card_image_description_zoom')}</span><input type="number" min="0.5" step="0.01" bind:value={form.descriptionZoom} /></label>
+        <label class="field"><span>{$_('editor.card_image_description_weight')}</span><input type="number" min="0" step="0.1" bind:value={form.descriptionWeight} /></label>
       </div>
       <div class="toggle-grid">
         <label class="toggle"><input type="checkbox" bind:checked={form.firstLineCompress} /><span>{$_('editor.card_image_first_line_compress')}</span></label>
