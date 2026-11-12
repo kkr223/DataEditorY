@@ -221,6 +221,8 @@
     "apply_failed": "Batch field edit failed"
   },
   "batch_image_export": {
+    "preview_failed": "Preview failed. Check the error log and try again.",
+    "export_failed": "Batch export failed. Check the error log.",
     "title": "Batch Image Export",
     "description": "Export the current selection or filtered result as JPG card images.",
     "pick_art_dir": "Pick art directory",

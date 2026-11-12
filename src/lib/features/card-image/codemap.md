@@ -11,7 +11,7 @@ Card Image Maker Feature (extra only) — maps current card/draft data to `yugio
 - **`controller.svelte.ts`** — card image workflow: reactive state for canvas/export settings, normalize config, sync card/draft data, trigger renders
 - **`layout.ts`** — card image layout calculations: field positioning, text sizing, `CardImageConfigDocument` type and normalization
 - **`adapter.ts`** — adapts card data from the editor into the `yugioh-card-ts` renderer format; Japanese monster species and classifications include per-kanji ruby, including the species suffix. Exact legacy auto-generated Japanese type lines are upgraded during workspace hydration; custom lines remain unchanged.
-- **`exporter.ts`** — export helpers for single-card and batch image output
+- **`exporter.ts`** — batch export uses the captured CDB path for saved foreground/mask assets, applies the batch language and output settings, checks both main and field output collisions, and encodes both images before writing either. Regression tests mock renderer/native I/O in isolated subprocesses.
 - **`scriptRenderer.ts`** — renders Lua script code as a styled image (for code screenshot export)
 - **`workspaceAssets.ts`** — resolves `workspace-asset:` references from metadata to image files under `.dey/card-image/`
 - **`exportCompression.ts`** — applies the saved per-file KB limit before PNG/JPG writes in single and batch export; 0 disables compression, within-limit files keep their original bytes, JPG quality is reduced before dimensions, and PNG resizing preserves transparency.

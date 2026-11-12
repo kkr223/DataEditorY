@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
+  import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
+  import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
+  import { isCurrentMetadataPath, workspaceMetadataState, captureWorkspaceMetadataScope } from '#lib/features/workspace-metadata/state.svelte.ts';
+  import { writeErrorLog } from '#lib/utils/errorLog.ts';
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
   import { activeTab } from '#lib/stores/db.ts';
@@ -25,7 +31,7 @@
     getCardGroupById,
     getCardGroups,
     getCardImageDocument,
-    appendWorkspaceTaskHistory,
+    appendWorkspaceTaskHistoryForPath,
     upsertCardGroup,
   } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
 
@@ -59,12 +65,50 @@
   let isRunning = $state(false);
   let progress = $state({ current: 0, total: 0 });
   let preview = $state<{
+    inputKey: string;
+    cdbPath: string;
     targetCount: number;
     matchedCount: number;
     missingCount: number;
     sample: PreviewItem[];
     items: PreviewItem[];
   } | null>(null);
+
+  let requestSequence = 0;
+  let disposed = false;
+  onDestroy(() => {
+    disposed = true;
+    requestSequence += 1;
+  });
+
+  function inputKey() {
+    const tab = $activeTab;
+    return JSON.stringify([
+      open, tab?.id, tab?.path, documentRuntime.getDocument(tab?.id ?? '')?.revision,
+      target, selectedGroupId, getSelectedCardIds(), getCardGroupById(selectedGroupId)?.cardIds,
+      tab?.cachedFilters, artDir, outputDir, buildPreset(), overwrite,
+      appSettingsState.values.cardImageMaxSizeKb, workspaceMetadataState.metadata?.image,
+    ]);
+  }
+
+  $effect(() => {
+    const key = inputKey();
+    if (preview && preview.inputKey !== key) preview = null;
+  });
+
+  $effect(() => {
+    if (!open) {
+      requestSequence += 1;
+      preview = null;
+    }
+  });
+
+  function closeDialog() {
+    if (isRunning) return;
+    requestSequence += 1;
+    preview = null;
+    onClose();
+  }
 
   function getOptionText(option: { label?: string; labelKey?: string; value: string }) {
     if (option.labelKey) return $_(option.labelKey);
@@ -99,7 +143,9 @@
   }
 
   async function saveCurrentTargetAsGroup() {
+    const isCurrent = captureWorkspaceMetadataScope();
     const cards = await resolveTargetCards();
+    if (!isCurrent() || disposed) return;
     if (cards.length === 0) {
       showToast($_('card_group.empty_target'), 'error');
       return;
@@ -141,124 +187,130 @@
   }
 
   async function buildPreview() {
+    if (isRunning) return;
+    const tab = get(activeTab);
+    if (!tab) return;
     if (!artDir.trim()) {
       showToast($_('batch_image_export.art_dir_required'), 'error');
       return;
     }
-
+    const sequence = ++requestSequence;
+    const isOwner = () => !disposed && open && sequence === requestSequence
+      && get(activeTab)?.id === tab.id && get(activeTab)?.path === tab.path;
     isRunning = true;
+    preview = null;
     progress = { current: 0, total: 0 };
     try {
+      if (!(await commitWorkspaceCardDraft(tab.id)) || !isOwner()) return;
+      if ((usePerCardOverrides || target === 'group') && !isCurrentMetadataPath(tab.path)) throw new Error('Workspace metadata is not ready');
+      const key = inputKey();
+      const sourceArtDir = artDir.trim();
       const cards = await resolveTargetCards();
       const items: PreviewItem[] = [];
       progress = { current: 0, total: cards.length };
-
       for (const card of cards) {
-        items.push({
-          card,
-          artPath: await findBatchCardArtPath(artDir, card.code),
-        });
+        if (!isOwner() || inputKey() !== key) return;
+        items.push({ card, artPath: await findBatchCardArtPath(sourceArtDir, card.code) });
         progress = { current: items.length, total: cards.length };
       }
-
+      if (!isOwner() || inputKey() !== key) return;
       const matchedCount = items.filter((item) => item.artPath).length;
       preview = {
-        targetCount: items.length,
-        matchedCount,
-        missingCount: items.length - matchedCount,
-        sample: items.slice(0, 10),
-        items,
+        inputKey: key, cdbPath: tab.path, targetCount: items.length, matchedCount,
+        missingCount: items.length - matchedCount, sample: items.slice(0, 10), items,
       };
+    } catch (error) {
+      if (isOwner()) showToast($_('batch_image_export.preview_failed'), 'error');
+      void writeErrorLog({ source: 'batch-image.preview', error, extra: { cdbPath: tab.path } });
     } finally {
-      isRunning = false;
-      progress = { current: 0, total: 0 };
+      if (!disposed) {
+        isRunning = false;
+        progress = { current: 0, total: 0 };
+      }
     }
   }
 
   async function applyExport() {
-    if (!preview || !outputDir.trim()) {
+    if (isRunning || !preview) return;
+    const plan = preview;
+    if (plan.inputKey !== inputKey()) {
+      preview = null;
+      return;
+    }
+    if (!outputDir.trim()) {
       showToast($_('batch_image_export.output_dir_required'), 'error');
       return;
     }
-
-    const matched = preview.items.filter((item): item is PreviewItem & { artPath: string } => Boolean(item.artPath));
+    const matched = plan.items.filter((item): item is PreviewItem & { artPath: string } => Boolean(item.artPath));
     if (matched.length === 0) {
       showToast($_('batch_image_export.no_matched_art'), 'error');
       return;
     }
-
-    const confirmed = await tauriBridge.ask(
-      $_('batch_image_export.confirm_message', {
-        values: {
-          count: String(matched.length),
-          missing: String(preview.missingCount),
-        },
-      }) as string,
-      { title: $_('batch_image_export.title') as string, kind: 'warning' },
-    );
-    if (!confirmed) return;
-
+    // Capture all per-card configuration before any prompt, task or workspace switch.
+    const preset = buildPreset();
+    const destination = outputDir.trim();
+    const sourceArtDir = artDir.trim();
+    const allowOverwrite = overwrite;
+    const maxSizeKb = appSettingsState.values.cardImageMaxSizeKb ?? 0;
+    const jobs = matched.map((item) => ({
+      kind: 'batch.image.export-card',
+      card: structuredClone($state.snapshot(item.card)), artPath: item.artPath,
+      outputDir: destination, cdbPath: plan.cdbPath, preset: { ...preset },
+      perCardDocument: usePerCardOverrides ? structuredClone($state.snapshot(getCardImageDocument(item.card.code))) : null,
+      overwrite: allowOverwrite, maxSizeKb,
+    }));
+    const sequence = ++requestSequence;
     isRunning = true;
-    progress = { current: 0, total: matched.length };
     let success = 0;
     let skipped = 0;
     let failed = 0;
-
     try {
-      const preset = buildPreset();
-      for (const item of matched) {
+      const confirmed = await tauriBridge.ask(
+        $_('batch_image_export.confirm_message', {
+          values: { count: String(matched.length), missing: String(plan.missingCount) },
+        }) as string,
+        { title: $_('batch_image_export.title') as string, kind: 'warning' },
+      );
+      if (!confirmed || disposed || sequence !== requestSequence || inputKey() !== plan.inputKey) return;
+      progress = { current: 0, total: jobs.length };
+      for (const job of jobs) {
+        if (disposed || sequence !== requestSequence) break;
         try {
-          const result = await startTask({
-            kind: 'batch.image.export-card',
-            card: item.card,
-            artPath: item.artPath,
-            outputDir,
-            preset,
-            perCardDocument: getCardImageDocument(item.card.code),
-            overwrite,
-          }) as BatchCardImageExportResult;
-          if (result.skipped) {
-            skipped += 1;
-          } else {
-            success += 1;
-          }
+          const result = await startTask(job) as BatchCardImageExportResult;
+          if (result.error) throw new Error(result.error);
+          if (result.skipped) skipped += 1;
+          else success += 1;
         } catch (error) {
           failed += 1;
-          console.error('Failed to export card image', item.card.code, error);
+          void writeErrorLog({ source: 'batch-image.export', error, extra: { cdbPath: plan.cdbPath, cardCode: job.card.code } });
         } finally {
-          progress = { current: progress.current + 1, total: matched.length };
+          if (!disposed) progress = { current: progress.current + 1, total: jobs.length };
         }
       }
-
-      showToast($_('batch_image_export.done_message', {
-        values: {
-          success: String(success),
-          skipped: String(skipped),
-          failed: String(failed),
-        },
-      }), failed > 0 ? 'error' : 'success');
-      appendWorkspaceTaskHistory({
-        kind: 'batch.image.export',
-        label: $_('batch_image_export.title'),
-        summary: {
-          targetCount: preview.targetCount,
-          matchedCount: matched.length,
-          success,
-          skipped,
-          failed,
-          artDir,
-          outputDir,
-        },
+      await appendWorkspaceTaskHistoryForPath(plan.cdbPath, {
+        kind: 'batch.image.export', label: $_('batch_image_export.title'),
+        summary: { targetCount: plan.targetCount, matchedCount: jobs.length, success, skipped, failed,
+          artDir: sourceArtDir, outputDir: destination },
       });
+      if (disposed || !open || sequence !== requestSequence) return;
+      showToast($_('batch_image_export.done_message', {
+        values: { success: String(success), skipped: String(skipped), failed: String(failed) },
+      }), failed > 0 ? 'error' : 'success');
       if (failed === 0) {
         preview = null;
         onClose();
       }
+    } catch (error) {
+      void writeErrorLog({ source: 'batch-image.export', error, extra: { cdbPath: plan.cdbPath } });
+      if (!disposed) showToast($_('batch_image_export.export_failed'), 'error');
     } finally {
-      isRunning = false;
-      progress = { current: 0, total: 0 };
+      if (!disposed) {
+        isRunning = false;
+        progress = { current: 0, total: 0 };
+      }
     }
   }
+
 </script>
 
 {#if open}
@@ -270,16 +322,17 @@
       aria-label={$_('batch_image_export.title')}
       tabindex="-1"
       onclick={(event) => event.stopPropagation()}
-      onkeydown={(event) => { if (event.key === 'Escape') onClose(); }}
+      onkeydown={(event) => { if (event.key === 'Escape') closeDialog(); }}
     >
       <header>
         <div>
           <h2>{$_('batch_image_export.title')}</h2>
           <p>{$_('batch_image_export.description')}</p>
         </div>
-        <button type="button" class="close-btn" onclick={onClose}>×</button>
+        <button type="button" class="close-btn" onclick={closeDialog} disabled={isRunning}>×</button>
       </header>
 
+      <fieldset disabled={isRunning}>
       <div class="target-row">
         <label>
           <input type="radio" bind:group={target} value="selection" onchange={() => { preview = null; }} />
@@ -377,6 +430,8 @@
         </label>
       </div>
 
+      </fieldset>
+
       {#if progress.total > 0}
         <div class="progress">
           <div style={`width:${Math.round((progress.current / Math.max(progress.total, 1)) * 100)}%`}></div>
@@ -406,7 +461,7 @@
       {/if}
 
       <footer>
-        <button type="button" class="secondary-action" onclick={onClose}>{$_('editor.card_image_crop_cancel')}</button>
+        <button type="button" class="secondary-action" onclick={closeDialog} disabled={isRunning}>{$_('editor.card_image_crop_cancel')}</button>
         <button type="button" class="secondary-action" onclick={() => void buildPreview()} disabled={isRunning}>
           {isRunning ? '...' : $_('batch_cdb.preview')}
         </button>
@@ -419,6 +474,8 @@
 {/if}
 
 <style>
+  fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+
   .dialog-backdrop {
     position: fixed;
     inset: 0;

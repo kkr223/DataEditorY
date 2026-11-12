@@ -221,6 +221,8 @@
     "apply_failed": "批量字段编辑失败"
   },
   "batch_image_export": {
+    "preview_failed": "预览失败，请查看错误日志后重试",
+    "export_failed": "批量导出失败，请查看错误日志",
     "title": "批量卡图导出",
     "description": "批量导出当前选择或筛选结果的 JPG 卡图。",
     "pick_art_dir": "选择 art 目录",

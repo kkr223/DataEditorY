@@ -4,6 +4,7 @@ import type { CardDataEntry } from '#lib/types/index.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { pathExists, writeBinaryFile } from '#lib/native/assetApi.ts';
 import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
+import { resolveWorkspaceCardImageAssetSrc } from './workspaceAssets';
 import { destroyCardImageRenderer } from './rendererLifecycle';
 import {
   applyCardImageRarityDefaults,
@@ -218,20 +219,39 @@ export function buildBatchCardImageForm(input: {
   artPath: string;
   preset: BatchCardImagePreset;
   perCardDocument?: CardImageConfigDocument | null;
+  cdbPath?: string;
 }) {
   const base = createCardImageFormData(input.card, input.preset.language);
   const overrideForm = input.preset.usePerCardOverrides
     ? input.perCardDocument?.form ?? {}
     : {};
 
+  const previousDefaults = createCardImageFormData(input.card, overrideForm.language ?? input.preset.language);
+  const localized = Object.fromEntries(
+    (['monsterType', 'description', 'pendulumDescription'] as const).map((field) => [
+      field, overrideForm[field] === undefined || overrideForm[field] === previousDefaults[field]
+        ? base[field] : overrideForm[field],
+    ]),
+  );
+  const resolveAsset = (value: string | undefined) => {
+    if (value?.startsWith('workspace-asset:') && !input.cdbPath) {
+      throw new Error('A source CDB path is required for saved card image assets');
+    }
+    return resolveWorkspaceCardImageAssetSrc(input.cdbPath ?? '', value ?? '');
+  };
+  const scalePercent = Number(input.preset.exportScalePercent);
   return applyAutoRarityStyle(applyCardImageRarityDefaults({
     ...base,
     ...overrideForm,
+    ...localized,
+    language: input.preset.language,
     image: toMediaProtocolSrc(input.artPath),
+    foregroundImage: resolveAsset(overrideForm.foregroundImage),
+    rarityMaskImage: resolveAsset(overrideForm.rarityMaskImage),
     rare: input.preset.rare,
     laser: input.preset.laser,
     copyright: input.preset.copyright || base.copyright,
-    scale: Math.max(0.1, input.preset.exportScalePercent / 100),
+    scale: (Number.isFinite(scalePercent) ? Math.min(100, Math.max(10, scalePercent)) : 43) / 100,
   }, input.preset.rare));
 }
 
@@ -241,36 +261,36 @@ export async function exportBatchCardImage(input: {
   outputDir: string;
   preset: BatchCardImagePreset;
   perCardDocument?: CardImageConfigDocument | null;
+  cdbPath?: string;
   overwrite: boolean;
+  maxSizeKb?: number;
 }) {
   const outputPath = await tauriBridge.join(input.outputDir, `${input.card.code}.jpg`);
   if (!input.overwrite && await pathExists(outputPath)) {
-    return {
-      cardId: input.card.code,
-      outputPath,
-      skipped: true,
-    } satisfies BatchCardImageExportResult;
+    return { cardId: input.card.code, outputPath, skipped: true } satisfies BatchCardImageExportResult;
+  }
+  const data = buildBatchCardImageForm(input);
+  const fieldOutputPath = isFieldSpellCard(data)
+    ? await tauriBridge.join(input.outputDir, 'field', `${input.card.code}.jpg`)
+    : undefined;
+  if (!input.overwrite && fieldOutputPath && await pathExists(fieldOutputPath)) {
+    return { cardId: input.card.code, outputPath, fieldOutputPath, skipped: true } satisfies BatchCardImageExportResult;
   }
 
-  const data = buildBatchCardImageForm(input);
-  const maxSizeKb = appSettingsState.values.cardImageMaxSizeKb ?? 0;
+  const maxSizeKb = input.maxSizeKb ?? appSettingsState.values.cardImageMaxSizeKb ?? 0;
   const rendered = await renderCardBlob(data, 'jpg', DEFAULT_JPG_QUALITY);
   const blob = await compressCardImageForExport(rendered, 'jpg', maxSizeKb);
   const bytes = await blobToUint8Array(blob);
-  await writeBinaryFile(outputPath, Array.from(bytes));
-
-  let fieldOutputPath: string | undefined;
-  if (isFieldSpellCard(data)) {
+  let fieldBytes: Uint8Array | undefined;
+  if (fieldOutputPath) {
     const renderedField = await renderSquareJpgBlob(data.image, FIELD_SPELL_ART_SIZE, DEFAULT_JPG_QUALITY);
     const fieldBlob = await compressCardImageForExport(renderedField, 'jpg', maxSizeKb);
-    const fieldBytes = await blobToUint8Array(fieldBlob);
-    fieldOutputPath = await tauriBridge.join(input.outputDir, 'field', `${input.card.code}.jpg`);
+    fieldBytes = await blobToUint8Array(fieldBlob);
+  }
+  await writeBinaryFile(outputPath, Array.from(bytes));
+  if (fieldOutputPath && fieldBytes) {
     await writeBinaryFile(fieldOutputPath, Array.from(fieldBytes));
   }
 
-  return {
-    cardId: input.card.code,
-    outputPath,
-    fieldOutputPath,
-  } satisfies BatchCardImageExportResult;
+  return { cardId: input.card.code, outputPath, fieldOutputPath } satisfies BatchCardImageExportResult;
 }
