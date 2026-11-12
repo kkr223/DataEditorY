@@ -44,16 +44,6 @@ export const providerClose = (
   request: ProviderHostRequest,
 ) => invokeCommand('provider_close', { request });
 
-export const codecExport = <T = unknown>(
-  request: {
-    codecId: string;
-    documentId?: string;
-    sourceUri?: string;
-    destinationUri: string;
-    options?: unknown;
-  },
-) => invokeCommand<T>('codec_export', { request });
-
 export class TauriDocumentProvider implements DataProvider {
   constructor(private readonly providerId: string) {}
 

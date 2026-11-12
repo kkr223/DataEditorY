@@ -7,8 +7,6 @@ export {
   removeRecentCdbHistoryEntry,
 } from './recentHistory';
 
-export { type UndoOperation } from './undo';
-
 export {
   type CachedSearchSnapshot,
   onCachedSearchRefreshed,
@@ -17,7 +15,6 @@ export {
   searchCardsPage,
   refreshSearchAfterMutation,
   clearSourceFilterCacheForTab,
-  clearAllSourceFilterCaches,
 } from './search';
 
 export {
@@ -31,19 +28,11 @@ export {
   openCdbHistoryEntry,
   createCdbFile,
   closeTab,
-  saveCdbFile,
   saveCdbTab,
   saveCdbTabAs,
-  getCachedCards,
-  getCachedTotal,
-  getCachedPage,
   getCachedFilters,
-  getCachedSelectedIds,
-  getCachedSelectedId,
-  getCachedSelectionAnchorId,
   cacheActiveTabSelection,
   hasUnsavedChanges,
-  markActiveTabDirty,
   hasUndoableAction,
   getLastUndoLabel,
   undoLastOperation,
@@ -51,17 +40,10 @@ export {
 } from './tabs';
 
 export {
-  getCardById,
   getCardByIdInTab,
   queryCardByIdInTab,
   getCardsByIdsInTab,
-  getCardsByIds,
-  modifyCard,
-  replaceCardId,
   replaceCardIdInTab,
   modifyCardsInTab,
-  modifyCards,
-  deleteCard,
-  deleteCards,
   deleteCardsInTab,
 } from './cardOperations';

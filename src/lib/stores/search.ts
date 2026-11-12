@@ -22,11 +22,6 @@ export interface CachedSearchSnapshot {
   filters: SearchFilters;
 }
 
-interface SearchCardsPageResponse {
-  cards: CardDataEntry[];
-  total: number;
-}
-
 interface ResolvedSourceFilterIds {
   active: boolean;
   ids: number[];
@@ -65,12 +60,6 @@ export function clearSourceFilterCacheForTab(tabId: string): void {
       imageFolderCache.delete(key);
     }
   }
-}
-
-/** Clear all source-filter caches (both deckText and imageFolder). */
-export function clearAllSourceFilterCaches(): void {
-  deckTextCache.clear();
-  imageFolderCache.clear();
 }
 
 export function parseCachedFiltersJson(serialized: string): SearchFilters {

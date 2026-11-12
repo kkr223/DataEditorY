@@ -247,13 +247,6 @@ export async function closeTab(tabId: string) {
   return true;
 }
 
-export async function saveCdbFile(): Promise<boolean> {
-  const tab = get(activeTab);
-  if (!tab) return false;
-
-  return saveCdbTab(tab.id);
-}
-
 export async function saveCdbTab(tabId: string): Promise<boolean> {
   const tab = get(tabs).find((item) => item.id === tabId);
   if (!tab) return false;
@@ -267,40 +260,10 @@ export async function saveCdbTab(tabId: string): Promise<boolean> {
   }
 }
 
-export function getCachedCards(): CardDataEntry[] {
-  const tab = get(activeTab);
-  return tab ? tab.cachedCards : [];
-}
-
-export function getCachedTotal(): number {
-  const tab = get(activeTab);
-  return tab ? tab.cachedTotal : 0;
-}
-
-export function getCachedPage(): number {
-  const tab = get(activeTab);
-  return tab ? tab.cachedPage : 1;
-}
-
 export function getCachedFilters(): SearchFilters {
   const tab = get(activeTab);
   if (!tab) return { ...DEFAULT_SEARCH_FILTERS };
   return parseCachedFiltersJson(tab.cachedFilters);
-}
-
-export function getCachedSelectedIds(): number[] {
-  const tab = get(activeTab);
-  return tab ? [...tab.cachedSelectedIds] : [];
-}
-
-export function getCachedSelectedId(): number | null {
-  const tab = get(activeTab);
-  return tab ? tab.cachedSelectedId : null;
-}
-
-export function getCachedSelectionAnchorId(): number | null {
-  const tab = get(activeTab);
-  return tab ? tab.cachedSelectionAnchorId : null;
 }
 
 export function cacheActiveTabSelection(selectedIds: number[], selectedId: number | null, selectionAnchorId: number | null) {
@@ -325,19 +288,6 @@ export function hasUnsavedChanges(tabId: string | null = get(activeTabId)): bool
   if (!tabId) return false;
   const tab = get(tabs).find((item) => item.id === tabId);
   return tab?.isDirty ?? false;
-}
-
-export function markTabDirty(tabId: string, isDirty = true) {
-  tabs.update((currentTabs) =>
-    currentTabs.map((tab) => (tab.id === tabId ? { ...tab, isDirty } : tab))
-  );
-}
-
-export function markActiveTabDirty(isDirty = true) {
-  const tabId = get(activeTabId);
-  if (!tabId) return;
-
-  markTabDirty(tabId, isDirty);
 }
 
 export function hasUndoableAction(): boolean {

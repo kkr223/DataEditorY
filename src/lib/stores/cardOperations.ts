@@ -25,12 +25,6 @@ function syncCachedCardsInTab(tabId: string, cards: CardDataEntry[]) {
     )
   );
 }
-export async function getCardById(cardId: number): Promise<CardDataEntry | undefined> {
-  const tab = get(activeTab);
-  if (!tab) return undefined;
-  return getCardByIdInTab(tab.id, cardId);
-}
-
 export async function getCardByIdInTab(tabId: string, cardId: number): Promise<CardDataEntry | undefined> {
   try {
     return await queryCardByIdInTab(tabId, cardId);
@@ -75,26 +69,6 @@ export async function getAllCardsInTab(tabId: string): Promise<CardDataEntry[]> 
     console.error('Failed to fetch all cards:', err);
     return [];
   }
-}
-
-export async function getCardsByIds(cardIds: number[]): Promise<CardDataEntry[]> {
-  const tab = get(activeTab);
-  if (!tab) return [];
-  return getCardsByIdsInTab(tab.id, cardIds);
-}
-
-export async function modifyCard(card: CardDataEntry, refreshCachedSearch = true): Promise<boolean> {
-  return modifyCards([card], refreshCachedSearch);
-}
-
-export async function replaceCardId(
-  card: CardDataEntry,
-  originalCardId: number,
-  refreshCachedSearch = true,
-): Promise<boolean> {
-  const tab = get(activeTab);
-  if (!tab) return false;
-  return replaceCardIdInTab(tab.id, card, originalCardId, refreshCachedSearch);
 }
 
 export async function replaceCardIdInTab(
@@ -169,22 +143,6 @@ export async function modifyCardsInTab(
     console.error('Failed to modify cards:', err);
     return false;
   }
-}
-
-export async function modifyCards(cards: CardDataEntry[], refreshCachedSearch = true): Promise<boolean> {
-  const tab = get(activeTab);
-  if (!tab) return false;
-  return modifyCardsInTab(tab.id, cards, refreshCachedSearch);
-}
-
-export async function deleteCard(cardId: number, refreshCachedSearch = true): Promise<boolean> {
-  return deleteCards([cardId], refreshCachedSearch);
-}
-
-export async function deleteCards(cardIds: number[], refreshCachedSearch = true): Promise<boolean> {
-  const tab = get(activeTab);
-  if (!tab) return false;
-  return deleteCardsInTab(tab.id, cardIds, refreshCachedSearch);
 }
 
 export async function deleteCardsInTab(
