@@ -65,6 +65,7 @@
   const exportWidth = $derived(Math.round(FOREGROUND_EDITOR_CARD_WIDTH * exportScalePercent / 100));
   const exportHeight = $derived(Math.round(FOREGROUND_EDITOR_CARD_HEIGHT * exportScalePercent / 100));
   const frameOptions = $derived(resolveFrameOptions(form));
+  const effectTextId = $props.id();
   const isLinkCard = $derived(
     form.type === 'pendulum'
       ? form.pendulumType === 'link-pendulum'
@@ -181,7 +182,25 @@
   <section class="drawer-section">
     <div class="section-title">{$_('editor.card_image_form_text')}</div>
     <div class="field-stack">
-      <label class="field"><span>{$_('editor.desc')}</span><textarea rows="7" bind:value={form.description}></textarea></label>
+      <div class="field">
+        <div class="effect-label">
+          <label for={effectTextId}>{$_('editor.desc')}</label>
+          <details class="effect-help">
+            <summary
+              aria-label={$_('editor.card_image_text_help')}
+              title={`${$_('editor.card_image_text_ruby_help')} [漢字(かんじ)]\n\n${$_('editor.card_image_text_no_break_help')}\n${$_('editor.card_image_text_no_break_limit')}`}
+            >?</summary>
+            <div class="effect-help-content">
+              <p>{$_('editor.card_image_text_ruby_help')}</p>
+              <code>[漢字(かんじ)]</code>
+              <p>{$_('editor.card_image_text_no_break_help')}</p>
+              <code>{'`' + $_('editor.card_image_text_no_break_example') + '`'}</code>
+              <p>{$_('editor.card_image_text_no_break_limit')}</p>
+            </div>
+          </details>
+        </div>
+        <textarea id={effectTextId} rows="7" bind:value={form.description}></textarea>
+      </div>
       {#if form.type === 'pendulum'}
         <label class="field"><span>{$_('editor.card_image_pendulum_text')}</span><textarea rows="4" bind:value={form.pendulumDescription}></textarea></label>
       {/if}
@@ -411,6 +430,48 @@
 {/if}
 
 <style>
+  .effect-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .effect-help summary {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: var(--text-xs);
+    list-style: none;
+  }
+  .effect-help summary::-webkit-details-marker { display: none; }
+  .effect-help summary:hover,
+  .effect-help summary:focus-visible {
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+  }
+  .effect-help-content {
+    flex-basis: 100%;
+    margin: 8px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--control-radius);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+  }
+  .effect-label:has(.effect-help[open]) { flex-wrap: wrap; }
+  .effect-help[open] { display: contents; }
+  .effect-help-content p { margin: 4px 0; }
+  .effect-help-content code {
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
   .btn-sm { padding: 0.38rem 0.75rem; font-size: var(--text-sm); font-weight: 700; border-radius: var(--control-radius-soft); border: 1px solid transparent; cursor: pointer; transition: background-color var(--transition-fast), border-color var(--transition-fast); }
   .btn-secondary { background: var(--bg-surface-active); color: var(--text-primary); border-color: var(--border-color); }
   .btn-secondary:hover { background: var(--bg-surface-hover); }

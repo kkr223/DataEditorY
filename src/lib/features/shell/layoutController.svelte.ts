@@ -1,4 +1,5 @@
 import { handleCopySelection, handlePasteSelection, handleDeleteSelection } from '#lib/features/card-editor/selectionActions.ts';
+import { handleCreateAlternateArtwork } from '#lib/features/card-editor/alternateArtwork.ts';
 import { handleTextContextMenu } from '#lib/features/context-menu/textMenu.ts';
 import { get, fromStore } from 'svelte/store';
 import { createListenerScope } from './listenerScope';
@@ -317,7 +318,9 @@ export function createShellLayoutController() {
       return;
     }
 
-    if (editable && !isShortcutEvent('global.saveWorkspace', event, shortcuts)) {
+    if (editable
+      && !isShortcutEvent('global.saveWorkspace', event, shortcuts)
+      && !isShortcutEvent('global.createAlternateArtwork', event, shortcuts)) {
       return;
     }
 
@@ -339,6 +342,13 @@ export function createShellLayoutController() {
       }
       event.preventDefault();
       dispatchAppShortcut('new-card');
+      return;
+    }
+
+    if (isShortcutEvent('global.createAlternateArtwork', event, shortcuts)) {
+      if (!isDbWorkspaceActive) return;
+      event.preventDefault();
+      void handleCreateAlternateArtwork();
       return;
     }
 

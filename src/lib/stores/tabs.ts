@@ -9,6 +9,7 @@ import { documentRuntime } from '#lib/platform/appRuntime.ts';
 import { CARD_COLLECTION_TYPE } from '#lib/modules/card/index.ts';
 import { CDB_PROVIDER_ID } from '#lib/modules/cdb/index.ts';
 import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { initializeWorkspaceMetadataForNewCdb } from '#lib/features/workspace-metadata/state.svelte.ts';
 import { writeErrorLog } from '#lib/utils/errorLog.ts';
 import { showToast } from './toast.svelte';
 import {
@@ -185,6 +186,12 @@ async function createCdbAtPath(selected: string): Promise<string | null> {
           name: selected.split(/[\\/]/).pop() || 'Untitled.cdb',
         },
       }, { activate: false });
+      try {
+        await initializeWorkspaceMetadataForNewCdb(selected);
+      } catch (error) {
+        await documentRuntime.close(document.id, true);
+        throw error;
+      }
       if (documentRuntime.snapshot.activeDocumentId === previousActiveId) {
         documentRuntime.activate(document.id);
       }

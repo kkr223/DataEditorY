@@ -9,6 +9,7 @@ export type ShortcutActionId =
   | 'global.focusSearchPrimaryG'
   | 'global.undoLastOperation'
   | 'global.newCard'
+  | 'global.createAlternateArtwork'
   | 'global.copySelection'
   | 'global.pasteSelection'
   | 'global.deleteSelection'
@@ -106,6 +107,14 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     labelKey: 'settings.shortcut_new_card',
     descriptionKey: 'settings.shortcut_new_card_desc',
     defaultBinding: 'Primary+Shift+N',
+  },
+  {
+    id: 'global.createAlternateArtwork',
+    scope: 'global',
+    categoryKey: 'settings.shortcuts_category_global',
+    labelKey: 'settings.shortcut_create_alternate_artwork',
+    descriptionKey: 'settings.shortcut_create_alternate_artwork_desc',
+    defaultBinding: 'Primary+Alt+Shift+A',
   },
   {
     id: 'global.copySelection',

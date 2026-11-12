@@ -14,6 +14,7 @@ Card Editor Feature — manages the single-card editing form, DEX-style draft se
 - **`useCases.ts`** — base use cases: commit draft, save/delete/create/copy/paste, switch-card handling
   ID changes review the destination card and pass its snapshot to the host. Commits acknowledge only the submitted draft; newer input survives async writes/refreshes and blocks navigation or CDB save until committed.
 - **`selectionActions.ts`** — shared copy/paste/delete flows for shortcuts and context menus; captures the target CDB and uses the document host mutation pipeline
+- **`alternateArtwork.ts`** — commits the active draft and creates an alternate artwork card at the nearest free ID within +1 through +10, using an empty-target write precondition and the source ID as alias. Copies card data only.
 - **`cardNavigation.ts`** — commits the current draft before selecting a card and opening its card/script/image surface; reveals off-page targets through an ID filter
 - **`extraUseCases.ts`** — extra-only image helper flows
 

@@ -9,6 +9,7 @@ Owns the shared `.dey` metadata state and persistence pipeline independently of 
 - `state.svelte.ts` — single reactive metadata instance, scoped loads, debounced writes, per-path serialization, failure retention/retry, Save As, and shutdown flushing.
 - `updateWorkspaceMetadata` edits the current loaded workspace; `updateWorkspaceMetadataForPath` serializes background read/modify/write operations without changing the active workspace.
 - `captureWorkspaceMetadataScope` invalidates asynchronous owners after switching away, including away-and-back transitions.
+- Creating a CDB initializes a fresh sidecar after its first save and before activation. Reusing a deleted CDB path invalidates old loaded owners and pending snapshots, and queues initialization after in-flight writes. Sibling CDB metadata remains scoped to its own path.
 - Failed writes retain their snapshot until persisted; flush rejects on failure. Newer queued snapshots take precedence over older responses.
 
 ## Integration

@@ -44,6 +44,10 @@ mock.module('#lib/stores/search.ts', () => ({
 mock.module('#lib/utils/errorLog.ts', () => ({ writeErrorLog: async (input: { source: string }) => { errors.push(input.source); } }));
 mock.module('#lib/stores/toast.svelte.ts', () => ({ showToast() {} }));
 mock.module('svelte-i18n', () => ({ _: writable((key: string) => key) }));
+let initializeMetadata = async (_path: string) => {};
+mock.module('#lib/features/workspace-metadata/state.svelte.ts', () => ({
+  initializeWorkspaceMetadataForNewCdb: (path: string) => initializeMetadata(path),
+}));
 const tabs = await import('./tabs');
 
 test('first save finishes before the new workspace is activated', async () => {
@@ -151,4 +155,32 @@ test('closing the last workspace cannot activate a partly saved document', async
   expect(runtime.snapshot.activeDocumentId).toBeNull();
   await runtime.close(id!, true);
   save = async () => {};
+});
+
+test('a new CDB initializes its own metadata after saving and before activation', async () => {
+  const previous = initializeMetadata;
+  let initialized = false;
+  initializeMetadata = async (path) => {
+    expect(path).toBe('recreated.cdb');
+    expect(runtime.snapshot.activeDocumentId).toBeNull();
+    initialized = true;
+  };
+  try {
+    const id = await tabs.createCdbFile('recreated.cdb');
+    expect(initialized).toBe(true);
+    expect(runtime.snapshot.activeDocumentId).toBe(id);
+    await runtime.close(id!, true);
+  } finally { initializeMetadata = previous; }
+});
+
+test('metadata initialization failures close the partial workspace and allow retry', async () => {
+  const previous = initializeMetadata;
+  initializeMetadata = async () => { throw new Error('metadata is read-only'); };
+  try {
+    expect(await tabs.createCdbFile('reset-failed.cdb')).toBeNull();
+    expect(runtime.snapshot.documents).toHaveLength(0);
+  } finally { initializeMetadata = previous; }
+  const id = await tabs.createCdbFile('reset-failed.cdb');
+  expect(typeof id).toBe('string');
+  await runtime.close(id!, true);
 });

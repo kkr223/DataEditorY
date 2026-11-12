@@ -301,3 +301,50 @@ test('switching or updating an AI thread preserves token usage and conversation 
   await state.loadWorkspaceMetadataForPath('ai-thread-update.cdb');
   expect(state.getActiveAiThread()?.tokenUsage?.totalTokens).toBe(150);
 });
+
+
+test('recreating a CDB resets its saved editor state and leaves sibling CDBs isolated', async () => {
+  const metadataState = await import('#lib/features/workspace-metadata/state.svelte.ts');
+  const path = 'recreated-A.cdb';
+  const sibling = 'independent-B.cdb';
+  disk.set(path, { version: 1, cdbPath: path, ui: { selectedId: 200 }, image: { perCard: { 200: { form: { name: 'Old card' } } } } });
+  disk.set(sibling, { version: 1, cdbPath: sibling, ui: { selectedId: 200 } });
+  await state.loadWorkspaceMetadataForPath(path);
+  const oldOwner = state.captureWorkspaceMetadataScope();
+  state.updateWorkspaceMetadata(metadata => ({ ...metadata, ui: { selectedId: 300 } }));
+  await metadataState.initializeWorkspaceMetadataForNewCdb(path);
+  await state.flushAllWorkspaceMetadataSaves();
+  expect(oldOwner()).toBe(false);
+  expect(state.workspaceMetadataState.ready).toBe(true);
+  expect(disk.get(path)).toEqual({ version: 1, cdbPath: path });
+  expect(disk.get(sibling)?.ui).toEqual({ selectedId: 200 });
+  expect(state.getCardImageDocument(200)).toBeNull();
+  await state.loadWorkspaceMetadataForPath(sibling);
+  expect(state.workspaceMetadataState.metadata?.ui).toEqual({ selectedId: 200 });
+});
+
+test('an old in-flight metadata save finishes before a recreated CDB is initialized', async () => {
+  const metadataState = await import('#lib/features/workspace-metadata/state.svelte.ts');
+  const path = 'recreated-pending.cdb';
+  await state.loadWorkspaceMetadataForPath(path);
+  state.updateWorkspaceMetadata(metadata => ({ ...metadata, ui: { selectedId: 200 } }));
+  const previousSave = save;
+  let release!: () => void;
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  let savingStarted!: () => void;
+  const started = new Promise<void>(resolve => { savingStarted = resolve; });
+  save = async (target, metadata) => {
+    savingStarted();
+    await blocked;
+    return previousSave(target, metadata);
+  };
+  const oldSave = state.flushAllWorkspaceMetadataSaves();
+  await started;
+  const reset = metadataState.initializeWorkspaceMetadataForNewCdb(path);
+  release();
+  try {
+    await Promise.all([oldSave, reset]);
+    expect(disk.get(path)).toEqual({ version: 1, cdbPath: path });
+    expect(state.workspaceMetadataState.metadata).toEqual({ version: 1, cdbPath: path });
+  } finally { save = previousSave; }
+});

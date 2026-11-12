@@ -482,6 +482,68 @@ mod tests {
     };
 
     #[test]
+    fn alternate_artwork_upsert_copies_card_data_without_copying_assets() {
+        let root = make_temp_dir("alternate-artwork");
+        let source = root.join("cards.cdb");
+        create_test_cdb(&source, &[(100, 1)]);
+        let assets = ["script/c100.lua", "pics/100.jpg", "pics/field/100.png"];
+        for asset in assets {
+            let path = root.join(asset);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, b"original asset").unwrap();
+        }
+        let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+        open_cdb_tab_in_dir(
+            &sessions,
+            &root.join("sessions"),
+            "artwork".into(),
+            source.to_string_lossy().into(),
+        )
+        .unwrap();
+        let state = DocumentHostState::new();
+        let original = cdb_cards::get_card_by_id(&sessions, "artwork".into(), 100)
+            .unwrap()
+            .unwrap();
+        let alternate = CardDto {
+            code: 101,
+            alias: original.code,
+            ..original.clone()
+        };
+        execute(
+            &state,
+            &sessions,
+            "artwork".into(),
+            CardCollectionCommand::Upsert {
+                cards: vec![alternate.clone()],
+                expected_cards: Some(vec![None]),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            cdb_cards::get_card_by_id(&sessions, "artwork".into(), 101)
+                .unwrap()
+                .unwrap(),
+            alternate
+        );
+        for asset in assets {
+            assert_eq!(fs::read(root.join(asset)).unwrap(), b"original asset");
+            assert!(!root.join(asset.replace("100", "101")).exists());
+        }
+        undo(&state, &sessions, "artwork".into()).unwrap();
+        assert!(cdb_cards::get_card_by_id(&sessions, "artwork".into(), 101)
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            cdb_cards::get_card_by_id(&sessions, "artwork".into(), 100)
+                .unwrap()
+                .unwrap(),
+            original
+        );
+        drop(sessions);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn workspace_search_uses_unsaved_working_copy_and_original_script_directory() {
         let root = make_temp_dir("workspace-search-host");
         let source = root.join("cards.cdb");
@@ -1143,4 +1205,52 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn deleted_cdb_metadata_does_not_reserve_ids_in_a_sibling_cdb() {
+        let root = make_temp_dir("deleted-cdb-metadata");
+        let first = root.join("a.cdb");
+        let second = root.join("b.cdb");
+        create_test_cdb(&first, &[(200, 1)]);
+        crate::services::metadata::save_workspace_metadata(
+            first.to_string_lossy().into(),
+            json!({"ui":{"cardExplorer":{"selectedId":200}},
+                "image":{"perCard":{"200":{"form":{"name":"Old A"}}}}}),
+            None,
+        ).unwrap();
+        let old_metadata = fs::read(root.join(".dey/a.workspace.json")).unwrap();
+        fs::remove_file(&first).unwrap();
+        create_test_cdb(&second, &[(100, 1)]);
+        let second_metadata = crate::services::metadata::load_workspace_metadata(
+            second.to_string_lossy().into(),
+        ).unwrap();
+        assert!(second_metadata["image"].get("perCard").is_none());
+        let sessions = OpenCdbSessions(Mutex::new(HashMap::new()));
+        open_cdb_tab_in_dir(
+            &sessions, &root.join("sessions"), "b".into(), second.to_string_lossy().into(),
+        ).unwrap();
+        let state = DocumentHostState::new();
+        execute(
+            &state, &sessions, "b".into(),
+            CardCollectionCommand::ReplaceCardId {
+                card: CardDto { code: 200, name: "New B".into(), ..Default::default() },
+                original_card_id: 100,
+                remove_original: false,
+                expected_target: None,
+            },
+        ).unwrap();
+        save(&state, &sessions, "b".into(), None).unwrap();
+        state.clear("b").unwrap();
+        cdb_session::close_cdb_tab(&sessions, "b".into()).unwrap();
+        open_cdb_tab_in_dir(
+            &sessions, &root.join("sessions"), "reopened".into(), second.to_string_lossy().into(),
+        ).unwrap();
+        let card = cdb_cards::get_card_by_id(&sessions, "reopened".into(), 200).unwrap().unwrap();
+        assert_eq!(card.name, "New B");
+        assert_eq!(fs::read(root.join(".dey/a.workspace.json")).unwrap(), old_metadata);
+        cdb_session::close_cdb_tab(&sessions, "reopened".into()).unwrap();
+        drop(sessions);
+        let _ = fs::remove_dir_all(root);
+    }
+
 }

@@ -170,6 +170,27 @@ export function loadWorkspaceMetadataForPath(path: string) {
     });
 }
 
+/** A newly created database starts a new workspace even when its path was used before. */
+export async function initializeWorkspaceMetadataForNewCdb(path: string) {
+  const key = getCdbPathIdentity(path);
+  cancelScheduledMetadataSave(path);
+  unsavedWrites.delete(key);
+  const ownsLoadedState = getCdbPathIdentity(workspaceMetadataState.cdbPath) === key;
+  if (ownsLoadedState) {
+    loadSequence += 1;
+    workspaceMetadataState.metadata = null;
+    workspaceMetadataState.ready = false;
+    workspaceMetadataState.error = null;
+  }
+  const sequence = loadSequence;
+  // Queue after older writes, so a late save cannot restore the previous CDB's state.
+  const saved = await saveMetadataInOrder(path, { version: 1, cdbPath: path });
+  if (ownsLoadedState && sequence === loadSequence) {
+    workspaceMetadataState.metadata = saved;
+    workspaceMetadataState.ready = true;
+  }
+}
+
 export async function copyWorkspaceMetadataForSaveAs(sourcePath: string, destinationPath: string) {
   const source = sourcePath.trim();
   const destination = destinationPath.trim();
