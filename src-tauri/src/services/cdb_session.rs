@@ -57,6 +57,11 @@ pub fn save_cdb_tab_to(
             .unwrap_or(Path::new("."));
         let staged = TemporaryCdbFile(build_temp_path_in_dir(parent, ".dataeditory-save")?);
         fs::copy(&session.working_path, &staged.0).map_err(|err| err.to_string())?;
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&staged.0)
+            .and_then(|file| file.sync_all())
+            .map_err(|err| err.to_string())?;
         fs::rename(&staged.0, target_path).map_err(|err| err.to_string())?;
         *source_path = canonicalize_path(&target);
         Ok(target)

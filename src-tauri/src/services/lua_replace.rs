@@ -54,13 +54,22 @@ fn script_dir_for_cdb(cdb_path: &str) -> Result<PathBuf, String> {
 }
 
 fn collect_lua_files(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
-    if !dir.exists() {
+    let Ok(metadata) = fs::symlink_metadata(dir) else {
+        return Ok(());
+    };
+    if !metadata.is_dir() {
         return Ok(());
     }
     for entry in fs::read_dir(dir).map_err(|err| err.to_string())? {
         let entry = entry.map_err(|err| err.to_string())?;
         let path = entry.path();
-        if path.is_dir() {
+        let Ok(metadata) = fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if metadata.file_type().is_symlink() {
+            continue;
+        }
+        if metadata.is_dir() {
             collect_lua_files(&path, out)?;
             continue;
         }
@@ -72,7 +81,6 @@ fn collect_lua_files(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
             out.push(path);
         }
     }
-    out.sort();
     Ok(())
 }
 
@@ -137,6 +145,7 @@ pub(crate) fn preview_lua_replace(request: LuaReplaceRequest) -> Result<LuaRepla
     let regex = build_regex(&request)?;
     let mut paths = Vec::new();
     collect_lua_files(&script_dir, &mut paths)?;
+    paths.sort();
 
     let mut files = Vec::new();
     let mut total_matches = 0;
@@ -144,8 +153,11 @@ pub(crate) fn preview_lua_replace(request: LuaReplaceRequest) -> Result<LuaRepla
         if !path_matches_filter(&path, &request.include) || path_excluded(&path, &request.exclude) {
             continue;
         }
-        let content =
-            normalize_script_content(fs::read_to_string(&path).map_err(|err| err.to_string())?);
+        // Skip files that are not UTF-8 text instead of failing the whole run.
+        let Ok(raw) = fs::read_to_string(&path) else {
+            continue;
+        };
+        let content = normalize_script_content(raw);
         let mut snippets = Vec::new();
         let mut diffs = Vec::new();
         let mut match_count = 0;
@@ -193,12 +205,18 @@ pub(crate) fn apply_lua_replace(request: LuaReplaceRequest) -> Result<LuaReplace
 
     for file in &preview.files {
         let path = Path::new(&file.path);
-        let content =
-            normalize_script_content(fs::read_to_string(path).map_err(|err| err.to_string())?);
+        let raw = fs::read_to_string(path).map_err(|err| err.to_string())?;
+        let uses_crlf = raw.contains("\r\n");
+        let content = normalize_script_content(raw);
         let replaced = regex
             .replace_all(&content, request.replace.as_str())
             .to_string();
-        fs::write(path, normalize_script_content(replaced)).map_err(|err| err.to_string())?;
+        let next = if uses_crlf {
+            replaced.replace('\n', "\r\n")
+        } else {
+            replaced
+        };
+        super::atomic::write_atomic(path, next.as_bytes())?;
     }
 
     Ok(preview)

@@ -26,19 +26,21 @@ pub(crate) fn load_all_cards_from_path(path: &Path) -> Result<Vec<CardDto>, Stri
     cdb.find_all().map_err(|err| err.to_string())
 }
 
-/// Returns the total card count without materializing every card row.
-/// Uses `query_raw_page` with page_size 1 so only a single card is decoded
-/// while the engine still reports the full match count.
+/// Returns the total card count without decoding card rows. Opens a private
+/// copy so the user's file is never touched by schema/journal setup.
 pub(crate) fn count_cards_from_path(path: &Path) -> Result<u32, String> {
-    let cdb = open_cdb(path)?;
-    let (_first_card, total) = cdb
-        .query_raw_page("1=1", &HashMap::new(), 1, 1)
-        .map_err(|err| err.to_string())?;
-    Ok(total)
+    let cdb = YgoProCdb::from_path(path).map_err(|err| err.to_string())?;
+    cdb.count_raw("1=1", &HashMap::new())
+        .map_err(|err| err.to_string())
 }
 
+/// Returns `(code, type)` pairs without loading card texts.
 pub(crate) fn load_card_summaries_from_path(path: &Path) -> Result<Vec<(u32, u32)>, String> {
-    Ok(load_all_cards_from_path(path)?
+    let mut cdb = YgoProCdb::from_path(path).map_err(|err| err.to_string())?;
+    cdb.no_texts(true).map_err(|err| err.to_string())?;
+    Ok(cdb
+        .find_all()
+        .map_err(|err| err.to_string())?
         .into_iter()
         .map(|card| (card.code, card.type_))
         .collect())

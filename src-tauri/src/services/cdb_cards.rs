@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs, path::Path};
 
 use crate::{
     models::cdb::{
@@ -71,8 +71,13 @@ pub fn get_cards_by_ids(
             .cdb
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        cdb.find_by_ids(&request.card_ids)
-            .map_err(|err| err.to_string())
+        let mut cards = Vec::with_capacity(request.card_ids.len());
+        // SQLite has a bound-parameter limit; large selections (asset checks,
+        // group tools) must be chunked.
+        for chunk in request.card_ids.chunks(400) {
+            cards.extend(cdb.find_by_ids(chunk).map_err(|err| err.to_string())?);
+        }
+        Ok(cards)
     })
 }
 
@@ -106,7 +111,33 @@ pub fn delete_cards(
 }
 
 pub fn create_cdb_from_cards(request: CreateCdbFromCardsRequest) -> Result<(), String> {
-    cdb_repository::recreate_cdb_with_cards(Path::new(&request.output_path), &request.cards)
+    let target = Path::new(&request.output_path);
+    let parent = target
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+    // Build the new database beside the target and swap it in, so a failure
+    // never leaves a truncated database behind.
+    let staged = tempfile::Builder::new()
+        .prefix(".dataeditory-export-")
+        .suffix(".cdb")
+        .tempfile_in(parent)
+        .map_err(|err| err.to_string())?;
+    let staged_path = staged.path().to_path_buf();
+    staged.close().map_err(|err| err.to_string())?;
+    let _ = fs::remove_file(&staged_path);
+    cdb_repository::recreate_cdb_with_cards(&staged_path, &request.cards)?;
+    if target.exists() {
+        fs::remove_file(target).map_err(|err| {
+            let _ = fs::remove_file(&staged_path);
+            err.to_string()
+        })?;
+    }
+    fs::rename(&staged_path, target).map_err(|err| {
+        let _ = fs::remove_file(&staged_path);
+        err.to_string()
+    })
 }
 
 pub fn undo_modify_operation(

@@ -6,7 +6,8 @@ use std::{
 };
 
 use crate::services::assets::{
-    cdb_dir_from_path, copy_if_exists, field_image_path, main_image_path, script_path,
+    cdb_dir_from_path, copy_if_exists, find_card_image_path, scan_card_ids, script_path,
+    IMAGE_EXTENSIONS,
 };
 use crate::{
     models::cdb::{
@@ -95,42 +96,22 @@ fn is_cdb_file(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn parse_card_id_from_filename(name: &str, prefix: &str, extension: &str) -> Option<u32> {
-    let stem = name
-        .strip_suffix(&format!(".{extension}"))
-        .or_else(|| {
-            let upper_ext = format!(".{}", extension.to_ascii_uppercase());
-            name.strip_suffix(&upper_ext)
-        })?
-        .strip_prefix(prefix)?;
-    stem.parse::<u32>().ok()
-}
-
-fn scan_card_ids_in_dir(dir: &Path, prefix: &str, extension: &str) -> HashSet<u32> {
-    let mut ids = HashSet::new();
-    let entries = match fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return ids,
-    };
-    for entry in entries.flatten() {
-        if let Some(name) = entry.file_name().to_str() {
-            if let Some(card_id) = parse_card_id_from_filename(name, prefix, extension) {
-                ids.insert(card_id);
-            }
-        }
-    }
-    ids
-}
-
 fn build_source_asset_index(cdb_dir: &Path) -> MergeSourceAssetIndex {
     let pics_dir = cdb_dir.join("pics");
     let field_pics_dir = pics_dir.join("field");
     let script_dir = cdb_dir.join("script");
 
+    let mut main_image_codes = HashSet::new();
+    let mut field_image_codes = HashSet::new();
+    for extension in IMAGE_EXTENSIONS {
+        main_image_codes.extend(scan_card_ids(&pics_dir, "", extension));
+        field_image_codes.extend(scan_card_ids(&field_pics_dir, "", extension));
+    }
+
     MergeSourceAssetIndex {
-        main_image_codes: scan_card_ids_in_dir(&pics_dir, "", "jpg"),
-        field_image_codes: scan_card_ids_in_dir(&field_pics_dir, "", "jpg"),
-        script_codes: scan_card_ids_in_dir(&script_dir, "c", "lua"),
+        main_image_codes,
+        field_image_codes,
+        script_codes: scan_card_ids(&script_dir, "c", "lua"),
     }
 }
 
@@ -341,10 +322,27 @@ fn resolve_output_layout(request: &ExecuteCdbMergeRequest) -> Result<(PathBuf, P
     Ok((output_dir, output_cdb_path))
 }
 
+/// Canonicalizes the deepest existing ancestor so paths that do not exist yet
+/// can still be compared with fully canonicalized source directories.
+fn normalize_for_compare(path: &Path) -> PathBuf {
+    let mut current = path.to_path_buf();
+    let mut suffix = Vec::new();
+    loop {
+        if let Ok(canonical) = current.canonicalize() {
+            return suffix.iter().rev().fold(canonical, |base, part| base.join(part));
+        }
+        match (current.file_name().map(ToOwned::to_owned), current.parent()) {
+            (Some(name), Some(parent)) => {
+                suffix.push(name);
+                current = parent.to_path_buf();
+            }
+            _ => return path.to_path_buf(),
+        }
+    }
+}
+
 fn validate_output_dir(output_dir: &Path, sources: &[MergeSourceContext]) -> Result<(), String> {
-    let normalized_output_dir = output_dir
-        .canonicalize()
-        .unwrap_or_else(|_| output_dir.to_path_buf());
+    let normalized_output_dir = normalize_for_compare(output_dir);
     for source in sources {
         let normalized_source_dir = source
             .dir
@@ -428,31 +426,21 @@ pub fn execute_cdb_merge_with_progress(
     validate_output_dir(&output_dir, &plan.sources)?;
     ensure_dir(&output_dir)?;
 
-    // Load full CardDto from source CDBs only for the execution phase
-    // (the planning phase used lightweight summaries to avoid OOM).
-    let mut source_cards_by_path: HashMap<String, HashMap<u32, CardDto>> = HashMap::new();
-    for source_path in &request.source_paths {
-        let trimmed = source_path.trim();
-        if trimmed.is_empty() {
-            continue;
+    // Load full cards one source at a time and keep only that source's
+    // winners, so at most one complete source is resident besides the result.
+    let mut merged_by_code: HashMap<u32, CardDto> =
+        HashMap::with_capacity(plan.merged_cards.len());
+    for (source_index, source) in plan.sources.iter().enumerate() {
+        for card in cdb_repository::load_all_cards_from_path(Path::new(&source.path))? {
+            if plan.winning_card_source_by_code.get(&card.code) == Some(&source_index) {
+                merged_by_code.insert(card.code, card);
+            }
         }
-        let cards = cdb_repository::load_all_cards_from_path(Path::new(trimmed))?;
-        let by_code: HashMap<u32, CardDto> =
-            cards.into_iter().map(|card| (card.code, card)).collect();
-        source_cards_by_path.insert(trimmed.to_string(), by_code);
     }
-
     let merged_cards: Vec<CardDto> = plan
         .merged_cards
         .iter()
-        .filter_map(|summary| {
-            let winner_index = plan.winning_card_source_by_code.get(&summary.0)?;
-            let source_path = plan.sources[*winner_index].path.as_str();
-            source_cards_by_path
-                .get(source_path)?
-                .get(&summary.0)
-                .cloned()
-        })
+        .filter_map(|summary| merged_by_code.remove(&summary.0))
         .collect();
 
     ensure_parent_dir(&output_cdb_path)?;
@@ -506,10 +494,11 @@ pub fn execute_cdb_merge_with_progress(
             let code = card.0;
             if let Some(&winner_index) = plan.winning_main_image_source_by_code.get(&code) {
                 let winner_dir = &plan.sources[winner_index].dir;
-                let _ = copy_if_exists(
-                    &main_image_path(winner_dir, code),
-                    &staged_pics_dir.join(format!("{code}.jpg")),
-                )?;
+                if let Some(source) = find_card_image_path(winner_dir, code, false) {
+                    if let Some(destination) = source.file_name().map(|name| staged_pics_dir.join(name)) {
+                        let _ = copy_if_exists(&source, &destination)?;
+                    }
+                }
                 completed_steps += 1;
                 throttled.emit("merging", completed_steps, total_steps);
             }
@@ -517,10 +506,14 @@ pub fn execute_cdb_merge_with_progress(
             if summary_has_field_subtype(card) {
                 if let Some(&winner_index) = plan.winning_field_image_source_by_code.get(&code) {
                     let winner_dir = &plan.sources[winner_index].dir;
-                    let _ = copy_if_exists(
-                        &field_image_path(winner_dir, code),
-                        &staged_field_pics_dir.join(format!("{code}.jpg")),
-                    )?;
+                    if let Some(source) = find_card_image_path(winner_dir, code, true) {
+                        if let Some(destination) = source
+                            .file_name()
+                            .map(|name| staged_field_pics_dir.join(name))
+                        {
+                            let _ = copy_if_exists(&source, &destination)?;
+                        }
+                    }
                     completed_steps += 1;
                     throttled.emit("merging", completed_steps, total_steps);
                 }

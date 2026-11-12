@@ -4,6 +4,7 @@ use std::{
     fs,
     io::{BufReader, BufWriter, Seek, Write},
     path::{Component, Path, PathBuf},
+    sync::LazyLock,
 };
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
@@ -129,9 +130,11 @@ fn pattern_contains_card_field(pattern: &str) -> bool {
     pattern.contains('{') && pattern.contains('}')
 }
 
+static PLACEHOLDER_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{([A-Za-z0-9_]+)\}").expect("valid placeholder regex"));
+
 fn render_package_pattern(pattern: &str, card: &CardPackageEntry) -> String {
-    let placeholder_pattern = Regex::new(r"\{([A-Za-z0-9_]+)\}").expect("valid placeholder regex");
-    placeholder_pattern
+    PLACEHOLDER_PATTERN
         .replace_all(pattern, |captures: &regex::Captures| {
             let key = captures
                 .get(1)
@@ -156,12 +159,18 @@ fn wildcard_pattern_to_regex(pattern: &str) -> Result<Regex, String> {
 }
 
 fn collect_descendant_paths(path: &Path, paths: &mut Vec<PathBuf>) -> Result<(), String> {
-    if path.is_file() {
+    let Ok(metadata) = fs::symlink_metadata(path) else {
+        return Ok(());
+    };
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+    if metadata.is_file() {
         paths.push(path.to_path_buf());
         return Ok(());
     }
 
-    if !path.is_dir() {
+    if !metadata.is_dir() {
         return Ok(());
     }
 
@@ -173,16 +182,17 @@ fn collect_descendant_paths(path: &Path, paths: &mut Vec<PathBuf>) -> Result<(),
     Ok(())
 }
 
-fn collect_all_workspace_paths(cdb_dir: &Path) -> Result<Vec<PathBuf>, String> {
-    let mut paths = Vec::new();
-    collect_descendant_paths(cdb_dir, &mut paths)?;
-    Ok(paths)
+/// Returns the directory that can contain every match for a wildcard pattern.
+fn wildcard_search_root(pattern: &str) -> &str {
+    let Some(wildcard) = pattern.find('*') else {
+        return pattern;
+    };
+    pattern[..wildcard].rfind('/').map_or("", |slash| &pattern[..slash])
 }
 
 fn collect_paths_for_rendered_pattern(
     cdb_dir: &Path,
     rendered_pattern: &str,
-    workspace_paths: &mut Option<Vec<PathBuf>>,
 ) -> Result<Vec<PathBuf>, String> {
     let normalized_pattern = rendered_pattern.trim().replace('\\', "/");
     if normalized_pattern.is_empty() || !is_safe_relative_pattern(&normalized_pattern) {
@@ -196,13 +206,20 @@ fn collect_paths_for_rendered_pattern(
         return Ok(paths);
     }
 
-    let matcher = wildcard_pattern_to_regex(&normalized_pattern)?;
-    let workspace_paths = match workspace_paths {
-        Some(paths) => paths,
-        None => workspace_paths.insert(collect_all_workspace_paths(cdb_dir)?),
+    // Only walk the literal prefix of the pattern. Walking the whole workspace
+    // for every card would scan an entire ygopro install per card.
+    let root_relative = wildcard_search_root(&normalized_pattern);
+    let root = if root_relative.is_empty() {
+        cdb_dir.to_path_buf()
+    } else {
+        cdb_dir.join(root_relative)
     };
+    let mut candidates = Vec::new();
+    collect_descendant_paths(&root, &mut candidates)?;
+
+    let matcher = wildcard_pattern_to_regex(&normalized_pattern)?;
     let mut paths = Vec::new();
-    for path in workspace_paths {
+    for path in candidates {
         let Ok(relative) = path.strip_prefix(cdb_dir) else {
             continue;
         };
@@ -212,7 +229,7 @@ fn collect_paths_for_rendered_pattern(
             .collect::<Vec<_>>()
             .join("/");
         if matcher.is_match(&entry) {
-            paths.push(path.clone());
+            paths.push(path);
         }
     }
 
@@ -226,7 +243,6 @@ fn collect_package_source_paths(
     include_patterns: &[String],
 ) -> Result<Vec<PathBuf>, String> {
     let mut paths = vec![cdb_file_path.to_path_buf()];
-    let mut workspace_paths = None;
     let cdb_name = cdb_file_path
         .file_stem()
         .map(|value| value.to_string_lossy())
@@ -237,18 +253,10 @@ fn collect_package_source_paths(
         if pattern_contains_card_field(&pattern) {
             for card in &manifest.cards {
                 let rendered = render_package_pattern(&pattern, card);
-                paths.extend(collect_paths_for_rendered_pattern(
-                    cdb_dir,
-                    &rendered,
-                    &mut workspace_paths,
-                )?);
+                paths.extend(collect_paths_for_rendered_pattern(cdb_dir, &rendered)?);
             }
         } else {
-            paths.extend(collect_paths_for_rendered_pattern(
-                cdb_dir,
-                &pattern,
-                &mut workspace_paths,
-            )?);
+            paths.extend(collect_paths_for_rendered_pattern(cdb_dir, &pattern)?);
         }
     }
 
@@ -275,14 +283,6 @@ fn collect_package_source_paths(
     Ok(paths)
 }
 
-fn build_temp_output_path(output_file_path: &Path) -> PathBuf {
-    let extension = output_file_path
-        .extension()
-        .and_then(|value| value.to_str())
-        .map(|value| format!("{value}.tmp"))
-        .unwrap_or_else(|| "tmp".to_string());
-    output_file_path.with_extension(extension)
-}
 
 pub(crate) fn path_to_zip_entry(path: &Path, base_dir: &Path) -> Result<String, String> {
     let relative = match path.strip_prefix(base_dir) {
@@ -316,7 +316,10 @@ fn add_path_to_zip<W: Write + Seek>(
     path: &Path,
     base_dir: &Path,
 ) -> Result<(), String> {
-    let metadata = fs::metadata(path).map_err(|err| err.to_string())?;
+    let metadata = fs::symlink_metadata(path).map_err(|err| err.to_string())?;
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
     let entry_name = path_to_zip_entry(path, base_dir)?;
 
     if metadata.is_dir() {
@@ -332,6 +335,10 @@ fn add_path_to_zip<W: Write + Seek>(
             let child = child.map_err(|err| err.to_string())?;
             add_path_to_zip(zip, &child.path(), base_dir)?;
         }
+        return Ok(());
+    }
+
+    if !metadata.is_file() {
         return Ok(());
     }
 
@@ -379,17 +386,22 @@ pub fn package_cdb_assets_as_zip_with_progress(
     if let Some(parent) = output_file_path.parent() {
         fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
+    let parent_dir = output_file_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
 
-    let temp_output_file_path = build_temp_output_path(&output_file_path);
-    if temp_output_file_path.exists() {
-        fs::remove_file(&temp_output_file_path).map_err(|err| err.to_string())?;
-    }
+    let temp_output = tempfile::Builder::new()
+        .prefix(".dataeditory-package-")
+        .suffix(".zip.tmp")
+        .tempfile_in(parent_dir)
+        .map_err(|err| err.to_string())?;
 
     let total_steps = source_paths.len() + 1;
     let mut throttled = ThrottledProgressEmitter::new("package", progress);
     throttled.emit("packaging", 0, total_steps);
 
-    let zip_file = fs::File::create(&temp_output_file_path).map_err(|err| err.to_string())?;
+    let zip_file = temp_output.reopen().map_err(|err| err.to_string())?;
     let writer = BufWriter::new(zip_file);
     let mut zip = ZipWriter::new(writer);
 
@@ -399,11 +411,15 @@ pub fn package_cdb_assets_as_zip_with_progress(
     }
 
     zip.finish().map_err(|err| err.to_string())?;
-
-    if output_file_path.exists() {
-        fs::remove_file(&output_file_path).map_err(|err| err.to_string())?;
-    }
-    fs::rename(&temp_output_file_path, &output_file_path).map_err(|err| err.to_string())?;
+    temp_output
+        .as_file()
+        .sync_all()
+        .map_err(|err| err.to_string())?;
+    // Persist replaces an existing output in one step; a failure drops the
+    // temporary file instead of leaving a partial zip behind.
+    temp_output
+        .persist(&output_file_path)
+        .map_err(|err| err.to_string())?;
     throttled.emit("committing", total_steps, total_steps);
 
     Ok(ZipPackageInfo {

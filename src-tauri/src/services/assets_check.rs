@@ -1,5 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
+
+use super::assets::{scan_card_ids, IMAGE_EXTENSIONS};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,26 +37,28 @@ fn cdb_parent(cdb_path: &str) -> Result<PathBuf, String> {
         .ok_or_else(|| "Unable to resolve the database directory".to_string())
 }
 
-fn image_exists(root: &Path, card_id: u32) -> bool {
-    ["jpg", "jpeg", "png", "webp", "bmp"]
-        .iter()
-        .any(|ext| root.join("pics").join(format!("{card_id}.{ext}")).exists())
-}
-
-fn script_exists(root: &Path, card_id: u32) -> bool {
-    root.join("script").join(format!("c{card_id}.lua")).exists()
+fn image_ids(root: &Path) -> HashSet<u32> {
+    let pics = root.join("pics");
+    let mut ids = HashSet::new();
+    for extension in IMAGE_EXTENSIONS {
+        ids.extend(scan_card_ids(&pics, "", extension));
+    }
+    ids
 }
 
 pub(crate) fn check_assets(request: AssetCheckRequest) -> Result<AssetCheckResponse, String> {
     let root = cdb_parent(&request.cdb_path)?;
     let checked = request.card_ids.len();
+    // One directory scan beats up to six `exists()` syscalls per card.
+    let images = image_ids(&root);
+    let scripts = scan_card_ids(&root.join("script"), "c", "lua");
     let mut missing = Vec::new();
     let mut missing_images = 0;
     let mut missing_scripts = 0;
 
     for card_id in request.card_ids {
-        let image_missing = !image_exists(&root, card_id);
-        let script_missing = !script_exists(&root, card_id);
+        let image_missing = !images.contains(&card_id);
+        let script_missing = !scripts.contains(&card_id);
         if image_missing {
             missing_images += 1;
         }

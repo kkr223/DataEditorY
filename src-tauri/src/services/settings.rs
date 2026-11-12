@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, sync::Mutex};
 use tauri::AppHandle;
 
 use crate::{
@@ -10,6 +10,9 @@ use crate::{
     AppSettingsPayload, SaveAppSettingsRequest,
 };
 
+/// Serializes read-modify-write updates so concurrent saves cannot drop fields.
+static SETTINGS_WRITE_LOCK: Mutex<()> = Mutex::new(());
+
 pub fn load_app_settings(app: &AppHandle) -> Result<AppSettingsPayload, String> {
     let settings = load_persisted_settings(app)?;
     to_settings_payload(app, settings)
@@ -19,6 +22,9 @@ pub fn save_app_settings(
     app: &AppHandle,
     request: SaveAppSettingsRequest,
 ) -> Result<AppSettingsPayload, String> {
+    let _guard = SETTINGS_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let mut settings = load_persisted_settings(app)?;
     settings.api_base_url = normalize_base_url(request.api_base_url);
     settings.model = normalize_model(request.model);

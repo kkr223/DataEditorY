@@ -132,8 +132,7 @@ pub fn run() {
             document_host::commands::provider_execute,
             document_host::commands::provider_save,
             document_host::commands::provider_undo,
-            document_host::commands::provider_close,
-            document_host::commands::codec_export
+            document_host::commands::provider_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

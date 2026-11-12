@@ -104,7 +104,7 @@ fn externalize_workspace_images(cdb_path: &str, metadata: &mut Value) -> Result<
                 fs::create_dir_all(parent).map_err(|err| err.to_string())?;
             }
             if !path.exists() {
-                fs::write(path, bytes).map_err(|err| err.to_string())?;
+                super::atomic::write_atomic(&path, &bytes)?;
             }
             let reference = format!(
                 "{WORKSPACE_ASSET_PREFIX}{}",
@@ -150,6 +150,15 @@ fn workspace_asset_relative_path(value: &str) -> Option<PathBuf> {
     Some(parts.into_iter().collect())
 }
 
+fn normalize_existing_path(path: &str) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path))
+}
+
+/// Compares paths that may mix canonicalized and user-provided spellings.
+fn same_file_path(left: &str, right: &str) -> bool {
+    normalize_existing_path(left) == normalize_existing_path(right)
+}
+
 fn copy_workspace_image_assets(
     source_cdb_path: &str,
     destination_cdb_path: &str,
@@ -164,7 +173,12 @@ fn copy_workspace_image_assets(
     };
     let source_root = workspace_asset_root(source_cdb_path)?;
     let destination_root = workspace_asset_root(destination_cdb_path)?;
-    if source_root == destination_root {
+    if source_root == destination_root
+        || same_file_path(
+            &source_root.to_string_lossy(),
+            &destination_root.to_string_lossy(),
+        )
+    {
         return Ok(());
     }
     for document in per_card.values() {
@@ -184,6 +198,11 @@ fn copy_workspace_image_assets(
                 continue;
             }
             let destination = destination_root.join(relative);
+            if destination.exists() {
+                // Asset file names are content hashes, so an existing file is
+                // already the same image.
+                continue;
+            }
             if let Some(parent) = destination.parent() {
                 fs::create_dir_all(parent).map_err(|err| err.to_string())?;
             }
@@ -260,7 +279,7 @@ pub fn save_workspace_metadata(
     let path = workspace_metadata_path(&cdb_path)?;
     if let Some(source) = source_cdb_path
         .as_deref()
-        .filter(|source| *source != cdb_path)
+        .filter(|source| !same_file_path(source, &cdb_path))
     {
         copy_workspace_image_assets(source, &cdb_path, &metadata)?;
     }

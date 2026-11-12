@@ -97,7 +97,13 @@ impl SearchCompiler {
                 Ok(format!("(({column} & {parameter}) = 0)"))
             }
             CardSearchExpression::SetcodeContains { value } => {
-                let parameter = self.bind(json!(value & 0xffff));
+                let setcode = value & 0xffff;
+                if setcode == 0 {
+                    // Every empty setcode slot is 0, so matching 0 would match
+                    // nearly the whole database.
+                    return Ok("1=0".to_string());
+                }
+                let parameter = self.bind(json!(setcode));
                 Ok(format!(
                     "(((CAST(datas.setcode AS INTEGER) >> 0) & 65535) = {0} \
                     OR ((CAST(datas.setcode AS INTEGER) >> 16) & 65535) = {0} \

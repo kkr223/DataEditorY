@@ -68,16 +68,6 @@ pub struct ProviderCommandResult {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CodecExportRequest {
-    pub codec_id: String,
-    pub document_id: Option<String>,
-    pub source_uri: Option<String>,
-    pub destination_uri: String,
-    pub options: Option<Value>,
-}
-
-#[derive(Debug, Deserialize)]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",

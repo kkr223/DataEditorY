@@ -1,18 +1,12 @@
-use std::{fs, path::Path};
-
 use serde_json::{json, Value};
 use tauri::{AppHandle, State};
 
-use crate::{
-    models::cdb::CardDto,
-    services::cdb_session,
-    session::cdb::{basename, OpenCdbSessions},
-};
+use crate::{models::cdb::CardDto, services::cdb_session, session::cdb::OpenCdbSessions};
 
 use super::{
     cdb::{self, DocumentHostState},
     models::{
-        CodecExportRequest, ProviderCommandResult, ProviderDocumentRequest, ProviderExecuteRequest,
+        ProviderCommandResult, ProviderDocumentRequest, ProviderExecuteRequest,
         ProviderOpenRequest, ProviderOpenResponse, ProviderQueryRequest, ProviderSaveRequest,
         ProviderSaveResponse,
     },
@@ -23,7 +17,6 @@ use super::{
 // session lock can prevent that query's IPC response from being delivered and
 // deadlock tab switching/closing.
 const CDB_PROVIDER_ID: &str = "cdb.provider";
-const CDB_CODEC_ID: &str = "cdb.codec";
 const CARD_COLLECTION_TYPE: &str = "ygo.card-collection";
 
 fn require_cdb_provider(provider_id: &str) -> Result<(), String> {
@@ -36,6 +29,7 @@ fn require_cdb_provider(provider_id: &str) -> Result<(), String> {
 #[tauri::command(async)]
 pub fn provider_open(
     app: AppHandle,
+    host: State<'_, DocumentHostState>,
     sessions: State<'_, OpenCdbSessions>,
     request: ProviderOpenRequest,
 ) -> Result<ProviderOpenResponse, String> {
@@ -43,6 +37,9 @@ pub fn provider_open(
     if request.type_id != CARD_COLLECTION_TYPE {
         return Err(format!("Unsupported data type: {}", request.type_id));
     }
+    // A reused document ID must not inherit undo entries or pending asset
+    // changes from the session it replaces.
+    host.clear(&request.document_id)?;
     let response = if request.create {
         let initial_cards = request
             .input
@@ -128,27 +125,7 @@ pub fn provider_close(
     request: ProviderDocumentRequest,
 ) -> Result<(), String> {
     require_cdb_provider(&request.provider_id)?;
-    host.clear(&request.document_id)?;
-    cdb_session::close_cdb_tab(sessions.inner(), request.document_id)
-}
-
-#[tauri::command(async)]
-pub fn codec_export(request: CodecExportRequest) -> Result<Value, String> {
-    if request.codec_id != CDB_CODEC_ID {
-        return Err(format!("Unknown export codec: {}", request.codec_id));
-    }
-    let source = request
-        .source_uri
-        .ok_or_else(|| "CDB export requires a source path".to_string())?;
-    let _ = request.document_id;
-    let _ = request.options;
-    let destination = Path::new(&request.destination_uri);
-    if let Some(parent) = destination.parent() {
-        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-    }
-    fs::copy(&source, destination).map_err(|err| err.to_string())?;
-    Ok(json!({
-        "path": request.destination_uri,
-        "name": basename(destination.to_string_lossy().as_ref()),
-    }))
+    let cleared = host.clear(&request.document_id);
+    cdb_session::close_cdb_tab(sessions.inner(), request.document_id)?;
+    cleared
 }

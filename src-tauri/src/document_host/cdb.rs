@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, VecDeque},
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
 use serde_json::{json, to_value, Value};
@@ -32,6 +32,9 @@ enum UndoEntry {
 pub struct DocumentHostState {
     undo: Mutex<HashMap<String, VecDeque<UndoEntry>>>,
     pending_assets: Mutex<HashMap<String, Vec<(CardAssetIdChange, bool)>>>,
+    /// Serializes mutations and undo per document so a failed undo cannot
+    /// interleave with a newer command and corrupt the stack order.
+    operations: Mutex<HashMap<String, Arc<Mutex<()>>>>,
 }
 
 impl DocumentHostState {
@@ -39,31 +42,50 @@ impl DocumentHostState {
         Self {
             undo: Mutex::new(HashMap::new()),
             pending_assets: Mutex::new(HashMap::new()),
+            operations: Mutex::new(HashMap::new()),
         }
     }
 
+    /// Per-document operation lock shared by `execute` and `undo`.
+    fn operation_lock(&self, document_id: &str) -> Arc<Mutex<()>> {
+        let mut locks = self
+            .operations
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        locks
+            .entry(document_id.to_string())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    }
+
+    /// Reverts uncommitted asset changes and drops all host state for the
+    /// document. Every pending change is attempted even if earlier ones fail,
+    /// and the state is always removed so a failed rollback cannot wedge the
+    /// document open. The first error is reported.
     pub fn clear(&self, document_id: &str) -> Result<(), String> {
-        let mut pending = self
+        let changes = self
             .pending_assets
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(changes) = pending.get_mut(document_id) {
-            while let Some((assets, applied)) = changes.last() {
-                if *applied {
-                    assets.rollback()?;
-                } else {
-                    assets.reapply()?;
-                }
-                changes.pop();
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .remove(document_id)
+            .unwrap_or_default();
+        self.undo
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .remove(document_id);
+        self.operations
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .remove(document_id);
+        let mut first_error = None;
+        // Only moves that are still applied need to be undone. A move that was
+        // already rolled back by undo matches the last saved CDB state.
+        for (assets, _applied) in changes.into_iter().rev().filter(|(_, applied)| *applied) {
+            if let Err(error) = assets.rollback() {
+                first_error.get_or_insert(error);
             }
         }
-        pending.remove(document_id);
-        let mut undo = self
-            .undo
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        undo.remove(document_id);
-        Ok(())
+        first_error.map_or(Ok(()), Err)
     }
 
     fn record_asset_change(&self, document_id: &str, change: CardAssetIdChange, applied: bool) {
@@ -80,6 +102,20 @@ impl DocumentHostState {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .remove(document_id);
+        // Asset moves are now part of the saved file. Undoing card operations
+        // afterwards must not move files back to their previous IDs.
+        if let Some(stack) = self
+            .undo
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .get_mut(document_id)
+        {
+            for entry in stack.iter_mut() {
+                if let UndoEntry::Upsert { asset_change, .. } = entry {
+                    *asset_change = None;
+                }
+            }
+        }
     }
 }
 
@@ -212,6 +248,10 @@ pub fn execute(
     document_id: String,
     command: CardCollectionCommand,
 ) -> Result<ProviderCommandResult, String> {
+    let operation_lock = state.operation_lock(&document_id);
+    let _operation_guard = operation_lock
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let mut value = None;
     match command {
         CardCollectionCommand::Upsert {
@@ -356,10 +396,7 @@ fn require_matching_card(
     current: Option<&CardDto>,
     expected: Option<&CardDto>,
 ) -> Result<(), String> {
-    if expected.is_some_and(|card| card.code != id)
-        || to_value(current).map_err(|err| err.to_string())?
-            != to_value(expected).map_err(|err| err.to_string())?
-    {
+    if expected.is_some_and(|card| card.code != id) || current != expected {
         return Err(format!(
             "Card {id} changed since it was reviewed. Review the current card before applying."
         ));
@@ -372,6 +409,10 @@ pub fn undo(
     sessions: &OpenCdbSessions,
     document_id: String,
 ) -> Result<ProviderCommandResult, String> {
+    let operation_lock = state.operation_lock(&document_id);
+    let _operation_guard = operation_lock
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let entry = {
         let mut undo = state
             .undo
