@@ -18,9 +18,18 @@ export async function getPicsDir(cdbPath: string) {
   return tauriBridge.join(cdbDir, 'pics');
 }
 
-export async function resolveCardImageSrc(cdbPath: string, code: number, bustCache = false) {
-  const picsDir = await getPicsDir(cdbPath);
-  const picPath = await tauriBridge.join(picsDir, `${code}.jpg`);
+/** Builds a pics path without an IPC round trip per card. */
+export function cardImagePathFromPicsDir(picsDir: string, code: number) {
+  const separator = picsDir.includes('\\') ? '\\' : '/';
+  return `${picsDir.replace(/[\\/]+$/, '')}${separator}${code}.jpg`;
+}
+
+export async function resolveCardImageSrcFromPicsDir(
+  picsDir: string,
+  code: number,
+  bustCache = false,
+) {
+  const picPath = cardImagePathFromPicsDir(picsDir, code);
 
   if (bustCache && tauriBridge.isTauri()) {
     try {
@@ -31,6 +40,10 @@ export async function resolveCardImageSrc(cdbPath: string, code: number, bustCac
   }
 
   return toMediaProtocolSrc(picPath, bustCache ? Date.now() : undefined);
+}
+
+export async function resolveCardImageSrc(cdbPath: string, code: number, bustCache = false) {
+  return resolveCardImageSrcFromPicsDir(await getPicsDir(cdbPath), code, bustCache);
 }
 
 export async function importCardImage(input: {

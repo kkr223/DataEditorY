@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { registerCardDraftCommitter } from "#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts";
+  import { registerCardDraftCommitter, registerCardDraftUndoReader } from "#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts";
   import { onDestroy, onMount, untrack } from "svelte";
   import { _ } from "svelte-i18n";
   import { activeTab, activeTabId, isDbLoaded, saveCdbTab, saveCdbTabAs } from "#lib/stores/db.ts";
@@ -115,6 +115,10 @@
   });
 
   const isEditingExisting = $derived(originalCardCode !== null);
+  // One serialization per draft change, shared by dirty checks, undo
+  // tracking and lifecycle registration instead of re-stringifying per effect.
+  const draftSnapshot = $derived(createCardSnapshot(draftCard));
+  const draftDirty = $derived(lifecycleController.isDraftDirty(draftSnapshot));
   const selectedCardCount = $derived(editorState.selectedIds.length);
   const canDelete = $derived(selectedCardCount > 0 || isEditingExisting);
   const isLink = $derived((draftCard.type & 0x4000000) !== 0);
@@ -209,7 +213,7 @@
   }
 
   function isDraftDirty() {
-    return lifecycleController.isDraftDirty();
+    return draftDirty;
   }
 
   function persistBoundWorkspaceDraft() {
@@ -292,11 +296,16 @@
     });
   });
 
+  $effect(() => {
+    const tabId = $activeTabId;
+    if (!tabId) return;
+    return registerCardDraftUndoReader(tabId, () => draftUndoHistory.length > 1);
+  });
+
   async function confirmDiscardDraftForKeyboardNavigation() {
     if (!isDraftDirty()) return true;
     return Boolean(await handleModify());
   }
-
   async function handleSaveWorkspace(destinationPath?: string) {
     const tabId = $activeTabId;
     const sourcePath = $activeTab?.path;
@@ -312,6 +321,10 @@
     // The global shortcut listener may already have handled this event (for
     // example by dispatching undo-draft). Do not handle the same keydown twice.
     if (event.defaultPrevented) return;
+    // Hidden surface: another workbench pane owns the keyboard.
+    if (editorRoot?.closest('.hidden')) return;
+    // A modal dialog owns keyboard input while it is open.
+    if (document.querySelector('[aria-modal="true"]')) return;
     if (isShortcutEvent('cardEditor.undoDraft', event, appSettingsState.values.shortcutBindings) && !isImagePreviewOpen && isCardEditorShortcutTarget(event.target) && !isNativeTextUndoTarget(event.target)) {
       if (handleDraftUndo()) event.preventDefault();
       return;
@@ -432,9 +445,19 @@
     }
   }
 
-  function handleNewCard() {
+  async function confirmOrCommitDirtyDraft() {
+    if (!$isDbLoaded || !$activeTabId || !isDraftDirty()) return true;
+    return Boolean(await handleModify());
+  }
+
+  async function handleNewCardRequest() {
+    if (!(await confirmOrCommitDirtyDraft())) return;
     clearSelection();
     lifecycleController.handleNewCard();
+  }
+
+  function handleNewCard() {
+    void handleNewCardRequest();
   }
 
   async function runSearchFromDraft() {
@@ -449,6 +472,7 @@
   }
 
   async function runResetSearch() {
+    if (!(await confirmOrCommitDirtyDraft())) return;
     await handleResetSearch({ isDbLoaded: $isDbLoaded, runReset: handleReset, clearSelection, resetDraftCard: lifecycleController.resetDraftCard });
   }
 
@@ -520,6 +544,7 @@
       suspendDraftUndoTracking,
       trackedDraftSnapshot,
       draftUndoHistory,
+      snapshot: draftSnapshot,
       setTrackedDraftSnapshot: (snapshot) => {
         trackedDraftSnapshot = snapshot;
       },
@@ -604,13 +629,16 @@
   $effect(() => {
     const pending = aiProposalApplicationState.pendingCardDraftPatch;
     if (!pending) return;
+    // Keep the patch pending rather than consuming-and-dropping it when the
+    // draft has uncommitted edits.
+    if (isDraftDirty()) return;
 
     const consumed = consumeAiCardDraftPatch(pending.id, {
       workspaceId: $activeTabId ?? '',
       cardCode: Number(editorState.selectedId ?? 0),
       revision: documentRuntime.getDocument($activeTabId ?? '')?.revision ?? -1,
     });
-    if (!consumed || isDraftDirty()) return;
+    if (!consumed) return;
 
     const nextCard = cloneEditableCard({
       ...draftCard,

@@ -26,6 +26,15 @@ mock.module('svelte-i18n', () => ({ _: writable((key: string) => key) }));
 mock.module('#lib/stores/db.ts', () => ({
   activeTabId: activeId,
   queryCardByIdInTab: async (_tabId: string, code: number) => { reads.push(code); return query(code); },
+  getCardsByIdsInTab: async (_tabId: string, codes: number[]) => {
+    const found: CardDataEntry[] = [];
+    for (const code of codes) {
+      reads.push(code);
+      const card = await query(code);
+      if (card) found.push(card);
+    }
+    return found;
+  },
   modifyCardsInTab: async (...args: unknown[]) => { writes.push(args); return write(); },
   refreshSearchAfterMutation: async () => refresh(),
 }));

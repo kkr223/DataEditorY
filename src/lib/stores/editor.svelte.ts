@@ -67,6 +67,8 @@ export const editorState = $state<{
   selectionAnchorId: number | null;
   currentPage: number;
   searchFilters: SearchFilters;
+  /** Filters that produced the currently displayed results. */
+  appliedFilters: SearchFilters;
   searchError: string;
   isFilterOpen: boolean;
 }>({
@@ -75,6 +77,7 @@ export const editorState = $state<{
   selectionAnchorId: null,
   currentPage: 1,
   searchFilters: { ...DEFAULT_SEARCH_FILTERS },
+  appliedFilters: { ...DEFAULT_SEARCH_FILTERS },
   searchError: '',
   isFilterOpen: false
 });
@@ -257,6 +260,7 @@ export async function handleSearch(preserveSelection = false, resetPage = false)
 
   setAllCards(cards);
   _totalCards = total;
+  editorState.appliedFilters = filters;
 
   if (preserveSelection) {
     const visibleSelectedIds = getVisibleSelectedIds(prevSelectedIds);

@@ -127,11 +127,12 @@ export function createCardEditorLifecycleController(input: CardEditorLifecycleCo
     resetDraftCard();
   }
 
-  function isDraftDirty() {
+  function isDraftDirty(snapshot?: string) {
     return isDraftStateDirty({
       draftCard: input.getDraftCard(),
       originalCardCode: input.getOriginalCardCode(),
       lastLoadedCardSnapshot: input.getLastLoadedCardSnapshot(),
+      snapshot,
     });
   }
 
@@ -231,10 +232,11 @@ export function trackDraftUndoEffect(input: {
   suspendDraftUndoTracking: number;
   trackedDraftSnapshot: string;
   draftUndoHistory: DraftUndoEntry[];
+  snapshot?: string;
   setTrackedDraftSnapshot: (snapshot: string) => void;
   setDraftUndoHistory: (history: DraftUndoEntry[]) => void;
 }) {
-  const snapshot = createCardSnapshot(input.draftCard);
+  const snapshot = input.snapshot ?? createCardSnapshot(input.draftCard);
   if (input.suspendDraftUndoTracking > 0) {
     input.setTrackedDraftSnapshot(snapshot);
     return;

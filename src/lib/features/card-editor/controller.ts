@@ -165,8 +165,10 @@ export function isDraftDirty(input: {
   draftCard: CardDataEntry;
   originalCardCode: number | null;
   lastLoadedCardSnapshot: string;
+  /** Precomputed snapshot; lets reactive callers share one serialization. */
+  snapshot?: string;
 }) {
-  const currentSnapshot = createCardSnapshot(input.draftCard);
+  const currentSnapshot = input.snapshot ?? createCardSnapshot(input.draftCard);
   if (input.originalCardCode === null) {
     return currentSnapshot !== createCardSnapshot(createEmptyCard());
   }
@@ -428,7 +430,6 @@ export function shouldAutoCommitDraftForSelectionChange(input: {
   return input.isDbLoaded
     && !input.isCommittingDraft
     && input.selectedCardCode !== null
-    && input.lastSyncedSelectedId !== null
     && input.selectedCardCode !== input.lastSyncedSelectedId
     && input.isDraftDirty;
 }

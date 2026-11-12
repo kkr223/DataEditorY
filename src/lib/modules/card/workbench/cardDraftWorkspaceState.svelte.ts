@@ -46,6 +46,9 @@ export function getWorkspaceCardDraftCard(sessionId: string | null | undefined) 
 }
 
 export function hasWorkspaceCardDraftUndo(sessionId: string | null | undefined) {
+  if (!sessionId) return false;
+  const reader = draftUndoReaders.get(sessionId);
+  if (reader) return reader();
   return (getWorkspaceCardDraft(sessionId)?.draftUndoHistory.length ?? 0) > 1;
 }
 
@@ -54,6 +57,12 @@ export function clearWorkspaceCardDraft(sessionId: string) {
 }
 
 const draftCommitters = new Map<string, () => Promise<boolean>>();
+const draftUndoReaders = new Map<string, () => boolean>();
+
+export function registerCardDraftUndoReader(sessionId: string, read: () => boolean) {
+  draftUndoReaders.set(sessionId, read);
+  return () => { if (draftUndoReaders.get(sessionId) === read) draftUndoReaders.delete(sessionId); };
+}
 
 export function registerCardDraftCommitter(sessionId: string, commit: () => Promise<boolean>) {
   draftCommitters.set(sessionId, commit);
@@ -61,6 +70,9 @@ export function registerCardDraftCommitter(sessionId: string, commit: () => Prom
 }
 
 export async function commitWorkspaceCardDraft(sessionId: string) {
-  if (!getWorkspaceCardDraft(sessionId)?.dirty) return true;
-  return (await draftCommitters.get(sessionId)?.()) ?? false;
+  // The live committer reads the real draft state; the debounced snapshot can
+  // be up to 250ms stale, which would skip a just-typed edit before tools run.
+  const commit = draftCommitters.get(sessionId);
+  if (commit) return commit();
+  return !getWorkspaceCardDraft(sessionId)?.dirty;
 }

@@ -6,6 +6,7 @@ import { clearSelection, editorState, getAllCardsMap, getSelectedCardIds, getSel
 import { showToast } from '#lib/stores/toast.svelte.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { deleteDraftCardFlow } from '#lib/features/card-editor/useCases.ts';
+import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
 import { dispatchAppShortcut } from '#lib/utils/shortcuts.ts';
 
 export async function handleCopySelection() {
@@ -30,6 +31,9 @@ export async function handlePasteSelection(mutationTabId = get(activeTabId)) {
   }
 
   const clipboardCards = getCardClipboard();
+  // Commit the open draft first, otherwise a later draft commit would silently
+  // overwrite the pasted cards.
+  if (!(await commitWorkspaceCardDraft(mutationTabId))) return;
   const conflictingCards = await getCardsByIdsInTab(mutationTabId, clipboardCards.map((card) => card.code));
   if (conflictingCards.length > 0) {
     const shouldOverwrite = await tauriBridge.ask(

@@ -410,12 +410,28 @@ export function hasShortcutConflicts(bindings: Partial<Record<string, string>>) 
   return findShortcutConflicts(bindings).size > 0;
 }
 
+const normalizedBindingCache = new WeakMap<
+  object,
+  ReturnType<typeof normalizeShortcutBindingMap>
+>();
+
+function normalizedBindingsOf(bindings: Partial<Record<string, string>>) {
+  if (bindings === null || typeof bindings !== 'object') {
+    return normalizeShortcutBindingMap(bindings);
+  }
+  const cached = normalizedBindingCache.get(bindings);
+  if (cached) return cached;
+  const normalized = normalizeShortcutBindingMap(bindings);
+  normalizedBindingCache.set(bindings, normalized);
+  return normalized;
+}
+
 export function isShortcutEvent(
   actionId: ShortcutActionId,
   event: KeyboardEvent,
   bindings: Partial<Record<string, string>>,
 ) {
-  const binding = parseShortcutBinding(normalizeShortcutBindingMap(bindings)[actionId]);
+  const binding = parseShortcutBinding(normalizedBindingsOf(bindings)[actionId]);
   if (!binding) return false;
 
   const primaryPressed = event.ctrlKey || event.metaKey;

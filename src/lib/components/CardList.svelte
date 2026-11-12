@@ -17,13 +17,14 @@
     toggleCardSelection
   } from '#lib/stores/editor.svelte.ts';
   import { getCardTypeKey, RACE_OPTIONS } from '#lib/domain/card/taxonomy.ts';
+  import { CARD_LIST_PAGE_SIZE } from '#lib/features/card-editor/controller.ts';
   import { SUBTYPE_MAP, TYPE_MAP } from '#lib/domain/card/taxonomy.ts';
   import { APP_SHORTCUT_EVENT, dispatchAppShortcut } from '#lib/utils/shortcuts.ts';
   import { disableAutofill } from '#lib/actions/disableAutofill.ts';
   import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
   import { isShortcutEvent } from '#lib/features/shortcuts/registry.ts';
 
-  const PAGE_SIZE = 50;
+  const PAGE_SIZE = CARD_LIST_PAGE_SIZE;
   const VIRTUAL_ROW_HEIGHT = 30;
   const VIRTUAL_BUFFER_ROWS = 8;
   const RACE_FILTER_OPTIONS = RACE_OPTIONS
@@ -50,30 +51,30 @@
   let virtualBottomSpacerHeight = $derived(Math.max(0, (pageCards.length - virtualEndIndex) * VIRTUAL_ROW_HEIGHT));
 
   let hasActiveFilters = $derived(
-    editorState.searchFilters.name !== '' ||
-    editorState.searchFilters.id !== '' ||
-    editorState.searchFilters.desc !== '' ||
-    editorState.searchFilters.nameOrDesc !== '' ||
-    editorState.searchFilters.imageFolderPath !== '' ||
-    editorState.searchFilters.deckText !== '' ||
-    editorState.searchFilters.rule !== '' ||
-    editorState.searchFilters.atkMin !== '' ||
-    editorState.searchFilters.atkMax !== '' ||
-    editorState.searchFilters.defMin !== '' ||
-    editorState.searchFilters.defMax !== '' ||
-    editorState.searchFilters.type !== '' ||
-    editorState.searchFilters.subtype !== '' ||
-    editorState.searchFilters.attribute !== '' ||
-    editorState.searchFilters.race !== '' ||
-    editorState.searchFilters.setcode1 !== '' ||
-    editorState.searchFilters.setcode2 !== '' ||
-    editorState.searchFilters.setcode3 !== '' ||
-    editorState.searchFilters.setcode4 !== ''
+    editorState.appliedFilters.name !== '' ||
+    editorState.appliedFilters.id !== '' ||
+    editorState.appliedFilters.desc !== '' ||
+    editorState.appliedFilters.nameOrDesc !== '' ||
+    editorState.appliedFilters.imageFolderPath !== '' ||
+    editorState.appliedFilters.deckText !== '' ||
+    editorState.appliedFilters.rule !== '' ||
+    editorState.appliedFilters.atkMin !== '' ||
+    editorState.appliedFilters.atkMax !== '' ||
+    editorState.appliedFilters.defMin !== '' ||
+    editorState.appliedFilters.defMax !== '' ||
+    editorState.appliedFilters.type !== '' ||
+    editorState.appliedFilters.subtype !== '' ||
+    editorState.appliedFilters.attribute !== '' ||
+    editorState.appliedFilters.race !== '' ||
+    editorState.appliedFilters.setcode1 !== '' ||
+    editorState.appliedFilters.setcode2 !== '' ||
+    editorState.appliedFilters.setcode3 !== '' ||
+    editorState.appliedFilters.setcode4 !== ''
   );
 
   let selectedIdsSet = $derived(new Set(editorState.selectedIds));
   let activeFilterChips = $derived.by(() => {
-    const filters = editorState.searchFilters;
+    const filters = editorState.appliedFilters;
     const chips: Array<{ key: keyof typeof filters; label: string; value: string }> = [];
     const add = (key: keyof typeof filters, label: string, value: string) => {
       if (value.trim()) chips.push({ key, label, value: value.trim() });
@@ -136,11 +137,15 @@
   }
 
   async function clearFilterChip(key: keyof typeof editorState.searchFilters) {
-    editorState.searchFilters = {
-      ...editorState.searchFilters,
+    const nextFilters = {
+      ...editorState.appliedFilters,
       [key]: '',
       ...(key === 'type' ? { subtype: '' } : {}),
     };
+    // Clearing a chip applies to the displayed result set, not to text that
+    // was typed but never searched.
+    editorState.searchFilters = nextFilters;
+    editorState.appliedFilters = nextFilters;
     await runSearch();
   }
 
@@ -265,6 +270,23 @@
     if (tableContainer) tableContainer.scrollTop = 0;
     tableScrollTop = 0;
     updateVirtualViewport();
+  });
+
+  // Keyboard navigation must scroll the selected row into view, even when it
+  // is outside the currently rendered virtual window.
+  $effect(() => {
+    const selectedId = editorState.selectedId;
+    const container = tableContainer;
+    if (selectedId === null || !container) return;
+    const index = pageCards.findIndex((card) => card.code === selectedId);
+    if (index < 0) return;
+    const viewport = tableViewportHeight || container.clientHeight;
+    const rowTop = index * VIRTUAL_ROW_HEIGHT;
+    if (rowTop < tableScrollTop) {
+      container.scrollTop = rowTop;
+    } else if (rowTop + VIRTUAL_ROW_HEIGHT > tableScrollTop + viewport) {
+      container.scrollTop = rowTop + VIRTUAL_ROW_HEIGHT - viewport;
+    }
   });
 </script>
 

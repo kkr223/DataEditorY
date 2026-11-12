@@ -296,7 +296,9 @@
     "image_ok": "Image OK",
     "script_missing": "Missing script",
     "script_ok": "Script OK",
-    "truncated": "{count} more rows hidden"
+    "truncated": "{count} more rows hidden",
+    "failed": "Asset check failed",
+    "empty_target": "No cards match the selected target"
   },
   "search": {
     "title": "Search Cards",
@@ -999,6 +1001,8 @@
     "merge_cdb_analyze": "Analyze Conflicts",
     "merge_cdb_analyzing": "Analyzing...",
     "merge_cdb_analyze_failed": "Failed to analyze cdb conflicts",
+    "merge_unsaved_source_confirm": "The open database \"{name}\" has unsaved changes. Save it before merging?",
+    "merge_unsaved_title": "Save Before Merging",
     "merge_cdb_summary": "{sources} source(s), {merged} final cards, {duplicates} duplicate codes, {images} main images, {fieldImages} field images, {scripts} scripts",
     "merge_cdb_plan_title": "Overwrite Plan",
     "merge_cdb_plan_item": "Cards {cards} / Main images {images} / Field images {fieldImages} / Scripts {scripts}",

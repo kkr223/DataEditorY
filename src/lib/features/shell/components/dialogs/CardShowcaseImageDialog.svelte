@@ -8,9 +8,10 @@
   import type { CardDataEntry, SelectOption } from '#lib/types/index.ts';
   import { getPackedLevel } from '#lib/domain/card/draft.ts';
   import { ATTRIBUTE_OPTIONS, RACE_OPTIONS, SUBTYPE_MAP, TYPE_MAP } from '#lib/domain/card/taxonomy.ts';
-  import { resolveCardImageSrc } from '#lib/services/cardImageService.ts';
+  import { getPicsDir, resolveCardImageSrcFromPicsDir } from '#lib/services/cardImageService.ts';
   import { writeBinaryFile } from '#lib/native/assetApi.ts';
   import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
   import { showToast } from '#lib/stores/toast.svelte.ts';
   import { writeErrorLog } from '#lib/utils/errorLog.ts';
   import { writeImageBlobToClipboard } from '#lib/utils/imageClipboard.ts';
@@ -136,6 +137,7 @@
       return;
     }
     setCardShowcaseOutputDir(outputDir);
+    if (!(await commitWorkspaceCardDraft(tab.id))) return;
 
     isRunning = true;
     progress = { current: 0, total: 0 };
@@ -146,9 +148,10 @@
         return;
       }
 
+      const picsDir = await getPicsDir(tab.path);
       const items: CardShowcaseItem[] = await Promise.all(cards.map(async (card) => ({
         card,
-        imageSrc: await resolveCardImageSrc(tab.path, card.code),
+        imageSrc: await resolveCardImageSrcFromPicsDir(picsDir, card.code),
         infoLines: buildInfoLines(card),
       })));
       const pages = chunkShowcaseCards(items, cardsPerImage);

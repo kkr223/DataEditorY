@@ -5,13 +5,13 @@
   import { _, isLoading } from 'svelte-i18n';
   import { activeTab } from '#lib/stores/db.ts';
   import CardMenuTools from '#lib/features/context-menu/CardMenuTools.svelte';
+  import { openBatchCdbEditTool } from '#lib/features/context-menu/cardTools.svelte.ts';
   import ContextMenu from '#lib/features/context-menu/ContextMenu.svelte';
   import Toast from '#lib/components/Toast.svelte';
   import AppTopBar from '#lib/features/shell/components/AppTopBar.svelte';
   import AppTabBar from '#lib/features/shell/components/AppTabBar.svelte';
   import FileDragOverlay from '#lib/features/shell/components/FileDragOverlay.svelte';
   import AssetCheckDialog from '#lib/features/shell/components/dialogs/AssetCheckDialog.svelte';
-  import BatchCdbEditDialog from '#lib/features/shell/components/dialogs/BatchCdbEditDialog.svelte';
   import CreateFilteredCdbDialog from '#lib/features/shell/components/dialogs/CreateFilteredCdbDialog.svelte';
   import LuaReplaceDialog from '#lib/features/shell/components/dialogs/LuaReplaceDialog.svelte';
   import MergeCdbDialog from '#lib/features/shell/components/dialogs/MergeCdbDialog.svelte';
@@ -31,12 +31,11 @@
   let { children } = $props();
   const shellController = createShellLayoutController();
   const dialogsController = createShellDialogsController();
-  let isBatchCdbEditOpen = $state(false);
+  let isLuaReplaceOpen = $state(false);
   const extensionTools = documentRuntime.registry.findGlobalTools();
   let activeExtensionToolId = $state<string | null>(null);
   let loadedExtensionTool = $state<{ id: string; component: Component } | null>(null);
   let extensionToolLoadSequence = 0;
-  let isLuaReplaceOpen = $state(false);
   let isAssetCheckOpen = $state(false);
   const REFERENCE_VIEWPORT_WIDTH = 1920;
   const REFERENCE_VIEWPORT_HEIGHT = 1080;
@@ -129,7 +128,7 @@
       onCreate={shellController.handleCreate}
       onCreateFilteredCdb={dialogsController.openCreateFilteredCdbDialog}
       onMergeCdb={dialogsController.openMergeCdbDialog}
-      onBatchCdbEdit={() => { isBatchCdbEditOpen = true; }}
+      onBatchCdbEdit={openBatchCdbEditTool}
       onLuaReplace={() => { isLuaReplaceOpen = true; }}
       extensionTools={extensionTools.map((tool) => ({
         id: tool.id,
@@ -178,11 +177,6 @@
       state={dialogsController.state}
       onClose={dialogsController.closeCreateFilteredCdbDialog}
       onConfirm={dialogsController.handleCreateFilteredCdb}
-    />
-
-    <BatchCdbEditDialog
-      open={isBatchCdbEditOpen}
-      onClose={() => { isBatchCdbEditOpen = false; }}
     />
 
     {#if loadedExtensionTool?.id === activeExtensionToolId}

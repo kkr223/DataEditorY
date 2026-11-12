@@ -362,7 +362,14 @@ export function createShellLayoutController() {
       return;
     }
 
+    // A modal dialog owns keyboard input; list shortcuts must not act behind it.
+    if (document.querySelector('[aria-modal="true"]')) {
+      return;
+    }
+
     if (!editable && isShortcutEvent('global.copySelection', event, shortcuts)) {
+      // Let the browser copy selected text instead of replacing it with cards.
+      if (window.getSelection()?.toString().trim()) return;
       event.preventDefault();
       void handleCopySelection();
       return;

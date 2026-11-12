@@ -402,12 +402,22 @@ describe('card editor controller helpers', () => {
       isDraftDirty: true,
     })).toBe(true);
 
+    // A dirty new-card draft must be committed before the selection changes,
+    // otherwise typing a new card and clicking a row would silently discard it.
     expect(shouldAutoCommitDraftForSelectionChange({
       isDbLoaded: true,
       isCommittingDraft: false,
       selectedCardCode: 2000,
       lastSyncedSelectedId: null,
       isDraftDirty: true,
+    })).toBe(true);
+
+    expect(shouldAutoCommitDraftForSelectionChange({
+      isDbLoaded: true,
+      isCommittingDraft: false,
+      selectedCardCode: 2000,
+      lastSyncedSelectedId: null,
+      isDraftDirty: false,
     })).toBe(false);
   });
 

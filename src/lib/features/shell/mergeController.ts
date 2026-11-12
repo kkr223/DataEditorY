@@ -13,6 +13,10 @@ import {
   isNewOutputPath,
 } from '#lib/features/shell/dialogsHelpers.ts';
 import { activateWorkspaceDocument } from '#lib/application/workspace/commandBus.ts';
+import { saveWorkspaceDocument } from '#lib/application/workspace/commandBus.ts';
+import { workspaceState } from '#lib/core/workspace/store.svelte.ts';
+import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
 import { startTask } from '#lib/native/taskApi.ts';
 import { appendWorkspaceTaskHistoryForPath } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
 
@@ -68,6 +72,33 @@ export function createMergeController(
   function invalidateMergeAnalysis() {
     state.mergeAnalysis = null;
     state.mergeAnalysisKey = '';
+  }
+
+  /**
+   * Merge reads source files from disk, so open workspaces with unsaved
+   * changes must be committed and saved first or their edits would be
+   * silently excluded from the merged database.
+   */
+  async function ensureMergeSourcesSaved(sourcePaths: string[]) {
+    const identities = new Set(sourcePaths.map((path) => getCdbPathIdentity(path)));
+    const affected = workspaceState.documents.filter(
+      (document) => document.kind === 'db'
+        && identities.has(getCdbPathIdentity(document.source.path)),
+    );
+    for (const document of affected) {
+      await commitWorkspaceCardDraft(document.id);
+      if (!document.dirty) continue;
+      const confirmed = await tauriBridge.ask(
+        t('editor.merge_unsaved_source_confirm', { values: { name: document.title } }),
+        { title: t('editor.merge_unsaved_title'), kind: 'warning' },
+      );
+      if (!confirmed) return false;
+      if (!(await saveWorkspaceDocument(document.id))) {
+        showToast(t('editor.save_failed'), 'error');
+        return false;
+      }
+    }
+    return true;
   }
 
   function upsertMergeSources(items: MergeSourceItem[]) {
@@ -245,6 +276,9 @@ export function createMergeController(
       return;
     }
 
+    if (!(await ensureMergeSourcesSaved(sourcePaths))) {
+      return;
+    }
     const includeImages = state.mergeIncludeImages;
     const includeScripts = state.mergeIncludeScripts;
     state.isMergingCdb = true;

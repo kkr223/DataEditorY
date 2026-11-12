@@ -123,6 +123,7 @@
 
     const snapshot = createCdbEditorSnapshot(tab);
     editorState.searchFilters = snapshot.filters;
+    editorState.appliedFilters = snapshot.filters;
     editorState.currentPage = snapshot.page;
     setAllCards(snapshot.cards);
     setTotalCards(snapshot.total);
@@ -189,6 +190,7 @@
         ? Number(explorer.page)
         : 1;
       editorState.searchFilters = filters;
+      editorState.appliedFilters = filters;
       editorState.currentPage = page;
       void handleSearch(false, false)
         .then((ok) => {
@@ -242,7 +244,7 @@
   $effect(() => {
     const path = workspaceMetadataState.cdbPath;
     const nextKey = JSON.stringify({
-      filters: editorState.searchFilters,
+      filters: editorState.appliedFilters,
       selectedIds: editorState.selectedIds,
       selectedId: editorState.selectedId,
       selectionAnchorId: editorState.selectionAnchorId,
@@ -254,7 +256,7 @@
 
     lastPersistedExplorerKey = nextKey;
     setCardExplorerState({
-      filters: editorState.searchFilters,
+      filters: editorState.appliedFilters,
       selectedIds: editorState.selectedIds,
       selectedId: editorState.selectedId,
       selectionAnchorId: editorState.selectionAnchorId,

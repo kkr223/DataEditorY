@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { activeTabId, modifyCardsInTab, queryCardByIdInTab, refreshSearchAfterMutation } from '#lib/stores/db.ts';
+import { activeTabId, getCardsByIdsInTab, modifyCardsInTab, queryCardByIdInTab, refreshSearchAfterMutation } from '#lib/stores/db.ts';
 import { editorState, handleSearch } from '#lib/stores/editor.svelte.ts';
 import { cloneCard } from '#lib/stores/cardUtils.ts';
 import { showToast } from '#lib/stores/toast.svelte.ts';
@@ -30,13 +30,13 @@ export async function handleCreateAlternateArtwork() {
     if (!isCurrentCard()) return;
     if (!source) throw new Error(`Source card ${sourceCode} is missing`);
 
-    for (let offset = 1; offset <= 10; offset++) {
-      const code = source.code + offset;
-      if (code > 0xffffffff) break;
-      const existing = await queryCardByIdInTab(tabId, code);
-      if (!isCurrentCard()) return;
-      if (existing) continue;
-
+    const candidates = Array.from({ length: 10 }, (_, offset) => source.code + offset + 1)
+      .filter((code) => code <= 0xffffffff);
+    const existingCards = await getCardsByIdsInTab(tabId, candidates);
+    if (!isCurrentCard()) return;
+    const existingCodes = new Set(existingCards.map((card) => card.code));
+    const code = candidates.find((candidate) => !existingCodes.has(candidate)) ?? null;
+    if (code !== null) {
       const card = { ...cloneCard(source), code, alias: source.code };
       const saved = await modifyCardsInTab(tabId, [card], false, [null]);
       if (!saved) throw new Error(`Failed to create alternate artwork at ${code}`);

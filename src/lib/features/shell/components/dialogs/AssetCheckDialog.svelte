@@ -7,6 +7,8 @@
   import type { AssetCheckResponse } from '#lib/native/assetApi.ts';
   import { startTask } from '#lib/native/taskApi.ts';
   import { appendWorkspaceTaskHistory } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
+  import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
+  import { showToast } from '#lib/stores/toast.svelte.ts';
 
   type Target = 'selection' | 'filter';
 
@@ -22,6 +24,10 @@
   let isRunning = $state(false);
   let result = $state<AssetCheckResponse | null>(null);
 
+  $effect(() => {
+    if (!open) result = null;
+  });
+
   async function resolveCardIds() {
     const tab = get(activeTab);
     if (!tab) return [];
@@ -33,12 +39,18 @@
   async function runCheck() {
     const tab = get(activeTab);
     if (!tab) return;
+    if (!(await commitWorkspaceCardDraft(tab.id))) return;
+    const cardIds = await resolveCardIds();
+    if (cardIds.length === 0) {
+      showToast($_('asset_check.empty_target'), 'info');
+      return;
+    }
     isRunning = true;
     try {
       result = await startTask({
         kind: 'asset.check',
         cdbPath: tab.path,
-        cardIds: await resolveCardIds(),
+        cardIds,
       }) as AssetCheckResponse;
       appendWorkspaceTaskHistory({
         kind: 'asset.check',
@@ -49,6 +61,9 @@
           missingScripts: result.missingScripts,
         },
       });
+    } catch (error) {
+      result = null;
+      showToast(`${$_( 'asset_check.failed')}: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {
       isRunning = false;
     }

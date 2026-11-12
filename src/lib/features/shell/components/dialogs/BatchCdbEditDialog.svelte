@@ -9,6 +9,7 @@
   import { showToast } from '#lib/stores/toast.svelte.ts';
   import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
   import { startTask } from '#lib/native/taskApi.ts';
+import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
   import {
     discardBatchOperationPreview,
     previewBatchOperations,
@@ -171,6 +172,8 @@
   async function buildPreview() {
     const tab = get(activeTab);
     if (!tab || isRunning) return;
+    // The preview must be built from the current draft, not the last commit.
+    if (!(await commitWorkspaceCardDraft(tab.id))) return;
     invalidatePreview();
     const sequence = requestSequence;
     isRunning = true;

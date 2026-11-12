@@ -76,6 +76,11 @@
     if (appSettingsState.loading || !appSettingsState.loaded) {
       return;
     }
+    // Do not overwrite fields the user is editing when settings are reapplied
+    // (for example after changing the cover image).
+    if (isHydrated && isSettingsFormDirty(form, appSettingsState.values)) {
+      return;
+    }
 
     const nextState = hydrateSettingsForm(form, appSettingsState.values, { isHydrated });
     isHydrated = nextState.isHydrated;

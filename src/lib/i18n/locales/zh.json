@@ -296,7 +296,9 @@
     "image_ok": "有图",
     "script_missing": "缺脚本",
     "script_ok": "有脚本",
-    "truncated": "还有 {count} 条未显示"
+    "truncated": "还有 {count} 条未显示",
+    "failed": "资源检查失败",
+    "empty_target": "当前目标没有匹配的卡片"
   },
   "search": {
     "title": "搜索卡片",
@@ -999,6 +1001,8 @@
     "merge_cdb_analyze": "分析冲突",
     "merge_cdb_analyzing": "分析中...",
     "merge_cdb_analyze_failed": "分析 cdb 冲突失败",
+    "merge_unsaved_source_confirm": "数据库“{name}”有未保存的修改，合并前要先保存吗？",
+    "merge_unsaved_title": "合并前保存",
     "merge_cdb_summary": "共 {sources} 个来源，最终 {merged} 张卡，重复密码 {duplicates} 项，主卡图 {images}，场地图 {fieldImages}，脚本 {scripts}",
     "merge_cdb_plan_title": "覆盖计划",
     "merge_cdb_plan_item": "卡片 {cards} / 主卡图 {images} / 场地图 {fieldImages} / 脚本 {scripts}",
