@@ -11,7 +11,7 @@ SvelteKit 3 configuration lives in `vite.config.js`. Production builds use the m
 | Script | Purpose |
 |--------|---------|
 | `build-variant-config.mjs` | Defines `BUILD_VARIANTS` (base/extra) with module lists, product names, identifiers, and bundle resource maps. Exports `getBuildVariantConfig()`, `createTauriVariantConfig()`, `getPackageVersion()` |
-| `run-variant-build.mjs` | Main build orchestrator. Supports modes: `frontend` (build), `dev-frontend` (dev server), `check` (type check), `tauri` (desktop build), `build-all` (both variants). Rewrites `src/lib/modules/active.ts` to point to the correct variant entry file, then restores it |
+| `run-variant-build.mjs` | Main build orchestrator. Supports modes: `frontend` (build), `dev-frontend` (dev server), `check` (type check), `tauri` (desktop build), `build-all` (both variants). Sets `APP_VARIANT`; the Vite `dey-variant-modules` plugin resolves `active.ts` to the variant entry, and Tauri receives a generated `--config` override. No tracked source file is rewritten |
 | `write-tauri-config.mjs` | Writes a variant-specific `tauri.conf.json` (used by CI to prepare config before `tauri-action`) |
 | `build-lua-intel.mjs` | Parses `_functions.txt`, `constant.lua`, `snippets.json`, and `def.lua` from `static/resources/` to generate `src/lib/data/lua-intel/catalog.generated.ts` — the Lua intellisense catalog |
 | `prepare-build-assets.mjs` | Copies only browser-consumed static resources into the production web build |
@@ -21,16 +21,16 @@ SvelteKit 3 configuration lives in `vite.config.js`. Production builds use the m
 
 ```
 1. run-variant-build.mjs receives mode + variant
-2. Rewrites src/lib/modules/active.ts → import from './base' or './extra'
-3. Sets APP_VARIANT env var
-4. Runs build command (vite build, vite dev, or tauri build)
-5. Restores active.ts to original content (finally block)
+2. Sets APP_VARIANT env var
+3. Runs build command (vite build, vite dev, or tauri build)
+4. The vite.config.js `dey-variant-modules` plugin resolves src/lib/modules/active.ts → ./<variant>.ts
+5. Committed files are never modified, so interrupted or concurrent runs stay clean
 ```
 
 For Tauri builds, it also:
-- Rewrites `tauri.conf.json` with variant-specific config (product name, identifier, bundle resources)
+- Writes `build/variant/tauri.<variant>.override.json` and passes it with `tauri --config`
+- Removes resource keys the variant does not bundle (JSON merge-patch `null`)
 - Cleans up stale `resources/` and `wix/` directories
-- Restores `tauri.conf.json` after build
 
 ## CI/CD
 

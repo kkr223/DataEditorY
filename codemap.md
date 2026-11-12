@@ -117,7 +117,7 @@ Use AI
 
 9. **Auditable AI proposals** — AI is workspace-level. Agent tools generate proposals instead of writing state directly. Review mode requires user confirmation; full access can auto-apply proposals through the same apply pipeline and logs.
 
-10. **Variant composition** — `scripts/run-variant-build.mjs` rewrites `src/lib/modules/active.ts` during builds. Do not manually edit `active.ts`.
+10. **Variant composition** — `APP_VARIANT` selects the module entry; the Vite `dey-variant-modules` plugin resolves `src/lib/modules/active.ts` to `base.ts`/`extra.ts`, and Tauri gets a generated `--config` override. Builds never rewrite tracked files.
 
 ## System Entry Points
 

@@ -13,7 +13,7 @@ For deep work on a specific folder, also read that folder's `codemap.md`.
 
 ## Key Architecture Notes
 
-- **Variant system**: The project builds two variants (`base` and `extra`). The `src/lib/modules/active.ts` file is rewritten at build time to import from either `base.ts` or `extra.ts`. Do not manually edit `active.ts` — it is managed by the build scripts.
+- **Variant system**: The project builds two variants (`base` and `extra`). `APP_VARIANT` selects the entry; the Vite `dey-variant-modules` plugin resolves `src/lib/modules/active.ts` to `base.ts` or `extra.ts`, and Tauri receives a generated `--config` override. Builds do not rewrite tracked files.
 - **Extension modules**: Features are registered as `ExtensionModule` instances in `src/lib/modules/`. To add a new feature, create a new module and register it in the appropriate variant entry file.
 - **CDB-first workspace**: Top-level app tabs represent CDB workspaces only. Card, Script, Image, and AI are current-card surfaces inside a CDB workspace, not peer document tabs.
 - **Card Explorer navigation**: The left Card Explorer is the primary navigation surface. It owns quick search, advanced filters, active filter chips, virtualized card results, selection, and active-card changes.

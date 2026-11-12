@@ -12,7 +12,7 @@ The build system uses compile-time module switching:
 - `base.ts` — registers: `settings`, `card`, `cdb`, `lua`, `context-menu`, `package`, `merge`, `ai`
 - `extra.ts` — extends base with: `card-image`
 - `workspace-search` is registered in base and contributes the search surface between Image and AI.
-- `active.ts` — re-exports from either `base.ts` or `extra.ts` (rewritten at build time by `scripts/run-variant-build.mjs`)
+- `active.ts` — stable re-export; the Vite `dey-variant-modules` plugin resolves it to `base.ts` or `extra.ts` from `APP_VARIANT` at build time
 
 ### Module Dependency Graph
 

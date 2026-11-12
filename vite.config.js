@@ -4,8 +4,33 @@
 // See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
 import adapter from "@sveltejs/adapter-static";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
+import { getBuildVariantConfig } from "./scripts/build-variant-config.mjs";
+
+const ACTIVE_MODULES_PATH = fileURLToPath(new URL("./src/lib/modules/active.ts", import.meta.url));
+const normalizeId = (/** @type {string} */ id) => id.split("?")[0].replaceAll("\\", "/").toLowerCase();
+
+/**
+ * Points `src/lib/modules/active.ts` at the variant entry selected by
+ * APP_VARIANT, so builds never rewrite tracked source files.
+ * @returns {import("vite").Plugin}
+ */
+function variantModulesPlugin() {
+  const variant = getBuildVariantConfig();
+  const activeId = normalizeId(ACTIVE_MODULES_PATH);
+  const variantEntry = fileURLToPath(new URL(`./src/lib/modules/${variant.key}.ts`, import.meta.url));
+  return {
+    name: "dey-variant-modules",
+    enforce: "pre",
+    async resolveId(source, importer, options) {
+      if (!source.includes("active")) return null;
+      const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
+      return resolved && normalizeId(resolved.id) === activeId ? variantEntry : null;
+    },
+  };
+}
 
 const DEFAULT_DEV_HOST = "127.0.0.1";
 const DEFAULT_DEV_PORT = 43127;
@@ -13,6 +38,7 @@ const host = globalThis.process?.env?.TAURI_DEV_HOST || DEFAULT_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [
+    variantModulesPlugin(),
     {
       name: "isolate-dev-server-cache",
       apply: "serve",
