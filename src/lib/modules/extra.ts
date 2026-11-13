@@ -1,10 +1,10 @@
 import type { ExtensionModule } from '#lib/platform/index.ts';
-import { builtInModules as baseModules } from './base';
+import type { DocumentHostTransport } from '#lib/platform/transport/types.ts';
+import { createBuiltInModules as createBaseModules } from './base';
 import { cardImageModule } from './card-image';
 
-export const builtInModules: ExtensionModule[] = [
-  ...baseModules,
+export const createBuiltInModules = (transport: DocumentHostTransport): ExtensionModule[] => [
+  ...createBaseModules(transport),
   cardImageModule,
 ];
 
-export const builtInModuleIds = builtInModules.map((module) => module.id);

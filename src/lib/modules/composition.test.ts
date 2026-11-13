@@ -1,11 +1,21 @@
 import { describe, expect, test } from 'bun:test';
 import { ExtensionRegistry } from '#lib/platform/index.ts';
-import { builtInModules as baseModules } from './base';
-import { builtInModules as extraModules } from './extra';
+import type { DocumentHostTransport } from '#lib/platform/transport/types.ts';
+import { createBuiltInModules as createBaseModules } from './base';
+import { createBuiltInModules as createExtraModules } from './extra';
+
+const unusedTransport: DocumentHostTransport = {
+  open: async () => { throw new Error('not used'); },
+  query: async () => { throw new Error('not used'); },
+  execute: async () => { throw new Error('not used'); },
+  save: async () => { throw new Error('not used'); },
+  undo: async () => { throw new Error('not used'); },
+  close: async () => { throw new Error('not used'); },
+};
 
 describe('built-in module composition', () => {
   test('base contains core editing and AI modules', () => {
-    const registry = new ExtensionRegistry(baseModules);
+    const registry = new ExtensionRegistry(createBaseModules(unusedTransport));
     expect(registry.modules.has('ai')).toBe(true);
     expect(registry.modules.has('card-image')).toBe(false);
     expect(registry.findGlobalTools().map((tool) => tool.id))
@@ -14,7 +24,7 @@ describe('built-in module composition', () => {
   });
 
   test('extra adds card image module', () => {
-    const registry = new ExtensionRegistry(extraModules);
+    const registry = new ExtensionRegistry(createExtraModules(unusedTransport));
     expect(registry.modules.has('ai')).toBe(true);
     expect(registry.modules.has('card-image')).toBe(true);
     expect(registry.findCodecForSource('100-card-image.json')?.id)

@@ -1,1 +1,1 @@
-export { builtInModuleIds, builtInModules } from './extra';
+export { createBuiltInModules } from './extra';

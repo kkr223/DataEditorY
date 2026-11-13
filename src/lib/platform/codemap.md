@@ -10,7 +10,7 @@ Application Platform Layer — provides the extension module runtime, document l
 
 Each feature registers as an `ExtensionModule` (`types.ts:148`) containing:
 - **DataTypes** — schema definitions with validation and migration
-- **Providers** — data access implementations (Tauri IPC or in-memory)
+- **Providers** — data access implementations (document host transport or in-memory)
 - **Codecs** — file format encode/decode (`.cdb`, `.lua`, `.json`)
 - **Workbenches** — Svelte UI components for each document type
 - **SettingsSections** — pluggable settings UI panels
@@ -33,11 +33,11 @@ Each feature registers as an `ExtensionModule` (`types.ts:148`) containing:
 
 ## Flow
 
-1. App boots → `appRuntime.ts` creates `DocumentRuntime` with active modules and a `CodecContext` backed by Tauri IPC
-2. User opens a `.cdb` file → `runtime.openSource()` → registry finds CDB codec → codec decodes → provider opens (Tauri IPC to Rust) → CDB document record created
+1. App boots → `appRuntime.ts` creates the active `DocumentHostTransport` and `DocumentRuntime` with active modules and a `CodecContext`
+2. User opens a `.cdb` file → `runtime.openSource()` → registry finds CDB codec → codec decodes → provider opens through the transport → CDB document record created
 3. UI renders via `WorkbenchHost` → CDB workbench lazy-loads and hosts Card Explorer + surfaces
 4. User edits → `runtime.execute()` → provider forwards command to Rust → revision incremented → dirty flag set
-5. User saves → `runtime.save()` → codec encodes → writes to disk
+5. User saves → `runtime.save()` → provider saves (document host) or codec encodes → writes to storage
 
 Saves are serialized per document and acknowledge the revision captured before encoding. Edits made during a save remain dirty; close waits for queued saves before disposing the provider.
 
@@ -53,11 +53,12 @@ Saves are serialized per document and acknowledge the revision captured before e
 | `memoryProvider.ts` | In-memory `DataProvider` implementation |
 | `persistentMemoryProvider.ts` | localStorage-backed `DataProvider` for compatibility/persistent in-memory documents |
 | `filePatterns.ts` | File pattern matching utilities for codec resolution |
-| `appRuntime.ts` | Singleton `DocumentRuntime` instance with Tauri-backed `CodecContext` |
+| `appRuntime.ts` | Singleton `DocumentRuntime`, active transport, and `CodecContext` |
+| `transport/` | `DocumentHostTransport` interface, Tauri transport, provider adapter (see `transport/codemap.md`) |
 | `store.svelte.ts` | Svelte reactive store bridging workspace state |
 | `index.ts` | Barrel re-export |
 
 ## Integration
 
 - **Consumed by**: modules (`src/lib/modules/`), application layer (`src/lib/application/`), features, stores
-- **Depends on**: `src/lib/infrastructure/tauri/` (for `CodecContext` in `appRuntime.ts`), `src/lib/modules/active` (for module list)
+- **Depends on**: `src/lib/infrastructure/tauri/` (Tauri transport + `CodecContext` in `appRuntime.ts`), `src/lib/modules/active` (module list factory)

@@ -107,7 +107,7 @@ Use AI
 
 4. **Working copy pattern** — Open CDBs are copied to temp storage. Mutations affect the working copy. Explicit save writes atomically to the original path.
 
-5. **Document host for CDB CRUD** — CDB search, card mutations, undo, and save operations go through `infrastructure/tauri/documentHost.ts` and `src-tauri/src/document_host/`.
+5. **Document host for CDB CRUD** — CDB search, card mutations, undo, and save operations go through the `DocumentHostTransport` (`src/lib/platform/transport/`, Tauri `invoke` or Web Worker) and `src-tauri/src/document_host/`.
 
 6. **Typed native APIs** — Frontend feature code should use `src/lib/native/*Api.ts` wrappers instead of direct scattered `invoke()` calls.
 

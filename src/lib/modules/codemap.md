@@ -31,7 +31,7 @@ settings ←── card ←── cdb
 |--------|----|-----------|---------|
 | Settings | `settings` | `settings/` | App settings document type with in-memory provider and settings workbench |
 | Card | `card` | `card/` | `ygo.card-collection` data type, CDB workspace workbench, Card Explorer, Card/Script/Image/AI surface host |
-| CDB | `cdb` | `cdb/` | `.cdb` file codec, `TauriDocumentProvider` for Rust-backed CDB operations |
+| CDB | `cdb` | `cdb/` | `.cdb` file codec; document host provider built from the active transport |
 | Lua | `lua` | `lua/` | `.lua` file codec, in-memory script provider, Lua workbench, card-script contribution used by Script surface |
 | Context Menu | `context-menu` | `context-menu/` | Shared card, CDB tab, Lua tab, and text editing menus in both variants |
 | Package | `package` | `package/` | Dependency-only module; ZIP/YPK packaging is routed through `native/taskApi` (`package.zip` kind) |

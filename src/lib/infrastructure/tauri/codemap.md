@@ -17,11 +17,9 @@ Tauri IPC Adapter — owns raw `invoke()` calls and the document host client. Mo
    - Package: `packageCdbAssetsAsZip`
    - App: `appendErrorLog`, `consumePendingOpenCdbPaths`, `openInSystemEditor`, `openInDefaultApp`
 
-2. **Document Host Protocol** (`documentHost.ts`) — generic provider operations:
-   - `providerOpen` / `providerQuery` / `providerExecute` / `providerSave` / `providerUndo` / `providerClose`
-   - `codecExport`
-   - `TauriDocumentProvider` class wraps these into a `DataProvider` interface for the CDB module
-   - `saveProviderDocument` helper for CDB codec's encode step
+2. **Document Host Transport** (`platform/transport/tauri.ts`) — generic provider operations:
+   - `provider_open` / `provider_query` / `provider_execute` / `provider_save` / `provider_undo` / `provider_close`
+   - `DocumentHostProvider` in `platform/transport/provider.ts` adapts the transport to the CDB module
 
 ### Bridge Object
 
@@ -33,7 +31,6 @@ Tauri IPC Adapter — owns raw `invoke()` calls and the document host client. Mo
 |------|---------|
 | `index.ts` | `invokeCommand<T>()` wrapper + `tauriBridge` object |
 | `commands.ts` | ~30 typed Rust command wrappers + TS types for DTOs |
-| `documentHost.ts` | Document host IPC + `TauriDocumentProvider` class |
 
 ## Integration
 

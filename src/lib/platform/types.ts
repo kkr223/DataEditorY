@@ -60,6 +60,8 @@ export interface DataProvider {
   execute(documentId: DocumentId, command: unknown): Promise<CommandResult>;
   snapshot?(documentId: DocumentId): Promise<unknown>;
   undo?(documentId: DocumentId): Promise<CommandResult>;
+  /** Providers that own their file format save here; codecs are the fallback. */
+  save?(documentId: DocumentId, destination: DocumentSource): Promise<void>;
   dispose(documentId: DocumentId): Promise<void>;
 }
 

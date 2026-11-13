@@ -1,7 +1,8 @@
 import type { ExtensionModule } from '#lib/platform/index.ts';
+import type { DocumentHostTransport } from '#lib/platform/transport/types.ts';
 import { aiModule } from './ai';
 import { cardModule } from './card';
-import { cdbModule } from './cdb';
+import { createCdbModule } from './cdb';
 import { contextMenuModule } from './context-menu';
 import { luaModule } from './lua';
 import { mergeModule } from './merge';
@@ -9,10 +10,10 @@ import { packageModule } from './package';
 import { settingsModule } from './settings';
 import { workspaceSearchModule } from './workspace-search';
 
-export const builtInModules: ExtensionModule[] = [
+export const createBuiltInModules = (transport: DocumentHostTransport): ExtensionModule[] => [
   settingsModule,
   cardModule,
-  cdbModule,
+  createCdbModule(transport),
   luaModule,
   contextMenuModule,
   packageModule,
@@ -21,4 +22,3 @@ export const builtInModules: ExtensionModule[] = [
   workspaceSearchModule,
 ];
 
-export const builtInModuleIds = builtInModules.map((module) => module.id);

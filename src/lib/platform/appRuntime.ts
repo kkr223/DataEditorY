@@ -4,7 +4,8 @@ import {
   writeBinaryFile,
   writeTextFile,
 } from '#lib/native/assetApi.ts';
-import { builtInModules } from '#lib/modules/active.ts';
+import { createBuiltInModules } from '#lib/modules/active.ts';
+import { tauriDocumentHostTransport } from '#lib/platform/transport/tauri.ts';
 import { DocumentRuntime } from './runtime';
 
 const codecContext = {
@@ -21,4 +22,7 @@ const codecContext = {
   },
 };
 
-export const documentRuntime = new DocumentRuntime(builtInModules, codecContext);
+export const documentRuntime = new DocumentRuntime(
+  createBuiltInModules(tauriDocumentHostTransport),
+  codecContext,
+);

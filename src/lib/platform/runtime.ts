@@ -271,6 +271,19 @@ export class DocumentRuntime {
     if (!target) {
       throw new Error(`Document ${document.title} needs a destination`);
     }
+    const provider = this.requireProvider(document.providerId, document.typeId);
+    if (provider.save) {
+      const savedRevision = document.revision;
+      await provider.save(document.id, target);
+      document.source = target;
+      if (destination) {
+        document.title = target.name;
+      }
+      document.savedRevision = savedRevision;
+      document.dirty = document.revision !== savedRevision;
+      return;
+    }
+
     const codec = destination
       ? this.registry.findCodecForSource(target.path ?? target.uri)
       : document.codecId
