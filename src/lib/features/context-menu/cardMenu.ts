@@ -7,7 +7,6 @@ import { handleDeleteSelection, handlePasteSelection } from '#lib/features/card-
 import { navigateToCard } from '#lib/features/card-editor/cardNavigation.ts';
 import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
 import { upsertCardGroup, workspaceMetadataState } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
-import { getCardScriptInfo } from '#lib/native/scriptApi.ts';
 import { pathExists, revealFile } from '#lib/native/assetApi.ts';
 import { getPicsDir } from '#lib/services/cardImageService.ts';
 import { join } from '#lib/core/path.ts';
@@ -70,7 +69,9 @@ export function openCardMenu(event: MouseEvent, clickedId?: number) {
   const token = openContextMenu(event, items());
   if (multiple) return;
   void Promise.allSettled([
-    ...(hasLua ? [getCardScriptInfo(tab.path, clickedId).then((info) => { if (info.exists) scriptPath = info.path; })] : []),
+    ...(hasLua ? [import('#lib/native/scriptApi.ts')
+      .then((module) => module.getCardScriptInfo(tab.path, clickedId))
+      .then((info) => { if (info.exists) scriptPath = info.path; })] : []),
     (async () => {
       const path = join(getPicsDir(tab.path), `${clickedId}.jpg`);
       if (await pathExists(path)) imagePath = path;

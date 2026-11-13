@@ -13,14 +13,13 @@ let removedHosts = 0;
 mock.module('#lib/stores/appSettings.svelte.ts', () => ({ appSettingsState: { values: { cardImageMaxSizeKb: 250 } } }));
 mock.module('#lib/platform/host/index.ts', () => ({ host: {
   kind: 'web',
-  media: { resolveResource: async (path: string) => path },
+  media: { resolveResource: async (path: string) => path, toDisplayUrl: (path: string) => `media:${path}` },
 } }));
 mock.module('#lib/native/assetApi.ts', () => ({
   readImageFile: async () => [],
   pathExists: async (path: string) => existing.has(path),
   writeBinaryFile: async (path: string) => { written.push(path); },
 }));
-mock.module('#lib/utils/mediaProtocol.ts', () => ({ toMediaProtocolSrc: (path: string) => `media:${path}` }));
 mock.module('./exportCompression', () => ({ compressCardImageForExport: async (blob: Blob, _format: string, limit: number) => {
   limits.push(limit); return blob;
 } }));

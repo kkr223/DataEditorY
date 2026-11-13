@@ -26,6 +26,19 @@ const BUILD_VARIANTS = {
       cardImage: true,
     },
   },
+  web: {
+    key: 'web',
+    productName: 'DataEditorY Web',
+    identifier: 'com.kkr223.dataeditory.web',
+    windowTitle: 'DataEditorY',
+    features: {
+      cardImage: false,
+      lua: false,
+      ai: false,
+      tauri: false,
+      workspaceSearch: false,
+    },
+  },
 };
 
 const REQUIRED_BUNDLE_RESOURCES = {
@@ -50,7 +63,8 @@ export function getPackageVersion() {
 
 export function normalizeBuildVariant(rawVariant = process.env.APP_VARIANT) {
   const normalized = String(rawVariant ?? 'extra').trim().toLowerCase();
-  return normalized === 'base' ? 'base' : 'extra';
+  if (normalized === 'base' || normalized === 'web') return normalized;
+  return 'extra';
 }
 
 export function getBuildVariantConfig(rawVariant = process.env.APP_VARIANT) {

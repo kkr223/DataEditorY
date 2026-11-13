@@ -1,11 +1,5 @@
 import { host } from '#lib/platform/host/index.ts';
-import {
-  analyzeCdbMerge,
-  collectMergeSourcesFromFolder,
-  executeCdbMerge,
-  packageCdbAssetsAsZip,
-  type BackgroundTaskProgressEvent,
-} from '#lib/infrastructure/tauri/commands.ts';
+import type { BackgroundTaskProgressEvent } from '#lib/infrastructure/tauri/commands.ts';
 
 export type {
   AnalyzeCdbMergeResponse,
@@ -15,11 +9,7 @@ export type {
 import { documentRuntime } from '#lib/platform/appRuntime.ts';
 import { applyBatchOperations } from './cdbApi';
 import { checkAssets } from './assetApi';
-import {
-  applyLuaReplace,
-  previewLuaReplace,
-  type LuaReplaceRequest,
-} from './scriptApi';
+import type { LuaReplaceRequest } from './scriptApi';
 export type CoreStartTaskRequest =
   | { kind: 'package.zip'; cdbPath: string; outputPath: string }
   | { kind: 'merge.collect-sources'; directoryPath: string }
@@ -67,20 +57,32 @@ async function runTask(request: StartTaskRequest) {
   }
 
   switch (request.kind) {
-    case 'package.zip':
-      return packageCdbAssetsAsZip(request.cdbPath, request.outputPath);
-    case 'merge.collect-sources':
-      return collectMergeSourcesFromFolder(request.directoryPath);
-    case 'merge.analyze':
-      return analyzeCdbMerge(request.sourcePaths, request.includeImages, request.includeScripts);
-    case 'merge.execute':
-      return executeCdbMerge(request);
+    case 'package.zip': {
+      const commands = await import('#lib/infrastructure/tauri/commands.ts');
+      return commands.packageCdbAssetsAsZip(request.cdbPath, request.outputPath);
+    }
+    case 'merge.collect-sources': {
+      const commands = await import('#lib/infrastructure/tauri/commands.ts');
+      return commands.collectMergeSourcesFromFolder(request.directoryPath);
+    }
+    case 'merge.analyze': {
+      const commands = await import('#lib/infrastructure/tauri/commands.ts');
+      return commands.analyzeCdbMerge(request.sourcePaths, request.includeImages, request.includeScripts);
+    }
+    case 'merge.execute': {
+      const commands = await import('#lib/infrastructure/tauri/commands.ts');
+      return commands.executeCdbMerge(request);
+    }
     case 'batch.cdb.apply':
       return applyBatchOperations(request.sessionId, request.previewId);
-    case 'lua.replace.preview':
-      return previewLuaReplace(request.request);
-    case 'lua.replace.apply':
-      return applyLuaReplace(request.request);
+    case 'lua.replace.preview': {
+      const scriptApi = await import('./scriptApi.ts');
+      return scriptApi.previewLuaReplace(request.request);
+    }
+    case 'lua.replace.apply': {
+      const scriptApi = await import('./scriptApi.ts');
+      return scriptApi.applyLuaReplace(request.request);
+    }
     case 'asset.check':
       return checkAssets(request.cdbPath, request.cardIds);
   }

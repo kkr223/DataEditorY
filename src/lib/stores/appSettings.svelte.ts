@@ -1,7 +1,6 @@
 import { host } from '#lib/platform/host/index.ts';
 import { normalizeShortcutBindingMap } from '#lib/features/shortcuts/registry.ts';
 import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '#lib/features/ai/agentLimits.ts';
-import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, normalizeScriptEditorFontSize } from '#lib/features/script-editor/fontPreferences.ts';
 import { DEFAULT_SCRIPT_SNIPPETS } from '#lib/features/script-editor/snippetPreferences.ts';
 
@@ -111,7 +110,7 @@ function resolveCoverSrc(path: string | null, revision: number): string {
     return DEFAULT_COVER_SRC;
   }
 
-  return toMediaProtocolSrc(path, revision);
+  return host.media.toDisplayUrl(path, revision);
 }
 
 export const appSettingsState = $state({

@@ -1,6 +1,5 @@
 import { host } from '#lib/platform/host/index.ts';
 import { importCardImageFile, readImageFile } from '#lib/native/assetApi.ts';
-import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 import { dirname, join } from '#lib/core/path.ts';
 
 const BASE64_CHUNK_SIZE = 0x8000;
@@ -38,7 +37,7 @@ export async function resolveCardImageSrcFromPicsDir(
     }
   }
 
-  return toMediaProtocolSrc(picPath, bustCache ? Date.now() : undefined);
+  return host.media.toDisplayUrl(picPath, bustCache ? Date.now() : undefined);
 }
 
 export async function resolveCardImageSrc(cdbPath: string, code: number, bustCache = false) {

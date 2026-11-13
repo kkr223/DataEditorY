@@ -10,6 +10,8 @@ export type HostProviderOpenRequest = HostProviderRequest & {
   sourceUri?: string;
   create: boolean;
   input?: unknown;
+  /** Raw source bytes; only used by the web transport. */
+  sourceBytes?: Uint8Array;
 };
 
 export type HostProviderOpenResponse = {

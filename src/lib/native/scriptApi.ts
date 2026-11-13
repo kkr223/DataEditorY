@@ -1,12 +1,12 @@
-export {
-  getCardScriptInfo,
-  openInDefaultApp,
-  openInSystemEditor,
-  readCardScriptDocument,
-  saveCardScriptDocument,
+import type {
+  CardScriptDocument,
+  CardScriptInfo,
 } from '#lib/infrastructure/tauri/commands.ts';
 
-import { invokeCommand } from '#lib/infrastructure/tauri/index.ts';
+export type {
+  CardScriptDocument,
+  CardScriptInfo,
+} from '#lib/infrastructure/tauri/commands.ts';
 
 export type LuaReplaceRequest = {
   cdbPath: string;
@@ -34,10 +34,36 @@ export type LuaReplacePreview = {
   files: LuaReplaceFilePreview[];
 };
 
-export function previewLuaReplace(request: LuaReplaceRequest) {
+function desktopCommands() {
+  return import('#lib/infrastructure/tauri/commands.ts');
+}
+
+export async function getCardScriptInfo(cdbPath: string, cardId: number): Promise<CardScriptInfo> {
+  return (await desktopCommands()).getCardScriptInfo(cdbPath, cardId);
+}
+
+export async function readCardScriptDocument(cdbPath: string, cardId: number): Promise<CardScriptDocument> {
+  return (await desktopCommands()).readCardScriptDocument(cdbPath, cardId);
+}
+
+export async function saveCardScriptDocument(cdbPath: string, cardId: number, content: string): Promise<CardScriptInfo> {
+  return (await desktopCommands()).saveCardScriptDocument(cdbPath, cardId, content);
+}
+
+export async function openInSystemEditor(path: string) {
+  return (await desktopCommands()).openInSystemEditor(path);
+}
+
+export async function openInDefaultApp(path: string) {
+  return (await desktopCommands()).openInDefaultApp(path);
+}
+
+export async function previewLuaReplace(request: LuaReplaceRequest): Promise<LuaReplacePreview> {
+  const { invokeCommand } = await import('#lib/infrastructure/tauri/index.ts');
   return invokeCommand<LuaReplacePreview>('preview_lua_replace', { request });
 }
 
-export function applyLuaReplace(request: LuaReplaceRequest) {
+export async function applyLuaReplace(request: LuaReplaceRequest): Promise<LuaReplacePreview> {
+  const { invokeCommand } = await import('#lib/infrastructure/tauri/index.ts');
   return invokeCommand<LuaReplacePreview>('apply_lua_replace', { request });
 }

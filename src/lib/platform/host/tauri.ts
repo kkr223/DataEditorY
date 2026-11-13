@@ -1,4 +1,12 @@
 import { invokeCommand, tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import {
+  listImageFolderEntries,
+  pathExists,
+  readImageFile,
+  readTextFile,
+  writeBinaryFile,
+  writeTextFile,
+} from '#lib/native/assetApi.ts';
 import type {
   HostAdapter,
   HostDragPayload,
@@ -102,11 +110,36 @@ export const tauriHost: HostAdapter = {
     },
   },
 
+  metadata: {
+    load: (cdbPath) => invokeCommand('load_workspace_metadata', { cdbPath }),
+    save: (cdbPath, metadata, sourceCdbPath) => invokeCommand('save_workspace_metadata', {
+      cdbPath,
+      metadata,
+      sourceCdbPath: sourceCdbPath ?? null,
+    }),
+  },
+
+  fs: {
+    readBinary: (path) => readImageFile(path),
+    readText: (path) => readTextFile(path),
+    writeBinary: async (path, data) => { await writeBinaryFile(path, data); },
+    writeText: async (path, content) => { await writeTextFile(path, content); },
+    exists: (path) => pathExists(path),
+    listDirectory: (path) => listImageFolderEntries(path),
+  },
+
   errorLog: {
     append: (entry) => invokeCommand<string>('append_error_log', { request: entry }),
   },
 
   media: {
     resolveResource: (relativePath) => tauriBridge.resolveResource(relativePath),
+    toDisplayUrl: (path, revision) => {
+      if (!path) return path;
+      if (typeof window === 'undefined' || !tauriBridge.isTauri()) return path;
+      const base = tauriBridge.convertFileSrc(path, 'app-media');
+      if (revision === undefined) return base;
+      return `${base}${base.includes('?') ? '&' : '?'}v=${revision}`;
+    },
   },
 };

@@ -1,4 +1,4 @@
-import { invokeCommand } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 
 export type WorkspaceMetadata = {
   version: number;
@@ -19,18 +19,14 @@ export type WorkspaceMetadata = {
   [key: string]: unknown;
 };
 
-export function loadWorkspaceMetadata(cdbPath: string) {
-  return invokeCommand<WorkspaceMetadata>('load_workspace_metadata', { cdbPath });
+export async function loadWorkspaceMetadata(cdbPath: string) {
+  return await host.metadata.load(cdbPath) as WorkspaceMetadata;
 }
 
-export function saveWorkspaceMetadata(
+export async function saveWorkspaceMetadata(
   cdbPath: string,
   metadata: WorkspaceMetadata,
   sourceCdbPath?: string,
 ) {
-  return invokeCommand<WorkspaceMetadata>('save_workspace_metadata', {
-    cdbPath,
-    metadata,
-    sourceCdbPath: sourceCdbPath ?? null,
-  });
+  return await host.metadata.save(cdbPath, metadata, sourceCdbPath) as WorkspaceMetadata;
 }

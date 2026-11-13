@@ -7,10 +7,21 @@ import {
 } from '#lib/domain/card/batchOperations.ts';
 import { getCardsByIdsInTab, modifyCardsInTab } from '#lib/stores/db.ts';
 
-export {
-  consumePendingOpenCdbPaths,
-  createCdbFromCards,
-} from '#lib/infrastructure/tauri/commands.ts';
+import { host } from '#lib/platform/host/index.ts';
+
+export type CdbFromCardsResult = void;
+
+export async function consumePendingOpenCdbPaths(): Promise<string[]> {
+  if (host.kind === 'web') return [];
+  return (await import('#lib/infrastructure/tauri/commands.ts')).consumePendingOpenCdbPaths();
+}
+
+export async function createCdbFromCards(outputPath: string, cards: CardDataEntry[]) {
+  if (host.kind === 'web') {
+    throw new Error('Use the document host to export a filtered CDB in the web build');
+  }
+  return (await import('#lib/infrastructure/tauri/commands.ts')).createCdbFromCards(outputPath, cards);
+}
 
 export type { BatchFieldOperation, BatchOperationGroup } from '#lib/domain/card/batchOperations.ts';
 

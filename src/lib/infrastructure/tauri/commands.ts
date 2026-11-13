@@ -139,6 +139,19 @@ export async function readBuiltinLuaHelperScripts() {
   return invokeCommand<LuaHelperScript[]>('read_builtin_lua_helper_scripts');
 }
 
+export type AssetCheckResponse = {
+  checked: number;
+  missingImages: number;
+  missingScripts: number;
+  missing: Array<{ cardId: number; imageMissing: boolean; scriptMissing: boolean }>;
+};
+
+export function checkAssets(cdbPath: string, cardIds: number[]) {
+  return invokeCommand<AssetCheckResponse>('check_assets', {
+    request: { cdbPath, cardIds },
+  });
+}
+
 export async function packageCdbAssetsAsZip(cdbPath: string, outputPath: string) {
   return invokeCommand<ZipPackageInfo>('package_cdb_assets_as_zip', { cdbPath, outputPath });
 }
@@ -179,6 +192,10 @@ export async function executeCdbMerge(input: {
   includeScripts: boolean;
 }) {
   return invokeCommand<ExecuteCdbMergeResponse>('execute_cdb_merge', { request: input });
+}
+
+export function revealFile(path: string) {
+  return invokeCommand<void>('reveal_file', { path });
 }
 
 export async function consumePendingOpenCdbPaths() {

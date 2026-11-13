@@ -97,6 +97,20 @@ export interface HostAdapter {
     clearCoverImage(): Promise<void>;
   };
 
+  metadata: {
+    load(cdbPath: string): Promise<unknown>;
+    save(cdbPath: string, metadata: unknown, sourceCdbPath?: string): Promise<unknown>;
+  };
+
+  fs: {
+    readBinary(path: string): Promise<Uint8Array>;
+    readText(path: string): Promise<string>;
+    writeBinary(path: string, data: Uint8Array): Promise<void>;
+    writeText(path: string, content: string): Promise<void>;
+    exists(path: string): Promise<boolean>;
+    listDirectory(path: string): Promise<string[]>;
+  };
+
   errorLog: {
     append(entry: {
       source: string;
@@ -108,5 +122,7 @@ export interface HostAdapter {
 
   media: {
     resolveResource(relativePath: string): Promise<string>;
+    /** Synchronous display URL (Tauri custom protocol or a browser-safe path). */
+    toDisplayUrl(path: string, revision?: number): string;
   };
 }

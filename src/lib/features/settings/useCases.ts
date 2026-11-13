@@ -1,5 +1,4 @@
 import { host } from '#lib/platform/host/index.ts';
-import { openInSystemEditor } from '#lib/native/scriptApi.ts';
 import {
   clearCustomCoverImage,
   saveAppSettings,
@@ -111,6 +110,8 @@ export async function openErrorLogFlow(input: {
   }
 
   try {
+    if (host.kind === 'web') return false;
+    const { openInSystemEditor } = await import('#lib/native/scriptApi.ts');
     await openInSystemEditor(input.errorLogPath);
     return true;
   } catch (error) {

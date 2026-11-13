@@ -1,5 +1,5 @@
+import { host } from '#lib/platform/host/index.ts';
 import { readImageFile } from '#lib/native/assetApi.ts';
-import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 
 const WORKSPACE_ASSET_PREFIX = 'workspace-asset:';
 const WORKSPACE_ASSET_PATTERN = /^workspace-asset:(card-image\/\d+\/(?:art|foreground|rarity-mask)(?:-[a-f0-9]{64})?\.(png|jpg|webp|gif|bmp))$/;
@@ -26,14 +26,14 @@ function resolveWorkspaceCardImageAssetPath(cdbPath: string, reference: string) 
 
 export function resolveWorkspaceCardImageAssetSrc(cdbPath: string, value: string) {
   const path = resolveWorkspaceCardImageAssetPath(cdbPath, value);
-  return path ? toMediaProtocolSrc(path) : value;
+  return path ? host.media.toDisplayUrl(path) : value;
 }
 
 export async function inlineWorkspaceCardImageAsset(cdbPath: string, value: string) {
   const parsed = parseWorkspaceCardImageAssetReference(value);
   const path = parsed ? resolveWorkspaceCardImageAssetPath(cdbPath, value) : null;
   if (!parsed || !path) return value;
-  const blob = new Blob([await readImageFile(path)], { type: parsed.mimeType });
+  const blob = new Blob([await readImageFile(path) as unknown as BlobPart], { type: parsed.mimeType });
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ''));

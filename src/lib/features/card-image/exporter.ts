@@ -4,7 +4,6 @@ import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
 import type { CardDataEntry } from '#lib/types/index.ts';
 import { join } from '#lib/core/path.ts';
 import { pathExists, writeBinaryFile } from '#lib/native/assetApi.ts';
-import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 import { resolveWorkspaceCardImageAssetSrc } from './workspaceAssets';
 import { destroyCardImageRenderer } from './rendererLifecycle';
 import {
@@ -72,7 +71,7 @@ async function getResourcePath() {
 
   if (!resourcePathPromise) {
     resourcePathPromise = host.media.resolveResource('resources/yugioh-card')
-      .then((path) => toMediaProtocolSrc(path))
+      .then((path) => host.media.toDisplayUrl(path))
       .catch((error) => {
         console.error('Failed to resolve yugioh-card resource path', error);
         resourcePathPromise = null;
@@ -246,7 +245,7 @@ export function buildBatchCardImageForm(input: {
     ...overrideForm,
     ...localized,
     language: input.preset.language,
-    image: toMediaProtocolSrc(input.artPath),
+    image: host.media.toDisplayUrl(input.artPath),
     foregroundImage: resolveAsset(overrideForm.foregroundImage),
     rarityMaskImage: resolveAsset(overrideForm.rarityMaskImage),
     rare: input.preset.rare,

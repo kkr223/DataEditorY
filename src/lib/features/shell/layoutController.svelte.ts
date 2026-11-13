@@ -409,28 +409,28 @@ export function createShellLayoutController() {
           console.error('Failed to consume pending cdb paths:', error);
           void writeErrorLog({ source: 'shell.consume-pending-open-cdb-paths', error });
         });
-
-      listeners.add(host.events.listen('open-cdb-paths', (paths) => {
-        if (listeners.disposed) return;
-        void handleExternalOpenPaths(paths);
-      }));
-
-      listeners.add(host.events.listen('file-drop', (payload) => {
-        if (listeners.disposed) return;
-        clearFileDragState();
-        void handleExternalOpenPaths(payload.paths);
-      }));
-
-      listeners.add(host.events.listen('file-drag-enter', (payload) => {
-        if (listeners.disposed) return;
-        updateFileDragState(payload.paths);
-      }));
-
-      listeners.add(host.events.listen('file-drag-leave', () => {
-        if (listeners.disposed) return;
-        clearFileDragState();
-      }));
     }
+
+    listeners.add(host.events.listen('open-cdb-paths', (paths) => {
+      if (listeners.disposed) return;
+      void handleExternalOpenPaths(paths);
+    }));
+
+    listeners.add(host.events.listen('file-drop', (payload) => {
+      if (listeners.disposed) return;
+      clearFileDragState();
+      void handleExternalOpenPaths(payload.paths);
+    }));
+
+    listeners.add(host.events.listen('file-drag-enter', (payload) => {
+      if (listeners.disposed) return;
+      updateFileDragState(payload.paths);
+    }));
+
+    listeners.add(host.events.listen('file-drag-leave', () => {
+      if (listeners.disposed) return;
+      clearFileDragState();
+    }));
 
     const handleWindowError = (event: ErrorEvent) => {
       void writeErrorLog({

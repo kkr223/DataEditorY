@@ -9,7 +9,6 @@ import { showToast } from '#lib/stores/toast.svelte.ts';
 import { join } from '#lib/core/path.ts';
 import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from '#lib/native/assetApi.ts';
 import { getPicsDir } from '#lib/services/cardImageService.ts';
-import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 import {
   CARD_IMAGE_LANGUAGE_OPTIONS,
   createCardImageFormData,
@@ -257,7 +256,7 @@ export function createCardImageController(source: CardImageControllerSource) {
 
     if (!resourcePathPromise) {
       resourcePathPromise = host.media.resolveResource('resources/yugioh-card')
-        .then((path) => toMediaProtocolSrc(path))
+        .then((path) => host.media.toDisplayUrl(path))
         .catch((error) => {
           console.error('Failed to resolve yugioh-card resource path', error);
           void writeErrorLog({

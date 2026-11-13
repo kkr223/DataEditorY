@@ -1,27 +1,16 @@
-import {
-  readImageFile,
-  readTextFile,
-  writeBinaryFile,
-  writeTextFile,
-} from '#lib/native/assetApi.ts';
 import { createBuiltInModules } from '#lib/modules/active.ts';
-import { tauriDocumentHostTransport } from '#lib/platform/transport/tauri.ts';
+import { host } from '#lib/platform/host/index.ts';
+import { documentHostTransport } from '#lib/platform/transport/active.ts';
 import { DocumentRuntime } from './runtime';
 
 const codecContext = {
-  readText: readTextFile,
-  async writeText(path: string, content: string) {
-    await writeTextFile(path, content);
-  },
-  async readBinary(path: string) {
-    return readImageFile(path);
-  },
-  async writeBinary(path: string, content: Uint8Array) {
-    await writeBinaryFile(path, content);
-  },
+  readText: (path: string) => host.fs.readText(path),
+  writeText: (path: string, content: string) => host.fs.writeText(path, content),
+  readBinary: (path: string) => host.fs.readBinary(path),
+  writeBinary: (path: string, content: Uint8Array) => host.fs.writeBinary(path, content),
 };
 
 export const documentRuntime = new DocumentRuntime(
-  createBuiltInModules(tauriDocumentHostTransport),
+  createBuiltInModules(documentHostTransport),
   codecContext,
 );
