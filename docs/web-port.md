@@ -566,6 +566,8 @@ P0 每一项单独提交，保持 `bun test`、`cargo test`、`check:*`、`build
 
 ## 6. 移动端 UI（P5）
 
+> 详细设计已移至 [mobile-ui.md](./mobile-ui.md)，以下为最初的概要。
+
 ### 6.1 布局
 
 按视口宽度切换外壳（`< 768px` 为移动端）：
