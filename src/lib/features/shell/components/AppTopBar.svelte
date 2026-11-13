@@ -2,6 +2,8 @@
   import { _ , locale } from 'svelte-i18n';
   import type { RecentCdbEntry } from '#lib/stores/db.ts';
   import RecentHistoryPopover from '#lib/features/shell/components/RecentHistoryPopover.svelte';
+  import { documentRuntime } from '#lib/platform/appRuntime.ts';
+  import { host } from '#lib/platform/host/index.ts';
 
   let {
     theme = 'dark',
@@ -138,16 +140,20 @@
             <button class="package-item" role="menuitem" onclick={() => runToolAction(onCreateFilteredCdb)} disabled={!hasActiveCdb}>
               {$_('nav.create_filtered_cdb')}
             </button>
-            <button class="package-item" role="menuitem" onclick={() => runToolAction(onMergeCdb)} disabled={isMergeBusy}>
-              {isMergeBusy ? '...' : $_('nav.merge_cdb')}
-            </button>
-            <div class="package-separator"></div>
-            <button class="package-item" role="menuitem" onclick={() => runToolAction(onPackageZip)} disabled={!hasPackageTarget || isPackageBusy}>
-              {$_('nav.package_zip')}
-            </button>
-            <button class="package-item" role="menuitem" onclick={() => runToolAction(onPackageYpk)} disabled={!hasPackageTarget || isPackageBusy}>
-              {$_('nav.package_ypk')}
-            </button>
+            {#if documentRuntime.registry.modules.has('merge')}
+              <button class="package-item" role="menuitem" onclick={() => runToolAction(onMergeCdb)} disabled={isMergeBusy}>
+                {isMergeBusy ? '...' : $_('nav.merge_cdb')}
+              </button>
+            {/if}
+            {#if documentRuntime.registry.modules.has('package')}
+              <div class="package-separator"></div>
+              <button class="package-item" role="menuitem" onclick={() => runToolAction(onPackageZip)} disabled={!hasPackageTarget || isPackageBusy}>
+                {$_('nav.package_zip')}
+              </button>
+              <button class="package-item" role="menuitem" onclick={() => runToolAction(onPackageYpk)} disabled={!hasPackageTarget || isPackageBusy}>
+                {$_('nav.package_ypk')}
+              </button>
+            {/if}
             <div class="package-separator"></div>
             <button class="package-item" role="menuitem" onclick={() => runToolAction(onBatchCdbEdit)} disabled={!hasActiveCdb}>{$_('nav.tools_batch_cdb')}</button>
             {#each extensionTools as tool}
@@ -160,7 +166,9 @@
                 {tool.label}
               </button>
             {/each}
-            <button class="package-item" role="menuitem" onclick={() => runToolAction(onAssetCheck)} disabled={!hasActiveCdb}>{$_('nav.tools_asset_check')}</button>
+            {#if host.kind === 'tauri'}
+              <button class="package-item" role="menuitem" onclick={() => runToolAction(onAssetCheck)} disabled={!hasActiveCdb}>{$_('nav.tools_asset_check')}</button>
+            {/if}
           </div>
         {/if}
       </div>

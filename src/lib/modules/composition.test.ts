@@ -3,6 +3,7 @@ import { ExtensionRegistry } from '#lib/platform/index.ts';
 import type { DocumentHostTransport } from '#lib/platform/transport/types.ts';
 import { createBuiltInModules as createBaseModules } from './base';
 import { createBuiltInModules as createExtraModules } from './extra';
+import { createBuiltInModules as createWebModules } from './web';
 
 const unusedTransport: DocumentHostTransport = {
   open: async () => { throw new Error('not used'); },
@@ -14,6 +15,12 @@ const unusedTransport: DocumentHostTransport = {
 };
 
 describe('built-in module composition', () => {
+  test('web registers CDB editing without desktop-only tools or surfaces', () => {
+    const registry = new ExtensionRegistry(createWebModules(unusedTransport));
+    expect([...registry.modules.keys()]).toEqual(['settings', 'card', 'cdb', 'context-menu']);
+    expect(registry.findCodecForSource('cards.cdb')?.id).toBe('cdb.codec');
+    expect(registry.findWorkbenchContributions('card.workbench', 'surface')).toEqual([]);
+  });
   test('base contains core editing and AI modules', () => {
     const registry = new ExtensionRegistry(createBaseModules(unusedTransport));
     expect(registry.modules.has('ai')).toBe(true);
