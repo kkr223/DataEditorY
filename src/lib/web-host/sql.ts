@@ -13,8 +13,11 @@ function decodeDataUrl(url: string) {
 export function loadSql() {
   // The standalone build inlines the wasm as a data URL; hand the bytes to
   // sql.js directly so no fetch is needed under file://.
-  sqlPromise ??= wasmUrl.startsWith('data:')
-    ? initSqlJs({ wasmBinary: decodeDataUrl(wasmUrl).buffer as ArrayBuffer })
-    : initSqlJs({ locateFile: () => wasmUrl });
+  // Keep URL inspection at runtime. Vite rewrites worker asset URLs into
+  // concatenated expressions, which can alter a folded startsWith condition.
+  const url = String(wasmUrl);
+  sqlPromise ??= url.startsWith('data:')
+    ? initSqlJs({ wasmBinary: decodeDataUrl(url).buffer as ArrayBuffer })
+    : initSqlJs({ locateFile: () => url });
   return sqlPromise;
 }
