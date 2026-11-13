@@ -36,6 +36,9 @@
   let isHydrated = $state(false);
   let loadFailed = $state(false);
   let activeTab = $state<'general' | 'snippets' | 'shortcuts' | 'ai'>('general');
+  const hasLuaModule = documentRuntime.registry.modules.has('lua');
+  const hasAiModule = documentRuntime.registry.modules.has('ai');
+  const hasCardImageModule = documentRuntime.registry.modules.has('card-image');
   const settingsWorkbenchContext = $derived.by((): SettingsWorkbenchContext => ({
     form,
     t: (key, options) => $_(key, options as never),
@@ -127,20 +130,24 @@
       class:active={activeTab === 'general'}
       onclick={() => { activeTab = 'general'; }}
     >{$_('settings.tab_general')}</button>
+    {#if hasLuaModule}
     <button type="button" class="sp-tab" class:active={activeTab === 'snippets'}
       onclick={() => { activeTab = 'snippets'; }}>{$_('settings.tab_snippets')}</button>
+    {/if}
     <button
       type="button"
       class="sp-tab"
       class:active={activeTab === 'shortcuts'}
       onclick={() => { activeTab = 'shortcuts'; }}
     >{$_('settings.tab_shortcuts')}</button>
+    {#if hasAiModule}
     <button
       type="button"
       class="sp-tab"
       class:active={activeTab === 'ai'}
       onclick={() => { activeTab = 'ai'; }}
     >{$_('settings.tab_ai')}</button>
+    {/if}
   </div>
 
   <div class="sp-body">
@@ -160,6 +167,7 @@
         onOpenErrorLog={handleOpenErrorLog}
       />
 
+      {#if hasLuaModule}
       <SettingsTemplateCard
         title={$_('settings.script_template_title')}
         description={$_('settings.script_template_description')}
@@ -197,8 +205,9 @@
           form.autoCompleteFunctionParameters = value;
         }}
       />
+      {/if}
 
-      {#if documentRuntime.registry.modules.has('card-image')}
+      {#if hasCardImageModule}
         <SettingsCardImageCard bind:maxSizeKb={form.cardImageMaxSizeKb} />
       {/if}
 
@@ -212,7 +221,7 @@
           form.packageIncludePatternsText = value;
         }}
       />
-    {:else if activeTab === 'snippets'}
+    {:else if activeTab === 'snippets' && hasLuaModule}
       <SettingsSnippetsCard value={form.scriptSnippets} onChange={(value) => { form.scriptSnippets = value; }} />
     {:else if activeTab === 'shortcuts'}
       <SettingsShortcutsCard
@@ -230,7 +239,7 @@
           form.shortcutBindings = bindings;
         }}
       />
-    {:else if activeTab === 'ai'}
+    {:else if activeTab === 'ai' && hasAiModule}
       <SettingsSections context={settingsWorkbenchContext} />
     {/if}
   </div>

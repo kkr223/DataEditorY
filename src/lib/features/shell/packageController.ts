@@ -10,10 +10,12 @@ import { workspaceState } from '#lib/core/workspace/store.svelte.ts';
 import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
 import { saveWorkspaceDocument } from '#lib/application/workspace/commandBus.ts';
 import { startTask } from '#lib/native/taskApi.ts';
+import { documentRuntime } from '#lib/platform/appRuntime.ts';
 import { appendWorkspaceTaskHistoryForPath } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
 
 const activeTabState = fromStore(activeTab);
 const activeScriptTabState = fromStore(activeScriptTab);
+const hasLuaModule = documentRuntime.registry.modules.has('lua');
 
 function t(key: string, options?: Record<string, unknown>) {
   return String(get(_)(key, options as never));
@@ -34,7 +36,7 @@ export function createPackageController(
   enqueueBackgroundTask: (input: EnqueueBackgroundTaskInput) => void,
 ) {
   function getCurrentPackageCdbPath() {
-    if (appShellState.mainView === 'script' && activeScriptTabState.current?.cdbPath) {
+    if (hasLuaModule && appShellState.mainView === 'script' && activeScriptTabState.current?.cdbPath) {
       return activeScriptTabState.current.cdbPath;
     }
 
@@ -47,7 +49,8 @@ export function createPackageController(
       : null;
 
     if (
-      appShellState.mainView === 'script'
+      hasLuaModule
+      && appShellState.mainView === 'script'
       && activeScriptTabState.current?.cdbPath
       && getCdbPathIdentity(activeScriptTabState.current.cdbPath) === getCdbPathIdentity(targetCdbPath)
       && activeScriptWorkspace?.dirty

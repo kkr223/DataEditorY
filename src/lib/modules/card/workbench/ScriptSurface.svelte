@@ -35,17 +35,10 @@
   import { getWorkspaceDocument } from '#lib/core/workspace/store.svelte.ts';
   import { confirmWorkspaceClose } from '#lib/application/workspace/lifecycle.ts';
   import { showToast } from '#lib/stores/toast.svelte.ts';
-  import { cardSurfaceState } from './surfaceState.svelte';
+  import { cardSurfaceState, consumeSurfaceOpenRequest } from './surfaceState.svelte';
 
-  let {
-    selectionReady = false,
-    openSelectedRequest = 0,
-    onOpenSelectedRequestHandled,
-  }: {
-    selectionReady?: boolean;
-    openSelectedRequest?: number;
-    onOpenSelectedRequestHandled?: () => void;
-  } = $props();
+  const selectionReady = $derived(cardSurfaceState.scriptSelectionReady);
+  const openSelectedRequest = $derived(cardSurfaceState.openRequests.script ?? 0);
 
   let isOpening = $state(false);
   let isMissingScript = $state(false);
@@ -198,7 +191,7 @@
     }
 
     lastResolvedCardKey = cardKey;
-    if (openSelectedRequest > 0) onOpenSelectedRequestHandled?.();
+    if (openSelectedRequest > 0) consumeSurfaceOpenRequest('script');
     createSelectedRequested = false;
     const sequence = ++resolveSequence;
     const key = workspaceKey;

@@ -16,7 +16,6 @@
     onCreateFilteredCdb,
     onMergeCdb,
     onBatchCdbEdit,
-    onLuaReplace,
     extensionTools = [],
     onOpenExtensionTool,
     onAssetCheck,
@@ -46,7 +45,6 @@
     onCreateFilteredCdb: () => void | Promise<void>;
     onMergeCdb: () => void | Promise<void>;
     onBatchCdbEdit: () => void;
-    onLuaReplace: () => void;
     extensionTools?: Array<{ id: string; label: string; disabled?: boolean }>;
     onOpenExtensionTool: (id: string) => void;
     onAssetCheck: () => void;
@@ -152,7 +150,6 @@
             </button>
             <div class="package-separator"></div>
             <button class="package-item" role="menuitem" onclick={() => runToolAction(onBatchCdbEdit)} disabled={!hasActiveCdb}>{$_('nav.tools_batch_cdb')}</button>
-            <button class="package-item" role="menuitem" onclick={() => runToolAction(onLuaReplace)} disabled={!hasActiveCdb}>{$_('nav.tools_lua_replace')}</button>
             {#each extensionTools as tool}
               <button
                 class="package-item"

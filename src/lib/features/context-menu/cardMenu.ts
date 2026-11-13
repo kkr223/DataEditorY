@@ -39,6 +39,7 @@ export function openCardMenu(event: MouseEvent, clickedId?: number) {
   const multiple = ids.length > 1;
   let scriptPath: string | null = null;
   let imagePath: string | null = null;
+  const hasLua = documentRuntime.registry.modules.has('lua');
   const hasMaker = documentRuntime.registry.findWorkbenchContributions('card.workbench', 'surface').some((item) => item.metadata?.surfaceId === 'image');
   const openTool = async (kind: 'batch' | 'showcase') => {
     if (!(await commit())) return;
@@ -57,8 +58,10 @@ export function openCardMenu(event: MouseEvent, clickedId?: number) {
       { id: 'batch', label: t('batch_group'), action: guard(() => openTool('batch')) },
       { id: 'showcase', label: t('showcase'), action: guard(() => openTool('showcase')) },
     ] : [
-      { id: 'script', label: t('open_script'), action: guard(() => navigateToCard(tab.id, clickedId, 'script')) },
-      { id: 'reveal-script', label: t('reveal_script'), disabled: !scriptPath, action: () => scriptPath && revealFile(scriptPath) },
+      ...(hasLua ? [
+        { id: 'script', label: t('open_script'), action: guard(() => navigateToCard(tab.id, clickedId, 'script')) },
+        { id: 'reveal-script', label: t('reveal_script'), disabled: !scriptPath, action: () => scriptPath && revealFile(scriptPath) },
+      ] : []),
       ...(hasMaker ? [{ id: 'maker', label: t('open_maker'), action: guard(() => navigateToCard(tab.id, clickedId, 'image')) }] : []),
       { id: 'reveal-image', label: t('reveal_image'), disabled: !imagePath, action: () => imagePath && revealFile(imagePath) },
     ]), null,
@@ -67,7 +70,7 @@ export function openCardMenu(event: MouseEvent, clickedId?: number) {
   const token = openContextMenu(event, items());
   if (multiple) return;
   void Promise.allSettled([
-    getCardScriptInfo(tab.path, clickedId).then((info) => { if (info.exists) scriptPath = info.path; }),
+    ...(hasLua ? [getCardScriptInfo(tab.path, clickedId).then((info) => { if (info.exists) scriptPath = info.path; })] : []),
     (async () => {
       const path = join(getPicsDir(tab.path), `${clickedId}.jpg`);
       if (await pathExists(path)) imagePath = path;

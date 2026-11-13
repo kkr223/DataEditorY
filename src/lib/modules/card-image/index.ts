@@ -76,6 +76,7 @@ export const cardImageModule: ExtensionModule = {
       surfaceId: 'image',
       labelKey: 'surface.image',
       icon: '▧',
+      requiresWorkspaceMetadata: true,
     },
     component: () => import('../card/workbench/ImageSurface.svelte'),
   }],

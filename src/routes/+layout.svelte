@@ -13,7 +13,6 @@
   import FileDragOverlay from '#lib/features/shell/components/FileDragOverlay.svelte';
   import AssetCheckDialog from '#lib/features/shell/components/dialogs/AssetCheckDialog.svelte';
   import CreateFilteredCdbDialog from '#lib/features/shell/components/dialogs/CreateFilteredCdbDialog.svelte';
-  import LuaReplaceDialog from '#lib/features/shell/components/dialogs/LuaReplaceDialog.svelte';
   import MergeCdbDialog from '#lib/features/shell/components/dialogs/MergeCdbDialog.svelte';
   import { createShellLayoutController } from '#lib/features/shell/layoutController.svelte.ts';
   import { createShellDialogsController } from '#lib/features/shell/dialogsController.svelte.ts';
@@ -31,7 +30,6 @@
   let { children } = $props();
   const shellController = createShellLayoutController();
   const dialogsController = createShellDialogsController();
-  let isLuaReplaceOpen = $state(false);
   const extensionTools = documentRuntime.registry.findGlobalTools();
   let activeExtensionToolId = $state<string | null>(null);
   let loadedExtensionTool = $state<{ id: string; component: Component } | null>(null);
@@ -129,7 +127,6 @@
       onCreateFilteredCdb={dialogsController.openCreateFilteredCdbDialog}
       onMergeCdb={dialogsController.openMergeCdbDialog}
       onBatchCdbEdit={openBatchCdbEditTool}
-      onLuaReplace={() => { isLuaReplaceOpen = true; }}
       extensionTools={extensionTools.map((tool) => ({
         id: tool.id,
         label: $_(tool.labelKey),
@@ -187,11 +184,6 @@
     <AssetCheckDialog
       open={isAssetCheckOpen}
       onClose={() => { isAssetCheckOpen = false; }}
-    />
-
-    <LuaReplaceDialog
-      open={isLuaReplaceOpen}
-      onClose={() => { isLuaReplaceOpen = false; }}
     />
 
     <MergeCdbDialog

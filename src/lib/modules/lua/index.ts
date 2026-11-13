@@ -37,6 +37,12 @@ export const luaModule: ExtensionModule = {
       await context.writeText(destination.path ?? destination.uri, snapshot.content);
     },
   }],
+  globalTools: [{
+    id: 'lua.replace',
+    labelKey: 'nav.tools_lua_replace',
+    requiresActiveCdb: true,
+    component: () => import('#lib/features/shell/components/dialogs/LuaReplaceDialog.svelte'),
+  }],
   workbenches: [{
     id: 'lua.workbench',
     acceptedTypeIds: [LUA_SCRIPT_TYPE],
@@ -48,6 +54,23 @@ export const luaModule: ExtensionModule = {
     slot: 'footer-actions',
     order: 10,
     component: () => import('./workbench/CardScriptContribution.svelte'),
+  }, {
+    id: 'lua.card-surface',
+    workbenchId: 'card.workbench',
+    slot: 'surface',
+    order: 20,
+    metadata: {
+      surfaceId: 'script',
+      labelKey: 'surface.script',
+      icon: '{}',
+      openOnActivate: true,
+      requiresWorkspaceMetadata: true,
+      activate: () => {
+        void import('./workbench/surfaceActivation.ts')
+          .then((module) => module.activateLuaCardSurface());
+      },
+    },
+    component: () => import('#lib/modules/card/workbench/ScriptSurface.svelte'),
   }],
 };
 

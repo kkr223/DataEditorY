@@ -3,81 +3,77 @@
   import {
     activateCardSurface,
     cardSurfaceState,
+    requestSurfaceOpen,
     toggleCardExplorerPinned,
-    type CardSurfaceId,
   } from '#lib/modules/card/workbench/surfaceState.svelte.ts';
-  import { activeTab } from '#lib/stores/db.ts';
-  import { activeScriptTab } from '#lib/stores/scriptEditor.svelte.ts';
-  import { activateEditorView, activateScriptView } from '#lib/stores/appShell.svelte.ts';
+  import { activateEditorView } from '#lib/stores/appShell.svelte.ts';
   import { documentRuntime } from '#lib/platform/appRuntime.ts';
-  import { isScriptTabOwnedByCdb } from '#lib/domain/script/tabIdentity.ts';
 
-  let { onSelectSurface }: { onSelectSurface?: (surface: CardSurfaceId) => void } = $props();
+  type SurfaceMetadata = {
+    surfaceId?: string;
+    labelKey?: string;
+    icon?: string;
+    openOnActivate?: boolean;
+    requiresWorkspaceMetadata?: boolean;
+    activate?: () => void;
+  };
 
   type SurfaceEntry = {
-    id: CardSurfaceId;
+    id: string;
     labelKey: string;
     icon: string;
+    openOnActivate?: boolean;
+    activate?: () => void;
   };
 
   const extensionSurfaces = documentRuntime.registry
     .findWorkbenchContributions('card.workbench', 'surface')
     .flatMap<SurfaceEntry>((contribution) => {
-      const id = contribution.metadata?.surfaceId;
-      const labelKey = contribution.metadata?.labelKey;
-      const icon = contribution.metadata?.icon;
-      if (
-        (id !== 'image' && id !== 'search' && id !== 'ai')
-        || typeof labelKey !== 'string'
-        || typeof icon !== 'string'
-      ) {
+      const metadata = contribution.metadata as SurfaceMetadata | undefined;
+      const id = metadata?.surfaceId;
+      const labelKey = metadata?.labelKey;
+      const icon = metadata?.icon;
+      if (typeof id !== 'string' || typeof labelKey !== 'string' || typeof icon !== 'string') {
         return [];
       }
-      return [{ id, labelKey, icon }];
+      return [{
+        id,
+        labelKey,
+        icon,
+        openOnActivate: metadata?.openOnActivate,
+        activate: metadata?.activate,
+      }];
     });
 
   const surfaces: SurfaceEntry[] = [
     { id: 'card', labelKey: 'surface.card', icon: '◇' },
-    { id: 'script', labelKey: 'surface.script', icon: '{}' },
     ...extensionSurfaces,
   ];
 
-  const hasCurrentCdbScriptTab = $derived(Boolean(
-    $activeTab
-      && $activeScriptTab
-      && isScriptTabOwnedByCdb($activeScriptTab, { tabId: $activeTab.id, path: $activeTab.path }),
-  ));
-
-  function selectSurface(surface: CardSurfaceId) {
-    activateCardSurface(surface);
-    onSelectSurface?.(surface);
-    if (surface === 'script' && hasCurrentCdbScriptTab) {
-      activateScriptView();
+  function selectSurface(surface: SurfaceEntry) {
+    activateCardSurface(surface.id);
+    if (surface.openOnActivate) requestSurfaceOpen(surface.id);
+    if (surface.activate) {
+      surface.activate();
       return;
     }
-
     activateEditorView();
   }
 </script>
 
+{#if surfaces.length > 1}
 <aside class="surface-rail" aria-label={$_('surface.title')}>
   <div class="surface-tabs">
-    {#each surfaces as surface}
+    {#each surfaces as surface (surface.id)}
       <button
         type="button"
         class="surface-tab"
         class:active={cardSurfaceState.activeSurface === surface.id}
         title={$_(surface.labelKey)}
         aria-label={$_(surface.labelKey)}
-        onclick={() => selectSurface(surface.id)}
+        onclick={() => selectSurface(surface)}
       >
-        {#if surface.id === 'search'}
-          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" />
-          </svg>
-        {:else}
-          <span class="surface-icon">{surface.icon}</span>
-        {/if}
+        <span class="surface-icon">{surface.icon}</span>
       </button>
     {/each}
   </div>
@@ -93,6 +89,7 @@
     {cardSurfaceState.explorerPinned ? '◧' : '◨'}
   </button>
 </aside>
+{/if}
 
 <style>
   .surface-rail {

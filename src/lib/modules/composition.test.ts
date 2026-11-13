@@ -19,7 +19,7 @@ describe('built-in module composition', () => {
     expect(registry.modules.has('ai')).toBe(true);
     expect(registry.modules.has('card-image')).toBe(false);
     expect(registry.findGlobalTools().map((tool) => tool.id))
-      .toEqual(['card.showcase-image']);
+      .toEqual(['lua.replace', 'card.showcase-image']);
     expect(registry.taskRunners.has('batch.image.export-card')).toBe(false);
   });
 
@@ -35,6 +35,6 @@ describe('built-in module composition', () => {
       .toContain('card.showcase-image');
     expect(registry.taskRunners.has('batch.image.export-card')).toBe(true);
     expect(registry.findWorkbenchContributions('card.workbench', 'surface').map((item) => item.metadata?.surfaceId))
-      .toEqual(['image', 'search', 'ai']);
+      .toEqual(['script', 'image', 'search', 'ai']);
   });
 });

@@ -31,20 +31,32 @@
   } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
 
   const focusMode = $derived(cardSurfaceState.activeSurface !== 'card');
+  type SurfaceMetadata = {
+    surfaceId?: string;
+    labelKey?: string;
+    icon?: string;
+    requiresWorkspaceMetadata?: boolean;
+  };
+
   const extensionSurfaces: Array<{
-    surfaceId: Extract<CardSurfaceId, 'image' | 'search' | 'ai'>;
+    surfaceId: string;
+    requiresWorkspaceMetadata: boolean;
     contribution: ReturnType<typeof documentRuntime.registry.findWorkbenchContributions>[number];
   }> = documentRuntime.registry
     .findWorkbenchContributions('card.workbench', 'surface')
     .flatMap((contribution) => {
-      const surfaceId = contribution.metadata?.surfaceId;
-      return surfaceId === 'image' || surfaceId === 'search' || surfaceId === 'ai'
-        ? [{ surfaceId, contribution }]
+      const metadata = contribution.metadata as SurfaceMetadata | undefined;
+      const surfaceId = metadata?.surfaceId;
+      return typeof surfaceId === 'string'
+        ? [{
+            surfaceId,
+            requiresWorkspaceMetadata: metadata?.requiresWorkspaceMetadata === true,
+            contribution,
+          }]
         : [];
     });
   const SURFACE_IDS = new Set<CardSurfaceId>([
     'card',
-    'script',
     ...extensionSurfaces.map(({ surfaceId }) => surfaceId),
   ]);
   let appliedMetadataPath = $state('');
@@ -61,21 +73,19 @@
   } | null>(null);
   let extensionSurfaceError = $state('');
   let extensionLoadSequence = 0;
-  let scriptSurfacePromise: Promise<typeof import('./ScriptSurface.svelte')> | null = null;
-  let scriptOpenSequence = 0;
-  let scriptOpenRequest = $state<{ tabId: string; sequence: number } | null>(null);
-
-  function handleSurfaceSelected(surface: CardSurfaceId) {
-    scriptOpenRequest = surface === 'script' && $activeTab
-      ? { tabId: $activeTab.id, sequence: ++scriptOpenSequence }
-      : null;
-  }
 
   onDestroy(() => { metadataApplySequence += 1; });
 
-  function loadScriptSurface() {
-    return scriptSurfacePromise ??= import('./ScriptSurface.svelte');
-  }
+  const metadataReadyForActiveTab = $derived(
+    appliedMetadataTabId === $activeTab?.id
+    && appliedMetadataPath === $activeTab?.path
+    && workspaceMetadataState.ready
+    && workspaceMetadataState.cdbPath === $activeTab?.path,
+  );
+
+  $effect(() => {
+    cardSurfaceState.scriptSelectionReady = metadataReadyForActiveTab;
+  });
 
   $effect(() => {
     const surfaceId = cardSurfaceState.activeSurface;
@@ -109,7 +119,6 @@
     if (nextTabId === hydratedTabId) return;
 
     hydratedTabId = nextTabId;
-    scriptOpenRequest = null;
     metadataApplySequence += 1;
     appliedMetadataPath = '';
     appliedMetadataTabId = '';
@@ -178,7 +187,6 @@
         cardSurfaceState.explorerPinned = cardWorkspace.explorerPinned;
       }
     }
-    if (scriptOpenRequest?.tabId === tabId) cardSurfaceState.activeSurface = 'script';
 
     const explorer = getCardExplorerState();
     if (explorer) {
@@ -278,30 +286,21 @@
       </div>
     </div>
 
-    <CardSurfaceRail onSelectSurface={handleSurfaceSelected} />
+    <CardSurfaceRail />
 
     <div class="surface-host">
       <div class="card-surface-pane" class:hidden={cardSurfaceState.activeSurface !== 'card'}>
         <CardEditor />
       </div>
-      {#if cardSurfaceState.activeSurface === 'script'}
-        {#await loadScriptSurface() then module}
-          {@const ScriptSurface = module.default}
-          <ScriptSurface
-            openSelectedRequest={scriptOpenRequest?.tabId === $activeTab?.id ? scriptOpenRequest?.sequence ?? 0 : 0}
-            onOpenSelectedRequestHandled={() => { scriptOpenRequest = null; }}
-            selectionReady={appliedMetadataTabId === $activeTab?.id
-            && appliedMetadataPath === $activeTab?.path
-            && workspaceMetadataState.ready && workspaceMetadataState.cdbPath === $activeTab?.path} />
-        {/await}
-      {:else if extensionSurfaceError}
-        <div class="surface-error" role="alert">{extensionSurfaceError}</div>
-      {:else if loadedExtensionSurface?.id === cardSurfaceState.activeSurface
-        && (loadedExtensionSurface.id !== 'image' || (appliedMetadataTabId === $activeTab?.id
-          && appliedMetadataPath === $activeTab?.path && workspaceMetadataState.ready
-          && workspaceMetadataState.cdbPath === $activeTab?.path))}
-        {@const ExtensionSurface = loadedExtensionSurface.component}
-        <ExtensionSurface />
+      {#if cardSurfaceState.activeSurface !== 'card'}
+        {#if extensionSurfaceError}
+          <div class="surface-error" role="alert">{extensionSurfaceError}</div>
+        {:else if loadedExtensionSurface?.id === cardSurfaceState.activeSurface
+          && (!extensionSurfaces.find((entry) => entry.surfaceId === cardSurfaceState.activeSurface)?.requiresWorkspaceMetadata
+            || metadataReadyForActiveTab)}
+          {@const ExtensionSurface = loadedExtensionSurface.component}
+          <ExtensionSurface />
+        {/if}
       {/if}
     </div>
   </div>
