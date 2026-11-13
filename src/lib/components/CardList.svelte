@@ -273,18 +273,20 @@
   });
 
   // Keyboard navigation must scroll the selected row into view, even when it
-  // is outside the currently rendered virtual window.
+  // is outside the currently rendered virtual window. Read DOM geometry here
+  // so scrolling and resizing do not retrigger selection-driven scrolling.
   $effect(() => {
     const selectedId = editorState.selectedId;
     const container = tableContainer;
     if (selectedId === null || !container) return;
     const index = pageCards.findIndex((card) => card.code === selectedId);
     if (index < 0) return;
-    const viewport = tableViewportHeight || container.clientHeight;
+    const viewport = container.clientHeight;
+    const scrollTop = container.scrollTop;
     const rowTop = index * VIRTUAL_ROW_HEIGHT;
-    if (rowTop < tableScrollTop) {
+    if (rowTop < scrollTop) {
       container.scrollTop = rowTop;
-    } else if (rowTop + VIRTUAL_ROW_HEIGHT > tableScrollTop + viewport) {
+    } else if (rowTop + VIRTUAL_ROW_HEIGHT > scrollTop + viewport) {
       container.scrollTop = rowTop + VIRTUAL_ROW_HEIGHT - viewport;
     }
   });
