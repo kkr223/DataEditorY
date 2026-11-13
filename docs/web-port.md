@@ -456,6 +456,19 @@ vfs://<workspaceId>/
 - `adapter-static` 已在用；`paths.base` 按部署环境配置（GitHub Pages 子路径）。
 - 所有资源引用改为相对 `base` 的路径，排查 `fetch('/resources/...')` 这类绝对路径。
 
+### 4.14.1 关于直接双击 `file:///.../index.html`
+
+**不支持。** SvelteKit 的客户端产物是 ES module，浏览器在 `file://` 下会按 CORS 规则拒绝加载 `/_app/...` 模块（Chrome 报 `已拦截跨源请求`），这是浏览器安全模型，不是应用后端问题。Worker、wasm 和 `fetch()` 同样受限。
+
+本地查看请用静态文件服务器（只做文件分发，不包含任何后端逻辑）：
+
+```bash
+bun run build:web
+bun run preview:web      # http://127.0.0.1:43133/
+```
+
+任意静态托管（GitHub Pages、Cloudflare Pages、Nginx）效果相同。手机端请使用托管地址并“添加到主屏幕”，不要通过文件管理器打开本地 html。
+
 ### 4.15 安全与隐私
 
 - 所有数据只存在用户本机浏览器存储中，不上传。
