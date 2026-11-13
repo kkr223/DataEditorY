@@ -7,14 +7,11 @@ import type {
   HostOpenOptions,
   HostSaveOptions,
 } from './types.ts';
+import { WebFileStore } from './webFiles.ts';
+import { indexedDbFiles } from './webFilePersistence.ts';
 
 const SETTINGS_KEY = 'dataeditory.web.settings';
-const fileStore = new Map<string, Uint8Array>();
-let importSequence = 0;
-
-function storeBytes(path: string, bytes: Uint8Array) {
-  fileStore.set(path, bytes);
-}
+const fileStore = new WebFileStore(() => localStorage, indexedDbFiles);
 
 function fileExtensionFilters(options?: HostOpenOptions) {
   const extensions = options?.filters?.flatMap((filter) => filter.extensions) ?? [];
@@ -22,9 +19,7 @@ function fileExtensionFilters(options?: HostOpenOptions) {
 }
 
 async function importFile(file: File) {
-  const path = `vfs://imports/${++importSequence}/${file.name}`;
-  storeBytes(path, new Uint8Array(await file.arrayBuffer()));
-  return path;
+  return fileStore.import(file);
 }
 
 function pickFiles(options?: HostOpenOptions): Promise<string | string[] | null> {
@@ -171,14 +166,15 @@ export const webHost: HostAdapter = {
 
   metadata: {
     load: async (cdbPath) => {
+      const id = await fileStore.workspaceId(cdbPath);
       try {
-        return JSON.parse(localStorage.getItem(`dataeditory.web.workspace.${encodeURIComponent(cdbPath)}`) ?? 'null')
-          ?? { version: 1, cdbPath };
+        const saved = JSON.parse(localStorage.getItem(`dataeditory.web.workspace.${id}`) ?? 'null');
+        return { ...(saved ?? {}), version: 1, cdbPath };
       } catch {
         return { version: 1, cdbPath };
       }
     },
-    save: async (cdbPath, metadata, sourceCdbPath) => {
+    save: async (cdbPath, metadata) => {
       const base = metadata && typeof metadata === 'object' ? metadata as Record<string, unknown> : {};
       const next = {
         ...base,
@@ -186,30 +182,24 @@ export const webHost: HostAdapter = {
         cdbPath,
         updatedAt: new Date().toISOString(),
       };
-      localStorage.setItem(`dataeditory.web.workspace.${encodeURIComponent(cdbPath)}`, JSON.stringify(next));
-      if (sourceCdbPath && sourceCdbPath !== cdbPath) {
-        localStorage.removeItem(`dataeditory.web.workspace.${encodeURIComponent(sourceCdbPath)}`);
-      }
+      const id = await fileStore.workspaceId(cdbPath);
+      localStorage.setItem(`dataeditory.web.workspace.${id}`, JSON.stringify(next));
       return next;
     },
   },
 
   fs: {
-    readBinary: async (path) => {
-      const bytes = fileStore.get(path);
-      if (!bytes) throw new Error(`File is not available: ${path}`);
-      return bytes;
-    },
+    readBinary: async (path) => fileStore.read(path),
     readText: async (path) => new TextDecoder().decode(await webHost.fs.readBinary(path)),
     writeBinary: async (path, data) => {
-      storeBytes(path, data);
+      await fileStore.write(path, data);
       if (path.startsWith('vfs://exports/') || path.startsWith('vfs://imports/')) download(path, data);
     },
     writeText: async (path, content) => {
       await webHost.fs.writeBinary(path, new TextEncoder().encode(content));
     },
-    exists: async (path) => fileStore.has(path),
-    listDirectory: async (path) => [...fileStore.keys()].filter((key) => key.startsWith(path)),
+    exists: async (path) => fileStore.exists(path),
+    listDirectory: async (path) => fileStore.list(path),
   },
 
   errorLog: {

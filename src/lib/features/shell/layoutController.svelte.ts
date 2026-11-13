@@ -1,4 +1,5 @@
 import { host } from '#lib/platform/host/index.ts';
+import { basename } from '#lib/core/path.ts';
 import { handleCopySelection, handlePasteSelection, handleDeleteSelection } from '#lib/features/card-editor/selectionActions.ts';
 import { handleCreateAlternateArtwork } from '#lib/features/card-editor/alternateArtwork.ts';
 import { handleTextContextMenu } from '#lib/features/context-menu/textMenu.ts';
@@ -145,6 +146,15 @@ export function createShellLayoutController() {
   }
 
   async function handleOpenRecent(path: string) {
+    if (host.kind === 'web' && !await host.fs.exists(path)) {
+      showToast(String(get(_)('nav.open_recent_reimport')), 'info');
+      const reopenedId = await openDbWorkspace();
+      const reopened = reopenedId ? documentRuntime.getDocument(reopenedId) : null;
+      if (reopened?.title === basename(path) && reopened.source?.uri !== path) {
+        removeRecentCdbHistoryEntry(path);
+      }
+      return;
+    }
     const openedId = await openCdbHistoryEntry(path);
     if (!openedId) {
       showToast(String(get(_)('nav.open_recent_failed')), 'error');

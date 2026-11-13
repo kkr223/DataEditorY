@@ -7,6 +7,7 @@
     "open_recent_empty": "还没有最近打开的 cdb 记录",
     "open_recent_remove": "从历史记录删除",
     "open_recent_failed": "打开历史记录失败",
+    "open_recent_reimport": "此记录的浏览器文件快照已失效，请重新选择 CDB 文件。",
     "save": "保存",
     "save_as": "另存为",
     "close": "关闭",

@@ -7,6 +7,7 @@
     "open_recent_empty": "No recent CDB history yet",
     "open_recent_remove": "Remove from recent history",
     "open_recent_failed": "Failed to open the recent CDB entry",
+    "open_recent_reimport": "The browser snapshot for this entry is unavailable. Please select the CDB file again.",
     "save": "Save",
     "save_as": "Save As",
     "close": "Close",
