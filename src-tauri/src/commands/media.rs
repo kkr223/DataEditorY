@@ -3,8 +3,9 @@ use tauri::AppHandle;
 use crate::services;
 
 #[tauri::command(async)]
-pub(crate) fn read_cdb(path: String) -> Result<Vec<u8>, String> {
-    services::media::read_cdb(path)
+pub(crate) fn read_binary_file(path: String) -> Result<tauri::ipc::Response, String> {
+    let bytes = services::media::read_binary_file(path)?;
+    Ok(tauri::ipc::Response::new(bytes))
 }
 
 #[tauri::command(async)]
@@ -12,9 +13,29 @@ pub(crate) fn read_text_file(path: String) -> Result<String, String> {
     services::media::read_text_file(path)
 }
 
+/// Writes a file from a raw IPC body framed as:
+/// `[u32 little-endian path length][utf-8 path][file bytes]`.
 #[tauri::command(async)]
-pub(crate) fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
-    services::media::write_file(path, data)
+pub(crate) fn write_binary_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(body) = request.body() else {
+        return Err("write_binary_file expects a raw request body".to_string());
+    };
+    if body.len() < 4 {
+        return Err("write_binary_file body is too short".to_string());
+    }
+    let path_length = u32::from_le_bytes(
+        body[..4]
+            .try_into()
+            .map_err(|_| "Invalid path length".to_string())?,
+    ) as usize;
+    let data_start = 4_usize
+        .checked_add(path_length)
+        .filter(|start| *start <= body.len())
+        .ok_or_else(|| "Invalid path length".to_string())?;
+    let path = std::str::from_utf8(&body[4..data_start])
+        .map_err(|err| format!("Invalid path encoding: {err}"))?
+        .to_string();
+    services::media::write_file(path, body[data_start..].to_vec())
 }
 
 #[tauri::command(async)]
@@ -45,11 +66,6 @@ pub(crate) fn read_lua_helper_scripts(
 #[tauri::command(async)]
 pub(crate) fn read_builtin_lua_helper_scripts() -> Vec<services::media::LuaHelperScript> {
     services::media::read_builtin_lua_helper_scripts()
-}
-
-#[tauri::command(async)]
-pub(crate) fn read_image(path: String) -> Result<Vec<u8>, String> {
-    services::media::read_image(path)
 }
 
 #[tauri::command(async)]

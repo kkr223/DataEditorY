@@ -86,7 +86,7 @@ async function safeExists(path: string) {
 }
 
 async function readCdbs(cdbPath: string) {
-  return [new Uint8Array(await readCdbFile(cdbPath))];
+  return [await readCdbFile(cdbPath)];
 }
 
 async function scriptDirs(input: ScriptTestRunInput) {

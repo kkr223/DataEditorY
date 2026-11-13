@@ -204,7 +204,7 @@ export async function openScriptExternallyFlow(input: {
 }
 
 async function blobToUint8Array(blob: Blob) {
-  return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  return new Uint8Array(await blob.arrayBuffer());
 }
 
 export type ScriptImageRenderInfo = {

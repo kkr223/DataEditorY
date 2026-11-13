@@ -87,21 +87,36 @@ export async function importCardImageFile(input: {
   return invokeCommand('import_card_image', input);
 }
 
-export async function writeBinaryFile(path: string, data: number[]) {
-  return invokeCommand('write_file', { path, data });
+export async function writeBinaryFile(path: string, data: Uint8Array) {
+  return invokeCommand('write_binary_file', frameBinaryRequest(path, data));
 }
 
-export async function readCdbFile(path: string) {
-  return invokeCommand<number[]>('read_cdb', { path });
+/** Frames `[u32 path byte length][path utf-8][data]` for raw IPC commands. */
+function frameBinaryRequest(path: string, data: Uint8Array) {
+  const pathBytes = new TextEncoder().encode(path);
+  const payload = new Uint8Array(4 + pathBytes.length + data.length);
+  new DataView(payload.buffer).setUint32(0, pathBytes.length, true);
+  payload.set(pathBytes, 4);
+  payload.set(data, 4 + pathBytes.length);
+  return payload;
 }
 
-export async function readImageFile(path: string) {
-  return invokeCommand<number[]>('read_image', { path });
+export async function readBinaryFile(path: string) {
+  const buffer = await invokeCommand<ArrayBuffer>('read_binary_file', { path });
+  return new Uint8Array(buffer);
+}
+
+export function readCdbFile(path: string) {
+  return readBinaryFile(path);
+}
+
+export function readImageFile(path: string) {
+  return readBinaryFile(path);
 }
 
 export async function writeTextFile(path: string, content: string) {
   const encoder = new TextEncoder();
-  return invokeCommand('write_file', { path, data: Array.from(encoder.encode(content)) });
+  return writeBinaryFile(path, encoder.encode(content));
 }
 
 export async function readTextFile(path: string) {

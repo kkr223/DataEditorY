@@ -172,7 +172,7 @@ import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftW
           outputDir,
           `${baseName}-${String(index + 1).padStart(2, '0')}.png`,
         );
-        await writeBinaryFile(outputPath, Array.from(new Uint8Array(await blob.arrayBuffer())));
+        await writeBinaryFile(outputPath, new Uint8Array(await blob.arrayBuffer()));
         progress = { current: index + 1, total: pages.length };
       }
       if (firstPageBlob) await writeImageBlobToClipboard(firstPageBlob);

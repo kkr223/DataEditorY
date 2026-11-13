@@ -153,7 +153,7 @@ pub fn media_protocol_name() -> &'static str {
     MEDIA_PROTOCOL_NAME
 }
 
-pub fn read_cdb(path: String) -> Result<Vec<u8>, String> {
+pub fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
     fs::read(&path).map_err(|err| err.to_string())
 }
 
@@ -343,10 +343,6 @@ pub fn read_builtin_lua_helper_scripts() -> Vec<LuaHelperScript> {
             content: content.replace("\r\n", "\n"),
         })
         .collect()
-}
-
-pub fn read_image(path: String) -> Result<Vec<u8>, String> {
-    fs::read(&path).map_err(|err| err.to_string())
 }
 
 pub fn import_card_image(

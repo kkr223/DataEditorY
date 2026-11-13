@@ -2166,7 +2166,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       if (!targetPath) return;
 
       const bytes = await blobToUint8Array(pngBlob);
-      await writeBinaryFile(targetPath, Array.from(bytes));
+      await writeBinaryFile(targetPath, bytes);
       showToast(t('editor.card_image_download_success'), 'success');
     } catch (error) {
       console.error('Failed to download generated card image', error);
@@ -2226,9 +2226,9 @@ export function createCardImageController(source: CardImageControllerSource) {
         fieldArtBytes = await blobToUint8Array(fieldArtBlob);
       }
 
-      await writeBinaryFile(picPath, Array.from(bytes));
+      await writeBinaryFile(picPath, bytes);
       if (fieldArtBytes) {
-        await writeBinaryFile(fieldPicPath, Array.from(fieldArtBytes));
+        await writeBinaryFile(fieldPicPath, fieldArtBytes);
       }
       await source.onSavedJpg();
       showToast(t('editor.card_image_save_jpg_success', {

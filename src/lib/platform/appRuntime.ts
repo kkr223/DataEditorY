@@ -14,11 +14,10 @@ const codecContext = {
     await writeTextFile(path, content);
   },
   async readBinary(path: string) {
-    const bytes = await readImageFile(path);
-    return new Uint8Array(bytes);
+    return readImageFile(path);
   },
   async writeBinary(path: string, content: Uint8Array) {
-    await writeBinaryFile(path, Array.from(content));
+    await writeBinaryFile(path, content);
   },
 };
 

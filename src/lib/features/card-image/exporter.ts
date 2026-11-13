@@ -288,9 +288,9 @@ export async function exportBatchCardImage(input: {
     const fieldBlob = await compressCardImageForExport(renderedField, 'jpg', maxSizeKb);
     fieldBytes = await blobToUint8Array(fieldBlob);
   }
-  await writeBinaryFile(outputPath, Array.from(bytes));
+  await writeBinaryFile(outputPath, bytes);
   if (fieldOutputPath && fieldBytes) {
-    await writeBinaryFile(fieldOutputPath, Array.from(fieldBytes));
+    await writeBinaryFile(fieldOutputPath, fieldBytes);
   }
 
   return { cardId: input.card.code, outputPath, fieldOutputPath } satisfies BatchCardImageExportResult;

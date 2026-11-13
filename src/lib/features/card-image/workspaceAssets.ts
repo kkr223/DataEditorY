@@ -33,7 +33,7 @@ export async function inlineWorkspaceCardImageAsset(cdbPath: string, value: stri
   const parsed = parseWorkspaceCardImageAssetReference(value);
   const path = parsed ? resolveWorkspaceCardImageAssetPath(cdbPath, value) : null;
   if (!parsed || !path) return value;
-  const blob = new Blob([new Uint8Array(await readImageFile(path))], { type: parsed.mimeType });
+  const blob = new Blob([await readImageFile(path)], { type: parsed.mimeType });
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ''));

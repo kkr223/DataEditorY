@@ -9,8 +9,8 @@ Tauri IPC Adapter — owns raw `invoke()` calls. UI code should not import this 
 ### Two IPC Protocols
 
 1. **Direct Commands** (`commands.ts`) — typed wrappers around `invokeCommand()` for specific Rust handlers:
-   - CDB operations: `readCdb`, `writeCdb`, `createCdbFromCards`, `analyzeCdbMerge`, `executeCdbMerge`, `collectMergeSourcesFromFolder`
-   - Media/FS: `readTextFile`, `writeFile`, `writeBinaryFile`, `pathExists`, `listImageFolderEntries`, `copyImage`, `readImage`, `importCardImage`, `loadStringsConf`
+   - CDB operations: `readBinaryFile`, `writeBinaryFile`, `createCdbFromCards`, `analyzeCdbMerge`, `executeCdbMerge`, `collectMergeSourcesFromFolder`
+   - Media/FS: `readTextFile`, `readBinaryFile`, `writeBinaryFile`, `pathExists`, `listImageFolderEntries`, `importCardImage`, `loadStringsConf`
    - Scripts: `getCardScriptInfo`, `readCardScriptDocument`, `writeCardScript`, `saveCardScript`
    - Settings: `loadAppSettings`, `saveAppSettings`, `loadSecretKey`, `setCoverImage`, `clearCoverImage`
    - Metadata/tasks/assets: workspace metadata, Lua replace, asset checks, and long-task helpers
@@ -23,7 +23,11 @@ Tauri IPC Adapter — owns raw `invoke()` calls. UI code should not import this 
 
 ### Bridge Object
 
-`index.ts` exports `tauriBridge` — a convenience object re-exporting Tauri plugin APIs (`ask`, `message`, `open`, `save`, `convertFileSrc`, `dirname`, `join`, `listen`, `resolveResource`).
+`index.ts` exports `tauriBridge` — a convenience object re-exporting Tauri plugin APIs (`ask`, `message`, `open`, `save`, `convertFileSrc`, `getCurrentWindow`, `dirname`, `join`, `listen`, `resolveResource`).
+
+### Binary IPC
+
+`read_binary_file` returns a raw `tauri::ipc::Response` and `write_binary_file` accepts a raw request body framed as `[u32 little-endian path length][utf-8 path][file bytes]`. Binary data never passes through JSON arrays.
 
 ## Files
 
