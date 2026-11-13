@@ -1,4 +1,5 @@
 import { showToast } from '#lib/stores/toast.svelte.ts';
+import { bundledResourceUrl } from '#lib/core/bundledResources.ts';
 import { loadPopularSetcodes } from '#lib/services/setcodeCatalog.ts';
 import { getSetcode } from '#lib/domain/card/setcode.ts';
 import { cloneEditableCard, cloneLoadedCardForEditing, createCardSnapshot } from '#lib/domain/card/draft.ts';
@@ -60,7 +61,7 @@ type CardEditorMountInput = {
 
 export function createCardEditorLifecycleController(input: CardEditorLifecycleControllerInput) {
   function getDefaultCoverSrc() {
-    return input.getCoverImageSrc() || '/resources/cover.jpg';
+    return input.getCoverImageSrc() || bundledResourceUrl('cover.jpg');
   }
 
   function syncSetcodesFromCard(card: CardDataEntry) {

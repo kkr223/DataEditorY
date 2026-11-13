@@ -458,16 +458,23 @@ vfs://<workspaceId>/
 
 ### 4.14.1 关于直接双击 `file:///.../index.html`
 
-**不支持。** SvelteKit 的客户端产物是 ES module，浏览器在 `file://` 下会按 CORS 规则拒绝加载 `/_app/...` 模块（Chrome 报 `已拦截跨源请求`），这是浏览器安全模型，不是应用后端问题。Worker、wasm 和 `fetch()` 同样受限。
+`build:web`（SvelteKit 产物）**不能**用 `file://` 打开：它由多个 ES module chunk 组成，浏览器在 `file://` 下按 CORS 规则拒绝加载 `/_app/...` 模块（Chrome 报 `已拦截跨源请求`），Worker、wasm 和 `fetch()` 同样受限。
 
-本地查看请用静态文件服务器（只做文件分发，不包含任何后端逻辑）：
+为此提供独立的单文件构建：
 
 ```bash
-bun run build:web
-bun run preview:web      # http://127.0.0.1:43133/
+bun run build:standalone   # 输出 build-standalone/index.html（约 2.2 MB）
 ```
 
-任意静态托管（GitHub Pages、Cloudflare Pages、Nginx）效果相同。手机端请使用托管地址并“添加到主屏幕”，不要通过文件管理器打开本地 html。
+`build-standalone/index.html` 可直接双击运行，也可拷到手机用浏览器打开。实现要点（`vite.standalone.config.js`）：
+
+- 不经过 SvelteKit 路由，`src/standalone/main.ts` 直接挂载 `routes/+layout.svelte` + `+page.svelte`；`$app/env` 用 shim 替换。
+- 关闭代码分割，JS/CSS 内联进 HTML，图片、字体、`sql-wasm.wasm` 全部转为 data URL；`sql.ts` 检测到 data URL 时直接以 `wasmBinary` 初始化。
+- CDB 宿主改用主线程 `platform/transport/inline.ts`（协议与 Worker 版一致），因为 `file://` 无法加载 module worker。
+- `static/resources` 访问统一经 `core/bundledResources.ts`；单文件构建换成 `bundledResources.standalone.ts`，strings 与封面在构建时内联。
+- 文本工作台（Monaco）在单文件构建中替换为空组件。
+
+代价：首屏需解析整个包；CDB 操作在主线程执行，超大 CDB 时界面可能短暂卡顿。托管部署仍推荐 `build:web` + `preview:web`/静态托管。
 
 ### 4.15 安全与隐私
 

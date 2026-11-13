@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { bundledResourceUrl } from "#lib/core/bundledResources.ts";
   import { registerCardDraftCommitter, registerCardDraftUndoReader } from "#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts";
   import { onDestroy, onMount, untrack } from "svelte";
   import { _ } from "svelte-i18n";
@@ -48,14 +49,14 @@
   let editorRoot = $state<HTMLDivElement | null>(null);
   let draftCard = $state<CardDataEntry>(initialDraftCard);
   let originalCardCode = $state<number | null>(null);
-  let imageSrc = $state<string>("/resources/cover.jpg");
+  let imageSrc = $state<string>(bundledResourceUrl("cover.jpg"));
   let setcodeHexes = $state<string[]>(["", "", "", ""]);
   let popularSetcodes = $state<{ value: string; label: string }[]>([]);
   let imageRequestToken = 0;
   let isImagePreviewOpen = $state(false);
   let lastSyncedSelectedId: number | null = null;
   let lastLoadedCardSnapshot = $state("");
-  let lastDefaultCoverSrc = $state("/resources/cover.jpg");
+  let lastDefaultCoverSrc = $state(bundledResourceUrl("cover.jpg"));
   let isKeyboardNavigating = $state(false);
   let isCommittingDraft = $state(false);
   let isDeleting = $state(false);

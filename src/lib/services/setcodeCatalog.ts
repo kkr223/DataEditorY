@@ -1,5 +1,6 @@
 import type { SelectOption } from '#lib/types/index.ts';
 import { loadStringsConfContent } from '#lib/native/assetApi.ts';
+import { fetchBundledText } from '#lib/core/bundledResources.ts';
 
 export type SetcodeOption = SelectOption<string> & { label: string };
 export type SetcodeCatalogLoadResult = {
@@ -70,12 +71,9 @@ async function resolveBundledStringsFiles() {
   let files = FALLBACK_STRINGS_FILES;
 
   try {
-    const manifestResponse = await fetch('/resources/strings/index.json');
-    if (manifestResponse.ok) {
-      const manifest = (await manifestResponse.json()) as StringsCatalogIndex;
-      if (Array.isArray(manifest.files) && manifest.files.length > 0) {
-        files = manifest.files.filter((value) => typeof value === 'string' && value.trim().length > 0);
-      }
+    const manifest = JSON.parse(await fetchBundledText('strings/index.json')) as StringsCatalogIndex;
+    if (Array.isArray(manifest.files) && manifest.files.length > 0) {
+      files = manifest.files.filter((value) => typeof value === 'string' && value.trim().length > 0);
     }
   } catch {
     // Keep the static fallback list when the manifest is unavailable.
@@ -89,11 +87,7 @@ async function readBundledStringsConf() {
   const contents = await Promise.all(
     files.map(async (file) => {
       const normalized = file.replace(/^[/\\]+/, '');
-      const response = await fetch(`/resources/strings/${normalized}`);
-      if (!response.ok) {
-        throw new Error(`Failed to load strings file ${normalized}: ${response.status}`);
-      }
-      return response.text();
+      return fetchBundledText(`strings/${normalized}`);
     }),
   );
 

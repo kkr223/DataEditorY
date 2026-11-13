@@ -12,6 +12,7 @@ pnpm-debug.log*
 # SvelteKit / Vite
 .svelte-kit/
 build/
+build-standalone/
 dist/
 /package/
 .vite/

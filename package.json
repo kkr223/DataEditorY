@@ -16,6 +16,7 @@
     "build:base": "node scripts/run-variant-build.mjs frontend base",
     "build:extra": "node scripts/run-variant-build.mjs frontend extra",
     "build:web": "node scripts/run-variant-build.mjs frontend web",
+    "build:standalone": "bun run build:lua-intel && vite build --config vite.standalone.config.js",
     "preview": "vite preview",
     "preview:web": "node scripts/preview-web.mjs",
     "check": "bun run build:lua-intel && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",

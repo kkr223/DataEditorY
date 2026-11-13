@@ -4,43 +4,9 @@
 // See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
 import adapter from "@sveltejs/adapter-static";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
-import { getBuildVariantConfig } from "./scripts/build-variant-config.mjs";
-
-const ACTIVE_MODULES_PATH = fileURLToPath(new URL("./src/lib/modules/active.ts", import.meta.url));
-const WEB_VARIANT_ALIASES = new Map([
-  [fileURLToPath(new URL("./src/lib/platform/host/index.ts", import.meta.url)), fileURLToPath(new URL("./src/lib/platform/host/web.ts", import.meta.url))],
-  [fileURLToPath(new URL("./src/lib/platform/transport/active.ts", import.meta.url)), fileURLToPath(new URL("./src/lib/platform/transport/worker.ts", import.meta.url))],
-]);
-const normalizeId = (/** @type {string} */ id) => id.split("?")[0].replaceAll("\\", "/").toLowerCase();
-
-/**
- * Points `src/lib/modules/active.ts` at the variant entry selected by
- * APP_VARIANT, so builds never rewrite tracked source files.
- * @returns {import("vite").Plugin}
- */
-function variantModulesPlugin() {
-  const variant = getBuildVariantConfig();
-  const activeId = normalizeId(ACTIVE_MODULES_PATH);
-  const variantEntry = fileURLToPath(new URL(`./src/lib/modules/${variant.key}.ts`, import.meta.url));
-  const aliases = variant.key === "web"
-    ? new Map([...WEB_VARIANT_ALIASES].map(([from, to]) => [normalizeId(from), to]))
-    : new Map();
-  return {
-    name: "dey-variant-modules",
-    enforce: "pre",
-    async resolveId(source, importer, options) {
-      if (!source.includes("active") && variant.key !== "web") return null;
-      const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
-      if (!resolved) return null;
-      const resolvedId = normalizeId(resolved.id);
-      if (resolvedId === activeId) return variantEntry;
-      return aliases.get(resolvedId) ?? null;
-    },
-  };
-}
+import { variantModulesPlugin } from "./scripts/vite-variant-plugin.mjs";
 
 const DEFAULT_DEV_HOST = "127.0.0.1";
 const DEFAULT_DEV_PORT = 43127;

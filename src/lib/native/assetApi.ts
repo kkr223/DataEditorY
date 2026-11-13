@@ -1,4 +1,5 @@
 import { host } from '#lib/platform/host/index.ts';
+import { fetchBundledText } from '#lib/core/bundledResources.ts';
 
 export type LuaHelperScript = {
   name: string;
@@ -57,9 +58,7 @@ export async function resolveResourceFile(relativePath: string) {
 
 export async function loadStringsConfContent() {
   if (host.kind === 'web') {
-    const response = await fetch('/resources/strings/strings.conf');
-    if (!response.ok) throw new Error(`Missing strings.conf (${response.status})`);
-    return response.text();
+    return fetchBundledText('strings/strings.conf');
   }
   return (await desktopCommands()).loadStringsConfContent();
 }

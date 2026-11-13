@@ -1,4 +1,5 @@
 import { host } from '#lib/platform/host/index.ts';
+import { bundledResourceUrl } from '#lib/core/bundledResources.ts';
 import { normalizeShortcutBindingMap } from '#lib/features/shortcuts/registry.ts';
 import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '#lib/features/ai/agentLimits.ts';
 import { DEFAULT_SCRIPT_EDITOR_FONT_SIZE, normalizeScriptEditorFontSize } from '#lib/features/script-editor/fontPreferences.ts';
@@ -25,7 +26,7 @@ export interface AppSettingsPayload {
   errorLogPath: string;
 }
 
-const DEFAULT_COVER_SRC = '/resources/cover.jpg';
+const DEFAULT_COVER_SRC = bundledResourceUrl('cover.jpg');
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_SCRIPT_TEMPLATE = '-- {name}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n';
 const LEGACY_DEFAULT_SCRIPT_TEMPLATE = '-- {卡名}\nlocal s,id,o=GetID()\nfunction s.initial_effect(c)\n\nend\n';
