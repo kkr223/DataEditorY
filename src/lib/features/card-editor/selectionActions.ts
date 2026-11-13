@@ -1,10 +1,10 @@
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
+import { host } from '#lib/platform/host/index.ts';
 import { activeTabId, getCardsByIdsInTab, isDbLoaded, modifyCardsInTab, refreshSearchAfterMutation } from '#lib/stores/db.ts';
 import { getCardClipboard, hasCardClipboard, setCardClipboard } from '#lib/stores/cardClipboard.svelte.ts';
 import { clearSelection, editorState, getAllCardsMap, getSelectedCardIds, getSelectedCards, handleSearch, setSelectedCards } from '#lib/stores/editor.svelte.ts';
 import { showToast } from '#lib/stores/toast.svelte.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { deleteDraftCardFlow } from '#lib/features/card-editor/useCases.ts';
 import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
 import { dispatchAppShortcut } from '#lib/utils/shortcuts.ts';
@@ -36,7 +36,7 @@ export async function handlePasteSelection(mutationTabId = get(activeTabId)) {
   if (!(await commitWorkspaceCardDraft(mutationTabId))) return;
   const conflictingCards = await getCardsByIdsInTab(mutationTabId, clipboardCards.map((card) => card.code));
   if (conflictingCards.length > 0) {
-    const shouldOverwrite = await tauriBridge.ask(
+    const shouldOverwrite = await host.dialogs.confirm(
       String(get(_)('editor.paste_conflict_confirm', {
         values: { count: String(conflictingCards.length) },
       } as never)),

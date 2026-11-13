@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
+import { host } from '#lib/platform/host/index.ts';
 import type { CardDataEntry } from '#lib/types/index.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import {
   activeTabId,
   getCardsByIdsInTab,
@@ -26,7 +26,7 @@ export async function pickCardImageFlow(input: {
   const targetCode = getValidatedCardCode(input.draftCard, input.t);
   if (!targetCode) return;
 
-  const selected = await tauriBridge.open({
+  const selected = await host.dialogs.open({
     multiple: false,
     filters: [{ name: 'Images', extensions: ['jpg', 'png', 'jpeg'] }],
   });
@@ -63,7 +63,7 @@ export async function saveParsedCardsIndividuallyFlow(input: {
 
   const conflicts = await getCardsByIdsInTab(mutationTabId, validCards.map((card) => Number(card.code)));
   if (conflicts.length > 0) {
-    const shouldOverwrite = await tauriBridge.ask(
+    const shouldOverwrite = await host.dialogs.confirm(
       input.t('editor.ai_parse_multi_overwrite_confirm', {
         values: { count: String(conflicts.length) },
       }),

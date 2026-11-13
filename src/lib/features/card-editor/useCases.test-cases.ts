@@ -16,8 +16,8 @@ let targetCard: CardDataEntry | undefined;
 let queryError: Error | undefined;
 let questions: string[] = [];
 let mutate = async () => true;
-mock.module('#lib/infrastructure/tauri/index.ts', () => ({
-  tauriBridge: { ask: async (question: string) => { questions.push(question); return confirmed; } }, invokeCommand: async () => undefined,
+mock.module('#lib/platform/host/index.ts', () => ({
+  host: { kind: 'tauri', dialogs: { confirm: async (question: string) => { questions.push(question); return confirmed; } } },
 }));
 mock.module('#lib/stores/db.ts', () => ({
   activeTabId: activeId,

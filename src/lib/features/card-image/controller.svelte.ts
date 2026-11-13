@@ -1,11 +1,11 @@
 import { compressCardImageForExport } from './exportCompression';
+import { host } from '#lib/platform/host/index.ts';
 import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
 import { onDestroy, tick } from 'svelte';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import type { CardDataEntry } from '#lib/types/index.ts';
 import { showToast } from '#lib/stores/toast.svelte.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { join } from '#lib/core/path.ts';
 import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from '#lib/native/assetApi.ts';
 import { getPicsDir } from '#lib/services/cardImageService.ts';
@@ -251,12 +251,12 @@ export function createCardImageController(source: CardImageControllerSource) {
   }
 
   async function getResourcePath() {
-    if (!tauriBridge.isTauri()) {
+    if (host.kind !== 'tauri') {
       return `${window.location.origin}/resources/yugioh-card`;
     }
 
     if (!resourcePathPromise) {
-      resourcePathPromise = tauriBridge.resolveResource('resources/yugioh-card')
+      resourcePathPromise = host.media.resolveResource('resources/yugioh-card')
         .then((path) => toMediaProtocolSrc(path))
         .catch((error) => {
           console.error('Failed to resolve yugioh-card resource path', error);
@@ -805,12 +805,12 @@ export function createCardImageController(source: CardImageControllerSource) {
 
   async function handleConfigImport() {
     const isCurrent = operations.begin('import');
-    if (!tauriBridge.isTauri()) {
+    if (host.kind !== 'tauri') {
       openConfigFilePicker();
       return;
     }
 
-    const selected = await tauriBridge.open({
+    const selected = await host.dialogs.open({
       multiple: false,
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });
@@ -863,8 +863,8 @@ export function createCardImageController(source: CardImageControllerSource) {
         }),
       });
 
-      if (tauriBridge.isTauri()) {
-        const targetPath = await tauriBridge.save({
+      if (host.kind === 'tauri') {
+        const targetPath = await host.dialogs.save({
           defaultPath: getConfigFileName(),
           filters: [{ name: 'JSON', extensions: ['json'] }],
         });
@@ -1839,7 +1839,7 @@ export function createCardImageController(source: CardImageControllerSource) {
           language: state.form.language,
           font: state.form.font,
           resourcePath: state.resolvedResourcePath,
-          isTauri: tauriBridge.isTauri(),
+          isTauri: host.kind === 'tauri',
         },
       });
       state.errorMessage = t('editor.card_image_generate_failed');
@@ -2159,7 +2159,7 @@ export function createCardImageController(source: CardImageControllerSource) {
       const renderedPng = await renderCardBlob(buildPngData(), 'png');
       const pngBlob = await compressCardImageForExport(renderedPng, 'png', maxSizeKb);
 
-      const targetPath = await tauriBridge.save({
+      const targetPath = await host.dialogs.save({
         defaultPath: `${state.form.password || card.code || 'card'}.png`,
         filters: [{ name: 'PNG', extensions: ['png'] }],
       });
@@ -2204,7 +2204,7 @@ export function createCardImageController(source: CardImageControllerSource) {
 
       let shouldOverwrite = true;
       if (await pathExists(picPath)) {
-        shouldOverwrite = await tauriBridge.ask(t('editor.card_image_save_jpg_overwrite_confirm', {
+        shouldOverwrite = await host.dialogs.confirm(t('editor.card_image_save_jpg_overwrite_confirm', {
           values: { code: String(card.code) },
         }), {
           title: t('editor.card_image_save_jpg_overwrite_title'),

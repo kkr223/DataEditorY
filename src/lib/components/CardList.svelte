@@ -2,9 +2,9 @@
   import { openCardMenu } from "#lib/features/context-menu/cardMenu.ts";
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
+  import { host } from '#lib/platform/host/index.ts';
   import { isDbLoaded } from '#lib/stores/db.ts';
   import { readTextFile } from '#lib/native/assetApi.ts';
-  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
   import {
     clearSearchError,
     editorState,
@@ -164,7 +164,7 @@
   }
 
   async function pickImageFolder() {
-    const selected = await tauriBridge.open({
+    const selected = await host.dialogs.open({
       directory: true,
       multiple: false,
     });
@@ -177,7 +177,7 @@
   }
 
   async function importDeckText() {
-    const selected = await tauriBridge.open({
+    const selected = await host.dialogs.open({
       multiple: false,
       filters: [
         { name: 'YDK / Text', extensions: ['ydk', 'txt'] },

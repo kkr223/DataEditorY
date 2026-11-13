@@ -1,6 +1,6 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import { activeTab } from '#lib/stores/db.ts';
 import { activeScriptTab } from '#lib/stores/scriptEditor.svelte.ts';
 import { appShellState } from '#lib/stores/appShell.svelte.ts';
@@ -52,7 +52,7 @@ export function createPackageController(
       && getCdbPathIdentity(activeScriptTabState.current.cdbPath) === getCdbPathIdentity(targetCdbPath)
       && activeScriptWorkspace?.dirty
     ) {
-      const confirmed = await tauriBridge.ask(t('editor.package_zip_unsaved_script_confirm'), {
+      const confirmed = await host.dialogs.confirm(t('editor.package_zip_unsaved_script_confirm'), {
         title: t('editor.package_zip_unsaved_title'),
         kind: 'warning',
       });
@@ -72,7 +72,7 @@ export function createPackageController(
     ) ?? null;
 
     if (sourceWorkspace?.dirty) {
-      const confirmed = await tauriBridge.ask(
+      const confirmed = await host.dialogs.confirm(
         t('editor.package_zip_unsaved_cdb_confirm', {
           values: { name: sourceWorkspace.title },
         }),
@@ -120,7 +120,7 @@ export function createPackageController(
       return;
     }
 
-    const outputPath = await tauriBridge.save({
+    const outputPath = await host.dialogs.save({
       defaultPath: cdbPath.replace(/\.cdb$/i, `.${format}`),
       filters: [{ name: format.toUpperCase(), extensions: [format] }],
     });

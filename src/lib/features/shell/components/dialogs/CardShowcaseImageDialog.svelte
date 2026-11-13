@@ -1,6 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
+  import { host } from '#lib/platform/host/index.ts';
   import { activeTab } from '#lib/stores/db.ts';
   import { getSelectedCardIds } from '#lib/stores/editor.svelte.ts';
   import { getAllCardsInTab, getCardsByIdsInTab } from '#lib/stores/cardOperations.ts';
@@ -10,7 +11,6 @@
   import { ATTRIBUTE_OPTIONS, RACE_OPTIONS, SUBTYPE_MAP, TYPE_MAP } from '#lib/domain/card/taxonomy.ts';
   import { getPicsDir, resolveCardImageSrcFromPicsDir } from '#lib/services/cardImageService.ts';
   import { writeBinaryFile } from '#lib/native/assetApi.ts';
-  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { fileStem, join } from '#lib/core/path.ts';
 import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
   import { showToast } from '#lib/stores/toast.svelte.ts';
@@ -115,7 +115,7 @@ import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftW
   }
 
   async function pickOutputDir() {
-    const selected = await tauriBridge.open({
+    const selected = await host.dialogs.open({
       directory: true,
       multiple: false,
       title: $_('showcase_image.pick_output_dir') as string,

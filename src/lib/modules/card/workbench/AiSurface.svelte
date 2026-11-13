@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+  import { host } from '#lib/platform/host/index.ts';
   import { activeTab } from '#lib/stores/db.ts';
   import { showToast } from '#lib/stores/toast.svelte.ts';
   import { createAiAppContext } from '#lib/features/ai/context.ts';
@@ -141,7 +141,7 @@
 
   async function removeThread(thread: ReturnType<typeof getAiThreads>[number], event: MouseEvent) {
     event.stopPropagation();
-    const ok = await tauriBridge.ask(
+    const ok = await host.dialogs.confirm(
       $_('surface.ai_delete_thread_confirm', { values: { title: thread.title } }),
       { title: $_('surface.ai_title'), kind: 'warning' },
     );
@@ -562,7 +562,7 @@
 
   const proposalApplier = createAiProposalApplier({
     applyPatch: createAiPatchApplier({
-      confirmConflict: () => tauriBridge.ask($_('surface.ai_before_mismatch_confirm'), {
+      confirmConflict: () => host.dialogs.confirm($_('surface.ai_before_mismatch_confirm'), {
         title: $_('surface.ai_title'), kind: 'warning',
       }),
       undoLabel: () => $_('surface.ai_title'),

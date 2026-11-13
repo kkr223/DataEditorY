@@ -1,7 +1,7 @@
 import { compressCardImageForExport } from './exportCompression';
+import { host } from '#lib/platform/host/index.ts';
 import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
 import type { CardDataEntry } from '#lib/types/index.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { join } from '#lib/core/path.ts';
 import { pathExists, writeBinaryFile } from '#lib/native/assetApi.ts';
 import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
@@ -66,12 +66,12 @@ async function getYugiohCardConstructor(): Promise<YugiohCardConstructor> {
 }
 
 async function getResourcePath() {
-  if (!tauriBridge.isTauri()) {
+  if (host.kind !== 'tauri') {
     return `${window.location.origin}/resources/yugioh-card`;
   }
 
   if (!resourcePathPromise) {
-    resourcePathPromise = tauriBridge.resolveResource('resources/yugioh-card')
+    resourcePathPromise = host.media.resolveResource('resources/yugioh-card')
       .then((path) => toMediaProtocolSrc(path))
       .catch((error) => {
         console.error('Failed to resolve yugioh-card resource path', error);

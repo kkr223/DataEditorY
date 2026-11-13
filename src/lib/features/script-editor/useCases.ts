@@ -1,5 +1,5 @@
+import { host } from '#lib/platform/host/index.ts';
 import type { CardDataEntry, ScriptWorkspaceState } from '#lib/types/index.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { getCardByIdInTab, modifyCardsInTab } from '#lib/stores/db.ts';
 import { reloadScriptTab, saveScriptTab } from '#lib/stores/scriptEditor.svelte.ts';
 import { showToast } from '#lib/stores/toast.svelte.ts';
@@ -146,7 +146,7 @@ export async function reloadScriptEditorFlow(input: {
   }
 
   if (tab.isDirty) {
-    const confirmed = await tauriBridge.ask(input.t('editor.script_reload_confirm'), {
+    const confirmed = await host.dialogs.confirm(input.t('editor.script_reload_confirm'), {
       title: input.t('editor.script_reload_title'),
       kind: 'warning',
     });

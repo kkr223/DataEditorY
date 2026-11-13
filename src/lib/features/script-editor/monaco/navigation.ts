@@ -7,7 +7,6 @@ import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
 import { showToast } from '#lib/stores/toast.svelte.ts';
 import { pathExists } from '#lib/native/assetApi.ts';
 import { getCardScriptInfo } from '#lib/native/scriptApi.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { findLuaNavigationTarget, getLuaLoadScriptLinks } from '../lua/navigation';
 import { dirname, join } from '#lib/core/path.ts';
 import type { LuaSemanticDocument } from '../lua/semantic';

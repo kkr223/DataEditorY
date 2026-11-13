@@ -11,8 +11,9 @@ let failField = false;
 let limits: number[] = [];
 let removedHosts = 0;
 mock.module('#lib/stores/appSettings.svelte.ts', () => ({ appSettingsState: { values: { cardImageMaxSizeKb: 250 } } }));
-mock.module('#lib/infrastructure/tauri/index.ts', () => ({ tauriBridge: {
-  isTauri: () => false, join: async (...parts: string[]) => parts.join('/'),
+mock.module('#lib/platform/host/index.ts', () => ({ host: {
+  kind: 'web',
+  media: { resolveResource: async (path: string) => path },
 } }));
 mock.module('#lib/native/assetApi.ts', () => ({
   readImageFile: async () => [],

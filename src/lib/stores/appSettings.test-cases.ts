@@ -22,6 +22,24 @@ mock.module('#lib/infrastructure/tauri/index.ts', () => ({
     return { ...savedSettings };
   },
 }));
+mock.module('#lib/platform/host/index.ts', () => ({
+  host: {
+    kind: 'web',
+    settings: {
+      load: async () => ({ ...savedSettings }),
+      save: async (request: Record<string, unknown>) => {
+        if (request.clearSecretKey) storedKey = null;
+        if (typeof request.secretKey === 'string' && request.secretKey.trim()) storedKey = request.secretKey.trim();
+        savedSettings = { ...savedSettings, ...request, hasSecretKey: Boolean(storedKey) };
+        return { ...savedSettings };
+      },
+      loadSecretKey: async () => storedKey,
+      setCoverImage: async () => '',
+      clearCoverImage: async () => {},
+    },
+    errorLog: { append: async () => null },
+  },
+}));
 mock.module('#lib/stores/editor.svelte.ts', () => ({ getSelectedCards: () => [] }));
 mock.module('#lib/native/assetApi.ts', () => ({
   readTextFile: async () => '', writeTextFile: async () => {}, pathExists: async () => false,

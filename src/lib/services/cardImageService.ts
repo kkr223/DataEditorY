@@ -1,4 +1,4 @@
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import { importCardImageFile, readImageFile } from '#lib/native/assetApi.ts';
 import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 import { dirname, join } from '#lib/core/path.ts';
@@ -30,7 +30,7 @@ export async function resolveCardImageSrcFromPicsDir(
 ) {
   const picPath = cardImagePathFromPicsDir(picsDir, code);
 
-  if (bustCache && tauriBridge.isTauri()) {
+  if (bustCache && host.kind === 'tauri') {
     try {
       return cardImageBytesToDataUrl(await readImageFile(picPath));
     } catch {

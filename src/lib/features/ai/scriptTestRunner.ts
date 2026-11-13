@@ -1,4 +1,3 @@
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { dirname, join, basename } from '#lib/core/path.ts';
 import {
   pathExists,

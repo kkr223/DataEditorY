@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import { host } from '#lib/platform/host/index.ts';
   import { documentRuntime } from '#lib/platform/appRuntime.ts';
   import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
   import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
@@ -12,7 +13,6 @@
   import { getCardsByIdsInTab } from '#lib/stores/cardOperations.ts';
   import { parseCachedFiltersJson, queryCardsByFiltersInTab } from '#lib/stores/search.ts';
   import { showToast } from '#lib/stores/toast.svelte.ts';
-  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
   import type { CardDataEntry } from '#lib/types/index.ts';
   import {
     CARD_IMAGE_COPYRIGHT_OPTIONS,
@@ -163,7 +163,7 @@
   }
 
   async function pickArtDir() {
-    const selected = await tauriBridge.open({
+    const selected = await host.dialogs.open({
       directory: true,
       multiple: false,
       title: $_('batch_image_export.pick_art_dir') as string,
@@ -175,7 +175,7 @@
   }
 
   async function pickOutputDir() {
-    const selected = await tauriBridge.open({
+    const selected = await host.dialogs.open({
       directory: true,
       multiple: false,
       title: $_('batch_image_export.pick_output_dir') as string,
@@ -265,7 +265,7 @@
     let skipped = 0;
     let failed = 0;
     try {
-      const confirmed = await tauriBridge.ask(
+      const confirmed = await host.dialogs.confirm(
         $_('batch_image_export.confirm_message', {
           values: { count: String(matched.length), missing: String(plan.missingCount) },
         }) as string,

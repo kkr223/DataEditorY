@@ -19,7 +19,7 @@ mock.module('#lib/native/assetApi.ts', () => ({
   writeTextFile: (path: string, content: string) => write(path, content),
 }));
 mock.module('svelte-i18n', () => ({ _: writable((key: string) => key) }));
-mock.module('#lib/infrastructure/tauri/index.ts', () => ({ tauriBridge: {} }));
+mock.module('#lib/platform/host/index.ts', () => ({ host: { kind: 'tauri', dialogs: { open: async () => null, save: async () => null, confirm: async () => true, message: async () => {} } } }));
 mock.module('#lib/stores/appShell.svelte.ts', () => ({ activateTextView() {}, activateEditorView() {} }));
 mock.module('#lib/stores/toast.svelte.ts', () => ({ showToast() {} }));
 const texts = await import('./textEditor.svelte');

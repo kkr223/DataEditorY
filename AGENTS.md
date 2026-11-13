@@ -23,5 +23,6 @@ For deep work on a specific folder, also read that folder's `codemap.md`.
 - **CDB encoding**: CDB read/write and export paths must use `ygopro-cdb-encode-rs` / `cdb-encoder-rs` through the repository and session layers. Do not reimplement the CDB format in app code.
 - **Workspace metadata**: Editor-only state belongs in `.dey/{cdb-stem}.workspace.json` beside the CDB. Do not store card facts, script file contents, image binaries, API keys, or large caches in `.dey`.
 - **Native API boundary**: Frontend code should call typed APIs in `src/lib/native/` instead of scattered direct `invoke()` calls. CDB card CRUD still routes through the document host protocol.
+- **Platform host boundary**: Dialogs, window control, application events, settings storage, and error logging go through `src/lib/platform/host/` (`HostAdapter`). Only `src/lib/infrastructure/tauri/` may import `@tauri-apps/*`.
 - **AI boundary**: AI is a workspace-level surface. AI actions create auditable proposals with context/tool summaries; they must not directly write CDB data, scripts, or image metadata before user confirmation.
 - **Generated files**: `src/lib/data/lua-intel/catalog.generated.ts` is auto-generated from `static/resources/`. Edit the source files, not the generated output.

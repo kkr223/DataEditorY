@@ -1,6 +1,6 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import { copyCardAssets } from '#lib/native/assetApi.ts';
 import { createCdbFromCards } from '#lib/native/cdbApi.ts';
 import {
@@ -60,7 +60,7 @@ export function createFilterCdbController(state: FilterCdbDialogState) {
         return;
       }
 
-      const outputPath = await tauriBridge.save({
+      const outputPath = await host.dialogs.save({
         title: t('editor.create_filtered_cdb_title'),
         defaultPath: sourceCdbPath.replace(/\.cdb$/i, '-filtered.cdb'),
         filters: [{ name: 'YGOPro CDB Database', extensions: ['cdb'] }],

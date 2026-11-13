@@ -25,7 +25,7 @@ import {
   scriptTabs,
   activeScriptTabId,
 } from '#lib/stores/scriptEditor.svelte.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import { basename } from '#lib/core/path.ts';
 import {
   SETTINGS_WORKSPACE_ID,
@@ -84,7 +84,7 @@ async function saveCardImageWorkspace(id: string) {
       return true;
     }
 
-    const targetPath = await tauriBridge.save({
+    const targetPath = await host.dialogs.save({
       defaultPath: document.title.endsWith('.json') ? document.title : `${document.title}.json`,
       filters: [{ name: 'Card image config', extensions: ['json'] }],
     });
@@ -252,7 +252,7 @@ export async function saveWorkspaceDocumentAs(id: string) {
   const tab = get(tabs).find((item) => item.id === id);
   if (!tab) return false;
 
-  const targetPath = await tauriBridge.save({
+  const targetPath = await host.dialogs.save({
     title: String(get(_)('nav.save_as')),
     defaultPath: tab.path || tab.name,
     filters: [{ name: 'YGOPro CDB Database', extensions: ['cdb'] }],

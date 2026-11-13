@@ -1,4 +1,4 @@
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import {
   analyzeCdbMerge,
   collectMergeSourcesFromFolder,
@@ -91,7 +91,7 @@ export function startTask(request: StartTaskRequest) {
 }
 
 export function onTaskProgress(listener: (event: BackgroundTaskProgressEvent) => void) {
-  return tauriBridge.listen<BackgroundTaskProgressEvent>('background-task-progress', (event) => {
-    listener(event.payload);
+  return host.events.listen('background-task-progress', (payload) => {
+    listener(payload as BackgroundTaskProgressEvent);
   });
 }

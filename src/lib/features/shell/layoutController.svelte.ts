@@ -1,3 +1,4 @@
+import { host } from '#lib/platform/host/index.ts';
 import { handleCopySelection, handlePasteSelection, handleDeleteSelection } from '#lib/features/card-editor/selectionActions.ts';
 import { handleCreateAlternateArtwork } from '#lib/features/card-editor/alternateArtwork.ts';
 import { handleTextContextMenu } from '#lib/features/context-menu/textMenu.ts';
@@ -7,8 +8,6 @@ import { closeDocumentsForWindowExit } from './workspaceShutdown';
 import { documentRuntime } from '#lib/platform/appRuntime.ts';
 import { flushAllWorkspaceMetadataSaves } from '#lib/features/workspace-metadata/state.svelte.ts';
 import { _, locale } from 'svelte-i18n';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { consumePendingOpenCdbPaths } from '#lib/native/cdbApi.ts';
 import {
   getLastUndoLabel,
@@ -34,7 +33,6 @@ import { showToast } from '#lib/stores/toast.svelte.ts';
 import { dispatchAppShortcut } from '#lib/utils/shortcuts.ts';
 import { isExpectedCancellationError, writeErrorLog } from '#lib/utils/errorLog.ts';
 import {
-  type DragDropPayload,
   isCdbFilePath,
   isEditableTarget,
   isNativeTextUndoTarget,
@@ -240,7 +238,7 @@ export function createShellLayoutController() {
     const detail = lastUndoLabel
       ? String(get(_)('editor.undo_last_action', { values: { action: lastUndoLabel } } as never))
       : '';
-    const confirmed = await tauriBridge.ask(
+    const confirmed = await host.dialogs.confirm(
       String(get(_)('editor.undo_confirm', { values: { detail: detail ? `\n${detail}` : '' } } as never)),
       {
         title: String(get(_)('editor.undo_title')),
@@ -404,7 +402,7 @@ export function createShellLayoutController() {
     loadRecentCdbHistory();
     const listeners = createListenerScope();
 
-    if (tauriBridge.isTauri()) {
+    if (host.kind === 'tauri') {
       void consumePendingOpenCdbPaths()
         .then((paths) => { if (!listeners.disposed) return handleExternalOpenPaths(paths); })
         .catch((error) => {
@@ -412,23 +410,23 @@ export function createShellLayoutController() {
           void writeErrorLog({ source: 'shell.consume-pending-open-cdb-paths', error });
         });
 
-      listeners.add(tauriBridge.listen<string[]>('open-cdb-paths', (event) => {
+      listeners.add(host.events.listen('open-cdb-paths', (paths) => {
         if (listeners.disposed) return;
-        void handleExternalOpenPaths(event.payload);
+        void handleExternalOpenPaths(paths);
       }));
 
-      listeners.add(tauriBridge.listen<DragDropPayload>(tauriBridge.TauriEvent.DRAG_DROP, (event) => {
+      listeners.add(host.events.listen('file-drop', (payload) => {
         if (listeners.disposed) return;
         clearFileDragState();
-        void handleExternalOpenPaths(event.payload?.paths ?? []);
+        void handleExternalOpenPaths(payload.paths);
       }));
 
-      listeners.add(tauriBridge.listen<DragDropPayload>(tauriBridge.TauriEvent.DRAG_ENTER, (event) => {
+      listeners.add(host.events.listen('file-drag-enter', (payload) => {
         if (listeners.disposed) return;
-        updateFileDragState(event.payload?.paths ?? []);
+        updateFileDragState(payload.paths);
       }));
 
-      listeners.add(tauriBridge.listen(tauriBridge.TauriEvent.DRAG_LEAVE, () => {
+      listeners.add(host.events.listen('file-drag-leave', () => {
         if (listeners.disposed) return;
         clearFileDragState();
       }));
@@ -492,7 +490,7 @@ export function createShellLayoutController() {
       isClosingWindow = true;
       try {
         if (hasDirtyWorkspaceDocuments(workspaceState.documents)) {
-          const confirmed = await tauriBridge.ask(buildAppCloseConfirmationMessage(), {
+          const confirmed = await host.dialogs.confirm(buildAppCloseConfirmationMessage(), {
             title: String(get(_)('editor.unsaved_close_title')),
             kind: 'warning',
           });
@@ -500,7 +498,7 @@ export function createShellLayoutController() {
         }
         await closeDocumentsForWindowExit(documentRuntime, flushAllWorkspaceMetadataSaves);
         isForceClosingWindow = true;
-        await getCurrentWindow().close();
+        await host.window.close();
       } catch (error) {
         isForceClosingWindow = false;
         showToast(String(error), 'error');
@@ -520,9 +518,8 @@ export function createShellLayoutController() {
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('vite:preloadError', handlePreloadError as EventListener);
-    if (tauriBridge.isTauri()) {
-      const appWindow = getCurrentWindow();
-      listeners.add(appWindow.onCloseRequested(handleWindowCloseRequested));
+    if (host.kind === 'tauri') {
+      listeners.add(host.window.onCloseRequested(handleWindowCloseRequested));
     }
 
     return () => {

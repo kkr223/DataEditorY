@@ -1,4 +1,4 @@
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import { readTextFile, resolveResourceFile } from '#lib/native/assetApi.ts';
 import { luaCatalog as generatedLuaCatalog } from '#lib/data/lua-intel/catalog.generated.ts';
 import bundledFunctionText from '../../../../../static/resources/_functions.txt?raw';
@@ -392,7 +392,7 @@ async function readLuaIntelResource(filename: string) {
 }
 
 export async function loadExternalLuaCatalog() {
-  if (!tauriBridge.isTauri()) {
+  if (host.kind !== 'tauri') {
     return null;
   }
 

@@ -1,6 +1,6 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import {
   type AnalyzeCdbMergeResponse,
   type MergeSourceItem,
@@ -84,7 +84,7 @@ export function createMergeController(
     for (const document of affected) {
       await commitWorkspaceCardDraft(document.id);
       if (!document.dirty) continue;
-      const confirmed = await tauriBridge.ask(
+      const confirmed = await host.dialogs.confirm(
         t('editor.merge_unsaved_source_confirm', { values: { name: document.title } }),
         { title: t('editor.merge_unsaved_title'), kind: 'warning' },
       );
@@ -109,7 +109,7 @@ export function createMergeController(
   }
 
   async function pickMergeFiles() {
-    const selected = await tauriBridge.open({
+    const selected = await host.dialogs.open({
       multiple: true,
       filters: [{ name: 'YGOPro CDB Database', extensions: ['cdb'] }],
     });
@@ -128,7 +128,7 @@ export function createMergeController(
   }
 
   async function pickMergeFolder() {
-    const selected = await tauriBridge.open({
+    const selected = await host.dialogs.open({
       directory: true,
       multiple: false,
     });
@@ -264,7 +264,7 @@ export function createMergeController(
       }
     }
 
-    const outputPath = await tauriBridge.save({
+    const outputPath = await host.dialogs.save({
       filters: [{ name: 'YGOPro CDB Database', extensions: ['cdb'] }],
       defaultPath: 'merged.cdb',
     });

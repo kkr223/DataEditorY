@@ -37,7 +37,7 @@ const runtime = new DocumentRuntime([{
 mock.module('#lib/platform/appRuntime.ts', () => ({ documentRuntime: runtime }));
 mock.module('#lib/modules/card/index.ts', () => ({ CARD_COLLECTION_TYPE: 'cards' }));
 mock.module('#lib/modules/cdb/index.ts', () => ({ CDB_PROVIDER_ID: 'cdb.provider' }));
-mock.module('#lib/infrastructure/tauri/index.ts', () => ({ tauriBridge: { save: () => pickPath() } }));
+mock.module('#lib/platform/host/index.ts', () => ({ host: { kind: 'tauri', dialogs: { open: async () => null, save: () => pickPath(), confirm: async () => true, message: async () => {} } } }));
 mock.module('#lib/stores/search.ts', () => ({
   parseCachedFiltersJson: () => ({}), clearSourceFilterCacheForTab() {}, refreshCachedSearchForTab() {},
 }));

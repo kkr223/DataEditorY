@@ -1,8 +1,8 @@
 import { writable, get, derived } from 'svelte/store';
 import { _ } from 'svelte-i18n';
+import { host } from '#lib/platform/host/index.ts';
 import type { CardDataEntry, DbWorkspaceState, SearchFilters } from '#lib/types/index.ts';
 import { DEFAULT_SEARCH_FILTERS } from '#lib/types/index.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { pushRecentCdbEntry } from './recentHistory';
 import { parseCachedFiltersJson, clearSourceFilterCacheForTab, refreshCachedSearchForTab } from './search';
 import { documentRuntime } from '#lib/platform/appRuntime.ts';
@@ -141,7 +141,7 @@ export async function openCdbPath(path: string): Promise<string | null> {
 }
 
 export async function openCdbFile(): Promise<string | null> {
-  const selected = await tauriBridge.open({
+  const selected = await host.dialogs.open({
     multiple: false,
     filters: [{
       name: 'YGOPro CDB Database',
@@ -215,7 +215,7 @@ export function createCdbFile(path?: string): Promise<string | null> {
 
   const request = (async () => {
     try {
-      const selected = await tauriBridge.save({
+      const selected = await host.dialogs.save({
         title: 'Create New CDB',
         filters: [{ name: 'YGOPro CDB Database', extensions: ['cdb'] }],
       });

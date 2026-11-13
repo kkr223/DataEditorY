@@ -1,6 +1,6 @@
 import { get, writable } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import type {
   WorkspaceCloseGuard,
   WorkspaceDocument,
@@ -127,7 +127,7 @@ export async function confirmDirtyPrompt(input: {
   message: string;
   kind?: 'warning' | 'info' | 'error';
 }) {
-  return tauriBridge.ask(input.message, {
+  return host.dialogs.confirm(input.message, {
     title: input.title,
     kind: input.kind ?? 'warning',
   });

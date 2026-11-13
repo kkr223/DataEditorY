@@ -1,9 +1,9 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
+  import { host } from '#lib/platform/host/index.ts';
   import { activeTab } from '#lib/stores/db.ts';
   import { showToast } from '#lib/stores/toast.svelte.ts';
-  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
   import {
     type LuaReplacePreview,
     type LuaReplaceRequest,
@@ -65,7 +65,7 @@
     const request = buildRequest();
     if (!request || !preview) return;
     const previewFiles = preview.files;
-    const confirmed = await tauriBridge.ask(
+    const confirmed = await host.dialogs.confirm(
       $_('lua_replace.confirm_message', {
         values: {
           files: String(preview.fileCount),

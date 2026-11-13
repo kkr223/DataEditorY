@@ -1,7 +1,6 @@
 import { appSettingsState, loadAppSettings } from '#lib/stores/appSettings.svelte.ts';
 import { getSelectedCards } from '#lib/stores/editor.svelte.ts';
 import type { AiAppContext } from '#lib/features/ai/service.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { readTextFile } from '#lib/native/assetApi.ts';
 import { getCardScriptInfo } from '#lib/native/scriptApi.ts';
 import { loadSecretKey } from '#lib/native/settingsApi.ts';

@@ -55,6 +55,7 @@ Saves are serialized per document and acknowledge the revision captured before e
 | `filePatterns.ts` | File pattern matching utilities for codec resolution |
 | `appRuntime.ts` | Singleton `DocumentRuntime`, active transport, and `CodecContext` |
 | `transport/` | `DocumentHostTransport` interface, Tauri transport, provider adapter (see `transport/codemap.md`) |
+| `host/` | `HostAdapter` dialogs/events/window/settings/error-log boundary (see `host/codemap.md`) |
 | `store.svelte.ts` | Svelte reactive store bridging workspace state |
 | `index.ts` | Barrel re-export |
 

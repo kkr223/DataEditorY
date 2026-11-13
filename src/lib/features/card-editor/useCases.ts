@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
+import { host } from '#lib/platform/host/index.ts';
 import type { CardDataEntry } from '#lib/types/index.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import {
   activeTabId,
   deleteCardsInTab,
@@ -114,7 +114,7 @@ async function reviewTargetCard(tabId: string, code: number, originalCode: numbe
   try {
     const card = await queryCardByIdInTab(tabId, code) ?? null;
     if (card && card.code !== originalCode) {
-      const confirmed = await tauriBridge.ask(
+      const confirmed = await host.dialogs.confirm(
         t('editor.overwrite_target_confirm', { values: { code: String(code) } }),
         { title: t('editor.overwrite_target_title'), kind: 'warning' },
       );
@@ -147,7 +147,7 @@ export async function modifyDraftCardFlow(input: {
   if (!target.approved) return false;
 
   if (input.isEditingExisting && input.originalCardCode !== targetCode) {
-    const removeOriginal = await tauriBridge.ask(
+    const removeOriginal = await host.dialogs.confirm(
       input.t('editor.replace_original_confirm', {
         values: {
           oldCode: String(input.originalCardCode),
@@ -196,7 +196,7 @@ export async function deleteDraftCardFlow(input: {
   if (cardIds.length === 0) return;
   const multiple = cardIds.length > 1;
 
-  const confirmed = await tauriBridge.ask(
+  const confirmed = await host.dialogs.confirm(
     input.t(multiple ? 'editor.delete_selected_confirm' : 'editor.delete_confirm', {
       values: { code: String(cardIds[0]), count: String(cardIds.length) },
     }),
@@ -239,7 +239,7 @@ export async function openCardScriptFlow(input: {
     const existingInfo = await getExistingCardScriptInfo(input.activeCdbPath, code, input.activeTabId);
 
     if (!existingInfo.exists) {
-      const shouldCreate = await tauriBridge.ask(
+      const shouldCreate = await host.dialogs.confirm(
         input.t('editor.script_create_confirm', {
           values: { code: String(code) },
         }),

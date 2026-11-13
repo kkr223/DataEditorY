@@ -2,12 +2,12 @@
   import { onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
+  import { host } from '#lib/platform/host/index.ts';
   import { activeTab } from '#lib/stores/db.ts';
   import { getSelectedCardIds } from '#lib/stores/editor.svelte.ts';
   import { getCardsByIdsInTab } from '#lib/stores/cardOperations.ts';
   import { parseCachedFiltersJson, queryCardsByFiltersInTab } from '#lib/stores/search.ts';
   import { showToast } from '#lib/stores/toast.svelte.ts';
-  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
   import { startTask } from '#lib/native/taskApi.ts';
 import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
   import {
@@ -203,7 +203,7 @@ import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftW
     if (!tab || !snapshot || isRunning || previewSessionId !== tab.id) return;
     isRunning = true;
     try {
-      const confirmed = await tauriBridge.ask(
+      const confirmed = await host.dialogs.confirm(
         $_('batch_cdb.confirm_message', {
           values: {
             changed: String(snapshot.changedCount),

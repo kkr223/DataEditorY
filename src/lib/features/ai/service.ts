@@ -1,3 +1,4 @@
+import { host } from '#lib/platform/host/index.ts';
 import type { CardDataEntry } from '#lib/types/index.ts';
 import type {
   CardCollectionQuery,
@@ -10,7 +11,6 @@ import type {
   WorkspaceAiToolRun,
 } from '#lib/features/ai/types.ts';
 import { pathExists, readTextFile, writeTextFile } from '#lib/native/assetApi.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { dirname, join, basename } from '#lib/core/path.ts';
 import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
 import { normalizeAgentMaxSteps } from '#lib/features/ai/agentLimits.ts';
@@ -148,9 +148,9 @@ function normalizeAiResourceFile(file: string) {
 }
 
 async function userAiResourcePath(kind: AiResourceKind, file: string) {
-  if (!tauriBridge.isTauri()) return null;
+  if (host.kind !== 'tauri') return null;
   try {
-    const root = await tauriBridge.appConfigDir();
+    const root = await host.config.appConfigDir();
     return join(root, USER_AI_RESOURCE_DIR, kind, normalizeAiResourceFile(file));
   } catch {
     return null;

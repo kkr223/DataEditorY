@@ -1,4 +1,4 @@
-import { invokeCommand, tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import { normalizeShortcutBindingMap } from '#lib/features/shortcuts/registry.ts';
 import { DEFAULT_AGENT_MAX_STEPS, normalizeAgentMaxSteps } from '#lib/features/ai/agentLimits.ts';
 import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
@@ -107,7 +107,7 @@ function normalizeScriptTemplate(value: string | null | undefined) {
 }
 
 function resolveCoverSrc(path: string | null, revision: number): string {
-  if (!path || !tauriBridge.isTauri()) {
+  if (!path || host.kind !== 'tauri') {
     return DEFAULT_COVER_SRC;
   }
 
@@ -254,7 +254,7 @@ async function resolveSecretKey(providedSecretKey?: string) {
     return direct;
   }
 
-  const stored = await invokeCommand<string | null>('load_secret_key');
+  const stored = await host.settings.loadSecretKey();
   return stored?.trim() || '';
 }
 
@@ -263,7 +263,7 @@ export function loadAppSettings(force = false) {
   if (settingsLoadPromise) return settingsLoadPromise;
 
   appSettingsState.loading = true;
-  settingsLoadPromise = invokeCommand<AppSettingsPayload>('load_app_settings')
+  settingsLoadPromise = host.settings.load().then((value) => value as AppSettingsPayload)
     .then((payload) => {
       applySettings(payload);
       return appSettingsState.values;
@@ -296,8 +296,7 @@ export async function saveAppSettings(input: {
 }) {
   appSettingsState.saving = true;
   try {
-    const payload = await invokeCommand<AppSettingsPayload>('save_app_settings', {
-      request: {
+    const payload = await host.settings.save({
         apiBaseUrl: input.apiBaseUrl,
         model: input.model,
         temperature: normalizeTemperature(input.temperature ?? appSettingsState.values.temperature),
@@ -319,8 +318,7 @@ export async function saveAppSettings(input: {
           : undefined,
         secretKey: input.secretKey,
         clearSecretKey: input.clearSecretKey,
-      },
-    });
+    }) as AppSettingsPayload;
     applySettings(payload);
     return appSettingsState.values;
   } finally {
@@ -329,7 +327,7 @@ export async function saveAppSettings(input: {
 }
 
 export async function setCustomCoverImage(sourcePath: string) {
-  const coverImagePath = await invokeCommand<string>('set_cover_image', { sourcePath });
+  const coverImagePath = await host.settings.setCoverImage(sourcePath);
   applySettings({
     ...appSettingsState.values,
     coverImagePath,
@@ -337,7 +335,7 @@ export async function setCustomCoverImage(sourcePath: string) {
 }
 
 export async function clearCustomCoverImage() {
-  await invokeCommand('clear_cover_image');
+  await host.settings.clearCoverImage();
   applySettings({
     ...appSettingsState.values,
     coverImagePath: null,

@@ -1,9 +1,7 @@
 import { get, fromStore } from 'svelte/store';
 import { _ } from 'svelte-i18n';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import {
-  type BackgroundTaskProgressEvent,
   type MergeSourceItem,
   type AnalyzeCdbMergeResponse,
 } from '#lib/native/taskApi.ts';
@@ -94,12 +92,12 @@ export function createShellDialogsController() {
     const nextTitle = getTaskTitle();
     document.title = nextTitle;
 
-    if (!tauriBridge.isTauri()) {
+    if (host.kind !== 'tauri') {
       return;
     }
 
     try {
-      await getCurrentWindow().setTitle(nextTitle);
+      await host.window.setTitle(nextTitle);
     } catch (error) {
       console.warn('Failed to set window title', error);
     }
@@ -232,8 +230,8 @@ export function createShellDialogsController() {
     const listeners = createListenerScope();
     baseWindowTitle = document.title || baseWindowTitle;
 
-    if (tauriBridge.isTauri()) {
-      void getCurrentWindow().title()
+    if (host.kind === 'tauri') {
+      void host.window.title()
         .then((title) => {
           if (listeners.disposed) return;
           if (title?.trim()) {
@@ -245,9 +243,8 @@ export function createShellDialogsController() {
           console.warn('Failed to read window title', error);
         });
 
-      listeners.add(tauriBridge.listen<BackgroundTaskProgressEvent>('background-task-progress', (event) => {
+      listeners.add(host.events.listen('background-task-progress', (payload) => {
         if (listeners.disposed) return;
-        const payload = event.payload;
         if (!payload) {
           return;
         }

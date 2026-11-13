@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-Tauri IPC Adapter — owns raw `invoke()` calls and the document host client. Most feature code should call `src/lib/native/*Api.ts`; this directory is the low-level transport.
+Tauri IPC Adapter — owns raw `invoke()` calls. UI code should not import this module directly: use `platform/host` for platform capabilities, `platform/transport` for CDB document operations, and `src/lib/native/*Api.ts` for typed feature APIs.
 
 ## Design
 

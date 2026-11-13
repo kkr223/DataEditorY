@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
   import { _ } from 'svelte-i18n';
+  import { host } from '#lib/platform/host/index.ts';
   import { showToast } from '#lib/stores/toast.svelte.ts';
-  import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
   import { getWorkspaceSearchController } from './state';
   import { openWorkspaceSearchMatch } from './navigation';
   import { openWorkspaceSearchMenu } from './contextMenu';
@@ -49,7 +49,7 @@
     if (!preview?.edits.length || locked) return;
     confirming = true;
     try {
-      const confirmed = await tauriBridge.ask($_('workspace_search.confirm_replace', {
+      const confirmed = await host.dialogs.confirm($_('workspace_search.confirm_replace', {
         values: { count: preview.edits.length, cards: preview.cards.length, scripts: preview.scripts.length },
       }), { title: $_('workspace_search.replace_title'), kind: 'warning' });
       if (!confirmed || $search.preview !== preview) return;

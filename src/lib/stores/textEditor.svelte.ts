@@ -1,7 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
+import { host } from '#lib/platform/host/index.ts';
 import { readTextFile, writeTextFile } from '#lib/native/assetApi.ts';
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { activateTextView, activateEditorView } from '#lib/stores/appShell.svelte.ts';
 import { showToast } from '#lib/stores/toast.svelte.ts';
 import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
@@ -147,7 +147,7 @@ export async function openTextFile(path: string): Promise<string | null> {
 }
 
 export async function openTextFileDialog(): Promise<string | null> {
-  const selected = await tauriBridge.open({
+  const selected = await host.dialogs.open({
     multiple: false,
     directory: false,
   });
@@ -261,7 +261,7 @@ export async function saveTextTabAs(tabId: string): Promise<boolean> {
   const tab = get(textTabs).find((item) => item.id === tabId);
   if (!tab) return false;
 
-  const targetPath = await tauriBridge.save({
+  const targetPath = await host.dialogs.save({
     title: String(get(_)('editor.text_save_as_title')),
     defaultPath: tab.path || tab.name,
   });

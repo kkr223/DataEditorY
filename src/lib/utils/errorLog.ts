@@ -1,4 +1,4 @@
-import { invokeCommand } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 
 type ErrorLogInput = {
   source: string;
@@ -52,13 +52,11 @@ function normalizeExtra(extra?: Record<string, unknown> | string) {
 export async function writeErrorLog(input: ErrorLogInput) {
   const normalized = normalizeError(input.error);
   try {
-    return await invokeCommand<string>('append_error_log', {
-      request: {
-        source: input.source,
-        message: normalized.message,
-        stack: normalized.stack,
-        extra: normalizeExtra(input.extra),
-      },
+    return await host.errorLog.append({
+      source: input.source,
+      message: normalized.message,
+      stack: normalized.stack,
+      extra: normalizeExtra(input.extra),
     });
   } catch (logError) {
     console.error('[DataEditorY] Failed to write local error log', logError);

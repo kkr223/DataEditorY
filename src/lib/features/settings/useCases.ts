@@ -1,4 +1,4 @@
-import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { host } from '#lib/platform/host/index.ts';
 import { openInSystemEditor } from '#lib/native/scriptApi.ts';
 import {
   clearCustomCoverImage,
@@ -15,7 +15,7 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 export async function pickCoverImageFlow(input: {
   t: Translate;
 }) {
-  const selected = await tauriBridge.open({
+  const selected = await host.dialogs.open({
     multiple: false,
     filters: [{ name: 'JPEG', extensions: ['jpg', 'jpeg'] }],
   });

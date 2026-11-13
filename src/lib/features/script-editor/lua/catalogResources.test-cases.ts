@@ -13,10 +13,10 @@ let resolvedPaths: string[] = [];
 let desktop = true;
 let unreadablePaths = new Set<string>();
 
-mock.module('#lib/infrastructure/tauri/index.ts', () => ({
-  tauriBridge: {
-    isTauri: () => desktop,
-    resolveResource: async (path: string) => path.replace(/^resources\//, ''),
+mock.module('#lib/platform/host/index.ts', () => ({
+  host: {
+    get kind() { return desktop ? 'tauri' : 'web'; },
+    media: { resolveResource: async (path: string) => path.replace(/^resources\//, '') },
   },
 }));
 mock.module('#lib/native/assetApi.ts', () => ({
