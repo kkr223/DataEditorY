@@ -1,4 +1,5 @@
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { dirname, join, basename } from '#lib/core/path.ts';
 import {
   pathExists,
   readCdbFile,
@@ -52,7 +53,7 @@ const POSITIONS: Record<ScriptTestPosition, number> = {
 };
 
 function fileName(path: string) {
-  return path.replace(/\\/g, '/').split('/').pop() ?? path;
+  return basename(path) || path;
 }
 
 function normalizeMapName(name: string) {
@@ -91,7 +92,7 @@ async function readCdbs(cdbPath: string) {
 
 async function scriptDirs(input: ScriptTestRunInput) {
   const dirs: string[] = [];
-  dirs.push(await tauriBridge.join(await tauriBridge.dirname(input.cdbPath), 'script'));
+  dirs.push(join(dirname(input.cdbPath), 'script'));
   if (input.scriptDirectory?.trim()) dirs.push(input.scriptDirectory.trim());
   return [...new Set(dirs.map((item) => item.replace(/[\\/]+$/, '')))];
 }
@@ -120,7 +121,7 @@ async function readScriptMap(input: ScriptTestRunInput, plan: ScriptTestPlan) {
     const normalized = normalizeMapName(name);
     if (!normalized) continue;
     for (const dir of dirs) {
-      const path = await tauriBridge.join(dir, normalized);
+      const path = join(dir, normalized);
       if (await safeExists(path)) {
         setScriptMapEntry(map, normalized, await readTextFile(path));
       }

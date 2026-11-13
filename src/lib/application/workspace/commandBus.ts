@@ -26,6 +26,7 @@ import {
   activeScriptTabId,
 } from '#lib/stores/scriptEditor.svelte.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { basename } from '#lib/core/path.ts';
 import {
   SETTINGS_WORKSPACE_ID,
   getActiveWorkspaceDocument,
@@ -92,7 +93,7 @@ async function saveCardImageWorkspace(id: string) {
     await documentRuntime.save(id, {
       uri: targetPath,
       path: targetPath,
-      name: targetPath.split(/[\\/]/).pop() || document.title,
+      name: basename(targetPath) || document.title,
     });
     return true;
   } catch (error) {

@@ -12,6 +12,7 @@ import {
 } from '#lib/modules/card/workbench/workspaceMetadataState.svelte.ts';
 import { getOpenScriptTab, getScriptTabsForCdb } from '#lib/stores/scriptEditor.svelte.ts';
 import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { dirname, join } from '#lib/core/path.ts';
 
 const DEFAULT_API_BASE_URL = 'https://api.openai.com/v1';
 
@@ -86,9 +87,7 @@ export function createAiAppContext(ownerDocumentId?: string): AiAppContext {
       return target ? getCardImageDocumentForPath(target.path, code) : null;
     },
     async resolveScriptPath(dbPath: string, fileName: string) {
-      const cdbDir = await tauriBridge.dirname(dbPath);
-      const scriptDir = await tauriBridge.join(cdbDir, 'script');
-      return tauriBridge.join(scriptDir, fileName);
+      return join(dirname(dbPath), 'script', fileName);
     },
     async readScriptFile(dbPath: string, path: string) {
       const tabId = this.listOpenDatabases().find(db => getCdbPathIdentity(db.path) === getCdbPathIdentity(dbPath))?.id ?? '';
@@ -103,8 +102,7 @@ export function createAiAppContext(ownerDocumentId?: string): AiAppContext {
       }
     },
     async resolveScriptTestPath(dbPath: string, code: number) {
-      const cdbDir = await tauriBridge.dirname(dbPath);
-      return tauriBridge.join(cdbDir, '.dey', 'ai-tests', `c${code}.test-plan.json`);
+      return join(dirname(dbPath), '.dey', 'ai-tests', `c${code}.test-plan.json`);
     },
   };
 }

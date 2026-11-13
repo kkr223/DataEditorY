@@ -9,6 +9,7 @@ import { documentRuntime } from '#lib/platform/appRuntime.ts';
 import { CARD_COLLECTION_TYPE } from '#lib/modules/card/index.ts';
 import { CDB_PROVIDER_ID } from '#lib/modules/cdb/index.ts';
 import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { basename } from '#lib/core/path.ts';
 import { initializeWorkspaceMetadataForNewCdb } from '#lib/features/workspace-metadata/state.svelte.ts';
 import { writeErrorLog } from '#lib/utils/errorLog.ts';
 import { showToast } from './toast.svelte';
@@ -118,7 +119,7 @@ async function openCdbAtPath(selected: string): Promise<string | null> {
       const document = await documentRuntime.openSource({
         uri: selected,
         path: selected,
-        name: selected.split(/[\\/]/).pop() || 'unknown.cdb',
+        name: basename(selected) || 'unknown.cdb',
       });
       pushRecentCdbEntry({ path: selected, name: document.title });
       return document.id;
@@ -178,12 +179,12 @@ async function createCdbAtPath(selected: string): Promise<string | null> {
       const document = await documentRuntime.createDocument({
         typeId: CARD_COLLECTION_TYPE,
         providerId: CDB_PROVIDER_ID,
-        title: selected.split(/[\\/]/).pop() || 'Untitled.cdb',
+        title: basename(selected) || 'Untitled.cdb',
         initialData: [],
         destination: {
           uri: selected,
           path: selected,
-          name: selected.split(/[\\/]/).pop() || 'Untitled.cdb',
+          name: basename(selected) || 'Untitled.cdb',
         },
       }, { activate: false });
       try {
@@ -352,7 +353,7 @@ export async function saveCdbTabAs(tabId: string, path: string): Promise<boolean
   }
 
   try {
-    const name = targetPath.split(/[\\/]/).pop() || tab.name;
+    const name = basename(targetPath) || tab.name;
     const sourcePath = tab.path;
     const saved = await documentRuntime.save(tab.id, {
       uri: targetPath,

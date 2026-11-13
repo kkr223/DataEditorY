@@ -13,7 +13,7 @@ function setup() {
     getSource: () => source, getTabs: () => openTabs,
     getActiveOwner: () => activeOwner, getActiveScript: () => activeScript,
     getDirectories: () => ({ scriptDirectory: '/custom/scripts', ygoproPath: '/ygopro/client.exe' }),
-    dirname: async (path) => posix.dirname(path), join: async (...parts) => posix.normalize(posix.join(...parts)),
+    dirname: (path) => posix.dirname(path), join: (...parts) => posix.normalize(posix.join(...parts)),
     exists: async (path) => disk.has(path), getCardScriptInfo: async (_path, code) => ({ path: `/cards/script/c${code}.lua` }),
     open: async (input) => { opened = input; return 'dependency'; },
   };

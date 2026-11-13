@@ -11,6 +11,7 @@ import { getCardScriptInfo } from '#lib/native/scriptApi.ts';
 import { pathExists, revealFile } from '#lib/native/assetApi.ts';
 import { getPicsDir } from '#lib/services/cardImageService.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { join } from '#lib/core/path.ts';
 import { documentRuntime } from '#lib/platform/appRuntime.ts';
 import { openContextMenu, updateContextMenu, type ContextMenuItem } from './menu.svelte';
 import { resolveContextCardIds } from './cardTargets';
@@ -68,9 +69,9 @@ export function openCardMenu(event: MouseEvent, clickedId?: number) {
   if (multiple) return;
   void Promise.allSettled([
     getCardScriptInfo(tab.path, clickedId).then((info) => { if (info.exists) scriptPath = info.path; }),
-    getPicsDir(tab.path).then(async (dir) => {
-      const path = await tauriBridge.join(dir, `${clickedId}.jpg`);
+    (async () => {
+      const path = join(getPicsDir(tab.path), `${clickedId}.jpg`);
       if (await pathExists(path)) imagePath = path;
-    }),
+    })(),
   ]).then(() => { if (get(activeTab)?.id === tab.id) updateContextMenu(token, items()); });
 }

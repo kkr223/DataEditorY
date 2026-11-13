@@ -1,3 +1,4 @@
+import { basename } from '#lib/core/path.ts';
 import type { ScriptWorkspaceState } from '#lib/types/index.ts';
 import { isSameCdbPath } from '#lib/domain/script/tabIdentity.ts';
 
@@ -8,8 +9,8 @@ export type ScriptNavigationDependencies = {
   getActiveOwner: () => string | null;
   getActiveScript: () => string | null;
   getDirectories: () => { scriptDirectory?: string; ygoproPath?: string };
-  dirname: (path: string) => Promise<string>;
-  join: (...parts: string[]) => Promise<string>;
+  dirname: (path: string) => string;
+  join: (...parts: string[]) => string;
   exists: (path: string) => Promise<boolean>;
   getCardScriptInfo: (path: string, code: number) => Promise<{ path: string }>;
   open: (input: { cdbPath: string; sourceTabId: string | null; scriptPath: string; cardCode: number; cardName: string; activate: boolean; canActivate: () => boolean }) => Promise<string | null>;
@@ -22,17 +23,17 @@ export function createScriptNavigation(deps: ScriptNavigationDependencies) {
     const name = reference.replaceAll('\\', '/');
     const absolute = /^(?:[a-z]:\/|\/)/i.test(name);
     const { scriptDirectory, ygoproPath } = deps.getDirectories();
-    const cdbDirectory = await deps.dirname(source.cdbPath);
+    const cdbDirectory = deps.dirname(source.cdbPath);
     const roots = absolute ? [''] : [
-      await deps.dirname(source.scriptPath), await deps.join(cdbDirectory, 'script'),
+      deps.dirname(source.scriptPath), deps.join(cdbDirectory, 'script'),
       scriptDirectory?.trim(),
-      ygoproPath?.trim() ? await deps.join(/\.exe$/i.test(ygoproPath.trim()) ? await deps.dirname(ygoproPath.trim()) : ygoproPath.trim(), 'script') : undefined,
+      ygoproPath?.trim() ? deps.join(/\.exe$/i.test(ygoproPath.trim()) ? deps.dirname(ygoproPath.trim()) : ygoproPath.trim(), 'script') : undefined,
       cdbDirectory,
     ];
     const visited = new Set<string>();
     for (const root of roots) {
       if (root === undefined || (!absolute && !root)) continue;
-      const path = absolute ? name : await deps.join(root, name);
+      const path = absolute ? name : deps.join(root, name);
       if (visited.has(path)) continue;
       visited.add(path);
       const open = deps.getTabs().find((tab) => tab.sourceTabId === source.sourceTabId && isSameCdbPath(tab.scriptPath, path));
@@ -45,7 +46,7 @@ export function createScriptNavigation(deps: ScriptNavigationDependencies) {
     if (!source || !source.sourceTabId || deps.getActiveOwner() !== source.sourceTabId) return false;
     const activeScript = deps.getActiveScript();
     const canActivate = () => deps.getActiveOwner() === source.sourceTabId && deps.getActiveScript() === activeScript;
-    const match = path.split(/[\\/]/).at(-1)?.match(/^c(\d+)\.lua$/i);
+    const match = basename(path).match(/^c(\d+)\.lua$/i);
     let cardCode = 0;
     if (match) {
       const code = Number(match[1]);

@@ -11,6 +11,7 @@
   import { getPicsDir, resolveCardImageSrcFromPicsDir } from '#lib/services/cardImageService.ts';
   import { writeBinaryFile } from '#lib/native/assetApi.ts';
   import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { fileStem, join } from '#lib/core/path.ts';
 import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftWorkspaceState.svelte.ts';
   import { showToast } from '#lib/stores/toast.svelte.ts';
   import { writeErrorLog } from '#lib/utils/errorLog.ts';
@@ -126,7 +127,7 @@ import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftW
   }
 
   function getOutputBaseName(cdbPath: string) {
-    return cdbPath.split(/[\\/]/).at(-1)?.replace(/\.cdb$/i, '') || 'cards';
+    return fileStem(cdbPath) || 'cards';
   }
 
   async function generateImages() {
@@ -167,7 +168,7 @@ import { commitWorkspaceCardDraft } from '#lib/modules/card/workbench/cardDraftW
           headText,
         });
         firstPageBlob ??= blob;
-        const outputPath = await tauriBridge.join(
+        const outputPath = join(
           outputDir,
           `${baseName}-${String(index + 1).padStart(2, '0')}.png`,
         );

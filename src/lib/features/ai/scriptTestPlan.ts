@@ -1,3 +1,5 @@
+import { basename } from '#lib/core/path.ts';
+
 export type ScriptTestLocation =
   | 'deck'
   | 'hand'

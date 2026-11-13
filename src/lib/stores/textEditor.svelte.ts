@@ -5,6 +5,7 @@ import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { activateTextView, activateEditorView } from '#lib/stores/appShell.svelte.ts';
 import { showToast } from '#lib/stores/toast.svelte.ts';
 import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { basename } from '#lib/core/path.ts';
 import { disposeWorkspaceLifecycle, setWorkspaceSaveHandler } from '#lib/application/workspace/lifecycle.ts';
 import { disposeTextTabModel } from '#lib/features/script-editor/monaco/textModels.ts';
 
@@ -37,11 +38,6 @@ export const getOpenTextTab = (path: string) => {
   const identity = getCdbPathIdentity(path.trim());
   return get(textTabs).find((tab) => getCdbPathIdentity(tab.path) === identity) ?? null;
 };
-
-function basename(path: string) {
-  const parts = path.split(/[\\/]/);
-  return parts[parts.length - 1] || path;
-}
 
 function resolveLanguageId(path: string): string {
   const ext = path.toLowerCase().split('.').pop() ?? '';

@@ -9,6 +9,7 @@ import { pathExists } from '#lib/native/assetApi.ts';
 import { getCardScriptInfo } from '#lib/native/scriptApi.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { findLuaNavigationTarget, getLuaLoadScriptLinks } from '../lua/navigation';
+import { dirname, join } from '#lib/core/path.ts';
 import type { LuaSemanticDocument } from '../lua/semantic';
 import { createScriptNavigation } from '../scriptNavigation';
 
@@ -16,7 +17,7 @@ const workspaceNavigation = createScriptNavigation({
   getSource: (uri) => get(scriptTabs).find((tab) => uri === `inmemory://dataeditory/script-${tab.id}.lua`),
   getTabs: () => get(scriptTabs), getActiveOwner: () => get(activeTabId), getActiveScript: () => get(activeScriptTabId),
   getDirectories: () => appSettingsState.values,
-  dirname: tauriBridge.dirname, join: tauriBridge.join, exists: pathExists,
+  dirname, join, exists: pathExists,
   getCardScriptInfo, open: openExistingScriptTab,
 });
 

@@ -11,6 +11,7 @@ import type {
 } from '#lib/features/ai/types.ts';
 import { pathExists, readTextFile, writeTextFile } from '#lib/native/assetApi.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { dirname, join, basename } from '#lib/core/path.ts';
 import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
 import { normalizeAgentMaxSteps } from '#lib/features/ai/agentLimits.ts';
 import { createScriptBaseline } from './scriptBaseline';
@@ -139,7 +140,7 @@ const USER_AI_MANIFEST_FILE = 'user-manifest.json';
 type AiResourceKind = 'ai-skills' | 'ai-prompts';
 
 function normalizeAiResourceFile(file: string) {
-  const normalized = file.trim().replace(/\\/g, '/').split('/').pop() ?? '';
+  const normalized = basename(file.trim());
   if (!normalized || !/\.(md|json)$/i.test(normalized)) {
     throw new Error(`Invalid AI resource file: ${file}`);
   }
@@ -150,7 +151,7 @@ async function userAiResourcePath(kind: AiResourceKind, file: string) {
   if (!tauriBridge.isTauri()) return null;
   try {
     const root = await tauriBridge.appConfigDir();
-    return tauriBridge.join(root, USER_AI_RESOURCE_DIR, kind, normalizeAiResourceFile(file));
+    return join(root, USER_AI_RESOURCE_DIR, kind, normalizeAiResourceFile(file));
   } catch {
     return null;
   }
@@ -890,7 +891,7 @@ async function runTool(input: {
       code,
       cdbPath: tab.path,
       scriptPath: script.path,
-      scriptDir: script.path ? script.path.replace(/[\\/][^\\/]+$/, '') : null,
+      scriptDir: script.path ? dirname(script.path) : null,
       testPlanPath: await context.resolveScriptTestPath(tab.path, code),
       builtinHelpers: ['constant.lua', 'utility.lua', 'procedure.lua'],
     };
@@ -955,7 +956,7 @@ async function runTool(input: {
 
   if (name === 'propose_script_write') {
     const tab = getActiveDb(context, dbPath);
-    const fileName = String(args.fileName ?? '').trim().replace(/\\/g, '/').split('/').pop() ?? '';
+    const fileName = basename(String(args.fileName ?? '').trim());
     const content = String(args.content ?? '');
     if (!tab || !fileName.endsWith('.lua') || !content.trim()) throw new Error('opened database, lua fileName, and content are required');
     const cardCodeMatch = /^c(\d+)\.lua$/i.exec(fileName);

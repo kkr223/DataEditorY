@@ -2,6 +2,7 @@ import { compressCardImageForExport } from './exportCompression';
 import { appSettingsState } from '#lib/stores/appSettings.svelte.ts';
 import type { CardDataEntry } from '#lib/types/index.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { join } from '#lib/core/path.ts';
 import { pathExists, writeBinaryFile } from '#lib/native/assetApi.ts';
 import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
 import { resolveWorkspaceCardImageAssetSrc } from './workspaceAssets';
@@ -206,7 +207,7 @@ function isFieldSpellCard(data: CardImageFormData) {
 
 export async function findBatchCardArtPath(artDir: string, cardId: number) {
   for (const extension of IMAGE_EXTENSIONS) {
-    const candidate = await tauriBridge.join(artDir, `${cardId}.${extension}`);
+    const candidate = join(artDir, `${cardId}.${extension}`);
     if (await pathExists(candidate)) {
       return candidate;
     }
@@ -265,13 +266,13 @@ export async function exportBatchCardImage(input: {
   overwrite: boolean;
   maxSizeKb?: number;
 }) {
-  const outputPath = await tauriBridge.join(input.outputDir, `${input.card.code}.jpg`);
+  const outputPath = join(input.outputDir, `${input.card.code}.jpg`);
   if (!input.overwrite && await pathExists(outputPath)) {
     return { cardId: input.card.code, outputPath, skipped: true } satisfies BatchCardImageExportResult;
   }
   const data = buildBatchCardImageForm(input);
   const fieldOutputPath = isFieldSpellCard(data)
-    ? await tauriBridge.join(input.outputDir, 'field', `${input.card.code}.jpg`)
+    ? join(input.outputDir, 'field', `${input.card.code}.jpg`)
     : undefined;
   if (!input.overwrite && fieldOutputPath && await pathExists(fieldOutputPath)) {
     return { cardId: input.card.code, outputPath, fieldOutputPath, skipped: true } satisfies BatchCardImageExportResult;

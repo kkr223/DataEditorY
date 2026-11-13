@@ -3,6 +3,7 @@ import { tick } from 'svelte';
 import { clearScriptPair, scriptSplitPairs } from '#lib/features/script-editor/splitState.ts';
 import type { ScriptWorkspaceState } from '#lib/types/index.ts';
 import { getCdbPathIdentity } from '#lib/core/workspace/cdbPathIdentity.ts';
+import { basename } from '#lib/core/path.ts';
 import { activeTabId, tabs } from '#lib/stores/db.ts';
 import {
   activateEditorView,
@@ -368,7 +369,7 @@ export const openExistingScriptTab = async (input: ScriptTabContext & {
         // Dependencies may be shared by multiple CDBs; keep their buffers owned independently.
         uri: input.scriptPath ? `workspace-script:/?${new URLSearchParams({ owner: input.sourceTabId ?? getCdbPathIdentity(input.cdbPath), path: getCdbPathIdentity(info.path) })}` : info.path,
         path: info.path,
-        name: info.path.split(/[\\/]/).at(-1) || buildScriptFileName(input.cardCode),
+        name: basename(info.path) || buildScriptFileName(input.cardCode),
       }, { activate: false, signal });
       documentId = document.id;
       await hydrateScriptTab(document.id, input, info.path, false, signal);

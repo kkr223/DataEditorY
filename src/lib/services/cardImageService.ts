@@ -1,6 +1,7 @@
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
 import { importCardImageFile, readImageFile } from '#lib/native/assetApi.ts';
 import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
+import { dirname, join } from '#lib/core/path.ts';
 
 const BASE64_CHUNK_SIZE = 0x8000;
 
@@ -13,15 +14,13 @@ export function cardImageBytesToDataUrl(bytes: ArrayLike<number>) {
   return `data:image/jpeg;base64,${btoa(binary)}`;
 }
 
-export async function getPicsDir(cdbPath: string) {
-  const cdbDir = await tauriBridge.dirname(cdbPath);
-  return tauriBridge.join(cdbDir, 'pics');
+export function getPicsDir(cdbPath: string) {
+  return join(dirname(cdbPath), 'pics');
 }
 
 /** Builds a pics path without an IPC round trip per card. */
 export function cardImagePathFromPicsDir(picsDir: string, code: number) {
-  const separator = picsDir.includes('\\') ? '\\' : '/';
-  return `${picsDir.replace(/[\\/]+$/, '')}${separator}${code}.jpg`;
+  return join(picsDir, `${code}.jpg`);
 }
 
 export async function resolveCardImageSrcFromPicsDir(
@@ -43,7 +42,7 @@ export async function resolveCardImageSrcFromPicsDir(
 }
 
 export async function resolveCardImageSrc(cdbPath: string, code: number, bustCache = false) {
-  return resolveCardImageSrcFromPicsDir(await getPicsDir(cdbPath), code, bustCache);
+  return resolveCardImageSrcFromPicsDir(getPicsDir(cdbPath), code, bustCache);
 }
 
 export async function importCardImage(input: {
@@ -54,8 +53,8 @@ export async function importCardImage(input: {
   maxHeight?: number;
   quality?: number;
 }) {
-  const picsDir = await getPicsDir(input.cdbPath);
-  const picPath = await tauriBridge.join(picsDir, `${input.cardCode}.jpg`);
+  const picsDir = getPicsDir(input.cdbPath);
+  const picPath = join(picsDir, `${input.cardCode}.jpg`);
   await importCardImageFile({
     src: input.sourcePath,
     dest: picPath,

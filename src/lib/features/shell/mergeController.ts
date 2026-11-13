@@ -8,6 +8,7 @@ import {
 import { activeTab, openCdbPath, tabs } from '#lib/stores/db.ts';
 import { showToast } from '#lib/stores/toast.svelte.ts';
 import { writeErrorLog } from '#lib/utils/errorLog.ts';
+import { basename, dirname } from '#lib/core/path.ts';
 import {
   buildMergeAnalysisKey,
   isNewOutputPath,
@@ -44,11 +45,6 @@ type EnqueueBackgroundTaskInput = {
   run: () => Promise<void>;
 };
 
-function basename(path: string) {
-  const parts = path.split(/[/\\]/);
-  return parts[parts.length - 1] || path;
-}
-
 export function createMergeController(
   state: MergeDialogState,
   enqueueBackgroundTask: (input: EnqueueBackgroundTaskInput) => void,
@@ -58,7 +54,7 @@ export function createMergeController(
       ? [{
           path: activeTabState.current.path,
           name: basename(activeTabState.current.path),
-          projectDir: activeTabState.current.path.replace(/[\\/][^\\/]+$/, ''),
+          projectDir: dirname(activeTabState.current.path),
           cardTotal: undefined,
         }]
       : [];
@@ -126,7 +122,7 @@ export function createMergeController(
     upsertMergeSources(paths.map((path) => ({
       path,
       name: basename(path),
-      projectDir: path.replace(/[\\/][^\\/]+$/, ''),
+      projectDir: dirname(path),
       cardTotal: undefined,
     })));
   }

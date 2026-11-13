@@ -6,6 +6,7 @@ import { _ } from 'svelte-i18n';
 import type { CardDataEntry } from '#lib/types/index.ts';
 import { showToast } from '#lib/stores/toast.svelte.ts';
 import { tauriBridge } from '#lib/infrastructure/tauri/index.ts';
+import { join } from '#lib/core/path.ts';
 import { pathExists, readTextFile, writeBinaryFile, writeTextFile } from '#lib/native/assetApi.ts';
 import { getPicsDir } from '#lib/services/cardImageService.ts';
 import { toMediaProtocolSrc } from '#lib/utils/mediaProtocol.ts';
@@ -2197,8 +2198,8 @@ export function createCardImageController(source: CardImageControllerSource) {
 
     try {
       const picsDir = await getPicsDir(cdbPath);
-      const picPath = await tauriBridge.join(picsDir, `${card.code}.jpg`);
-      const fieldPicPath = await tauriBridge.join(picsDir, 'field', `${card.code}.jpg`);
+      const picPath = join(picsDir, `${card.code}.jpg`);
+      const fieldPicPath = join(picsDir, 'field', `${card.code}.jpg`);
       const jpgData = buildJpgData();
 
       let shouldOverwrite = true;
