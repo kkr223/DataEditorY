@@ -1,5 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
+  import { host } from '#lib/platform/host/index.ts';
 
   let {
     open = false,
@@ -27,15 +28,17 @@
         </div>
         <button class="close-dialog-btn" type="button" onclick={onClose}>×</button>
       </div>
-      <div class="shell-dialog-body">
-        <label class="shell-toggle">
-          <input type="checkbox" bind:checked={state.copyFilteredAssets} />
-          <span>{$_('editor.create_filtered_cdb_copy_assets')}</span>
-        </label>
-        <p class="shell-dialog-hint">
-          {state.copyFilteredAssets ? $_('editor.create_filtered_cdb_copy_assets_yes') : $_('editor.create_filtered_cdb_copy_assets_no')}
-        </p>
-      </div>
+      {#if host.kind === 'tauri'}
+        <div class="shell-dialog-body">
+          <label class="shell-toggle">
+            <input type="checkbox" bind:checked={state.copyFilteredAssets} />
+            <span>{$_('editor.create_filtered_cdb_copy_assets')}</span>
+          </label>
+          <p class="shell-dialog-hint">
+            {state.copyFilteredAssets ? $_('editor.create_filtered_cdb_copy_assets_yes') : $_('editor.create_filtered_cdb_copy_assets_no')}
+          </p>
+        </div>
+      {/if}
       <div class="shell-dialog-actions">
         <button class="btn-secondary btn-sm" type="button" onclick={onClose} disabled={state.isCreatingFilteredCdb}>{$_('editor.cancel')}</button>
         <button class="btn-primary btn-sm" type="button" onclick={onConfirm} disabled={state.isCreatingFilteredCdb}>

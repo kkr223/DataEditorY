@@ -8,6 +8,9 @@ import {
 import { getCardsByIdsInTab, modifyCardsInTab } from '#lib/stores/db.ts';
 
 import { host } from '#lib/platform/host/index.ts';
+import { documentHostTransport } from '#lib/platform/transport/active.ts';
+import { CARD_COLLECTION_TYPE } from '#lib/modules/card/types.ts';
+import { CDB_PROVIDER_ID } from '#lib/modules/cdb/index.ts';
 
 export type CdbFromCardsResult = void;
 
@@ -18,7 +21,19 @@ export async function consumePendingOpenCdbPaths(): Promise<string[]> {
 
 export async function createCdbFromCards(outputPath: string, cards: CardDataEntry[]) {
   if (host.kind === 'web') {
-    throw new Error('Use the document host to export a filtered CDB in the web build');
+    const request = { providerId: CDB_PROVIDER_ID, documentId: crypto.randomUUID() };
+    try {
+      await documentHostTransport.open({
+        ...request,
+        typeId: CARD_COLLECTION_TYPE,
+        create: true,
+        input: cards,
+      });
+      await documentHostTransport.save({ ...request, destinationUri: outputPath });
+    } finally {
+      await documentHostTransport.close(request);
+    }
+    return;
   }
   return (await import('#lib/infrastructure/tauri/commands.ts')).createCdbFromCards(outputPath, cards);
 }

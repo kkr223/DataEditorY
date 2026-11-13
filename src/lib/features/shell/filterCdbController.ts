@@ -79,7 +79,7 @@ export function createFilterCdbController(state: FilterCdbDialogState) {
         activateWorkspaceDocument(openedId);
       }
 
-      if (state.copyFilteredAssets) {
+      if (host.kind === 'tauri' && state.copyFilteredAssets) {
         showToast(t('editor.create_filtered_cdb_copying_assets'), 'info');
         void copyCardAssets({
           sourceCdbPath,

@@ -73,6 +73,7 @@ export class WebDocumentHost {
   }
 
   close(params: HostProviderRequest) {
+    this.sessions.get(params.documentId)?.db.finalize();
     this.sessions.delete(params.documentId);
   }
 }
