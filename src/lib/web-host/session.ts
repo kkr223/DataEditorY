@@ -70,7 +70,7 @@ function countAll(db: YGOProCdb) {
 function countWhere(db: YGOProCdb, clause: string, params: Record<string, unknown>) {
   const result = db.database.exec(
     `SELECT COUNT(*) AS total FROM datas INNER JOIN texts ON datas.id = texts.id WHERE ${clause}`,
-    params as never,
+    Object.fromEntries(Object.entries(params).map(([key, value]) => [`:${key}`, value])) as never,
   );
   return Number(result[0]?.values[0]?.[0] ?? 0);
 }
@@ -108,7 +108,7 @@ function removeCards(db: YGOProCdb, ids: number[]) {
     const chunk = ids.slice(index, index + 400);
     const params: Record<string, number> = {};
     const placeholders = chunk.map((id, offset) => {
-      params[`id${offset}`] = id;
+      params[`:id${offset}`] = id;
       return `:id${offset}`;
     });
     const clause = placeholders.join(', ');
